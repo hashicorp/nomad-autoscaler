@@ -1,3 +1,5 @@
 data
 nomad-autoscaler
 plugins/*
+*.log
+.vagrant

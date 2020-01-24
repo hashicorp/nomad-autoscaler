@@ -1,8 +1,9 @@
 package agent
 
 type Config struct {
-	PluginDir string `hcl:"plugin_dir"`
-	APMs      []APM  `hcl:"apm,block"`
+	PluginDir    string `hcl:"plugin_dir"`
+	ScanInterval string `hcl:"scan_interval"`
+	APMs         []APM  `hcl:"apm,block"`
 }
 
 type APM struct {

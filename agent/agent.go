@@ -1,14 +1,12 @@
 package agent
 
 import (
+	"context"
 	"fmt"
 	"log"
-	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
@@ -47,17 +45,7 @@ func NewAgent(c *Config) *Agent {
 	}
 }
 
-func (a *Agent) Run() error {
-	// TODO: handle signals properly
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		// kill plugis on exit
-		a.apmManager.Kill()
-		os.Exit(0)
-	}()
-
+func (a *Agent) Run(ctx context.Context) error {
 	client, err := nomadApi.NewClient(nil)
 	if err != nil {
 		return fmt.Errorf("failed to create Nomad API client: %v", err)
@@ -72,25 +60,39 @@ func (a *Agent) Run() error {
 	}
 
 	// loop like there's no tomorrow
-	ticker := time.NewTicker(5 * time.Second)
-	for range ticker.C {
-		// read policies
-		policies, err := client.Policies().List()
-		if err != nil {
-			log.Printf("failed to fetch policies: %v", err)
-			continue
-		}
+	var wg sync.WaitGroup
+	interval, _ := time.ParseDuration(a.config.ScanInterval)
+	ticker := time.NewTicker(interval)
+Loop:
+	for {
+		select {
+		case <-ctx.Done():
+			// stop plugins before exiting
+			a.apmManager.Kill()
+			break Loop
+		case <-ticker.C:
+			// read policies
+			policies, err := a.nomadClient.Policies().List()
+			if err != nil {
+				log.Printf("failed to fetch policies: %v", err)
+				continue
+			}
 
-		// handle policies
-		var wg sync.WaitGroup
-		for _, p := range policies {
-			wg.Add(1)
-			go func(p *api.PolicyList) {
-				defer wg.Done()
-				a.handlePolicy(p)
-			}(p)
+			// handle policies
+			for _, p := range policies {
+				wg.Add(1)
+				go func(p *api.PolicyList) {
+					defer wg.Done()
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						a.handlePolicy(p)
+					}
+				}(p)
+			}
+			wg.Wait()
 		}
-		wg.Wait()
 	}
 
 	return nil
@@ -137,7 +139,6 @@ func (a *Agent) handlePolicy(p *api.PolicyList) {
 		log.Printf("failed to query APM: %v\n", err)
 		return
 	}
-	log.Println(value)
 
 	// calculate new count using policy's Strategy
 	var s strategy.Strategy
@@ -151,7 +152,15 @@ func (a *Agent) handlePolicy(p *api.PolicyList) {
 		return
 	}
 
-	results, err := s.Run(p.Strategy.Config)
+	req := &strategy.RunRequest{
+		TargetID:     p.JobID,
+		CurrentCount: 1,
+		MinCount:     p.Strategy.Min,
+		MaxCount:     p.Strategy.Max,
+		CurrentValue: value,
+		Config:       p.Strategy.Config,
+	}
+	results, err := s.Run(req)
 	if err != nil {
 		log.Printf("failed to calculate strategy: %v\n", err)
 	}
@@ -159,7 +168,7 @@ func (a *Agent) handlePolicy(p *api.PolicyList) {
 	// update count in Nomad
 	for _, result := range results {
 		req := nomadApi.JobScaleRequest{
-			JobID:  result.JobID,
+			JobID:  result.TargetID,
 			Count:  result.Count,
 			Reason: result.Reason,
 		}

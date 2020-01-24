@@ -7,15 +7,15 @@ type Policy struct{}
 type PolicyList struct {
 	ID     string
 	JobID  string
-	Min    int
-	Max    int
 	Source string
 	Query  string
 	Strategy
 }
 type Strategy struct {
 	Name   string
-	Config map[string]interface{}
+	Min    int
+	Max    int
+	Config map[string]string
 }
 type Jobs struct{}
 
@@ -46,7 +46,9 @@ func (p *Policy) List() ([]*PolicyList, error) {
 			Query:  `scalar(avg((haproxy_server_current_sessions{backend="http_back"}) and (haproxy_server_up{backend="http_back"} == 1)))`,
 			Strategy: Strategy{
 				Name: "target",
-				Config: map[string]interface{}{
+				Min:  1,
+				Max:  10,
+				Config: map[string]string{
 					"target": "20",
 				},
 			},
@@ -56,6 +58,6 @@ func (p *Policy) List() ([]*PolicyList, error) {
 }
 
 func (j *Jobs) Scale(req JobScaleRequest) error {
-	log.Printf("scaled job %s to %d\n", req.JobID, req.Count)
+	log.Printf("Scaled job %s to %d. Reason: %s\n", req.JobID, req.Count, req.Reason)
 	return nil
 }

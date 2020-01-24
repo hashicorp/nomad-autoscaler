@@ -1,19 +1,31 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/hashicorp/nomad-autoscaler/command"
 	"github.com/mitchellh/cli"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	signalCn := make(chan os.Signal, 1)
+	signal.Notify(signalCn, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-signalCn
+		cancel()
+	}()
+
 	c := cli.NewCLI("nomad-autoscaler", "0.1.0")
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
 		"run": func() (cli.Command, error) {
-			return &command.RunCommand{}, nil
+			return &command.RunCommand{Ctx: ctx}, nil
 		},
 	}
 
@@ -23,4 +35,8 @@ func main() {
 		os.Exit(1)
 	}
 	os.Exit(exitCode)
+}
+
+func handleSignals() {
+
 }

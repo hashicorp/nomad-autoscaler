@@ -1,7 +1,5 @@
 job "haproxy" {
-  region      = "global"
   datacenters = ["dc1"]
-  type        = "service"
 
   group "haproxy" {
     count = 1
@@ -35,38 +33,52 @@ frontend http_front
 
 backend http_back
     balance roundrobin
-    server-template mywebapp 10 _demo-webapp._tcp.service.consul resolvers consul resolve-opts allow-dup-ip resolve-prefer ipv4 check
+    server-template mywebapp 10 _webapp._tcp.service.consul resolvers consul resolve-opts allow-dup-ip resolve-prefer ipv4 check
 
 resolvers consul
-  # nameserver consul docker.for.mac.localhost:8600
   nameserver consul 127.0.0.1:8600
   accepted_payload_size 8192
   hold valid 5s
 EOF
 
         destination = "local/haproxy.cfg"
+        change_mode = "restart"
       }
 
       service {
         name = "haproxy"
+        port = "haproxy_ui"
 
         check {
-          name     = "alive"
-          type     = "tcp"
-          port     = "http"
+          name     = "haproxy alive"
+          type     = "http"
+          path     = "/"
           interval = "10s"
           timeout  = "2s"
         }
       }
 
+      service {
+        name = "webapp-haproxy"
+        port = "webapp"
+
+        #        check {
+        #          name     = "webapp alive"
+        #          type     = "http"
+        #          path     = "/"
+        #          interval = "5s"
+        #          timeout  = "2s"
+        #        }
+      }
+
       resources {
         cpu    = 200
-        memory = 128
+        memory = 512
 
         network {
           mbits = 10
 
-          port "http" {
+          port "webapp" {
             static = 8080
           }
 

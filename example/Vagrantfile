@@ -1,0 +1,102 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/xenial64"
+
+  config.vm.network "forwarded_port", guest: 4646, host: 4646, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 8500, host: 8500, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 8080, host: 8080, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 1936, host: 1936, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 9090, host: 9090, host_ip: "127.0.0.1"
+  config.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "127.0.0.1"
+
+  # Create a public network, which generally matched to bridged network.
+  # Bridged networks make the machine appear as another physical device on
+  # your network.
+  # config.vm.network "public_network"
+
+  config.vm.synced_folder "..", "/home/vagrant/nomad-autoscaler"
+
+  # Provider-specific configuration so you can fine-tune various
+  # backing providers for Vagrant. These expose provider-specific options.
+  # Example for VirtualBox:
+  #
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "4096"
+    vb.cpus = 2
+  end
+
+  config.vm.provision "deps", type: "shell", inline: <<-SHELL
+    # install dependencies
+    apt-get update
+    apt-get install -y \
+      apt-transport-https \
+      ca-certificates \
+      curl \
+      gnupg-agent \
+      software-properties-common \
+      zip
+
+    # install Docker
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+    add-apt-repository \
+      "deb [arch=amd64] https://download.docker.com/linux/ubuntu \
+      $(lsb_release -cs) \
+      stable"
+    apt-get update
+    apt-get install -y \
+      docker-ce \
+      docker-ce-cli \
+      containerd.io
+    docker run hello-world
+    usermod -aG docker vagrant
+
+    # download and install Nomad and Consul
+    mkdir /tmp/downloads
+    pushd /tmp/downloads
+    curl --silent --show-error --remote-name-all \
+      https://releases.hashicorp.com/nomad/0.10.2/nomad_0.10.2_linux_amd64.zip \
+      https://releases.hashicorp.com/consul/1.6.2/consul_1.6.2_linux_amd64.zip
+    unzip nomad_0.10.2_linux_amd64.zip
+    unzip consul_1.6.2_linux_amd64.zip
+    mv nomad consul /usr/local/bin
+    chmod +x /usr/local/bin/{nomad,consul}
+    popd
+    rm -fr /tmp/downloads
+  SHELL
+
+  config.vm.provision "app:setup", type: "shell", run: "always", inline: <<-SHELL
+    # create paths for Nomad host volumes
+    mkdir -p /opt/nomad-volumes
+    pushd /opt/nomad-volumes
+    mkdir grafana
+    chown 472:472 grafana
+    popd
+
+    # configure Nomad and Consul daemons
+    pushd /home/vagrant/nomad-autoscaler/example
+    for t in consul nomad; do
+      cp ${t}.service /etc/systemd/system/
+      mkdir -p /etc/${t}.d
+      cp ${t}.hcl /etc/${t}.d/
+      systemctl enable $t
+      systemctl start $t
+    done
+    popd
+  SHELL
+
+  config.vm.provision "app", type: "shell", run: "never", inline: <<-SHELL
+    # wait for the Nomad API to be up
+    while ! nc -z localhost 4646; do
+      sleep 5
+    done
+
+    # start Nomad jobs
+    pushd /home/vagrant/nomad-autoscaler/example
+    nomad run webapp.nomad
+    nomad run haproxy.nomad
+    nomad run monitoring.nomad
+    popd
+  SHELL
+end

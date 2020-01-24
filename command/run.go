@@ -1,16 +1,20 @@
 package command
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/agent"
 )
 
-type RunCommand struct{}
+type RunCommand struct {
+	Ctx context.Context
+}
 
 type RunCommandArgs struct {
 	ConfigPath string
@@ -52,9 +56,18 @@ func (c *RunCommand) Run(args []string) int {
 		}
 	}
 
+	configErrors := validateConfig(config)
+	if len(configErrors) > 0 {
+		log.Printf("invalid configuration values:\n")
+		for _, err = range configErrors {
+			log.Printf("  * %v", err)
+		}
+		return 1
+	}
+
 	// create and run agent
 	a := agent.NewAgent(&config)
-	err = a.Run()
+	err = a.Run(c.Ctx)
 	if err != nil {
 		log.Printf("error: %v", err)
 		return 1
@@ -80,4 +93,15 @@ func (c *RunCommand) parseFlags(args []string) (*RunCommandArgs, error) {
 	}
 
 	return cArgs, nil
+}
+
+func validateConfig(c agent.Config) []error {
+	var errors []error
+
+	_, err := time.ParseDuration(c.ScanInterval)
+	if err != nil {
+		errors = append(errors, fmt.Errorf("invalid value for `scan_interval`: %v", err))
+	}
+
+	return errors
 }

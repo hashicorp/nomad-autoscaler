@@ -6,15 +6,19 @@ type Client struct{}
 type Policy struct{}
 type PolicyList struct {
 	ID     string
-	JobID  string
 	Source string
 	Query  string
+	Target
 	Strategy
 }
 type Strategy struct {
 	Name   string
 	Min    int
 	Max    int
+	Config map[string]string
+}
+type Target struct {
+	Name   string
 	Config map[string]string
 }
 type Jobs struct{}
@@ -41,7 +45,6 @@ func (p *Policy) List() ([]*PolicyList, error) {
 	policies := []*PolicyList{
 		{
 			ID:     "1",
-			JobID:  "2",
 			Source: "prometheus",
 			Query:  `scalar(avg((haproxy_server_current_sessions{backend="http_back"}) and (haproxy_server_up{backend="http_back"} == 1)))`,
 			Strategy: Strategy{
@@ -50,6 +53,14 @@ func (p *Policy) List() ([]*PolicyList, error) {
 				Max:  10,
 				Config: map[string]string{
 					"target": "20",
+				},
+			},
+			Target: Target{
+				Name: "nomad_group_count",
+				Config: map[string]string{
+					"address": "127.0.0.1:4646",
+					"job_id":  "webapp",
+					"group":   "demo",
 				},
 			},
 		},

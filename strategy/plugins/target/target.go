@@ -33,18 +33,16 @@ func (s *TargetStrategy) Run(req *strategy.RunRequest) ([]strategy.Action, error
 	var reason, direction string
 	factor := req.CurrentValue / c
 
-	if factor < 0 {
+	if factor < 1 {
 		direction = "down"
 	} else if factor > 1 {
 		direction = "up"
-	}
-	if direction != "" {
-		reason = fmt.Sprintf("scaling %s because factor is %f", direction, factor)
 	} else {
 		// factor is 1, no need to scale
 		return []strategy.Action{}, nil
 	}
 
+	reason = fmt.Sprintf("scaling %s because factor is %f", direction, factor)
 	newCount := int(math.Ceil(float64(req.CurrentCount) * factor))
 	if newCount < req.MinCount {
 		newCount = req.MinCount
@@ -58,9 +56,8 @@ func (s *TargetStrategy) Run(req *strategy.RunRequest) ([]strategy.Action, error
 	}
 
 	action := strategy.Action{
-		TargetID: req.TargetID,
-		Count:    newCount,
-		Reason:   reason,
+		Count:  newCount,
+		Reason: reason,
 	}
 	return []strategy.Action{action}, nil
 }

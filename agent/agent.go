@@ -15,6 +15,7 @@ import (
 	nomadApi "github.com/hashicorp/nomad-autoscaler/nomad/api"
 	"github.com/hashicorp/nomad-autoscaler/strategy"
 	targetstrategy "github.com/hashicorp/nomad-autoscaler/strategy/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/target"
 )
 
 var (
@@ -119,13 +120,27 @@ func (a *Agent) loadPlugins() error {
 		if err != nil {
 			return err
 		}
-		(*apmPlugin).SetConfig(apmConfig.Config)
+		err = (*apmPlugin).SetConfig(apmConfig.Config)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (a *Agent) handlePolicy(p *api.PolicyList) {
-	// fetch job
+	// fetch target count
+	var t target.Target
+	switch p.Target.Name {
+	case "nomad_group_count":
+		t = &target.NomadGroupCount{}
+	}
+
+	currentCount, err := t.Count(p.Target.Config)
+	if err != nil {
+		log.Printf("failed to fetch current count: %v", err)
+		return
+	}
 
 	// query policy's APM
 	apmPlugin, err := a.apmManager.Dispense(p.Source)
@@ -153,8 +168,7 @@ func (a *Agent) handlePolicy(p *api.PolicyList) {
 	}
 
 	req := &strategy.RunRequest{
-		TargetID:     p.JobID,
-		CurrentCount: 1,
+		CurrentCount: currentCount,
 		MinCount:     p.Strategy.Min,
 		MaxCount:     p.Strategy.Max,
 		CurrentValue: value,
@@ -165,13 +179,10 @@ func (a *Agent) handlePolicy(p *api.PolicyList) {
 		log.Printf("failed to calculate strategy: %v\n", err)
 	}
 
-	// update count in Nomad
-	for _, result := range results {
-		req := nomadApi.JobScaleRequest{
-			JobID:  result.TargetID,
-			Count:  result.Count,
-			Reason: result.Reason,
-		}
-		a.nomadClient.Jobs().Scale(req)
+	// scale target
+	err = t.Scale(results, p.Target.Config)
+	if err != nil {
+		log.Printf("failed to scale target: %v", err)
+		return
 	}
 }

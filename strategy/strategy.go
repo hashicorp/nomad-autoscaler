@@ -12,7 +12,6 @@ type Strategy interface {
 }
 
 type RunRequest struct {
-	TargetID     string
 	CurrentCount int
 	MinCount     int
 	MaxCount     int
@@ -21,9 +20,8 @@ type RunRequest struct {
 }
 
 type Action struct {
-	TargetID string
-	Count    int
-	Reason   string
+	Count  int
+	Reason string
 }
 
 type RPCPlugin struct {

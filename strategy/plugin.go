@@ -1,4 +1,4 @@
-package apm
+package strategy
 
 import (
 	"net/rpc"
@@ -6,9 +6,20 @@ import (
 	"github.com/hashicorp/go-plugin"
 )
 
-// RPC is a plugin implementation that talks over net/rpc
 type RPC struct {
 	client *rpc.Client
+}
+
+type RunRequest struct {
+	CurrentCount int
+	MinCount     int
+	MaxCount     int
+	CurrentValue float64
+	Config       map[string]string
+}
+
+type RunResponse struct {
+	Actions []Action
 }
 
 func (r *RPC) SetConfig(config map[string]string) error {
@@ -20,18 +31,18 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Query(q string) (float64, error) {
-	var resp float64
-	err := r.client.Call("Plugin.Query", q, &resp)
+func (r *RPC) Run(req RunRequest) (RunResponse, error) {
+	var resp RunResponse
+	err := r.client.Call("Plugin.Run", req, &resp)
 	if err != nil {
-		return 0, err
+		return RunResponse{}, err
 	}
+
 	return resp, nil
 }
 
-// RPCServer is the net/rpc server
 type RPCServer struct {
-	Impl APM
+	Impl Strategy
 }
 
 func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
@@ -40,8 +51,8 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Query(q string, resp *float64) error {
-	r, err := s.Impl.Query(q)
+func (s *RPCServer) Run(req RunRequest, resp *RunResponse) error {
+	r, err := s.Impl.Run(req)
 	if err != nil {
 		return err
 	}
@@ -51,13 +62,12 @@ func (s *RPCServer) Query(q string, resp *float64) error {
 
 // Plugin is the plugin.Plugin
 type Plugin struct {
-	Impl APM
+	Impl Strategy
 }
 
 func (p *Plugin) Server(*plugin.MuxBroker) (interface{}, error) {
 	return &RPCServer{Impl: p.Impl}, nil
 }
-
 func (Plugin) Client(b *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
 	return &RPC{client: c}, nil
 }

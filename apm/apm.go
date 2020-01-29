@@ -35,7 +35,7 @@ func (m *Manager) RegisterPlugin(key string, p *plugin.ClientConfig) error {
 }
 
 func (m *Manager) Dispense(key string) (*APM, error) {
-	var apm *APM
+	var apm APM
 
 	// check if this is a local implementation
 	switch key {
@@ -43,7 +43,7 @@ func (m *Manager) Dispense(key string) (*APM, error) {
 		// do something
 	}
 	if apm != nil {
-		return apm, nil
+		return &apm, nil
 	}
 
 	// otherwhise dispense a plugin
@@ -60,12 +60,12 @@ func (m *Manager) Dispense(key string) (*APM, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to dispense plugin: %v", err)
 	}
-	a, ok := raw.(APM)
+	apm, ok := raw.(APM)
 	if !ok {
 		return nil, fmt.Errorf("plugins %s is not APM\n", key)
 	}
 
-	return &a, nil
+	return &apm, nil
 }
 
 func (m *Manager) Kill() {

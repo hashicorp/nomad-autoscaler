@@ -1,33 +1,32 @@
-package targetstrategy
+package targetvalue
 
 import (
 	"fmt"
 	"math"
 	"strconv"
 
-	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/strategy"
 )
 
-var handshakeConfig = plugin.HandshakeConfig{
-	ProtocolVersion:  1,
-	MagicCookieKey:   "magic",
-	MagicCookieValue: "magic",
+type TargetValue struct {
+	config map[string]string
 }
 
-type TargetStrategy struct {
-	Config map[string]string
+func (s *TargetValue) SetConfig(config map[string]string) error {
+	return nil
 }
 
-func (s *TargetStrategy) Run(req *strategy.RunRequest) ([]strategy.Action, error) {
+func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
+	resp := strategy.RunResponse{Actions: []strategy.Action{}}
+
 	target := req.Config["target"]
 	if target == "" {
-		return nil, fmt.Errorf("missing required field `target`")
+		return resp, fmt.Errorf("missing required field `target`")
 	}
 
 	c, err := strconv.ParseFloat(target, 64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for `target`: %v (%T)", target, target)
+		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", target, target)
 	}
 
 	var reason, direction string
@@ -39,7 +38,7 @@ func (s *TargetStrategy) Run(req *strategy.RunRequest) ([]strategy.Action, error
 		direction = "up"
 	} else {
 		// factor is 1, no need to scale
-		return []strategy.Action{}, nil
+		return resp, nil
 	}
 
 	reason = fmt.Sprintf("scaling %s because factor is %f", direction, factor)
@@ -52,23 +51,13 @@ func (s *TargetStrategy) Run(req *strategy.RunRequest) ([]strategy.Action, error
 
 	if newCount == req.CurrentCount {
 		// count didn't change, no need to scale
-		return []strategy.Action{}, nil
+		return resp, nil
 	}
 
 	action := strategy.Action{
 		Count:  newCount,
 		Reason: reason,
 	}
-	return []strategy.Action{action}, nil
-}
-
-func main() {
-	s := &TargetStrategy{}
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: handshakeConfig,
-		Plugins: map[string]plugin.Plugin{
-			"strategy": &strategy.Plugin{Impl: s},
-		},
-	})
-
+	resp.Actions = append(resp.Actions, action)
+	return resp, nil
 }

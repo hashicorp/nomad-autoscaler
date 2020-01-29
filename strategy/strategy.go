@@ -1,22 +1,16 @@
 package strategy
 
 import (
+	"fmt"
 	"log"
-	"net/rpc"
+	"sync"
 
 	"github.com/hashicorp/go-plugin"
 )
 
 type Strategy interface {
-	Run(req *RunRequest) ([]Action, error)
-}
-
-type RunRequest struct {
-	CurrentCount int
-	MinCount     int
-	MaxCount     int
-	CurrentValue float64
-	Config       map[string]string
+	SetConfig(config map[string]string) error
+	Run(req RunRequest) (RunResponse, error)
 }
 
 type Action struct {
@@ -24,35 +18,55 @@ type Action struct {
 	Reason string
 }
 
-type RPCPlugin struct {
-	client *rpc.Client
+type Manager struct {
+	lock          sync.RWMutex
+	pluginClients map[string]*plugin.Client
 }
 
-func (r *RPCPlugin) Run(req *RunRequest) error {
-	return r.client.Call("Plugin.Run", req, nil)
-}
-
-type RPCPluginServer struct {
-	Impl Strategy
-}
-
-func (s *RPCPluginServer) Run(req *RunRequest, resp interface{}) error {
-	_, err := s.Impl.Run(req)
-	if err != nil {
-		log.Printf("failed to run strategy: %v", err)
-		return err
+func NewStrategyManager() *Manager {
+	return &Manager{
+		pluginClients: make(map[string]*plugin.Client),
 	}
+}
+
+func (m *Manager) RegisterPlugin(key string, p *plugin.ClientConfig) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	client := plugin.NewClient(p)
+	m.pluginClients[key] = client
 	return nil
 }
 
-// Plugin is the plugin.Plugin
-type Plugin struct {
-	Impl Strategy
+func (m *Manager) Dispense(key string) (*Strategy, error) {
+	m.lock.RLock()
+	client := m.pluginClients[key]
+	m.lock.RUnlock()
+
+	if client == nil {
+		return nil, fmt.Errorf("missing client %s", key)
+	}
+
+	rpcClient, err := client.Client()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create RPC client: %v", err)
+	}
+
+	raw, err := rpcClient.Dispense("strategy")
+	if err != nil {
+		return nil, fmt.Errorf("failed to dispense plugin: %v", err)
+	}
+	target, ok := raw.(Strategy)
+	if !ok {
+		return nil, fmt.Errorf("plugins %s is not Strategy (%T)\n", key, raw)
+	}
+
+	return &target, nil
 }
 
-func (p *Plugin) Server(*plugin.MuxBroker) (interface{}, error) {
-	return &RPCPluginServer{Impl: p.Impl}, nil
-}
-func (Plugin) Client(b *plugin.MuxBroker, c *rpc.Client) (interface{}, error) {
-	return &RPCPlugin{client: c}, nil
+func (m *Manager) Kill() {
+	log.Printf("killing plugins")
+	for _, c := range m.pluginClients {
+		c.Kill()
+	}
 }

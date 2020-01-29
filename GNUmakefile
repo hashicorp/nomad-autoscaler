@@ -9,12 +9,14 @@ build:
 
 .PHONY: plugins
 plugins:
-	@for d in apm/plugins; do \
+	@for d in apm/plugins target/plugins strategy/plugins; do \
 	   for p in $${d}/*; do \
 		   plugin=$$(basename $$p); \
 			 echo "Building $${plugin}..."; \
-			 go build -o ./plugins/$$plugin ./$$p/main.go; \
-     done \
+			 pushd $$p > /dev/null; \
+			 go build -o ../../../plugins/$$plugin; \
+			 popd > /dev/null;  \
+     done; \
    done
 	@echo "Done"
 

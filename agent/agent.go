@@ -10,12 +10,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/apm"
-	"github.com/hashicorp/nomad-autoscaler/nomad/api"
-	nomadApi "github.com/hashicorp/nomad-autoscaler/nomad/api"
-	"github.com/hashicorp/nomad-autoscaler/strategy"
-	targetstrategy "github.com/hashicorp/nomad-autoscaler/strategy/plugins/target"
-	"github.com/hashicorp/nomad-autoscaler/target"
+	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
+	"github.com/hashicorp/nomad-autoscaler/policystorage"
+	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
+	"github.com/hashicorp/nomad/api"
 )
 
 var (
@@ -27,10 +26,14 @@ var (
 )
 
 type Agent struct {
-	config      *Config
-	nomadClient *api.Client
-	apmPlugins  map[string]*Plugin
-	apmManager  *apm.Manager
+	config          *Config
+	nomadClient     *api.Client
+	apmPlugins      map[string]*Plugin
+	apmManager      *apmpkg.Manager
+	targetPlugins   map[string]*Plugin
+	targetManager   *targetpkg.Manager
+	strategyPlugins map[string]*Plugin
+	strategyManager *strategypkg.Manager
 }
 
 type Plugin struct {
@@ -40,19 +43,28 @@ type Plugin struct {
 
 func NewAgent(c *Config) *Agent {
 	return &Agent{
-		config:     c,
-		apmPlugins: make(map[string]*Plugin),
-		apmManager: apm.NewAPMManager(),
+		config:          c,
+		apmPlugins:      make(map[string]*Plugin),
+		apmManager:      apmpkg.NewAPMManager(),
+		targetPlugins:   make(map[string]*Plugin),
+		targetManager:   targetpkg.NewTargetManager(),
+		strategyPlugins: make(map[string]*Plugin),
+		strategyManager: strategypkg.NewStrategyManager(),
 	}
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	client, err := nomadApi.NewClient(nil)
+	clientConfig := api.DefaultConfig()
+	clientConfig = clientConfig.ClientConfig(a.config.Nomad.Region, a.config.Nomad.Address, false)
+
+	client, err := api.NewClient(clientConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create Nomad API client: %v", err)
+		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
 
 	a.nomadClient = client
+
+	ps := policystorage.Nomad{Client: client}
 
 	// launch plugins
 	err = a.loadPlugins()
@@ -67,13 +79,10 @@ func (a *Agent) Run(ctx context.Context) error {
 Loop:
 	for {
 		select {
-		case <-ctx.Done():
-			// stop plugins before exiting
-			a.apmManager.Kill()
-			break Loop
 		case <-ticker.C:
+			log.Printf("reading policies...\n")
 			// read policies
-			policies, err := a.nomadClient.Policies().List()
+			policies, err := ps.List()
 			if err != nil {
 				log.Printf("failed to fetch policies: %v", err)
 				continue
@@ -81,18 +90,30 @@ Loop:
 
 			// handle policies
 			for _, p := range policies {
+				policy, err := ps.Get(p.ID)
+				if err != nil {
+					log.Printf("failed to fetch policy %s: %v", p.ID, err)
+					continue
+				}
+
 				wg.Add(1)
-				go func(p *api.PolicyList) {
+				go func(policy *policystorage.Policy) {
 					defer wg.Done()
 					select {
 					case <-ctx.Done():
 						return
 					default:
-						a.handlePolicy(p)
+						a.handlePolicy(policy)
 					}
-				}(p)
+				}(policy)
 			}
 			wg.Wait()
+		case <-ctx.Done():
+			// stop plugins before exiting
+			a.apmManager.Kill()
+			a.targetManager.Kill()
+			a.strategyManager.Kill()
+			break Loop
 		}
 	}
 
@@ -100,13 +121,35 @@ Loop:
 }
 
 func (a *Agent) loadPlugins() error {
+	// load APM plugins
+	err := a.loadAPMPlugins()
+	if err != nil {
+		return err
+	}
+
+	// load target plugins
+	err = a.loadTargetPlugins()
+	if err != nil {
+		return err
+	}
+
+	// load strategy plugins
+	err = a.loadStrategyPlugins()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (a *Agent) loadAPMPlugins() error {
 	for _, apmConfig := range a.config.APMs {
 		log.Printf("loading plugin: %v", apmConfig)
 
 		pluginConfig := &plugin.ClientConfig{
 			HandshakeConfig: PluginHandshakeConfig,
 			Plugins: map[string]plugin.Plugin{
-				"apm": &apm.Plugin{},
+				"apm": &apmpkg.Plugin{},
 			},
 			Cmd: exec.Command(path.Join(a.config.PluginDir, apmConfig.Driver)),
 		}
@@ -128,61 +171,134 @@ func (a *Agent) loadPlugins() error {
 	return nil
 }
 
-func (a *Agent) handlePolicy(p *api.PolicyList) {
-	// fetch target count
-	var t target.Target
-	switch p.Target.Name {
-	case "nomad_group_count":
-		t = &target.NomadGroupCount{}
-	}
+func (a *Agent) loadTargetPlugins() error {
+	// create default local-nomad target
+	a.config.Targets = append(a.config.Targets, Target{
+		Name:   "local-nomad",
+		Driver: "nomad",
+		Config: map[string]string{
+			"address": a.config.Nomad.Address,
+			"region":  a.config.Nomad.Region,
+		},
+	})
 
-	currentCount, err := t.Count(p.Target.Config)
+	for _, targetConfig := range a.config.Targets {
+		log.Printf("loading plugin: %v", targetConfig)
+
+		pluginConfig := &plugin.ClientConfig{
+			HandshakeConfig: PluginHandshakeConfig,
+			Plugins: map[string]plugin.Plugin{
+				"target": &targetpkg.Plugin{},
+			},
+			Cmd: exec.Command(path.Join(a.config.PluginDir, targetConfig.Driver)),
+		}
+		err := a.targetManager.RegisterPlugin(targetConfig.Name, pluginConfig)
+		if err != nil {
+			return err
+		}
+
+		// configure plugin
+		targetPlugin, err := a.targetManager.Dispense(targetConfig.Name)
+		if err != nil {
+			return err
+		}
+		err = (*targetPlugin).SetConfig(targetConfig.Config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *Agent) loadStrategyPlugins() error {
+	for _, strategyConfig := range a.config.Strategies {
+		log.Printf("loading plugin: %v", strategyConfig)
+
+		pluginConfig := &plugin.ClientConfig{
+			HandshakeConfig: PluginHandshakeConfig,
+			Plugins: map[string]plugin.Plugin{
+				"strategy": &strategypkg.Plugin{},
+			},
+			Cmd: exec.Command(path.Join(a.config.PluginDir, strategyConfig.Driver)),
+		}
+		err := a.strategyManager.RegisterPlugin(strategyConfig.Name, pluginConfig)
+		if err != nil {
+			return err
+		}
+
+		// configure plugin
+		strategyPlugin, err := a.strategyManager.Dispense(strategyConfig.Name)
+		if err != nil {
+			return err
+		}
+		err = (*strategyPlugin).SetConfig(strategyConfig.Config)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *Agent) handlePolicy(p *policystorage.Policy) {
+	var target targetpkg.Target
+	var apm apmpkg.APM
+	var strategy strategypkg.Strategy
+
+	// dispense plugins
+	targetPlugin, err := a.targetManager.Dispense(p.Target.Name)
+	if err != nil {
+		log.Printf("plugin %s not initialized: %v\n", p.Target.Name, err)
+		return
+	}
+	target = *targetPlugin
+
+	apmPlugin, err := a.apmManager.Dispense(p.Source)
+	if err != nil {
+		log.Printf("plugin %s not initialized: %v\n", p.Source, err)
+		return
+	}
+	apm = *apmPlugin
+
+	strategyPlugin, err := a.strategyManager.Dispense(p.Strategy.Name)
+	if err != nil {
+		log.Printf("plugin %s not initialized: %v\n", p.Strategy.Name, err)
+		return
+	}
+	strategy = *strategyPlugin
+
+	// fetch target count
+	currentCount, err := target.Count(p.Target.Config)
 	if err != nil {
 		log.Printf("failed to fetch current count: %v", err)
 		return
 	}
 
 	// query policy's APM
-	apmPlugin, err := a.apmManager.Dispense(p.Source)
-	if err != nil {
-		log.Printf("plugin %s not initialized: %v\n", p.Source, err)
-		return
-	}
-
-	value, err := (*apmPlugin).Query(p.Query)
+	value, err := apm.Query(p.Query)
 	if err != nil {
 		log.Printf("failed to query APM: %v\n", err)
 		return
 	}
 
 	// calculate new count using policy's Strategy
-	var s strategy.Strategy
-	switch p.Strategy.Name {
-	case "target":
-		s = &targetstrategy.TargetStrategy{}
-	}
-
-	if s == nil {
-		log.Printf("strategy %s not valid", p.Strategy.Name)
-		return
-	}
-
-	req := &strategy.RunRequest{
+	req := strategypkg.RunRequest{
 		CurrentCount: currentCount,
 		MinCount:     p.Strategy.Min,
 		MaxCount:     p.Strategy.Max,
 		CurrentValue: value,
 		Config:       p.Strategy.Config,
 	}
-	results, err := s.Run(req)
+	results, err := strategy.Run(req)
 	if err != nil {
 		log.Printf("failed to calculate strategy: %v\n", err)
 	}
 
 	// scale target
-	err = t.Scale(results, p.Target.Config)
-	if err != nil {
-		log.Printf("failed to scale target: %v", err)
-		return
+	for _, action := range results.Actions {
+		err = (*targetPlugin).Scale(action, p.Target.Config)
+		if err != nil {
+			log.Printf("failed to scale target: %v", err)
+			return
+		}
 	}
 }

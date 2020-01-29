@@ -48,7 +48,7 @@ func (p *Policy) List() ([]*PolicyList, error) {
 			Source: "prometheus",
 			Query:  `scalar(avg((haproxy_server_current_sessions{backend="http_back"}) and (haproxy_server_up{backend="http_back"} == 1)))`,
 			Strategy: Strategy{
-				Name: "target",
+				Name: "target-value",
 				Min:  1,
 				Max:  10,
 				Config: map[string]string{
@@ -56,11 +56,11 @@ func (p *Policy) List() ([]*PolicyList, error) {
 				},
 			},
 			Target: Target{
-				Name: "nomad_group_count",
+				Name: "local-nomad",
 				Config: map[string]string{
-					"address": "127.0.0.1:4646",
-					"job_id":  "webapp",
-					"group":   "demo",
+					"job_id":   "webapp",
+					"group":    "demo",
+					"property": "count",
 				},
 			},
 		},

@@ -2,7 +2,7 @@ package policystorage
 
 import (
 	"fmt"
-	"log"
+	"strings"
 
 	"github.com/hashicorp/nomad/api"
 )
@@ -46,13 +46,20 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 		Strategy: parseStrategy(fromPolicy.Policy["strategy"]),
 		Target:   parseTarget(fromPolicy.Policy["target"]),
 	}
-	canonicalize(toPolicy)
+	canonicalize(fromPolicy, toPolicy)
 	return toPolicy, nil
 }
 
-func canonicalize(p *Policy) {
-	if p.Target.Name == "" {
-		p.Target.Name = "local-nomad"
+func canonicalize(from *api.ScalingPolicy, to *Policy) {
+	if to.Target.Name == "" {
+		parts := strings.Split(from.Target, "/")
+		group := parts[len(parts)-2]
+
+		to.Target.Name = "local-nomad"
+		to.Target.Config = map[string]string{
+			"job_id": from.JobID,
+			"group":  group,
+		}
 	}
 }
 
@@ -73,7 +80,6 @@ func validate(policy *api.ScalingPolicy) []error {
 }
 
 func parseStrategy(s interface{}) *Strategy {
-	log.Printf("parsing strategy: %v", s)
 	strategyMap := s.([]interface{})[0].(map[string]interface{})
 	configMap := strategyMap["config"].([]interface{})[0].(map[string]interface{})
 	configMapString := make(map[string]string)
@@ -90,8 +96,6 @@ func parseStrategy(s interface{}) *Strategy {
 }
 
 func parseTarget(t interface{}) *Target {
-	log.Printf("parsing target: %v", t)
-
 	if t == nil {
 		return &Target{}
 	}

@@ -23,6 +23,12 @@ vagrant provision --provision-with app
 
 Inside this box we have Nomad and Consul running. The second command will start the Nomad jobs for our application. Once it's complete we'll have a demo web app behind an HAProxy server and a monitoring stack running Prometheus and Grafana.
 
+### Custom binaries
+
+By default the Vagrant box will contain an official release of Nomad and Consul. You can use a custom built binary by placing them inside the `example` folder as `./example/nomad` and `./example/consul`.
+
+### Exposed services
+
 The Vagrant box exposes multiple ports to your host so they can be accessed via `localhost` and facilitate development:
 
 * **1936**: HAProxy stats page
@@ -56,14 +62,12 @@ This will run the load for 5 minutes with 30 connections in parallel. You should
 
 ```sh
 ❯ ./nomad-autoscaler run -config ./example/config.hcl
-2020/01/24 17:06:49 loading plugin: {prometheus prometheus [] map[address:http://192.168.50.66:9090]}
-2020-01-24T17:06:49.015-0500 [DEBUG] plugin: starting plugin: path=plugins/prometheus args=[plugins/prometheus]
-2020-01-24T17:06:49.017-0500 [DEBUG] plugin: plugin started: path=plugins/prometheus pid=75314
-2020-01-24T17:06:49.017-0500 [DEBUG] plugin: waiting for RPC address: path=plugins/prometheus
-2020-01-24T17:06:49.034-0500 [DEBUG] plugin: using plugin: version=1
-2020-01-24T17:06:49.034-0500 [DEBUG] plugin.prometheus: plugin address: address=/var/folders/ws/vnlrm7x11pv9j16jnhbq02rc0000gp/T/plugin985253353 network=unix timestamp=2020-01-24T17:06:49.034-0500
-2020-01-24T17:06:49.036-0500 [DEBUG] plugin.prometheus: 2020/01/24 17:06:49 config: map[address:http://192.168.50.66:9090]
-2020/01/24 17:06:54 Scaled job 2 to 2. Reason: scaling up because factor is 1.500000
-
+...
+2020-01-29T21:16:24.813-0500 [INFO]  agent: reading policies: policy_storage=policystorage.Nomad
+2020-01-29T21:16:24.816-0500 [INFO]  agent: found 1 policies: policy_storage=policystorage.Nomad
+2020-01-29T21:16:24.818-0500 [INFO]  agent: fetching current count: policy_id=be2442c9-8627-3bda-106f-fc219ee10230 source=prometheus strategy=target-value target=local-nomad
+2020-01-29T21:16:24.825-0500 [INFO]  agent: querying APM: policy_id=be2442c9-8627-3bda-106f-fc219ee10230 source=prometheus strategy=target-value target=local-nomad
+2020-01-29T21:16:24.827-0500 [INFO]  agent: calculating new count: policy_id=be2442c9-8627-3bda-106f-fc219ee10230 source=prometheus strategy=target-value target=local-nomad
+2020-01-29T21:16:24.827-0500 [INFO]  agent: scaling target: policy_id=be2442c9-8627-3bda-106f-fc219ee10230 source=prometheus strategy=target-value target=local-nomad target_config="map[group:demo job_id:webapp]" from=1 to=3 reason="scaling up because factor is 3.000000"
 ```
 

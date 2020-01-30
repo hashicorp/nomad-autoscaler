@@ -1,5 +1,9 @@
-data
+# ignore binaries
 nomad-autoscaler
+example/nomad
+example/consul
 plugins/*
+
+# ignore Vagrant related files
 *.log
 .vagrant

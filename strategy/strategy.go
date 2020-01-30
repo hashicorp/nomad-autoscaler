@@ -2,7 +2,6 @@ package strategy
 
 import (
 	"fmt"
-	"log"
 	"sync"
 
 	"github.com/hashicorp/go-plugin"
@@ -65,7 +64,6 @@ func (m *Manager) Dispense(key string) (*Strategy, error) {
 }
 
 func (m *Manager) Kill() {
-	log.Printf("killing plugins")
 	for _, c := range m.pluginClients {
 		c.Kill()
 	}

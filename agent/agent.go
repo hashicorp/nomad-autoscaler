@@ -3,12 +3,13 @@ package agent
 import (
 	"context"
 	"fmt"
-	"log"
 	"os/exec"
 	"path"
+	"reflect"
 	"sync"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
 	"github.com/hashicorp/nomad-autoscaler/policystorage"
@@ -26,6 +27,7 @@ var (
 )
 
 type Agent struct {
+	logger          hclog.Logger
 	config          *Config
 	nomadClient     *api.Client
 	apmPlugins      map[string]*Plugin
@@ -41,8 +43,9 @@ type Plugin struct {
 	instance interface{}
 }
 
-func NewAgent(c *Config) *Agent {
+func NewAgent(c *Config, logger hclog.Logger) *Agent {
 	return &Agent{
+		logger:          logger,
 		config:          c,
 		apmPlugins:      make(map[string]*Plugin),
 		apmManager:      apmpkg.NewAPMManager(),
@@ -80,36 +83,39 @@ Loop:
 	for {
 		select {
 		case <-ticker.C:
-			log.Printf("reading policies...\n")
+			logger := a.logger.With("policy_storage", reflect.TypeOf(ps))
+			logger.Info("reading policies")
+
 			// read policies
 			policies, err := ps.List()
 			if err != nil {
-				log.Printf("failed to fetch policies: %v", err)
+				logger.Error("failed to fetch policies", "error", err)
 				continue
 			}
+			logger.Info(fmt.Sprintf("found %d policies", len(policies)))
 
 			// handle policies
 			for _, p := range policies {
-				policy, err := ps.Get(p.ID)
-				if err != nil {
-					log.Printf("failed to fetch policy %s: %v", p.ID, err)
-					continue
-				}
-
 				wg.Add(1)
-				go func(policy *policystorage.Policy) {
+				go func(ID string) {
 					defer wg.Done()
 					select {
 					case <-ctx.Done():
 						return
 					default:
+						policy, err := ps.Get(ID)
+						if err != nil {
+							logger.Error("failed to fetch policy", "policy_id", ID, "error", err)
+							return
+						}
 						a.handlePolicy(policy)
 					}
-				}(policy)
+				}(p.ID)
 			}
 			wg.Wait()
 		case <-ctx.Done():
 			// stop plugins before exiting
+			a.logger.Info("killing plugins")
 			a.apmManager.Kill()
 			a.targetManager.Kill()
 			a.strategyManager.Kill()
@@ -144,7 +150,7 @@ func (a *Agent) loadPlugins() error {
 
 func (a *Agent) loadAPMPlugins() error {
 	for _, apmConfig := range a.config.APMs {
-		log.Printf("loading plugin: %v", apmConfig)
+		a.logger.Info("loading APM plugin", "plugin", apmConfig)
 
 		pluginConfig := &plugin.ClientConfig{
 			HandshakeConfig: PluginHandshakeConfig,
@@ -183,7 +189,7 @@ func (a *Agent) loadTargetPlugins() error {
 	})
 
 	for _, targetConfig := range a.config.Targets {
-		log.Printf("loading plugin: %v", targetConfig)
+		a.logger.Info("loading Target plugin", "plugin", targetConfig)
 
 		pluginConfig := &plugin.ClientConfig{
 			HandshakeConfig: PluginHandshakeConfig,
@@ -212,7 +218,7 @@ func (a *Agent) loadTargetPlugins() error {
 
 func (a *Agent) loadStrategyPlugins() error {
 	for _, strategyConfig := range a.config.Strategies {
-		log.Printf("loading plugin: %v", strategyConfig)
+		a.logger.Info("loading Strategy plugin", "plugin", strategyConfig)
 
 		pluginConfig := &plugin.ClientConfig{
 			HandshakeConfig: PluginHandshakeConfig,
@@ -240,6 +246,13 @@ func (a *Agent) loadStrategyPlugins() error {
 }
 
 func (a *Agent) handlePolicy(p *policystorage.Policy) {
+	logger := a.logger.With(
+		"policy_id", p.ID,
+		"source", p.Source,
+		"target", p.Target.Name,
+		"strategy", p.Strategy.Name,
+	)
+
 	var target targetpkg.Target
 	var apm apmpkg.APM
 	var strategy strategypkg.Strategy
@@ -247,40 +260,43 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	// dispense plugins
 	targetPlugin, err := a.targetManager.Dispense(p.Target.Name)
 	if err != nil {
-		log.Printf("plugin %s not initialized: %v\n", p.Target.Name, err)
+		logger.Error("target plugin not initialized", "error", err, "plugin", p.Target.Name)
 		return
 	}
 	target = *targetPlugin
 
 	apmPlugin, err := a.apmManager.Dispense(p.Source)
 	if err != nil {
-		log.Printf("plugin %s not initialized: %v\n", p.Source, err)
+		logger.Error("apm plugin not initialized", "error", err, "plugin", p.Target.Name)
 		return
 	}
 	apm = *apmPlugin
 
 	strategyPlugin, err := a.strategyManager.Dispense(p.Strategy.Name)
 	if err != nil {
-		log.Printf("plugin %s not initialized: %v\n", p.Strategy.Name, err)
+		logger.Error("strategy plugin not initialized", "error", err, "plugin", p.Target.Name)
 		return
 	}
 	strategy = *strategyPlugin
 
 	// fetch target count
+	logger.Info("fetching current count")
 	currentCount, err := target.Count(p.Target.Config)
 	if err != nil {
-		log.Printf("failed to fetch current count: %v", err)
+		logger.Error("failed to fetch current count", "error", err)
 		return
 	}
 
 	// query policy's APM
+	logger.Info("querying APM")
 	value, err := apm.Query(p.Query)
 	if err != nil {
-		log.Printf("failed to query APM: %v\n", err)
+		logger.Error("failed to query APM", "error", err)
 		return
 	}
 
 	// calculate new count using policy's Strategy
+	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
 		CurrentCount: currentCount,
 		MinCount:     p.Strategy.Min,
@@ -290,14 +306,21 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	}
 	results, err := strategy.Run(req)
 	if err != nil {
-		log.Printf("failed to calculate strategy: %v\n", err)
+		logger.Error("failed to calculate strategy", "error", err)
+		return
+	}
+
+	if len(results.Actions) == 0 {
+		logger.Info("nothing to do")
+		return
 	}
 
 	// scale target
 	for _, action := range results.Actions {
+		logger.Info("scaling target", "target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
 		err = (*targetPlugin).Scale(action, p.Target.Config)
 		if err != nil {
-			log.Printf("failed to scale target: %v", err)
+			logger.Error("failed to scale target", "error", err)
 			return
 		}
 	}

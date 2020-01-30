@@ -4,16 +4,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/agent"
 )
 
 type RunCommand struct {
-	Ctx context.Context
+	Ctx    context.Context
+	Logger hclog.Logger
 }
 
 type RunCommandArgs struct {
@@ -42,7 +43,8 @@ func (c *RunCommand) Run(args []string) int {
 	// parse CLI args
 	cArgs, err := c.parseFlags(args)
 	if err != nil {
-		log.Println(err)
+		c.Logger.Error("failed to parse command arguments", "error", err)
+		fmt.Print(c.Help())
 		return 1
 	}
 
@@ -51,25 +53,25 @@ func (c *RunCommand) Run(args []string) int {
 	if cArgs.ConfigPath != "" {
 		err = hclsimple.DecodeFile(cArgs.ConfigPath, nil, &config)
 		if err != nil {
-			log.Printf("failed to read config file: %v", err)
+			c.Logger.Error("failed to read config file", "error", err)
 			return 1
 		}
 	}
 
 	configErrors := validateConfig(config)
 	if len(configErrors) > 0 {
-		log.Printf("invalid configuration values:\n")
+		c.Logger.Error("invalid configuration values:")
 		for _, err = range configErrors {
-			log.Printf("  * %v", err)
+			c.Logger.Error(fmt.Sprintf("  * %v", err), "error", err)
 		}
 		return 1
 	}
 
 	// create and run agent
-	a := agent.NewAgent(&config)
+	a := agent.NewAgent(&config, c.Logger.Named("agent"))
 	err = a.Run(c.Ctx)
 	if err != nil {
-		log.Printf("error: %v", err)
+		c.Logger.Error("failed to start agent", "error", err)
 		return 1
 	}
 	return 0

@@ -60,10 +60,20 @@ Vagrant.configure("2") do |config|
       https://releases.hashicorp.com/consul/1.6.2/consul_1.6.2_linux_amd64.zip
     unzip nomad_0.10.2_linux_amd64.zip
     unzip consul_1.6.2_linux_amd64.zip
-    mv nomad consul /usr/local/bin
-    chmod +x /usr/local/bin/{nomad,consul}
+    mkdir -p /opt/hashicorp/bin
+    mv nomad consul /opt/hashicorp/bin
+    chmod +x /opt/hashicorp/bin/{nomad,consul}
+    ln -s /opt/hashicorp/bin/{nomad,consul} /usr/local/bin
     popd
     rm -fr /tmp/downloads
+
+    # install custom versions if present
+    for t in consul nomad; do
+      if [ -f "/home/vagrant/nomad-autoscaler/example/$t" ]; then
+        unlink /usr/local/bin/$t
+        ln -s /home/vagrant/nomad-autoscaler/example/$t /usr/local/bin
+      fi
+    done
   SHELL
 
   config.vm.provision "app:setup", type: "shell", run: "always", inline: <<-SHELL

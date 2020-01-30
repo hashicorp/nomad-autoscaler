@@ -39,6 +39,9 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 		return nil, fmt.Errorf("failed to parse Policy: %v", errs)
 	}
 
+	if fromPolicy.Policy["source"] == nil {
+		fromPolicy.Policy["source"] = ""
+	}
 	toPolicy := &Policy{
 		ID:       fromPolicy.ID,
 		Source:   fromPolicy.Policy["source"].(string),
@@ -51,15 +54,32 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 }
 
 func canonicalize(from *api.ScalingPolicy, to *Policy) {
-	if to.Target.Name == "" {
-		parts := strings.Split(from.Target, "/")
-		group := parts[len(parts)-2]
+	parts := strings.Split(from.Target, "/")
+	group := parts[len(parts)-2]
 
+	if to.Target.Name == "" {
 		to.Target.Name = "local-nomad"
 		to.Target.Config = map[string]string{
 			"job_id": from.JobID,
 			"group":  group,
 		}
+	}
+
+	if to.Source == "" {
+		to.Source = "local-nomad"
+
+		parts := strings.Split(to.Query, "_")
+		op := parts[0]
+		metric := parts[1]
+
+		switch metric {
+		case "cpu":
+			metric = "nomad.client.allocs.cpu.total_percent"
+		case "memory":
+			metric = "nomad.client.allocs.memory.usage"
+		}
+
+		to.Query = fmt.Sprintf("%s/%s/%s/%s", metric, from.JobID, group, op)
 	}
 }
 

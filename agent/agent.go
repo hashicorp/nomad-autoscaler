@@ -149,6 +149,16 @@ func (a *Agent) loadPlugins() error {
 }
 
 func (a *Agent) loadAPMPlugins() error {
+	// create default local-nomad target
+	a.config.APMs = append(a.config.APMs, APM{
+		Name:   "local-nomad",
+		Driver: "nomad-apm",
+		Config: map[string]string{
+			"address": a.config.Nomad.Address,
+			"region":  a.config.Nomad.Region,
+		},
+	})
+
 	for _, apmConfig := range a.config.APMs {
 		a.logger.Info("loading APM plugin", "plugin", apmConfig)
 

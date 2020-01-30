@@ -4,6 +4,25 @@ job "webapp" {
   group "demo" {
     count = 1
 
+    scaling {
+      enabled = true
+
+      policy {
+        source = "prometheus"
+        query  = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
+
+        strategy = {
+          name = "target-value"
+          min  = 1
+          max  = 10
+
+          config = {
+            target = 20
+          }
+        }
+      }
+    }
+
     task "server" {
       driver = "docker"
 

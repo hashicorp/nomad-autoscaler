@@ -1,1 +1,5 @@
+# ignore the binary...
 prometheus
+
+# ...but not the folder
+!prometheus/

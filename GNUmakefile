@@ -4,7 +4,7 @@ default: build
 .PHONY: build
 build:
 	@echo "Building autoscaler..."
-	@go build
+	@go build -o ./bin/nomad-autoscaler
 	@echo "Done"
 
 .PHONY: plugins
@@ -20,3 +20,9 @@ plugins:
    done
 	@echo "Done"
 
+.PHONY: build-docker
+build-docker:
+	@echo "Building autoscaler docker container..."
+	@env GOOS=linux GOARCH=amd64 go build -v -o ./bin/nomad-autoscaler-linux-amd64
+	@docker build .
+	@echo "Done"

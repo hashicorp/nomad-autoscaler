@@ -47,7 +47,7 @@ You can import the sample dashboard to track connections to the web application.
 ### Start autoscaler
 
 ```sh
-./nomad-autoscaler run -config ./example/config.hcl
+./bin/nomad-autoscaler run -config ./example/config.hcl
 ```
 
 ### Generate load

@@ -1,8 +1,10 @@
 # ignore binaries
-nomad-autoscaler
 example/nomad
 example/consul
 plugins/*
+
+# binary output directory
+bin/
 
 # ignore Vagrant related files
 *.log

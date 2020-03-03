@@ -327,9 +327,19 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 	// scale target
 	for _, action := range results.Actions {
-		logger.Info("scaling target", "target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
-		err = (*targetPlugin).Scale(action, p.Target.Config)
-		if err != nil {
+		logger.Info("scaling target",
+			"target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
+
+		// If the policy is configured with dry-run:true then we reset the
+		// action count to the current count so its no-nop. This allows us to
+		// still submit the job, but not alter its state.
+		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
+			logger.Info("scaling dry-run is enabled, using no-op task group count",
+				"target_config", p.Target.Config)
+			action.Count = currentCount
+		}
+
+		if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
 			logger.Error("failed to scale target", "error", err)
 			return
 		}

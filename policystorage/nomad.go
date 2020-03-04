@@ -59,11 +59,14 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 
 	if to.Target.Name == "" {
 		to.Target.Name = "local-nomad"
-		to.Target.Config = map[string]string{
-			"job_id": from.JobID,
-			"group":  group,
-		}
 	}
+
+	if to.Target.Config == nil {
+		to.Target.Config = make(map[string]string)
+	}
+
+	to.Target.Config["job_id"] = from.JobID
+	to.Target.Config["group"] = group
 
 	if to.Source == "" {
 		to.Source = "local-nomad"

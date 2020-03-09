@@ -4,7 +4,7 @@ default: build
 .PHONY: build
 build:
 	@echo "Building autoscaler..."
-	@go build -o ./bin/nomad-autoscaler
+	@GOPRIVATE=$$GOPRIVATE,github.com/hashicorp/nomad-private go build -o ./bin/nomad-autoscaler
 	@echo "Done"
 
 .PHONY: plugins

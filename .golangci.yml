@@ -1,0 +1,33 @@
+run:
+  deadline: 10m
+  tests: false
+
+# output configuration options
+output:
+  # colored-line-number|line-number|json|tab|checkstyle|code-climate, default is "colored-line-number"
+  format: colored-line-number
+
+  # print lines of code with issue, default is true
+  print-issued-lines: true
+
+  # print linter name in the end of issue text, default is true
+  print-linter-name: true
+
+  gofmt:
+    # simplify code: gofmt with `-s` option, true by default
+    simplify: true
+
+linters:
+  disable-all: true
+  enable:
+    - goimports
+    - misspell
+    - govet
+    - deadcode
+    - varcheck
+    - ineffassign
+    - structcheck
+    - unconvert
+    - gofmt
+    - maligned
+  fast: false

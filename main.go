@@ -41,7 +41,3 @@ func main() {
 	}
 	os.Exit(exitCode)
 }
-
-func handleSignals() {
-
-}

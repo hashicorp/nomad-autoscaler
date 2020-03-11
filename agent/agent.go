@@ -38,10 +38,7 @@ type Agent struct {
 	strategyManager *strategypkg.Manager
 }
 
-type Plugin struct {
-	client   *plugin.Client
-	instance interface{}
-}
+type Plugin struct{}
 
 func NewAgent(c *Config, logger hclog.Logger) *Agent {
 	return &Agent{

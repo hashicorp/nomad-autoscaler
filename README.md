@@ -51,7 +51,7 @@ You can import the sample dashboard to track connections to the web application.
 ### Start autoscaler
 
 ```sh
-./bin/nomad-autoscaler run -config ./example/config.hcl
+./bin/nomad-autoscaler agent -config ./example/config.hcl
 ```
 
 ### Generate load
@@ -65,7 +65,7 @@ hey -z 5m -c 30 http://127.0.0.1:8080
 This will run the load for 5 minutes with 30 connections in parallel. You should see the autoscaler output printing scaling intents:
 
 ```sh
-❯ ./nomad-autoscaler run -config ./example/config.hcl
+❯ ./nomad-autoscaler agent -config ./example/config.hcl
 ...
 2020-01-29T21:16:24.813-0500 [INFO]  agent: reading policies: policy_storage=policystorage.Nomad
 2020-01-29T21:16:24.816-0500 [INFO]  agent: found 1 policies: policy_storage=policystorage.Nomad

@@ -12,23 +12,23 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent"
 )
 
-type RunCommand struct {
+type AgentCommand struct {
 	Ctx    context.Context
 	Logger hclog.Logger
 }
 
-type RunCommandArgs struct {
+type AgentCommandArgs struct {
 	ConfigPath string
 }
 
 // Help should return long-form help text that includes the command-line
 // usage, a brief few sentences explaining the function of the command,
 // and the complete list of flags the command accepts.
-func (c *RunCommand) Help() string {
+func (c *AgentCommand) Help() string {
 	helpText := `
-Usage: nomad-autoscaler run [options] [args]
+Usage: nomad-autoscaler agent [options] [args]
 
-  This command starts a Nomad autoscaler instance.
+  Starts the autoscaler agent and runs until an interrupt is received.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -39,7 +39,7 @@ Usage: nomad-autoscaler run [options] [args]
 //
 // There are a handful of special exit codes this can return documented
 // above that change behavior.
-func (c *RunCommand) Run(args []string) int {
+func (c *AgentCommand) Run(args []string) int {
 	// parse CLI args
 	cArgs, err := c.parseFlags(args)
 	if err != nil {
@@ -79,14 +79,14 @@ func (c *RunCommand) Run(args []string) int {
 
 // Synopsis should return a one-line, short synopsis of the command.
 // This should be less than 50 characters ideally.
-func (c *RunCommand) Synopsis() string {
-	return "Run agent."
+func (c *AgentCommand) Synopsis() string {
+	return "Runs a Nomad autoscaler agent"
 }
 
-func (c *RunCommand) parseFlags(args []string) (*RunCommandArgs, error) {
-	cArgs := &RunCommandArgs{}
+func (c *AgentCommand) parseFlags(args []string) (*AgentCommandArgs, error) {
+	cArgs := &AgentCommandArgs{}
 
-	flags := flag.NewFlagSet("run", flag.ContinueOnError)
+	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
 	flags.StringVar(&cArgs.ConfigPath, "config", "", "")
 
 	err := flags.Parse(args)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
 	"github.com/hashicorp/nomad-autoscaler/policystorage"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
@@ -28,7 +29,7 @@ var (
 
 type Agent struct {
 	logger          hclog.Logger
-	config          *Config
+	config          *config.Agent
 	nomadClient     *api.Client
 	apmPlugins      map[string]*Plugin
 	apmManager      *apmpkg.Manager
@@ -40,7 +41,7 @@ type Agent struct {
 
 type Plugin struct{}
 
-func NewAgent(c *Config, logger hclog.Logger) *Agent {
+func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	return &Agent{
 		logger:          logger,
 		config:          c,
@@ -74,8 +75,7 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	// loop like there's no tomorrow
 	var wg sync.WaitGroup
-	interval, _ := time.ParseDuration(a.config.ScanInterval)
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(a.config.ScanInterval)
 Loop:
 	for {
 		select {
@@ -147,7 +147,7 @@ func (a *Agent) loadPlugins() error {
 
 func (a *Agent) loadAPMPlugins() error {
 	// create default local-nomad target
-	a.config.APMs = append(a.config.APMs, APM{
+	a.config.APMs = append(a.config.APMs, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad-apm",
 		Config: map[string]string{
@@ -186,7 +186,7 @@ func (a *Agent) loadAPMPlugins() error {
 
 func (a *Agent) loadTargetPlugins() error {
 	// create default local-nomad target
-	a.config.Targets = append(a.config.Targets, Target{
+	a.config.Targets = append(a.config.Targets, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad",
 		Config: map[string]string{

@@ -1,5 +1,5 @@
 SHELL = bash
-default: lint build
+default: test lint build
 
 tools: ## Install the tools used to test and build
 	@echo "==> Installing tools"
@@ -16,6 +16,12 @@ build:
 lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
+	@echo "==> Done"
+
+.PHONY: test
+test: ## Test the source code
+	@echo "==> Testing source code..."
+	@go test -v -race -cover ./...
 	@echo "==> Done"
 
 .PHONY: plugins

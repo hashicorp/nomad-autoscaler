@@ -64,7 +64,8 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	a.nomadClient = client
 
-	ps := policystorage.Nomad{Client: client}
+	ps := policystorage.NewStore(a.logger, a.nomadClient)
+	go ps.StartPolicyWatcher()
 
 	// launch plugins
 	err = a.loadPlugins()
@@ -84,30 +85,21 @@ Loop:
 			logger.Info("reading policies")
 
 			// read policies
-			policies, err := ps.List()
-			if err != nil {
-				logger.Error("failed to fetch policies", "error", err)
-				continue
-			}
+			policies := ps.State.List()
 			logger.Info(fmt.Sprintf("found %d policies", len(policies)))
 
 			// handle policies
 			for _, p := range policies {
 				wg.Add(1)
-				go func(ID string) {
+				go func(policy *policystorage.Policy) {
 					defer wg.Done()
 					select {
 					case <-ctx.Done():
 						return
 					default:
-						policy, err := ps.Get(ID)
-						if err != nil {
-							logger.Error("failed to fetch policy", "policy_id", ID, "error", err)
-							return
-						}
 						a.handlePolicy(policy)
 					}
-				}(p.ID)
+				}(p)
 			}
 			wg.Wait()
 		case <-ctx.Done():

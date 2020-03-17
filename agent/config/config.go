@@ -48,7 +48,7 @@ type Nomad struct {
 	Region  string `hcl:"region,optional"`
 }
 
-// Plugin in an individual configured plugin and holds all the required params
+// Plugin is an individual configured plugin and holds all the required params
 // to successfully dispense the driver.
 type Plugin struct {
 	Name   string            `hcl:"name,label"`
@@ -57,13 +57,11 @@ type Plugin struct {
 	Config map[string]string `hcl:"config,optional"`
 }
 
-var (
+const (
 	// defaultScanInterval is the default value for the ScaInterval in nano
 	// seconds.
 	defaultScanInterval = time.Duration(10000000000)
-)
 
-const (
 	// defaultPluginDirSuffix is the suffix appended to the PWD when building
 	// the PluginDir default value.
 	defaultPluginDirSuffix = "/plugins"
@@ -184,7 +182,7 @@ func (p *Plugin) copy() *Plugin {
 	return &c
 }
 
-// pluginConfigSetMerge merges to sets of plugin configs. For plugins with the
+// pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
 // same name, the configs are merged.
 func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
 	findex := make(map[string]*Plugin, len(first))

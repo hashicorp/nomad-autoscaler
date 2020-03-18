@@ -60,41 +60,41 @@ Nomad Options:
     The address of the Nomad server in the form of protocol://addr:port. The
     default is http://127.0.0.1:4646.
 
-  nomad-region=<region>
+  -nomad-region=<region>
     The region of the Nomad servers to connect with.
 
-  nomad-namespace=<namespace>
+  -nomad-namespace=<namespace>
     The target namespace for queries and actions bound to a namespace.
 
-  nomad-token=<token>
+  -nomad-token=<token>
     The SecretID of an ACL token to use to authenticate API requests with.
 
-  nomad-http-auth=<username:password>
+  -nomad-http-auth=<username:password>
     The authentication information to use when connecting to a Nomad API which
     is using HTTP authentication.
 
-  nomad-ca-cert=<path>
+  -ca-cert=<path>
     Path to a PEM encoded CA cert file to use to verify the Nomad server SSL
     certificate.
 
-  nomad-ca-path=<path>
+  -nomad-ca-path=<path>
     Path to a directory of PEM encoded CA cert files to verify the Nomad server
-    SSL certificate. If both -nomad-ca-cert and -nomad=ca-path are specified,
+    SSL certificate. If both -nomad-ca-cert and -nomad-ca-path are specified,
     -nomad-ca-cert is used.
 
-  nomad-client-cert=<path>
+  -nomad-client-cert=<path>
     Path to a PEM encoded client certificate for TLS authentication to the
     Nomad server. Must also specify -nomad-client-key.
 
-  nomad-client-key=<path>
+  -nomad-client-key=<path>
     Path to an unencrypted PEM encoded private key matching the client
     certificate from -nomad-client-cert.
 
-  nomad-tls-server-name=<name>
+  -nomad-tls-server-name=<name>
     The server name to use as the SNI host when connecting via TLS.
 
-  nomad-skip-verify
-    Do not verify TLS certificates. This is highly not recommended.
+  -nomad-skip-verify
+    Do not verify TLS certificates. This is strongly discouraged.
   
 `
 	return strings.TrimSpace(helpText)

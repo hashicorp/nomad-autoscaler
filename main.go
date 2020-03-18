@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/command"
 	"github.com/mitchellh/cli"
 )
@@ -23,14 +22,11 @@ func main() {
 		cancel()
 	}()
 
-	// default logger
-	logger := hclog.Default()
-
 	c := cli.NewCLI("nomad-autoscaler", "0.1.0")
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
 		"agent": func() (cli.Command, error) {
-			return &command.AgentCommand{Ctx: ctx, Logger: logger}, nil
+			return &command.AgentCommand{Ctx: ctx}, nil
 		},
 	}
 

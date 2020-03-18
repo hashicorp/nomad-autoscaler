@@ -25,6 +25,12 @@ import (
 // "s", "m", "h" suffixes.
 type Agent struct {
 
+	// LogLevel is the level of the logs to emit.
+	LogLevel string `hcl:"log_level,optional"`
+
+	// LogJson enables log output in JSON format.
+	LogJson bool `hcl:"log_json,optional"`
+
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
@@ -44,8 +50,43 @@ type Agent struct {
 // Nomad holds the user specified configuration for connectivity to the Nomad
 // API.
 type Nomad struct {
+
+	// Address is the address of the Nomad agent.
 	Address string `hcl:"address,optional"`
-	Region  string `hcl:"region,optional"`
+
+	// Region to use.
+	Region string `hcl:"region,optional"`
+
+	// Namespace to use.
+	Namespace string `hcl:"namespace,optional"`
+
+	// Token is the SecretID of an ACL token to use to authenticate API
+	// requests with.
+	Token string `hcl:"token,optional"`
+
+	// HTTPAuth is the auth info to use for http access.
+	HTTPAuth string `hcl:"http_auth,optional"`
+
+	// CACert is the path to a PEM-encoded CA cert file to use to verify the
+	// Nomad server SSL certificate.
+	CACert string `hcl:"ca_cert,optional"`
+
+	// CAPath is the path to a directory of PEM-encoded CA cert files to verify
+	// the Nomad server SSL certificate.
+	CAPath string `hcl:"ca_path,optional"`
+
+	// ClientCert is the path to the certificate for Nomad communication.
+	ClientCert string `hcl:"client_cert,optional"`
+
+	// ClientKey is the path to the private key for Nomad communication.
+	ClientKey string `hcl:"client_key,optional"`
+
+	// TLSServerName, if set, is used to set the SNI host when connecting via
+	// TLS.
+	TLSServerName string `hcl:"tls_server_name,optional"`
+
+	// SkipVerify enables or disables SSL verification.
+	SkipVerify bool `hcl:"skip_verify,optional"`
 }
 
 // Plugin is an individual configured plugin and holds all the required params
@@ -58,6 +99,9 @@ type Plugin struct {
 }
 
 const (
+	// defaultLogLevel is the default log level used for the Autoscaler agent.
+	defaultLogLevel = "info"
+
 	// defaultScanInterval is the default value for the ScaInterval in nano
 	// seconds.
 	defaultScanInterval = time.Duration(10000000000)
@@ -68,7 +112,7 @@ const (
 
 	// defaultNomadAddress is the default address used for Nomad API
 	// connectivity.
-	defaultNomadAddress = "127.0.0.1:4646"
+	defaultNomadAddress = "http://127.0.0.1:4646"
 
 	// defaultNomadRegion is the default Nomad region to use when performing
 	// Nomad API calls.
@@ -86,6 +130,7 @@ func Default() (*Agent, error) {
 	}
 
 	return &Agent{
+		LogLevel:     defaultLogLevel,
 		PluginDir:    pwd + defaultPluginDirSuffix,
 		ScanInterval: defaultScanInterval,
 		Nomad: &Nomad{
@@ -99,6 +144,12 @@ func Default() (*Agent, error) {
 func (a *Agent) Merge(b *Agent) *Agent {
 	result := *a
 
+	if b.LogLevel != "" {
+		result.LogLevel = b.LogLevel
+	}
+	if b.LogJson {
+		result.LogJson = true
+	}
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir
 	}
@@ -151,6 +202,33 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	}
 	if b.Region != "" {
 		result.Region = b.Region
+	}
+	if b.Namespace != "" {
+		result.Namespace = b.Namespace
+	}
+	if b.Token != "" {
+		result.Token = b.Token
+	}
+	if b.HTTPAuth != "" {
+		result.HTTPAuth = b.HTTPAuth
+	}
+	if b.CACert != "" {
+		result.CACert = b.CACert
+	}
+	if b.CAPath != "" {
+		result.CAPath = b.CAPath
+	}
+	if b.ClientCert != "" {
+		result.ClientCert = b.ClientCert
+	}
+	if b.ClientKey != "" {
+		result.ClientKey = b.ClientKey
+	}
+	if b.TLSServerName != "" {
+		result.TLSServerName = b.TLSServerName
+	}
+	if b.SkipVerify {
+		result.SkipVerify = b.SkipVerify
 	}
 
 	return &result

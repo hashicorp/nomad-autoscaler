@@ -2,9 +2,7 @@ module github.com/hashicorp/nomad-autoscaler/strategy/plugins/target-value
 
 go 1.13
 
-replace (
-	github.com/hashicorp/nomad-autoscaler => ../../../
-)
+replace github.com/hashicorp/nomad-autoscaler => ../../../
 
 require (
 	github.com/hashicorp/go-plugin v1.0.1

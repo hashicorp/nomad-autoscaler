@@ -1,11 +1,3 @@
-plugin_dir = "./plugins"
-
-scan_interval = "5s"
-
-nomad {
-  address = "127.0.0.1:4646"
-}
-
 apm "prometheus" {
   driver = "prometheus"
 

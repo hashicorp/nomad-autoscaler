@@ -7,6 +7,8 @@ type PolicyStorage interface {
 
 type Policy struct {
 	ID       string
+	Min      int64
+	Max      int64
 	Source   string
 	Query    string
 	Target   *Target
@@ -23,8 +25,6 @@ type PolicyListStub struct {
 
 type Strategy struct {
 	Name   string
-	Min    int
-	Max    int
 	Config map[string]string
 }
 

@@ -370,9 +370,9 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	// calculate new count using policy's Strategy
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
-		CurrentCount: currentCount,
-		MinCount:     p.Strategy.Min,
-		MaxCount:     p.Strategy.Max,
+		CurrentCount: int64(currentCount),
+		MinCount:     p.Min,
+		MaxCount:     p.Max,
 		CurrentValue: value,
 		Config:       p.Strategy.Config,
 	}

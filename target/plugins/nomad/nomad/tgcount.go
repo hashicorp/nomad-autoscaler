@@ -13,7 +13,13 @@ type NomadGroupCount struct {
 
 func (t *NomadGroupCount) SetConfig(config map[string]string) error {
 	clientConfig := api.DefaultConfig()
-	clientConfig = clientConfig.ClientConfig(config["region"], config["address"], false)
+
+	if config["region"] != "" {
+		clientConfig.Region = config["region"]
+	}
+	if config["address"] != "" {
+		clientConfig.Address = config["address"]
+	}
 
 	client, err := api.NewClient(clientConfig)
 	if err != nil {
@@ -44,7 +50,7 @@ func (t *NomadGroupCount) Count(config map[string]string) (int, error) {
 }
 
 func (t *NomadGroupCount) Scale(action strategy.Action, config map[string]string) error {
-	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], action.Count, action.Reason, nil)
+	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], action.Count, &action.Reason, nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
 	}

@@ -4,7 +4,6 @@ go 1.13
 
 replace (
 	github.com/hashicorp/nomad-autoscaler => ../../../
-	github.com/hashicorp/nomad/api => ../../../../nomad/api
 )
 
 require (

@@ -54,6 +54,15 @@ Options:
   -scan-interval=<dur>
     The time to wait between Nomad Autoscaler evaluations.
 
+HTTP Options:
+
+  -http-bind-address=<addr>
+    The HTTP address that the health server will bind to. The default is
+    127.0.0.1.
+
+  -http-bind-port=<port>
+    The port that the health server will bind to. The default is 8080.
+
 Nomad Options:
 
   -nomad-address=<addr>
@@ -144,6 +153,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, error) {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
+		HTTP:  &config.HTTP{},
 		Nomad: &config.Nomad{},
 	}
 
@@ -159,6 +169,10 @@ func (c *AgentCommand) readConfig() (*config.Agent, error) {
 		cmdConfig.ScanInterval = d
 		return nil
 	}), "scan-interval", "")
+
+	// Specify our HTTP bind flags.
+	flags.StringVar(&cmdConfig.HTTP.BindAddress, "http-bind-address", "", "")
+	flags.IntVar(&cmdConfig.HTTP.BindPort, "http-bind-port", 0, "")
 
 	// Specify our Nomad client CLI flags.
 	flags.StringVar(&cmdConfig.Nomad.Address, "nomad-address", "", "")

@@ -20,14 +20,20 @@ func Test_Default(t *testing.T) {
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
 	assert.Equal(t, def.ScanInterval, time.Duration(10000000000))
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
+	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
+	assert.Equal(t, 8080, def.HTTP.BindPort)
 }
 
 func TestAgent_Merge(t *testing.T) {
-	baseCfg := &Agent{}
+	baseCfg, err := Default()
+	assert.Nil(t, err)
 
 	cfg1 := &Agent{
 		PluginDir:    "/opt/nomad-autoscaler/plugins",
 		ScanInterval: 5000000000,
+		HTTP: &HTTP{
+			BindAddress: "scaler.nomad",
+		},
 		Nomad: &Nomad{
 			Address: "http://nomad.systems:4646",
 		},
@@ -45,6 +51,9 @@ func TestAgent_Merge(t *testing.T) {
 		LogJson:      true,
 		PluginDir:    "/var/lib/nomad-autoscaler/plugins",
 		ScanInterval: 10000000000,
+		HTTP: &HTTP{
+			BindPort: 4646,
+		},
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
@@ -83,6 +92,10 @@ func TestAgent_Merge(t *testing.T) {
 		LogJson:      true,
 		PluginDir:    "/var/lib/nomad-autoscaler/plugins",
 		ScanInterval: 10000000000,
+		HTTP: &HTTP{
+			BindAddress: "scaler.nomad",
+			BindPort:    4646,
+		},
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
@@ -116,7 +129,7 @@ func TestAgent_Merge(t *testing.T) {
 		},
 	}
 
-	actualResult := cfg1.Merge(baseCfg)
+	actualResult := baseCfg.Merge(cfg1)
 	actualResult = actualResult.Merge(cfg2)
 	assert.Equal(t, expectedResult, actualResult)
 }

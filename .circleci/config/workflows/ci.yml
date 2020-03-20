@@ -1,0 +1,4 @@
+jobs:
+  - lint-go
+  - test-go
+  - build-go

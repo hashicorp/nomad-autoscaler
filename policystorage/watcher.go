@@ -77,8 +77,7 @@ func (s *Store) handlePolicyUpdate(policy *api.ScalingPolicy) {
 	// TODO(jrasell) once we have a better method for surfacing errors to the
 	//  user, this error should be presented.
 	if err := validate(policy); err != nil {
-		s.log.Error("failed to validate policy",
-			"error", err, "policy-id", policy.ID, "job-id", policy.JobID)
+		s.log.Error("failed to validate policy", "error", err, "policy-id", policy.ID)
 		return
 	}
 
@@ -88,6 +87,8 @@ func (s *Store) handlePolicyUpdate(policy *api.ScalingPolicy) {
 
 	autoPolicy := &Policy{
 		ID:       policy.ID,
+		Min:      policy.Min,
+		Max:      policy.Max,
 		Source:   policy.Policy[policyKeySource].(string),
 		Query:    policy.Policy[policyKeyQuery].(string),
 		Target:   parseTarget(policy.Policy[policyKeyTarget]),
@@ -97,7 +98,7 @@ func (s *Store) handlePolicyUpdate(policy *api.ScalingPolicy) {
 	canonicalize(policy, autoPolicy)
 
 	s.State.set(autoPolicy)
-	s.log.Info("set policy in state", "policy-id", policy.ID, "job-id", policy.JobID)
+	s.log.Info("set policy in state", "policy-id", policy.ID)
 }
 
 // handlePolicyCleanup is used to clean-up the autoscalers local policy state

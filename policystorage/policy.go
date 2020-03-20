@@ -9,6 +9,8 @@ import (
 
 type Policy struct {
 	ID       string
+	Min      int64
+	Max      int64
 	Source   string
 	Query    string
 	Target   *Target
@@ -17,8 +19,6 @@ type Policy struct {
 
 type Strategy struct {
 	Name   string
-	Min    int
-	Max    int
 	Config map[string]string
 }
 
@@ -37,8 +37,6 @@ const (
 )
 
 func canonicalize(from *api.ScalingPolicy, to *Policy) {
-	parts := strings.Split(from.Target, "/")
-	group := parts[len(parts)-2]
 
 	if to.Target.Name == "" {
 		to.Target.Name = "local-nomad"
@@ -48,8 +46,8 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 		to.Target.Config = make(map[string]string)
 	}
 
-	to.Target.Config["job_id"] = from.JobID
-	to.Target.Config["group"] = group
+	to.Target.Config["job_id"] = from.Target["Job"]
+	to.Target.Config["group"] = from.Target["Group"]
 
 	if to.Source == "" {
 		to.Source = "local-nomad"
@@ -65,7 +63,7 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 			metric = "nomad.client.allocs.memory.usage"
 		}
 
-		to.Query = fmt.Sprintf("%s/%s/%s/%s", metric, from.JobID, group, op)
+		to.Query = fmt.Sprintf("%s/%s/%s/%s", metric, from.Target["Job"], from.Target["Group"], op)
 	}
 }
 
@@ -95,8 +93,6 @@ func parseStrategy(s interface{}) *Strategy {
 
 	return &Strategy{
 		Name:   strategyMap["name"].(string),
-		Min:    int(strategyMap["min"].(float64)),
-		Max:    int(strategyMap["max"].(float64)),
 		Config: configMapString,
 	}
 }

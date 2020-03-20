@@ -6,11 +6,13 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
 	"github.com/hashicorp/nomad-autoscaler/policystorage"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
@@ -28,7 +30,7 @@ var (
 
 type Agent struct {
 	logger          hclog.Logger
-	config          *Config
+	config          *config.Agent
 	nomadClient     *api.Client
 	apmPlugins      map[string]*Plugin
 	apmManager      *apmpkg.Manager
@@ -40,7 +42,7 @@ type Agent struct {
 
 type Plugin struct{}
 
-func NewAgent(c *Config, logger hclog.Logger) *Agent {
+func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	return &Agent{
 		logger:          logger,
 		config:          c,
@@ -54,29 +56,30 @@ func NewAgent(c *Config, logger hclog.Logger) *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
-	clientConfig := api.DefaultConfig()
-	clientConfig = clientConfig.ClientConfig(a.config.Nomad.Region, a.config.Nomad.Address, false)
 
-	client, err := api.NewClient(clientConfig)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
+	// Generate the Nomad client.
+	if err := a.generateNomadClient(); err != nil {
+		return err
 	}
-
-	a.nomadClient = client
 
 	ps := policystorage.NewStore(a.logger, a.nomadClient)
 	go ps.StartPolicyWatcher()
 
 	// launch plugins
-	err = a.loadPlugins()
-	if err != nil {
+	if err := a.loadPlugins(); err != nil {
 		return fmt.Errorf("failed to load plugins: %v", err)
 	}
 
+	// Setup and start the HTTP health server.
+	healthServer, err := newHealthServer(a.config.HTTP, a.logger)
+	if err != nil {
+		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
+	}
+	go healthServer.run()
+
 	// loop like there's no tomorrow
 	var wg sync.WaitGroup
-	interval, _ := time.ParseDuration(a.config.ScanInterval)
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(a.config.ScanInterval)
 Loop:
 	for {
 		select {
@@ -103,6 +106,9 @@ Loop:
 			}
 			wg.Wait()
 		case <-ctx.Done():
+			// Stop the health server.
+			healthServer.stop()
+
 			// stop plugins before exiting
 			a.logger.Info("killing plugins")
 			a.apmManager.Kill()
@@ -111,6 +117,75 @@ Loop:
 			break Loop
 		}
 	}
+
+	return nil
+}
+
+// generateNomadClient takes the internal Nomad configuration, translates and
+// merges it into a Nomad API config object and creates a client.
+func (a *Agent) generateNomadClient() error {
+
+	// Use an empty config object. When calling NewClient, the Nomad API will
+	// merge options with those returned from DefaultConfig().
+	cfg := &api.Config{}
+
+	// Merge our top level configuration options in.
+	if a.config.Nomad.Address != "" {
+		cfg.Address = a.config.Nomad.Address
+	}
+	if a.config.Nomad.Region != "" {
+		cfg.Region = a.config.Nomad.Region
+	}
+	if a.config.Nomad.Namespace != "" {
+		cfg.Namespace = a.config.Nomad.Namespace
+	}
+	if a.config.Nomad.Token != "" {
+		cfg.SecretID = a.config.Nomad.Token
+	}
+
+	// Merge HTTP auth.
+	if a.config.Nomad.HTTPAuth != "" {
+		var username, password string
+		if strings.Contains(a.config.Nomad.HTTPAuth, ":") {
+			split := strings.SplitN(a.config.Nomad.HTTPAuth, ":", 2)
+			username = split[0]
+			password = split[1]
+		} else {
+			username = a.config.Nomad.HTTPAuth
+		}
+
+		cfg.HttpAuth = &api.HttpBasicAuth{
+			Username: username,
+			Password: password,
+		}
+	}
+
+	// Merge TLS.
+	if a.config.Nomad.CACert != "" {
+		cfg.TLSConfig.CACert = a.config.Nomad.CACert
+	}
+	if a.config.Nomad.CAPath != "" {
+		cfg.TLSConfig.CAPath = a.config.Nomad.CAPath
+	}
+	if a.config.Nomad.ClientCert != "" {
+		cfg.TLSConfig.ClientCert = a.config.Nomad.ClientCert
+	}
+	if a.config.Nomad.ClientKey != "" {
+		cfg.TLSConfig.ClientKey = a.config.Nomad.ClientKey
+	}
+	if a.config.Nomad.TLSServerName != "" {
+		cfg.TLSConfig.TLSServerName = a.config.Nomad.TLSServerName
+	}
+	if a.config.Nomad.SkipVerify {
+		cfg.TLSConfig.Insecure = a.config.Nomad.SkipVerify
+	}
+
+	// Generate the Nomad client.
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
+	}
+	a.nomadClient = client
 
 	return nil
 }
@@ -139,7 +214,7 @@ func (a *Agent) loadPlugins() error {
 
 func (a *Agent) loadAPMPlugins() error {
 	// create default local-nomad target
-	a.config.APMs = append(a.config.APMs, APM{
+	a.config.APMs = append(a.config.APMs, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad-apm",
 		Config: map[string]string{
@@ -178,7 +253,7 @@ func (a *Agent) loadAPMPlugins() error {
 
 func (a *Agent) loadTargetPlugins() error {
 	// create default local-nomad target
-	a.config.Targets = append(a.config.Targets, Target{
+	a.config.Targets = append(a.config.Targets, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad",
 		Config: map[string]string{
@@ -297,9 +372,9 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	// calculate new count using policy's Strategy
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
-		CurrentCount: currentCount,
-		MinCount:     p.Strategy.Min,
-		MaxCount:     p.Strategy.Max,
+		CurrentCount: int64(currentCount),
+		MinCount:     p.Min,
+		MaxCount:     p.Max,
 		CurrentValue: value,
 		Config:       p.Strategy.Config,
 	}

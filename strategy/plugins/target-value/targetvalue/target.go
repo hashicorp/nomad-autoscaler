@@ -42,7 +42,7 @@ func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error)
 	}
 
 	reason = fmt.Sprintf("scaling %s because factor is %f", direction, factor)
-	newCount := int(math.Ceil(float64(req.CurrentCount) * factor))
+	newCount := int64(math.Ceil(float64(req.CurrentCount) * factor))
 	if newCount < req.MinCount {
 		newCount = req.MinCount
 	} else if newCount > req.MaxCount {
@@ -55,7 +55,7 @@ func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error)
 	}
 
 	action := strategy.Action{
-		Count:  newCount,
+		Count:  int(newCount),
 		Reason: reason,
 	}
 	resp.Actions = append(resp.Actions, action)

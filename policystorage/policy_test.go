@@ -14,8 +14,6 @@ func Test_parseStrategy(t *testing.T) {
 		{
 			inputStrategy: []interface{}{
 				map[string]interface{}{
-					"max":  float64(10),
-					"min":  float64(1),
 					"name": "target-value",
 					"config": []interface{}{
 						map[string]interface{}{"target": float64(20)},
@@ -24,8 +22,6 @@ func Test_parseStrategy(t *testing.T) {
 			},
 			expectedOutput: &Strategy{
 				Name:   "target-value",
-				Min:    1,
-				Max:    10,
 				Config: map[string]string{"target": "20"},
 			},
 		},

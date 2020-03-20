@@ -23,15 +23,14 @@ func TestStore_handlePolicyUpdate(t *testing.T) {
 			inputPolicy: &api.ScalingPolicy{
 				ID:        "policy-1",
 				Namespace: "default",
-				Target:    "/v1/job/job-1/group-1/scale",
-				JobID:     "job-1",
+				Min:       1,
+				Max:       10,
+				Target:    map[string]string{"Job": "job-1", "Group": "group-1"},
 				Policy: map[string]interface{}{
 					"query":  "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))",
 					"source": "prometheus",
 					"strategy": []interface{}{
 						map[string]interface{}{
-							"max":  float64(10),
-							"min":  float64(1),
 							"name": "target-value",
 							"config": []interface{}{
 								map[string]interface{}{
@@ -45,6 +44,8 @@ func TestStore_handlePolicyUpdate(t *testing.T) {
 			},
 			expectedList: map[string]*Policy{"policy-1": {
 				ID:     "policy-1",
+				Min:    1,
+				Max:    10,
 				Source: "prometheus",
 				Query:  "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))",
 				Target: &Target{
@@ -56,8 +57,6 @@ func TestStore_handlePolicyUpdate(t *testing.T) {
 				},
 				Strategy: &Strategy{
 					Name: "target-value",
-					Min:  1,
-					Max:  10,
 					Config: map[string]string{
 						"target": "20",
 					},

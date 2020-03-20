@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -66,8 +64,6 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 	if to.Target.Config == nil {
 		to.Target.Config = make(map[string]string)
 	}
-
-	spew.Dump(from)
 
 	to.Target.Config["job_id"] = from.Target["Job"]
 	to.Target.Config["group"] = from.Target["Group"]

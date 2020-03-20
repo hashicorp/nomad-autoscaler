@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect

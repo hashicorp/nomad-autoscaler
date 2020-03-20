@@ -39,12 +39,26 @@ type Agent struct {
 	ScanInterval    time.Duration
 	ScanIntervalHCL string `hcl:"scan_interval,optional" json:"-"`
 
+	// HTTP is the configuration used to setup the HTTP health server.
+	HTTP *HTTP `hcl:"http,block"`
+
 	// Nomad is the configuration used to setup the Nomad client.
 	Nomad *Nomad `hcl:"nomad,block"`
 
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
+}
+
+// HTTP contains all configuration details for the running of the agent HTTP
+// health server.
+type HTTP struct {
+
+	// BindAddress is the tcp address to bind to.
+	BindAddress string `hcl:"bind_address,optional"`
+
+	// BindPort is the port used to run the HTTP server.
+	BindPort int `hcl:"bind_port,optional"`
 }
 
 // Nomad holds the user specified configuration for connectivity to the Nomad
@@ -102,6 +116,13 @@ const (
 	// defaultLogLevel is the default log level used for the Autoscaler agent.
 	defaultLogLevel = "info"
 
+	// defaultHTTPBindAddress is the default address used for the HTTP health
+	// server.
+	defaultHTTPBindAddress = "127.0.0.1"
+
+	// defaultHTTPBindPort is the default port used for the HTTP health server.
+	defaultHTTPBindPort = 8080
+
 	// defaultScanInterval is the default value for the ScaInterval in nano
 	// seconds.
 	defaultScanInterval = time.Duration(10000000000)
@@ -133,6 +154,10 @@ func Default() (*Agent, error) {
 		LogLevel:     defaultLogLevel,
 		PluginDir:    pwd + defaultPluginDirSuffix,
 		ScanInterval: defaultScanInterval,
+		HTTP: &HTTP{
+			BindAddress: defaultHTTPBindAddress,
+			BindPort:    defaultHTTPBindPort,
+		},
 		Nomad: &Nomad{
 			Address: defaultNomadAddress,
 			Region:  defaultNomadRegion,
@@ -155,6 +180,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	}
 	if b.ScanInterval != 0 {
 		result.ScanInterval = b.ScanInterval
+	}
+
+	if b.HTTP != nil {
+		result.HTTP = result.HTTP.merge(b.HTTP)
 	}
 
 	if b.Nomad != nil {
@@ -189,6 +218,19 @@ func (a *Agent) Merge(b *Agent) *Agent {
 		result.Strategies = strategyCopy
 	} else if len(b.Strategies) != 0 {
 		result.Strategies = pluginConfigSetMerge(result.Strategies, b.Strategies)
+	}
+
+	return &result
+}
+
+func (h *HTTP) merge(b *HTTP) *HTTP {
+	result := *h
+
+	if b.BindAddress != "" {
+		result.BindAddress = b.BindAddress
+	}
+	if b.BindPort != 0 {
+		result.BindPort = b.BindPort
 	}
 
 	return &result

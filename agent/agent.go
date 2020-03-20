@@ -69,6 +69,13 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to load plugins: %v", err)
 	}
 
+	// Setup and start the HTTP health server.
+	healthServer, err := newHealthServer(a.config.HTTP, a.logger)
+	if err != nil {
+		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
+	}
+	go healthServer.run()
+
 	// loop like there's no tomorrow
 	var wg sync.WaitGroup
 	ticker := time.NewTicker(a.config.ScanInterval)
@@ -107,6 +114,9 @@ Loop:
 			}
 			wg.Wait()
 		case <-ctx.Done():
+			// Stop the health server.
+			healthServer.stop()
+
 			// stop plugins before exiting
 			a.logger.Info("killing plugins")
 			a.apmManager.Kill()

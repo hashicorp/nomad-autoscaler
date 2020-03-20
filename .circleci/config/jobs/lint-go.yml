@@ -2,4 +2,5 @@ executor: go
 steps:
   - install-go
   - checkout
+  - run: make tools
   - run: make lint

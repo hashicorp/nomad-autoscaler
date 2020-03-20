@@ -27,13 +27,14 @@ jobs:
         working_directory: ~/
     - checkout
     - run:
+        command: make tools
+    - run:
         command: make lint
     environment:
-    - CIRCLECI_CLI_VERSION: 0.1.5546
+    - CIRCLECI_CLI_VERSION: 0.1.6772
     - GO_TAGS: ''
     - GO_VERSION: 1.14
     - GO111MODULE: 'on'
-    - GOTESTSUM_VERSION: 0.3.3
   test-go:
     machine: true
     shell: /usr/bin/env bash -euo pipefail -c
@@ -59,11 +60,10 @@ jobs:
     - run:
         command: make test
     environment:
-    - CIRCLECI_CLI_VERSION: 0.1.5546
+    - CIRCLECI_CLI_VERSION: 0.1.6772
     - GO_TAGS: ''
     - GO_VERSION: 1.14
     - GO111MODULE: 'on'
-    - GOTESTSUM_VERSION: 0.3.3
   build-go:
     machine: true
     shell: /usr/bin/env bash -euo pipefail -c
@@ -89,11 +89,10 @@ jobs:
     - run:
         command: make build
     environment:
-    - CIRCLECI_CLI_VERSION: 0.1.5546
+    - CIRCLECI_CLI_VERSION: 0.1.6772
     - GO_TAGS: ''
     - GO_VERSION: 1.14
     - GO111MODULE: 'on'
-    - GOTESTSUM_VERSION: 0.3.3
 workflows:
   ci:
     jobs:
@@ -127,11 +126,10 @@ workflows:
 # executors:
 #   go:
 #     environment:
-#       CIRCLECI_CLI_VERSION: 0.1.5546
+#       CIRCLECI_CLI_VERSION: 0.1.6772
 #       GO_TAGS: \"\"
 #       GO_VERSION: 1.14
 #       GO111MODULE: \"on\"
-#       GOTESTSUM_VERSION: 0.3.3
 #     machine: true
 #     shell: /usr/bin/env bash -euo pipefail -c
 #     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
@@ -147,6 +145,7 @@ workflows:
 #     steps:
 #     - install-go
 #     - checkout
+#     - run: make tools
 #     - run: make lint
 #   test-go:
 #     executor: go

@@ -3,6 +3,7 @@ package nomad
 import (
 	"fmt"
 
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/strategy"
 	"github.com/hashicorp/nomad/api"
 )
@@ -12,21 +13,15 @@ type NomadGroupCount struct {
 }
 
 func (t *NomadGroupCount) SetConfig(config map[string]string) error {
-	clientConfig := api.DefaultConfig()
 
-	if config["region"] != "" {
-		clientConfig.Region = config["region"]
-	}
-	if config["address"] != "" {
-		clientConfig.Address = config["address"]
-	}
+	cfg := nomadHelper.ConfigFromMap(config)
 
-	client, err := api.NewClient(clientConfig)
+	client, err := api.NewClient(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
-
 	t.client = client
+
 	return nil
 }
 

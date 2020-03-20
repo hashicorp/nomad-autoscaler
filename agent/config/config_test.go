@@ -15,19 +15,27 @@ func Test_Default(t *testing.T) {
 	def, err := Default()
 	assert.Nil(t, err)
 	assert.NotNil(t, def)
+	assert.False(t, def.LogJson)
+	assert.Equal(t, def.LogLevel, "info")
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
 	assert.Equal(t, def.ScanInterval, time.Duration(10000000000))
-	assert.Equal(t, def.Nomad.Address, "127.0.0.1:4646")
+	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
+	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
+	assert.Equal(t, 8080, def.HTTP.BindPort)
 }
 
 func TestAgent_Merge(t *testing.T) {
-	baseCfg := &Agent{}
+	baseCfg, err := Default()
+	assert.Nil(t, err)
 
 	cfg1 := &Agent{
 		PluginDir:    "/opt/nomad-autoscaler/plugins",
 		ScanInterval: 5000000000,
+		HTTP: &HTTP{
+			BindAddress: "scaler.nomad",
+		},
 		Nomad: &Nomad{
-			Address: "nomad.systems:4646",
+			Address: "http://nomad.systems:4646",
 		},
 		APMs: []*Plugin{
 			{
@@ -39,11 +47,25 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	cfg2 := &Agent{
+		LogLevel:     "trace",
+		LogJson:      true,
 		PluginDir:    "/var/lib/nomad-autoscaler/plugins",
 		ScanInterval: 10000000000,
+		HTTP: &HTTP{
+			BindPort: 4646,
+		},
 		Nomad: &Nomad{
-			Address: "nomad-new.systems:4646",
-			Region:  "moon-base-1",
+			Address:       "https://nomad-new.systems:4646",
+			Region:        "moon-base-1",
+			Namespace:     "fra-mauro",
+			Token:         "super-secret-tokeny-thing",
+			HTTPAuth:      "admin:admin",
+			CACert:        "/etc/nomad.d/ca.crt",
+			CAPath:        "/etc/nomad.d/ca/",
+			ClientCert:    "/etc/nomad.d/client.crt",
+			ClientKey:     "/etc/nomad.d/client-key.crt",
+			TLSServerName: "cows-or-pets",
+			SkipVerify:    true,
 		},
 		APMs: []*Plugin{
 			{
@@ -66,11 +88,26 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	expectedResult := &Agent{
+		LogLevel:     "trace",
+		LogJson:      true,
 		PluginDir:    "/var/lib/nomad-autoscaler/plugins",
 		ScanInterval: 10000000000,
+		HTTP: &HTTP{
+			BindAddress: "scaler.nomad",
+			BindPort:    4646,
+		},
 		Nomad: &Nomad{
-			Address: "nomad-new.systems:4646",
-			Region:  "moon-base-1",
+			Address:       "https://nomad-new.systems:4646",
+			Region:        "moon-base-1",
+			Namespace:     "fra-mauro",
+			Token:         "super-secret-tokeny-thing",
+			HTTPAuth:      "admin:admin",
+			CACert:        "/etc/nomad.d/ca.crt",
+			CAPath:        "/etc/nomad.d/ca/",
+			ClientCert:    "/etc/nomad.d/client.crt",
+			ClientKey:     "/etc/nomad.d/client-key.crt",
+			TLSServerName: "cows-or-pets",
+			SkipVerify:    true,
 		},
 		APMs: []*Plugin{
 			{
@@ -92,7 +129,7 @@ func TestAgent_Merge(t *testing.T) {
 		},
 	}
 
-	actualResult := cfg1.Merge(baseCfg)
+	actualResult := baseCfg.Merge(cfg1)
 	actualResult = actualResult.Merge(cfg2)
 	assert.Equal(t, expectedResult, actualResult)
 }

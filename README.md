@@ -4,7 +4,7 @@
 
 ## Environment setup
 
-This project requires API endpoints in Nomad that are not released yet. In order to properly run the Autoscaler you will need to build a custom version of Nomad from the [nomad-private repo](https://github.com/hashicorp/nomad-private/tree/cgbaker-scaling-poc-oss). You will also need to [configure your `git` client so that Go can download modules from private repos](https://stackoverflow.com/a/27501039/700552).
+This project requires API endpoints in Nomad that are not released yet. In order to properly run the Autoscaler you will need to build Nomad from the [scaling-api branch](https://github.com/hashicorp/nomad/tree/scaling-api) of the OSS project.
 
 ## Building
 

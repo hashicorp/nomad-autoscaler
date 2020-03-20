@@ -6,17 +6,18 @@ job "webapp" {
 
     scaling {
       enabled = true
+      min     = 1
+      max     = 10
 
       policy {
-        query = "avg_cpu"
+        source = "prometheus"
+        query  = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
 
         strategy = {
           name = "target-value"
-          min  = 1
-          max  = 10
 
           config = {
-            target = 1
+            target = 20
           }
         }
       }

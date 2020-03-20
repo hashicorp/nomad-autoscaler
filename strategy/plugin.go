@@ -11,9 +11,9 @@ type RPC struct {
 }
 
 type RunRequest struct {
-	CurrentCount int
-	MinCount     int
-	MaxCount     int
+	CurrentCount int64
+	MinCount     int64
+	MaxCount     int64
 	CurrentValue float64
 	Config       map[string]string
 }

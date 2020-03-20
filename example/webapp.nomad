@@ -6,6 +6,8 @@ job "webapp" {
 
     scaling {
       enabled = true
+      min     = 1
+      max     = 10
 
       policy {
         source = "prometheus"
@@ -13,8 +15,6 @@ job "webapp" {
 
         strategy = {
           name = "target-value"
-          min  = 1
-          max  = 10
 
           config = {
             target = 20

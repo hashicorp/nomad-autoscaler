@@ -10,7 +10,7 @@ require (
 	github.com/hashicorp/go-hclog v0.12.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0
-	github.com/hashicorp/nomad/api v0.0.0-20200124004857-fea44b0d8e20
+	github.com/hashicorp/nomad/api v0.0.0-20200318210253-044a09641be4
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
@@ -21,5 +21,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15 // indirect
 	gopkg.in/yaml.v2 v2.2.5 // indirect
 )
-
-replace github.com/hashicorp/nomad/api => github.com/hashicorp/nomad-private/api v0.0.0-20200205214726-93dd628c8aae

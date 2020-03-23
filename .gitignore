@@ -6,6 +6,9 @@ plugins/*
 # binary output directory
 bin/
 
+# release binary output directory
+pkg/
+
 # ignore Vagrant related files
 *.log
 .vagrant

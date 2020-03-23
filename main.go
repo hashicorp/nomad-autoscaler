@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/hashicorp/nomad-autoscaler/command"
+	"github.com/hashicorp/nomad-autoscaler/version"
 	"github.com/mitchellh/cli"
 )
 
@@ -27,6 +28,9 @@ func main() {
 	c.Commands = map[string]cli.CommandFactory{
 		"agent": func() (cli.Command, error) {
 			return &command.AgentCommand{Ctx: ctx}, nil
+		},
+		"version": func() (cli.Command, error) {
+			return &command.VersionCommand{Version: version.GetHumanVersion()}, nil
 		},
 	}
 

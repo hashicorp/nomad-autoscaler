@@ -7,10 +7,11 @@ require (
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/golang/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
+	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-hclog v0.12.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0
-	github.com/hashicorp/nomad/api v0.0.0-20200318210253-044a09641be4
+	github.com/hashicorp/nomad/api v0.0.0-20200323130017-de87898913f0
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect

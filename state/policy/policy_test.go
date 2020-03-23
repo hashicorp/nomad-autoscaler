@@ -1,4 +1,4 @@
-package policystorage
+package policy
 
 import (
 	"testing"
@@ -28,7 +28,7 @@ func Test_parseStrategy(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actualOutput := parseStrategy(tc.inputStrategy)
+		actualOutput := ParseStrategy(tc.inputStrategy)
 		assert.Equal(t, tc.expectedOutput, actualOutput)
 	}
 }
@@ -47,7 +47,7 @@ func Test_parseTarget(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actualOutput := parseTarget(tc.inputTarget)
+		actualOutput := ParseTarget(tc.inputTarget)
 		assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 	}
 }

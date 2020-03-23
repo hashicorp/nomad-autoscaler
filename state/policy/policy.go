@@ -1,4 +1,4 @@
-package policystorage
+package policy
 
 import (
 	"fmt"
@@ -17,6 +17,8 @@ type Policy struct {
 	Strategy *Strategy
 }
 
+type JobPolicies map[string]*Policy
+
 type Strategy struct {
 	Name   string
 	Config map[string]string
@@ -27,16 +29,16 @@ type Target struct {
 	Config map[string]string
 }
 
-// policyKeys represent the scaling policy document keys and help translate
+// Keys represent the scaling policy document keys and help translate
 // the opaque object into a usable autoscaling policy.
 const (
-	policyKeySource   = "source"
-	policyKeyQuery    = "query"
-	policyKeyTarget   = "target"
-	policyKeyStrategy = "strategy"
+	KeySource   = "source"
+	KeyQuery    = "query"
+	KeyTarget   = "target"
+	KeyStrategy = "strategy"
 )
 
-func canonicalize(from *api.ScalingPolicy, to *Policy) {
+func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 
 	if to.Target.Name == "" {
 		to.Target.Name = "local-nomad"
@@ -67,7 +69,7 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 	}
 }
 
-func validate(policy *api.ScalingPolicy) []error {
+func Validate(policy *api.ScalingPolicy) []error {
 	var errs []error
 
 	strategyList, ok := policy.Policy["strategy"].([]interface{})
@@ -83,7 +85,7 @@ func validate(policy *api.ScalingPolicy) []error {
 	return errs
 }
 
-func parseStrategy(s interface{}) *Strategy {
+func ParseStrategy(s interface{}) *Strategy {
 	strategyMap := s.([]interface{})[0].(map[string]interface{})
 	configMap := strategyMap["config"].([]interface{})[0].(map[string]interface{})
 	configMapString := make(map[string]string)
@@ -97,7 +99,7 @@ func parseStrategy(s interface{}) *Strategy {
 	}
 }
 
-func parseTarget(t interface{}) *Target {
+func ParseTarget(t interface{}) *Target {
 	if t == nil {
 		return &Target{}
 	}

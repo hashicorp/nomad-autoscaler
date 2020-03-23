@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"os/exec"
 	"path"
-	"reflect"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hashicorp/nomad-autoscaler/state"
+	"github.com/hashicorp/nomad-autoscaler/state/policy"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
-	"github.com/hashicorp/nomad-autoscaler/policystorage"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
 	"github.com/hashicorp/nomad/api"
@@ -62,8 +63,8 @@ func (a *Agent) Run(ctx context.Context) error {
 		return err
 	}
 
-	ps := policystorage.NewStore(a.logger, a.nomadClient)
-	go ps.StartPolicyWatcher()
+	stateHandler := state.NewHandler(ctx, a.logger, a.nomadClient)
+	stateHandler.Start()
 
 	// launch plugins
 	if err := a.loadPlugins(); err != nil {
@@ -84,17 +85,15 @@ Loop:
 	for {
 		select {
 		case <-ticker.C:
-			logger := a.logger.With("policy_storage", reflect.TypeOf(ps))
-			logger.Info("reading policies")
 
 			// read policies
-			policies := ps.State.List()
-			logger.Info(fmt.Sprintf("found %d policies", len(policies)))
+			policies := stateHandler.PolicyState.List()
+			a.logger.Info(fmt.Sprintf("found %d policies", len(policies)))
 
 			// handle policies
 			for _, p := range policies {
 				wg.Add(1)
-				go func(policy *policystorage.Policy) {
+				go func(policy *policy.Policy) {
 					defer wg.Done()
 					select {
 					case <-ctx.Done():
@@ -319,7 +318,7 @@ func (a *Agent) loadStrategyPlugins() error {
 	return nil
 }
 
-func (a *Agent) handlePolicy(p *policystorage.Policy) {
+func (a *Agent) handlePolicy(p *policy.Policy) {
 	logger := a.logger.With(
 		"policy_id", p.ID,
 		"source", p.Source,

@@ -9,13 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/state"
-	"github.com/hashicorp/nomad-autoscaler/state/policy"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
+	"github.com/hashicorp/nomad-autoscaler/state"
+	"github.com/hashicorp/nomad-autoscaler/state/policy"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
 	"github.com/hashicorp/nomad/api"

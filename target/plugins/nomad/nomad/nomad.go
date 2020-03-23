@@ -25,7 +25,7 @@ func (t *Target) SetConfig(config map[string]string) error {
 	return nil
 }
 
-func (t *Target) Count(config map[string]string) (int, error) {
+func (t *Target) Count(config map[string]string) (int64, error) {
 	subTarget, err := t.subTarget(config)
 	if err != nil {
 		return 0, err

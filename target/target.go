@@ -10,7 +10,7 @@ import (
 
 type Target interface {
 	SetConfig(config map[string]string) error
-	Count(config map[string]string) (int, error)
+	Count(config map[string]string) (int64, error)
 	Scale(action strategy.Action, config map[string]string) error
 }
 

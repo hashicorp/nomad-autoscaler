@@ -26,8 +26,8 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Count(config map[string]string) (int, error) {
-	var resp int
+func (r *RPC) Count(config map[string]string) (int64, error) {
+	var resp int64
 	err := r.client.Call("Plugin.Count", config, &resp)
 	if err != nil {
 		return 0, err
@@ -59,7 +59,7 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Count(config map[string]string, resp *int) error {
+func (s *RPCServer) Count(config map[string]string, resp *int64) error {
 	count, err := s.Impl.Count(config)
 	if err != nil {
 		return err

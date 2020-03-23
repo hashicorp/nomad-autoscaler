@@ -13,8 +13,21 @@ type Strategy interface {
 }
 
 type Action struct {
-	Count  int
+	Count  int64
 	Reason string
+	Meta   map[string]interface{}
+}
+
+func (a *Action) IsWithinLimits(min, max int64) bool {
+	return a.Count >= min && a.Count <= max
+}
+
+func (a *Action) CapCount(min, max int64) {
+	if a.Count < min {
+		a.Count = min
+	} else if a.Count > max {
+		a.Count = max
+	}
 }
 
 type Manager struct {

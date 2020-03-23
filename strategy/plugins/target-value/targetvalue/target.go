@@ -19,18 +19,18 @@ func (s *TargetValue) SetConfig(config map[string]string) error {
 func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
 	resp := strategy.RunResponse{Actions: []strategy.Action{}}
 
-	target := req.Config["target"]
-	if target == "" {
+	t := req.Config["target"]
+	if t == "" {
 		return resp, fmt.Errorf("missing required field `target`")
 	}
 
-	c, err := strconv.ParseFloat(target, 64)
+	target, err := strconv.ParseFloat(t, 64)
 	if err != nil {
-		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", target, target)
+		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", t, t)
 	}
 
 	var reason, direction string
-	factor := req.CurrentValue / c
+	factor := req.Metric / target
 
 	if factor < 1 {
 		direction = "down"
@@ -42,20 +42,15 @@ func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error)
 	}
 
 	reason = fmt.Sprintf("scaling %s because factor is %f", direction, factor)
-	newCount := int64(math.Ceil(float64(req.CurrentCount) * factor))
-	if newCount < req.MinCount {
-		newCount = req.MinCount
-	} else if newCount > req.MaxCount {
-		newCount = req.MaxCount
-	}
+	newCount := int64(math.Ceil(float64(req.Count) * factor))
 
-	if newCount == req.CurrentCount {
+	if newCount == req.Count {
 		// count didn't change, no need to scale
 		return resp, nil
 	}
 
 	action := strategy.Action{
-		Count:  int(newCount),
+		Count:  newCount,
 		Reason: reason,
 	}
 	resp.Actions = append(resp.Actions, action)

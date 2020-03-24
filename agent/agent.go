@@ -417,6 +417,10 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 	// scale target
 	for _, action := range results.Actions {
+		// Make sure returned action has sane defaults instead of relying on
+		// plugins doing this.
+		action.Canonicalize()
+
 		if !action.IsWithinLimits(p.Min, p.Max) {
 			logger.Info("next count outside limits",
 				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)

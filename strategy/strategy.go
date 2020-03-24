@@ -18,6 +18,12 @@ type Action struct {
 	Meta   map[string]interface{}
 }
 
+func (a *Action) Canonicalize() {
+	if a.Meta == nil {
+		a.Meta = make(map[string]interface{})
+	}
+}
+
 func (a *Action) IsWithinLimits(min, max int64) bool {
 	return a.Count >= min && a.Count <= max
 }
@@ -25,9 +31,27 @@ func (a *Action) IsWithinLimits(min, max int64) bool {
 func (a *Action) CapCount(min, max int64) {
 	if a.Count < min {
 		a.Count = min
+		a.PushReason(fmt.Sprintf("capping count to min value of %d", min))
 	} else if a.Count > max {
 		a.Count = max
+		a.PushReason(fmt.Sprintf("capping count to max value of %d", max))
 	}
+}
+
+func (a *Action) PushReason(r string) {
+	metaKey := "nomad_autoscaler.reason_history"
+	history := []string{}
+
+	// Check if we already have a reason stack in Meta
+	if historyInterface, ok := a.Meta[metaKey]; ok {
+		if historySlice, ok := historyInterface.([]string); ok {
+			history = historySlice
+		}
+	}
+
+	// Append current reason to history and update action
+	a.Meta[metaKey] = append(history, a.Reason)
+	a.Reason = r
 }
 
 type Manager struct {

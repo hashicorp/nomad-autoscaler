@@ -61,14 +61,6 @@ EOF
       service {
         name = "webapp-haproxy"
         port = "webapp"
-
-        #        check {
-        #          name     = "webapp alive"
-        #          type     = "http"
-        #          path     = "/"
-        #          interval = "5s"
-        #          timeout  = "2s"
-        #        }
       }
 
       resources {

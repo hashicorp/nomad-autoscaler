@@ -133,11 +133,9 @@ Loop:
 // merges it into a Nomad API config object and creates a client.
 func (a *Agent) generateNomadClient() error {
 
-	// Use an empty config object. When calling NewClient, the Nomad API will
-	// merge options with those returned from DefaultConfig().
-	cfg := &api.Config{
-		TLSConfig: &api.TLSConfig{},
-	}
+	// Use the Nomad API default config which gets populated by defaults and
+	// also checks for environment variables.
+	cfg := api.DefaultConfig()
 
 	// Merge our top level configuration options in.
 	if a.config.Nomad.Address != "" {

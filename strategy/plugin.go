@@ -11,11 +11,10 @@ type RPC struct {
 }
 
 type RunRequest struct {
-	CurrentCount int64
-	MinCount     int64
-	MaxCount     int64
-	CurrentValue float64
-	Config       map[string]string
+	PolicyID string
+	Count    int64
+	Metric   float64
+	Config   map[string]string
 }
 
 type RunResponse struct {

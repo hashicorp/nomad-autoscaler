@@ -362,11 +362,10 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	// calculate new count using policy's Strategy
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
-		CurrentCount: int64(currentCount),
-		MinCount:     p.Min,
-		MaxCount:     p.Max,
-		CurrentValue: value,
-		Config:       p.Strategy.Config,
+		PolicyID: p.ID,
+		Count:    currentCount,
+		Metric:   value,
+		Config:   p.Strategy.Config,
 	}
 	results, err := strategy.Run(req)
 	if err != nil {
@@ -375,12 +374,52 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	}
 
 	if len(results.Actions) == 0 {
-		logger.Info("nothing to do")
-		return
+		// Make sure we are currently within [min, max] limits
+		var minMaxAction *strategypkg.Action
+
+		if currentCount < p.Min {
+			minMaxAction = &strategypkg.Action{
+				Count:  p.Min,
+				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentCount, p.Min),
+			}
+		} else if currentCount > p.Max {
+			minMaxAction = &strategypkg.Action{
+				Count:  p.Max,
+				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentCount, p.Max),
+			}
+		}
+
+		if minMaxAction != nil {
+			results.Actions = append(results.Actions, *minMaxAction)
+		} else {
+			logger.Info("nothing to do")
+			return
+		}
 	}
 
 	// scale target
 	for _, action := range results.Actions {
+		// Make sure returned action has sane defaults instead of relying on
+		// plugins doing this.
+		action.Canonicalize()
+
+		if !action.IsWithinLimits(p.Min, p.Max) {
+			logger.Info("next count outside limits",
+				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
+
+			// Make sure new count value is within [min, max] limits
+			action.CapCount(p.Min, p.Max)
+
+			logger.Info("updated count to be within limits",
+				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
+		}
+
+		if action.Count == currentCount {
+			logger.Info("nothing to do: intended count equals current count",
+				"from", currentCount, "to", action.Count)
+			continue
+		}
+
 		logger.Info("scaling target",
 			"target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
 

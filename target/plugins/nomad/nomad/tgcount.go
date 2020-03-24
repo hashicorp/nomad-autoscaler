@@ -25,27 +25,26 @@ func (t *NomadGroupCount) SetConfig(config map[string]string) error {
 	return nil
 }
 
-func (t *NomadGroupCount) Count(config map[string]string) (int, error) {
-	var count int
+func (t *NomadGroupCount) Count(config map[string]string) (int64, error) {
+	// TODO: validate if group is valid
 	allocs, _, err := t.client.Jobs().Allocations(config["job_id"], false, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to retrieve Nomad job: %v", err)
 	}
 
+	var count int64
 	for _, alloc := range allocs {
 		if alloc.TaskGroup == config["group"] && alloc.ClientStatus == "running" {
 			count++
 		}
-	}
-	if count == 0 {
-		return 0, fmt.Errorf("group %s not found", config["group"])
 	}
 
 	return count, nil
 }
 
 func (t *NomadGroupCount) Scale(action strategy.Action, config map[string]string) error {
-	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], action.Count, &action.Reason, nil, nil, nil)
+	countInt := int(action.Count)
+	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], &countInt, &action.Reason, nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
 	}

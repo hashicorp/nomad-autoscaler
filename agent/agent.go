@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path"
 	"reflect"
-	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policystorage"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
@@ -133,9 +133,9 @@ Loop:
 // merges it into a Nomad API config object and creates a client.
 func (a *Agent) generateNomadClient() error {
 
-	// Use an empty config object. When calling NewClient, the Nomad API will
-	// merge options with those returned from DefaultConfig().
-	cfg := &api.Config{}
+	// Use the Nomad API default config which gets populated by defaults and
+	// also checks for environment variables.
+	cfg := api.DefaultConfig()
 
 	// Merge our top level configuration options in.
 	if a.config.Nomad.Address != "" {
@@ -153,19 +153,7 @@ func (a *Agent) generateNomadClient() error {
 
 	// Merge HTTP auth.
 	if a.config.Nomad.HTTPAuth != "" {
-		var username, password string
-		if strings.Contains(a.config.Nomad.HTTPAuth, ":") {
-			split := strings.SplitN(a.config.Nomad.HTTPAuth, ":", 2)
-			username = split[0]
-			password = split[1]
-		} else {
-			username = a.config.Nomad.HTTPAuth
-		}
-
-		cfg.HttpAuth = &api.HttpBasicAuth{
-			Username: username,
-			Password: password,
-		}
+		cfg.HttpAuth = nomadHelper.HTTPAuthFromString(a.config.Nomad.HTTPAuth)
 	}
 
 	// Merge TLS.
@@ -225,10 +213,7 @@ func (a *Agent) loadAPMPlugins() error {
 	a.config.APMs = append(a.config.APMs, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad-apm",
-		Config: map[string]string{
-			"address": a.config.Nomad.Address,
-			"region":  a.config.Nomad.Region,
-		},
+		Config: nomadHelper.ConfigToMap(a.config.Nomad),
 	})
 
 	for _, apmConfig := range a.config.APMs {
@@ -264,10 +249,7 @@ func (a *Agent) loadTargetPlugins() error {
 	a.config.Targets = append(a.config.Targets, &config.Plugin{
 		Name:   "local-nomad",
 		Driver: "nomad",
-		Config: map[string]string{
-			"address": a.config.Nomad.Address,
-			"region":  a.config.Nomad.Region,
-		},
+		Config: nomadHelper.ConfigToMap(a.config.Nomad),
 	})
 
 	for _, targetConfig := range a.config.Targets {

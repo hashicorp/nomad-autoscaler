@@ -5,6 +5,7 @@ import (
 	"math"
 	"strings"
 
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -42,15 +43,15 @@ type Sample struct {
 }
 
 func (m *MetricsAPM) SetConfig(config map[string]string) error {
-	clientConfig := api.DefaultConfig()
-	clientConfig = clientConfig.ClientConfig(config["region"], config["address"], false)
 
-	client, err := api.NewClient(clientConfig)
+	cfg := nomadHelper.ConfigFromMap(config)
+
+	client, err := api.NewClient(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
-
 	m.client = client
+
 	return nil
 }
 

@@ -1,6 +1,7 @@
 SHELL = bash
-default: test lint build
+default: lint test build
 
+.PHONY: tools
 tools: ## Install the tools used to test and build
 	@echo "==> Installing tools"
 	GO111MODULE=off go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
@@ -33,9 +34,9 @@ plugins:
 			 pushd $$p > /dev/null; \
 			 go build -o ../../../plugins/$$plugin; \
 			 popd > /dev/null;  \
+			 echo "==> Done"; \
      done; \
    done
-	@echo "==> Done"
 
 .PHONY: build-docker
 build-docker:

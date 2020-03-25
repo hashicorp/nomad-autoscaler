@@ -14,6 +14,8 @@ require (
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
+	github.com/prometheus/client_golang v1.5.1
+	github.com/prometheus/common v0.9.1
 	github.com/stretchr/testify v1.4.0
 	github.com/zclconf/go-cty v1.3.1 // indirect
 	golang.org/x/net v0.0.0-20190613194153-d28f0bde5980 // indirect

@@ -1,5 +1,0 @@
-# ignore the binary...
-nomad
-
-# ...but not the folder
-!nomad/

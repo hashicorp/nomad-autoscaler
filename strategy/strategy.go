@@ -55,13 +55,16 @@ func (a *Action) PushReason(r string) {
 }
 
 type Manager struct {
-	lock          sync.RWMutex
-	pluginClients map[string]*plugin.Client
+	lock            sync.RWMutex
+	lockInternal    sync.RWMutex
+	pluginClients   map[string]*plugin.Client
+	internalPlugins map[string]*Strategy
 }
 
 func NewStrategyManager() *Manager {
 	return &Manager{
-		pluginClients: make(map[string]*plugin.Client),
+		pluginClients:   make(map[string]*plugin.Client),
+		internalPlugins: make(map[string]*Strategy),
 	}
 }
 
@@ -74,7 +77,22 @@ func (m *Manager) RegisterPlugin(key string, p *plugin.ClientConfig) error {
 	return nil
 }
 
+func (m *Manager) RegisterInternalPlugin(key string, p *Strategy) {
+	m.lockInternal.Lock()
+	defer m.lockInternal.Unlock()
+
+	m.internalPlugins[key] = p
+}
+
 func (m *Manager) Dispense(key string) (*Strategy, error) {
+	// check if this is a local implementation
+	m.lockInternal.RLock()
+	if s, ok := m.internalPlugins[key]; ok {
+		m.lockInternal.RUnlock()
+		return s, nil
+	}
+	m.lockInternal.RUnlock()
+
 	m.lock.RLock()
 	client := m.pluginClients[key]
 	m.lock.RUnlock()
@@ -92,12 +110,12 @@ func (m *Manager) Dispense(key string) (*Strategy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to dispense plugin: %v", err)
 	}
-	target, ok := raw.(Strategy)
+	strategy, ok := raw.(Strategy)
 	if !ok {
 		return nil, fmt.Errorf("plugins %s is not Strategy (%T)\n", key, raw)
 	}
 
-	return &target, nil
+	return &strategy, nil
 }
 
 func (m *Manager) Kill() {

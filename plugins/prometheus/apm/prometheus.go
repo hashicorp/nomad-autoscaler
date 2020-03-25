@@ -1,29 +1,21 @@
-package main
+package prometheus
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/apm"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
 )
 
-var handshakeConfig = plugin.HandshakeConfig{
-	ProtocolVersion:  1,
-	MagicCookieKey:   "magic",
-	MagicCookieValue: "magic",
-}
-
-type PrometheusAPM struct {
+type APM struct {
 	client api.Client
 	config map[string]string
 }
 
-func (p *PrometheusAPM) SetConfig(c map[string]string) error {
+func (p *APM) SetConfig(c map[string]string) error {
 	config := api.Config{
 		Address: c["address"],
 	}
@@ -41,7 +33,7 @@ func (p *PrometheusAPM) SetConfig(c map[string]string) error {
 	return nil
 }
 
-func (p *PrometheusAPM) Query(q string) (float64, error) {
+func (p *APM) Query(q string) (float64, error) {
 	v1api := v1.NewAPI(p.client)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -62,15 +54,4 @@ func (p *PrometheusAPM) Query(q string) (float64, error) {
 
 	s := result.(*model.Scalar)
 	return float64(s.Value), nil
-}
-
-func main() {
-	p := &PrometheusAPM{}
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: handshakeConfig,
-		Plugins: map[string]plugin.Plugin{
-			"apm": &apm.Plugin{Impl: p},
-		},
-	})
-
 }

@@ -25,19 +25,6 @@ test: ## Test the source code
 	@go test -v -race -cover ./...
 	@echo "==> Done"
 
-.PHONY: plugins
-plugins:
-	@for d in apm/plugins target/plugins strategy/plugins; do \
-	   for p in $${d}/*; do \
-		   plugin=$$(basename $$p); \
-			 echo "==> Building $${plugin}..."; \
-			 pushd $$p > /dev/null; \
-			 go build -o ../../../plugins/$$plugin; \
-			 popd > /dev/null;  \
-			 echo "==> Done"; \
-     done; \
-   done
-
 .PHONY: build-docker
 build-docker:
 	@echo "==> Building autoscaler docker container..."

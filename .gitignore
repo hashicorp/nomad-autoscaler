@@ -1,7 +1,6 @@
 # ignore binaries
 example/nomad
 example/consul
-plugins/*
 
 # binary output directory
 bin/

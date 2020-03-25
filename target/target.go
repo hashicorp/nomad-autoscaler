@@ -15,13 +15,16 @@ type Target interface {
 }
 
 type Manager struct {
-	lock          sync.RWMutex
-	pluginClients map[string]*plugin.Client
+	lock            sync.RWMutex
+	lockInternal    sync.RWMutex
+	pluginClients   map[string]*plugin.Client
+	internalPlugins map[string]*Target
 }
 
 func NewTargetManager() *Manager {
 	return &Manager{
-		pluginClients: make(map[string]*plugin.Client),
+		pluginClients:   make(map[string]*plugin.Client),
+		internalPlugins: make(map[string]*Target),
 	}
 }
 
@@ -34,7 +37,22 @@ func (m *Manager) RegisterPlugin(key string, p *plugin.ClientConfig) error {
 	return nil
 }
 
+func (m *Manager) RegisterInternalPlugin(key string, p *Target) {
+	m.lockInternal.Lock()
+	defer m.lockInternal.Unlock()
+
+	m.internalPlugins[key] = p
+}
+
 func (m *Manager) Dispense(key string) (*Target, error) {
+	// check if this is a local implementation
+	m.lockInternal.RLock()
+	if t, ok := m.internalPlugins[key]; ok {
+		m.lockInternal.RUnlock()
+		return t, nil
+	}
+	m.lockInternal.RUnlock()
+
 	m.lock.RLock()
 	client := m.pluginClients[key]
 	m.lock.RUnlock()

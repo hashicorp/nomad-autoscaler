@@ -4,7 +4,7 @@ Plugins are an essential part of the Nomad Autoscaler architecture. The Autoscal
 The Nomad Autoscaler currently ships with a number of built-in plugins to ease the learning curve. Details of these can be found below, under the specific plugin type sections.
 
 ## APM Plugins
-APMs are used to store metrics about an applications performance and current state. The APM plugin is responsible for querying the APM and returning a value which will be used to determine if scaling should occur. Currently built into the Nomad Autoscaler binary are:
+APMs are used to store metrics about an applications performance and current state. The APM (Application Performance Management) plugin is responsible for querying the APM and returning a value which will be used to determine if scaling should occur. Currently built into the Nomad Autoscaler binary are:
 
 #### Prometheus APM Plugin
 Use Prometheus metrics to scale your Nomad job task groups. The query performed on Prometheus should return a single value.
@@ -17,7 +17,7 @@ policy {
 ```
 
 #### Nomad APM Plugin
-Use Nomad CPU and Memory task group metrics for autoscaling.
+Use Nomad CPU and Memory task group metrics for autoscaling. In order to utilise this plugin, the configuration option [publish_allocation_metrics](https://nomadproject.io/docs/configuration/telemetry/#inlinecode-publish_allocation_metrics) should be set to true on the Nomad cluster.
 
 ## Target Plugins
 Target Plugins determine where the resource to be autoscaled is located.
@@ -26,8 +26,7 @@ Target Plugins determine where the resource to be autoscaled is located.
 This indicates the Nomad task group is running on a Nomad cluster. This block can be omitted as `nomad` is currently the default parameter.
 
 ## Strategy Plugins
-Strategy plugins compare the current state of the system against the desired state defined by the operator in the scaling policy and generate an action that will bring the system closer to where it should be. In practical terms, strategies receive the current count and a metric value for a task group and output what the new task group count should be. Currently built into the Nomad Autoscaler binary are:
-
+Strategy plugins compare the current state of the system against the desired state defined by the operator in the scaling policy and generate an action that will bring the system closer to the desired state. In practical terms, strategies receive the current count and a metric value for a task group and output what the new task group count should be. Currently built into the Nomad Autoscaler binary are:
 #### Target Value Strategy Plugin
 The target value strategy plugin will perform count calculations in order to keep the value resulting from the APM query at or around a specified target.
 

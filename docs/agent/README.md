@@ -19,7 +19,7 @@ As each file is processed, its contents are merged into the existing configurati
  * `scan_interval` `(duration: "10s")` - The time to wait between Nomad Autoscaler evaluations.
 
 ## `http` Block
-The `http` block configures the Nomad Autoscaler's HTTP health server.
+The `http` block configures the Nomad Autoscaler's HTTP health endpoint.
 ```hcl
 http {
   bind_address = "10.0.0.10"

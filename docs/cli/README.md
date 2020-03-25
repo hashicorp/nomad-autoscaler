@@ -1,5 +1,5 @@
 # Nomad Autoscaler Commands (CLI)
-The Nomad Autoscaler is controlled via a very easy to use command-line interface (CLI).
+The Nomad Autoscaler is controlled via an easy-to-use command-line interface (CLI).
 
 ## Command: agent
 The agent command is used to start the Nomad Autoscaler which runs until an interrupt is received. The Nomad Autoscaler agent's configuration primarily comes from the config files used, but a subset of the options may also be passed directly as CLI arguments. See the [Nomad Autoscaler Agent](../agent/README.md) guide for more information on how to use this command and the options it has.

@@ -1,5 +1,5 @@
 # Nomad Autoscaler Scaling Policies
-Nomad task groups can be configured for Autoscaling using the [scaling stanza](https://nomadproject.io/docs/job-specification/scaling/) in the job specification. The policy contents are opaque to Nomad, and are unique and parsed by the external autoscaler.
+Nomad task groups can be configured for Autoscaling using the [scaling stanza](https://nomadproject.io/docs/job-specification/scaling/) in the job specification. The policy contents on the scaling stanza are opaque to Nomad, and are unique and parsed by the external autoscaler.
 
 ## General Options
  * `source` - The APM plugin that should handle the metric query. If omitted, this defaults to using the Nomad APM. 
@@ -7,21 +7,23 @@ Nomad task groups can be configured for Autoscaling using the [scaling stanza](h
  * `target` - Defines where the autoscaling target is running. A Nomad task group for example has a target of Nomad, as it is running on a Nomad cluster. If omitted, this defaults to `name = "nomad"`. 
  * `strategy` - The strategy to use, and it's configuration when calculating the desired state based on the current task group count and the metric returned by the APM.
  
-### Full Example
+Below is a full Nomad task group scaling stanza example, including a valid policy for the Nomad Autoscaler.
 ```hcl
-policy {
-  source = "prometheus"
-  query  = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
+scaling {
+  enabled = true
+  min     = 1
+  max     = 10
 
-  target = {
-    name = "nomad"
-  }
+  policy {
+    source = "prometheus"
+    query  = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
 
-  strategy = {
-    name = "target-value"
+    strategy = {
+      name = "target-value"
 
-    config = {
-      target = 20
+      config = {
+        target = 20
+      }
     }
   }
 }

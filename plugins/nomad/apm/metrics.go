@@ -11,7 +11,6 @@ import (
 
 type MetricsAPM struct {
 	client *api.Client
-	//config map[string]string
 }
 
 type Metrics struct {

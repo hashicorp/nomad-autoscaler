@@ -6,7 +6,7 @@ Nomad task groups can be configured for Autoscaling using the [scaling stanza](h
  * `query` - The query to run against the specified APM. Currently this query should return a single value.
  * `target` - Defines where the autoscaling target is running. A Nomad task group for example has a target of Nomad, as it is running on a Nomad cluster. If omitted, this defaults to `name = "nomad"`. 
  * `strategy` - The strategy to use, and it's configuration when calculating the desired state based on the current task group count and the metric returned by the APM.
- 
+
 Below is a full Nomad task group scaling stanza example, including a valid policy for the Nomad Autoscaler.
 ```hcl
 scaling {

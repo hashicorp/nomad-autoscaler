@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.0.1-techpreview1 (March 25, 2020)
 
 Initial tech-preview release.
 See https://github.com/hashicorp/nomad-autoscaler for documentation and known limitations.

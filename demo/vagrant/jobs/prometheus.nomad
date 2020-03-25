@@ -1,4 +1,4 @@
-job "monitoring" {
+job "prometheus" {
   datacenters = ["dc1"]
 
   group "prometheus" {

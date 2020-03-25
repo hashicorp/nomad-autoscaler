@@ -60,9 +60,9 @@ Vagrant.configure("2") do |config|
     # Download and install Nomad and Consul.
     pushd /tmp/downloads
     curl --silent --show-error --remote-name-all \
-      https://releases.hashicorp.com/nomad/0.10.0-beta1/nomad_0.10.0-beta1_linux_amd64.zip \
+      https://releases.hashicorp.com/nomad/0.11.0-beta1/nomad_0.11.0-beta1_linux_amd64.zip \
       https://releases.hashicorp.com/consul/1.7.2/consul_1.7.2_linux_amd64.zip
-    unzip nomad_0.10.0-beta1_linux_amd64.zip
+    unzip nomad_0.11.0-beta1_linux_amd64.zip
     unzip consul_1.7.2_linux_amd64.zip
     mkdir -p /opt/hashicorp/bin
     mv nomad consul /opt/hashicorp/bin

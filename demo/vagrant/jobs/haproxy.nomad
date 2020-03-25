@@ -28,7 +28,7 @@ frontend stats
    no log
 
 frontend http_front
-   bind *:8080
+   bind *:8000
    default_backend http_back
 
 backend http_back
@@ -61,14 +61,6 @@ EOF
       service {
         name = "webapp-haproxy"
         port = "webapp"
-
-        #        check {
-        #          name     = "webapp alive"
-        #          type     = "http"
-        #          path     = "/"
-        #          interval = "5s"
-        #          timeout  = "2s"
-        #        }
       }
 
       resources {
@@ -79,7 +71,7 @@ EOF
           mbits = 10
 
           port "webapp" {
-            static = 8080
+            static = 8000
           }
 
           port "haproxy_ui" {

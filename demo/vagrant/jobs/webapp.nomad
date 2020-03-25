@@ -2,10 +2,10 @@ job "webapp" {
   datacenters = ["dc1"]
 
   group "demo" {
-    count = 1
+    count = 3
 
     scaling {
-      enabled = true
+      enabled = false
       min     = 1
       max     = 10
 

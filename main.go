@@ -23,12 +23,15 @@ func main() {
 		cancel()
 	}()
 
-	version := fmt.Sprintf("Nomad Autoscaler v%s", version.GetHumanVersion())
+	version := fmt.Sprintf("Nomad Autoscaler %s", version.GetHumanVersion())
 	c := cli.NewCLI("nomad-autoscaler", version)
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
 		"agent": func() (cli.Command, error) {
 			return &command.AgentCommand{Ctx: ctx}, nil
+		},
+		"version": func() (cli.Command, error) {
+			return &command.VersionCommand{Version: version}, nil
 		},
 	}
 

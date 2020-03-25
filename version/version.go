@@ -31,6 +31,11 @@ func GetHumanVersion() string {
 		version = GitDescribe
 	}
 
+	// Add v as prefix if not present
+	if !strings.HasPrefix(version, "v") {
+		version = fmt.Sprintf("v%s", version)
+	}
+
 	release := VersionPrerelease
 	if GitDescribe == "" && release == "" {
 		release = "dev"

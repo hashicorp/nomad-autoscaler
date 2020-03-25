@@ -52,10 +52,14 @@ func (m *Manager) Dispense(key string) (*APM, error) {
 	}
 	m.lockInternal.RUnlock()
 
-	// otherwhise dispense a plugin
+	// otherwise dispense a plugin
 	m.lock.RLock()
 	client := m.pluginClients[key]
 	m.lock.RUnlock()
+
+	if client == nil {
+		return nil, fmt.Errorf("missing client %s", key)
+	}
 
 	rpcClient, err := client.Client()
 	if err != nil {

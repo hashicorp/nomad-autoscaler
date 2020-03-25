@@ -6,7 +6,7 @@ Nomad Autoscaler agents have a variety of parameters that can be specified via c
 The Nomad Autoscaler currently has limited support for 
 [Nomad Namespaces](https://learn.hashicorp.com/nomad/governance-and-policy/namespaces).
 The `nomad` configuration below supports specifying a namespace; if configured with a namespace,
-the autoscaler will retrieve scaling policies and perform autoscaling only for jobs in that namespace.
+the Autoscaler will retrieve scaling policies and perform autoscaling only for jobs in that namespace.
 Future version will include support for multiple namespaces.
 
 ## Nomad ACLs
@@ -25,7 +25,7 @@ namespace "default" {
 A token created using this policy should be provided in the `nomad` configuration, as described below.
 
 ## Load Order and Merging
-The Nomad Autoscaler agent supports multiple configuration files, which can be provided using the -config CLI flag. The flag can accept either a file or folder. In the case of a folder, any .hcl and .json files in the folder will be loaded and merged in lexicographical order. Directories are not loaded recursively.
+The Nomad Autoscaler agent supports multiple configuration files, which can be provided using the `-config` CLI flag. The flag can accept either a file or folder. In the case of a folder, any `.hcl` and `.json` files in the folder will be loaded and merged in lexicographical order. Directories are not loaded recursively.
 
 For example:
 ```
@@ -33,12 +33,12 @@ $ nomad-autoscaler agent -config=autoscaler.conf -config=/etc/nomad-autoscaler -
 ```
 This will load configuration from `autoscaler.conf`, from `.hcl` and `.json` files under `/etc/nomad-autoscaler`, and finally from `extra.json`.
 
-As each file is processed, its contents are merged into the existing configuration. When merging, any non-empty values from the latest config file will append or replace parameters in the current configuration. An empty value means "" for strings, 0 for integer or float values, and false for booleans.
+As each file is processed, its contents are merged into the existing configuration. When merging, any non-empty values from the latest config file will append or replace parameters in the current configuration. An empty value means `""` for strings, `0` for integer or float values, and `false` for booleans.
 
 ## General Parameters
  * `log_level` `(string: "INFO")` -  Specify the verbosity level of Nomad Autoscaler's logs. Valid values include `DEBUG`, `INFO`, and `WARN`, in decreasing order of verbosity.
  * `log_json` `(bool: false)` - Output logs in a JSON format.
- * `plugin_dir` `(string: "./plugins")` - The plugin directory is used to discover Nomad Autoscaler plugins.
+ * `plugin_dir` `(string: "./plugins")` - The plugin directory used to discover Nomad Autoscaler plugins.
  * `scan_interval` `(duration: "10s")` - The time to wait between Nomad Autoscaler evaluations.
 
 ## `http` Block
@@ -64,10 +64,10 @@ nomad {
 ```
 
 ### `nomad` Parameters
- * `address` `(string "http://127.0.0.1:4646")` - The address of the Nomad server in the form of protocol://addr:port.
+ * `address` `(string "http://127.0.0.1:4646")` - The address of the Nomad server in the form of `protocol://addr:port`.
  * `region` `(string "global")` - The region of the Nomad servers to connect with.
  * `namespace` `(string "")` - The target namespace for queries and actions bound to a namespace.
- * `token` `(string "")` - The SecretID of an ACL token to use to authenticate API requests with.
+ * `token` `(string "")` - The `SecretID` of an ACL token to use to authenticate API requests with.
  * `http_auth` `(string "")` - The authentication information to use when connecting to a Nomad API which is using HTTP authentication.
  * `ca_cert` `(string "")` - Path to a PEM encoded CA cert file to use to verify the Nomad server SSL certificate.
  * `ca_path` `(string "")` - Path to a directory of PEM encoded CA cert files to verify the Nomad server SSL certificate.
@@ -91,7 +91,7 @@ apm "example-apm-plugin" {
 
 ### `apm` Parameters
  * `args` `(array<string>: [])` - Specifies a set of arguments to pass to the plugin binary when it is executed.
- * `driver` `(string: "")` - The plugin's executable name relative to to the plugin_dir. If the plugin has a suffix, such as `.exe`, this should be omitted.
+ * `driver` `(string: "")` - The plugin's executable name relative to to the `plugin_dir`. If the plugin has a suffix, such as `.exe`, this should be omitted.
  * `config` `(hcl/json: nil)` - Specifies configuration values for the plugin either as HCL or JSON. The accepted values are plugin specific. Please refer to the individual plugin's documentation.
 
 ## `target` Block

@@ -43,8 +43,8 @@ $ nomad run prometheus.nomad
 ```
 
 ## Start the Autoscaler Component Jobs
-First start the Nomad job which will be autoscaled. The `webapp.nomad` jobfile contains a scaling stanza which defines the key autoscaling parameters for a task group. There are a number of interesting a key options to understand.
-- `enabled = false` is a parameter to allow operators to administratively disable scaling for a task group. 
+First start the Nomad job which will be autoscaled. The `webapp.nomad` jobfile contains a scaling stanza which defines the key autoscaling parameters for a task group. There are a number of interesting key options to understand.
+- `enabled = false` is a parameter to allow operators to administratively disable scaling for a task group.
 - `source = "prometheus"` specifies that the Autoscaler will use the Prometheus APM plugin to retrieve metrics.
 - `query  = "scalar(avg((haproxy..` is the query that will be run against the APM and is expected to return a single value.
 - `strategy = { name = "target-value"` defines the calculation strategy the Autoscaler will use, in this case we a targeting a value.
@@ -58,7 +58,7 @@ The Autoscaler Nomad job can now be submitted. The Nomad Autoscaler does not req
 ```
 $ nomad run autoscaler.nomad
 ```
-Check the logs of the Autoscaler to see that it has started up correctly and loaded all the plugins.
+Check the logs of the Autoscaler to see that it has started up correctly.
 ```
 $ nomad logs -stderr <alloc-id>
 ```
@@ -74,27 +74,31 @@ $ nomad run -check-index <index-from-plan> webapp.nomad
 ```
 The Autoscaler will now actively evaluate the example group of the webapp job, and will determine that the current count 3, is more than is needed to meet the required scaling target.
 ```
-example log line
-example log line
-example log line
-example log line
-example log line
+2020-03-25T17:17:02.725Z [INFO]  agent: reading policies: policy_storage=policystorage.Nomad
+2020-03-25T17:17:02.726Z [INFO]  agent: found 1 policies: policy_storage=policystorage.Nomad
+2020-03-25T17:17:02.727Z [INFO]  agent: fetching current count: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:17:02.729Z [INFO]  agent: querying APM: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:17:02.731Z [INFO]  agent: calculating new count: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:17:02.731Z [INFO]  agent: next count outside limits: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad from=3 to=0 min=1 max=10
+2020-03-25T17:17:02.731Z [INFO]  agent: updated count to be within limits: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad from=3 to=1 min=1 max=10
+2020-03-25T17:17:02.731Z [INFO]  agent: scaling target: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad target_config="map[group:demo job_id:webapp]" from=3 to=1 reason="capping count to min value of 1"
 ```
-The Autoscaler will never scale a job group past either the min or max parameters. This ensures applications maintain high availability even during minimal load, while also not over scaling due to problems such as misconfiguration or faulty metrics values.
+The Autoscaler will never scale a job group past either the `min` or `max` parameters. This ensures applications maintain high availability even during minimal load, while also not over scaling due to problems such as misconfiguration or faulty metrics values.
 
 ## Generate Load and Scale Up
 In order to generate load, a tool called [hey](https://github.com/rakyll/hey) is installed and available on the virtual machine. It is recommended to create a second ssh connection to the virtual machine. Inside this terminal we can then generate load on the webapp service.
 ```
-$ hey -z 1m -c 30 http://127.0.0.1:8080
+$ hey -z 1m -c 30 http://127.0.0.1:8000
 ```
 
 The increase in load will be reflected through Prometheus metrics to the Autoscaler. Checking the Autoscaler logs, you should see messages indicating it has chosen to scale out the job due to the increase in load.
 ```
-example log line
-example log line
-example log line
-example log line
-example log line
+2020-03-25T17:23:12.725Z [INFO]  agent: reading policies: policy_storage=policystorage.Nomad
+2020-03-25T17:23:12.727Z [INFO]  agent: found 1 policies: policy_storage=policystorage.Nomad
+2020-03-25T17:23:12.728Z [INFO]  agent: fetching current count: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:23:12.730Z [INFO]  agent: querying APM: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:23:12.735Z [INFO]  agent: calculating new count: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad
+2020-03-25T17:23:12.735Z [INFO]  agent: scaling target: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad target_config="map[group:demo job_id:webapp]" from=1 to=2 reason="scaling up because factor is 1.500000"
 ```
 
 ## Demo End

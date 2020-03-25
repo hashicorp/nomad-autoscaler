@@ -4,12 +4,6 @@ job "autoscaler" {
   group "autoscaler" {
     count = 1
 
-    volume "plugins" {
-      type      = "host"
-      source    = "plugins"
-      read_only = true
-    }
-
     task "autoscaler" {
       driver = "exec"
 
@@ -18,12 +12,12 @@ job "autoscaler" {
 plugin_dir = "/plugins"
 scan_interval = "5s"
 nomad {
-  address = "{{env "attr.unique.network.ip-address" }}:4646"
+  address = "http://{{env "attr.unique.network.ip-address" }}:4646"
 }
 apm "nomad" {
   driver = "nomad-apm"
   config  = {
-    address = "{{env "attr.unique.network.ip-address" }}:4646"
+    address = "http://{{env "attr.unique.network.ip-address" }}:4646"
   }
 }
 apm "prometheus" {
@@ -36,12 +30,8 @@ strategy "target-value" {
   driver = "target-value"
 }
           EOF
-        destination = "/autoscaler/config.hcl"
-      }
 
-      volume_mount {
-        volume      = "plugins"
-        destination = "/plugins"
+        destination = "/autoscaler/config.hcl"
       }
 
       config {

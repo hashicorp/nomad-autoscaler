@@ -1,6 +1,29 @@
 # Nomad Autoscaler Agent
 Nomad Autoscaler agents have a variety of parameters that can be specified via configuration files or command-line flags. Configuration files are written in [HCL](https://github.com/hashicorp/hcl). The Nomad Autoscaler can read and combine parameters from multiple configuration files or directories to configure the agent.
 
+## Nomad Namespaces
+
+The Nomad Autoscaler currently has limited support for 
+[Nomad Namespaces](https://learn.hashicorp.com/nomad/governance-and-policy/namespaces).
+The `nomad` configuration below supports specifying a namespace; if configured with a namespace,
+the autoscaler will retrieve scaling policies and perform autoscaling only for jobs in that namespace.
+Future version will include support for multiple namespaces.
+
+## Nomad ACLs
+
+The Nomad Autoscaler can be configured to interact with an 
+[ACL-enabled](https://learn.hashicorp.com/nomad?track=acls#acls) Nomad cluster.
+Nomad 0.11 includes the `scale` ACL policy disposition specifically for supporting the operations of the Nomad Autoscaler.
+The Technical Preview has the additional requirement for the `read-job` ACL capability. Therefore, the following policy
+is sufficienty for creating an ACL token that can be used by the autoscaler:
+```hcl
+namespace "default" {
+  policy = "scale"
+  capabilities = ["read-job"]
+}
+```
+A token created using this policy should be provided in the `nomad` configuration, as described below.
+
 ## Load Order and Merging
 The Nomad Autoscaler agent supports multiple configuration files, which can be provided using the -config CLI flag. The flag can accept either a file or folder. In the case of a folder, any .hcl and .json files in the folder will be loaded and merged in lexicographical order. Directories are not loaded recursively.
 

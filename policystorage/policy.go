@@ -11,6 +11,7 @@ type Policy struct {
 	Max      int64
 	Source   string
 	Query    string
+	Enabled  bool
 	Target   *Target
 	Strategy *Strategy
 }

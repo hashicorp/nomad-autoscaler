@@ -48,6 +48,7 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 		Max:      fromPolicy.Max,
 		Source:   fromPolicy.Policy["source"].(string),
 		Query:    fromPolicy.Policy["query"].(string),
+		Enabled:  *fromPolicy.Enabled,
 		Strategy: parseStrategy(fromPolicy.Policy["strategy"]),
 		Target:   parseTarget(fromPolicy.Policy["target"]),
 	}
@@ -56,6 +57,10 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 }
 
 func canonicalize(from *api.ScalingPolicy, to *Policy) {
+
+	if from.Enabled == nil {
+		to.Enabled = true
+	}
 
 	if to.Target.Name == "" {
 		to.Target.Name = "local-nomad"

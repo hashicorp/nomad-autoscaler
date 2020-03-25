@@ -8,15 +8,16 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/strategy"
 )
 
-type TargetValue struct {
+type Strategy struct {
 	config map[string]string
 }
 
-func (s *TargetValue) SetConfig(config map[string]string) error {
+func (s *Strategy) SetConfig(config map[string]string) error {
+	s.config = config
 	return nil
 }
 
-func (s *TargetValue) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
+func (s *Strategy) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
 	resp := strategy.RunResponse{Actions: []strategy.Action{}}
 
 	t := req.Config["target"]

@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/target"
-	"github.com/hashicorp/nomad-autoscaler/target/plugins/nomad/nomad"
+	"github.com/hashicorp/nomad-autoscaler/apm"
+	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/prometheus/apm"
 )
 
 var handshakeConfig = plugin.HandshakeConfig{
@@ -13,12 +13,11 @@ var handshakeConfig = plugin.HandshakeConfig{
 }
 
 func main() {
-	p := &nomad.NomadGroupCount{}
+	p := &prometheus.APM{}
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: handshakeConfig,
 		Plugins: map[string]plugin.Plugin{
-			"target": &target.Plugin{Impl: p},
+			"apm": &apm.Plugin{Impl: p},
 		},
 	})
-
 }

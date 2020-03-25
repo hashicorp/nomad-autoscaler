@@ -25,22 +25,42 @@ test: ## Test the source code
 	@go test -v -race -cover ./...
 	@echo "==> Done"
 
-.PHONY: plugins
-plugins:
-	@for d in apm/plugins target/plugins strategy/plugins; do \
-	   for p in $${d}/*; do \
-		   plugin=$$(basename $$p); \
-			 echo "==> Building $${plugin}..."; \
-			 pushd $$p > /dev/null; \
-			 go build -o ../../../plugins/$$plugin; \
-			 popd > /dev/null;  \
-			 echo "==> Done"; \
-     done; \
-   done
-
 .PHONY: build-docker
 build-docker:
 	@echo "==> Building autoscaler docker container..."
 	@env GOOS=linux GOARCH=amd64 go build -v -o ./bin/nomad-autoscaler-linux-amd64
 	@docker build .
 	@echo "==> Done"
+
+.PHONY: clean-plugins
+clean-plugins:
+	@echo "==> Cleaning plugins..."
+	@rm -rf ./bin/plugins/
+	@echo "==> Done"
+
+.PHONY: clean
+clean: clean-plugins
+	@echo "==> Cleaning build artifacts..."
+	@rm -f ./bin/nomad-autoscaler
+	@echo "==> Done"
+
+bin/plugins/nomad:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/nomad && go build -o ../../$@
+	@echo "==> Done"
+
+bin/plugins/prometheus:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/prometheus && go build -o ../../$@
+	@echo "==> Done"
+
+bin/plugins/target-value:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/target-value && go build -o ../../$@
+	@echo "==> Done"
+
+.PHONY: plugins
+plugins: bin/plugins/nomad bin/plugins/prometheus bin/plugins/target-value

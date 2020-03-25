@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/hashicorp/go-plugin"
+	targetvalue "github.com/hashicorp/nomad-autoscaler/plugins/target-value/strategy"
 	"github.com/hashicorp/nomad-autoscaler/strategy"
-	"github.com/hashicorp/nomad-autoscaler/strategy/plugins/target-value/targetvalue"
 )
 
 var handshakeConfig = plugin.HandshakeConfig{
@@ -13,7 +13,7 @@ var handshakeConfig = plugin.HandshakeConfig{
 }
 
 func main() {
-	s := &targetvalue.TargetValue{}
+	s := &targetvalue.Strategy{}
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: handshakeConfig,
 		Plugins: map[string]plugin.Plugin{

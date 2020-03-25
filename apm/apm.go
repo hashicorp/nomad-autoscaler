@@ -14,13 +14,16 @@ type APM interface {
 }
 
 type Manager struct {
-	lock          sync.RWMutex
-	pluginClients map[string]*plugin.Client
+	lock            sync.RWMutex
+	lockInternal    sync.RWMutex
+	pluginClients   map[string]*plugin.Client
+	internalPlugins map[string]*APM
 }
 
 func NewAPMManager() *Manager {
 	return &Manager{
-		pluginClients: make(map[string]*plugin.Client),
+		pluginClients:   make(map[string]*plugin.Client),
+		internalPlugins: make(map[string]*APM),
 	}
 }
 
@@ -33,17 +36,21 @@ func (m *Manager) RegisterPlugin(key string, p *plugin.ClientConfig) error {
 	return nil
 }
 
-func (m *Manager) Dispense(key string) (*APM, error) {
-	var apm APM
+func (m *Manager) RegisterInternalPlugin(key string, p *APM) {
+	m.lockInternal.Lock()
+	defer m.lockInternal.Unlock()
 
+	m.internalPlugins[key] = p
+}
+
+func (m *Manager) Dispense(key string) (*APM, error) {
 	// check if this is a local implementation
-	switch key {
-	case "internal APM":
-		// do something
+	m.lockInternal.RLock()
+	if apm, ok := m.internalPlugins[key]; ok {
+		m.lockInternal.RUnlock()
+		return apm, nil
 	}
-	if apm != nil {
-		return &apm, nil
-	}
+	m.lockInternal.RUnlock()
 
 	// otherwhise dispense a plugin
 	m.lock.RLock()

@@ -44,7 +44,7 @@ func (n *Nomad) Get(ID string) (*Policy, error) {
 	}
 	toPolicy := &Policy{
 		ID:       fromPolicy.ID,
-		Min:      fromPolicy.Min,
+		Min:      *fromPolicy.Min,
 		Max:      fromPolicy.Max,
 		Source:   fromPolicy.Policy["source"].(string),
 		Query:    fromPolicy.Policy["query"].(string),

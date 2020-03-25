@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/helper/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policystorage"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
@@ -219,16 +220,22 @@ func (a *Agent) loadAPMPlugins() error {
 	for _, apmConfig := range a.config.APMs {
 		a.logger.Info("loading APM plugin", "plugin", apmConfig)
 
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"apm": &apmpkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, apmConfig.Driver)),
-		}
-		err := a.apmManager.RegisterPlugin(apmConfig.Name, pluginConfig)
-		if err != nil {
-			return err
+		if plugins.IsInternal(apmConfig.Driver, a.config.PluginDir) {
+			plugin := plugins.NewInternalAPM(apmConfig.Driver)
+			a.apmManager.RegisterInternalPlugin(apmConfig.Name, &plugin)
+
+		} else {
+			pluginConfig := &plugin.ClientConfig{
+				HandshakeConfig: PluginHandshakeConfig,
+				Plugins: map[string]plugin.Plugin{
+					"apm": &apmpkg.Plugin{},
+				},
+				Cmd: exec.Command(path.Join(a.config.PluginDir, apmConfig.Driver)),
+			}
+			err := a.apmManager.RegisterPlugin(apmConfig.Name, pluginConfig)
+			if err != nil {
+				return err
+			}
 		}
 
 		// configure plugin
@@ -255,16 +262,22 @@ func (a *Agent) loadTargetPlugins() error {
 	for _, targetConfig := range a.config.Targets {
 		a.logger.Info("loading Target plugin", "plugin", targetConfig)
 
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"target": &targetpkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, targetConfig.Driver)),
-		}
-		err := a.targetManager.RegisterPlugin(targetConfig.Name, pluginConfig)
-		if err != nil {
-			return err
+		if plugins.IsInternal(targetConfig.Driver, a.config.PluginDir) {
+			plugin := plugins.NewInternalTarget(targetConfig.Driver)
+			a.targetManager.RegisterInternalPlugin(targetConfig.Name, &plugin)
+
+		} else {
+			pluginConfig := &plugin.ClientConfig{
+				HandshakeConfig: PluginHandshakeConfig,
+				Plugins: map[string]plugin.Plugin{
+					"target": &targetpkg.Plugin{},
+				},
+				Cmd: exec.Command(path.Join(a.config.PluginDir, targetConfig.Driver)),
+			}
+			err := a.targetManager.RegisterPlugin(targetConfig.Name, pluginConfig)
+			if err != nil {
+				return err
+			}
 		}
 
 		// configure plugin
@@ -284,16 +297,22 @@ func (a *Agent) loadStrategyPlugins() error {
 	for _, strategyConfig := range a.config.Strategies {
 		a.logger.Info("loading Strategy plugin", "plugin", strategyConfig)
 
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"strategy": &strategypkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, strategyConfig.Driver)),
-		}
-		err := a.strategyManager.RegisterPlugin(strategyConfig.Name, pluginConfig)
-		if err != nil {
-			return err
+		if plugins.IsInternal(strategyConfig.Driver, a.config.PluginDir) {
+			plugin := plugins.NewInternalStrategy(strategyConfig.Driver)
+			a.strategyManager.RegisterInternalPlugin(strategyConfig.Name, &plugin)
+
+		} else {
+			pluginConfig := &plugin.ClientConfig{
+				HandshakeConfig: PluginHandshakeConfig,
+				Plugins: map[string]plugin.Plugin{
+					"strategy": &strategypkg.Plugin{},
+				},
+				Cmd: exec.Command(path.Join(a.config.PluginDir, strategyConfig.Driver)),
+			}
+			err := a.strategyManager.RegisterPlugin(strategyConfig.Name, pluginConfig)
+			if err != nil {
+				return err
+			}
 		}
 
 		// configure plugin

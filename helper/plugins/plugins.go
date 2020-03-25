@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	NomadAPM            = "nomad-apm"
-	NomadTarget         = "nomad"
-	PrometheusAPM       = "prometheus"
-	TargetValueStrategy = "target-value"
+	nomadAPM            = "nomad-apm"
+	nomadTarget         = "nomad"
+	prometheusAPM       = "prometheus"
+	targetValueStrategy = "target-value"
 )
 
 func IsInternal(driver, pluginDir string) bool {
@@ -28,10 +28,10 @@ func IsInternal(driver, pluginDir string) bool {
 
 	switch driver {
 	case
-		NomadAPM,
-		NomadTarget,
-		PrometheusAPM,
-		TargetValueStrategy:
+		nomadAPM,
+		nomadTarget,
+		prometheusAPM,
+		targetValueStrategy:
 		return true
 	}
 	return false
@@ -39,9 +39,9 @@ func IsInternal(driver, pluginDir string) bool {
 
 func NewInternalAPM(driver string) apm.APM {
 	switch driver {
-	case NomadAPM:
+	case nomadAPM:
 		return &nomadapm.MetricsAPM{}
-	case PrometheusAPM:
+	case prometheusAPM:
 		return &prometheus.APM{}
 	}
 	return nil
@@ -49,7 +49,7 @@ func NewInternalAPM(driver string) apm.APM {
 
 func NewInternalStrategy(driver string) strategy.Strategy {
 	switch driver {
-	case TargetValueStrategy:
+	case targetValueStrategy:
 		return &targetvalue.Strategy{}
 	}
 	return nil
@@ -57,7 +57,7 @@ func NewInternalStrategy(driver string) strategy.Strategy {
 
 func NewInternalTarget(driver string) target.Target {
 	switch driver {
-	case NomadTarget:
+	case nomadTarget:
 		return &nomadtarget.NomadGroupCount{}
 	}
 	return nil

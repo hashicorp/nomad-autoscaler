@@ -1,3 +1,5 @@
+plugin_dir = "./bin/plugins"
+
 apm "prometheus" {
   driver = "prometheus"
 

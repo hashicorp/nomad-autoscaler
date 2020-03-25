@@ -31,3 +31,36 @@ build-docker:
 	@env GOOS=linux GOARCH=amd64 go build -v -o ./bin/nomad-autoscaler-linux-amd64
 	@docker build .
 	@echo "==> Done"
+
+.PHONY: clean-plugins
+clean-plugins:
+	@echo "==> Cleaning plugins..."
+	@rm -rf ./bin/plugins/
+	@echo "==> Done"
+
+.PHONY: clean
+clean: clean-plugins
+	@echo "==> Cleaning build artifacts..."
+	@rm -f ./bin/nomad-autoscaler
+	@echo "==> Done"
+
+bin/plugins/nomad:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/nomad && go build -o ../../$@
+	@echo "==> Done"
+
+bin/plugins/prometheus:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/prometheus && go build -o ../../$@
+	@echo "==> Done"
+
+bin/plugins/target-value:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/target-value && go build -o ../../$@
+	@echo "==> Done"
+
+.PHONY: plugins
+plugins: bin/plugins/nomad bin/plugins/prometheus bin/plugins/target-value

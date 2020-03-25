@@ -220,7 +220,7 @@ func (a *Agent) loadAPMPlugins() error {
 	for _, apmConfig := range a.config.APMs {
 		a.logger.Info("loading APM plugin", "plugin", apmConfig)
 
-		if plugins.IsInternal(apmConfig.Driver) {
+		if plugins.IsInternal(apmConfig.Driver, a.config.PluginDir) {
 			plugin := plugins.NewInternalAPM(apmConfig.Driver)
 			a.apmManager.RegisterInternalPlugin(apmConfig.Name, &plugin)
 
@@ -262,7 +262,7 @@ func (a *Agent) loadTargetPlugins() error {
 	for _, targetConfig := range a.config.Targets {
 		a.logger.Info("loading Target plugin", "plugin", targetConfig)
 
-		if plugins.IsInternal(targetConfig.Driver) {
+		if plugins.IsInternal(targetConfig.Driver, a.config.PluginDir) {
 			plugin := plugins.NewInternalTarget(targetConfig.Driver)
 			a.targetManager.RegisterInternalPlugin(targetConfig.Name, &plugin)
 
@@ -297,7 +297,7 @@ func (a *Agent) loadStrategyPlugins() error {
 	for _, strategyConfig := range a.config.Strategies {
 		a.logger.Info("loading Strategy plugin", "plugin", strategyConfig)
 
-		if plugins.IsInternal(strategyConfig.Driver) {
+		if plugins.IsInternal(strategyConfig.Driver, a.config.PluginDir) {
 			plugin := plugins.NewInternalStrategy(strategyConfig.Driver)
 			a.strategyManager.RegisterInternalPlugin(strategyConfig.Name, &plugin)
 

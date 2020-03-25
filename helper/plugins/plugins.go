@@ -1,6 +1,9 @@
 package plugins
 
 import (
+	"os"
+	"path"
+
 	"github.com/hashicorp/nomad-autoscaler/apm"
 	nomadapm "github.com/hashicorp/nomad-autoscaler/plugins/nomad/apm"
 	nomadtarget "github.com/hashicorp/nomad-autoscaler/plugins/nomad/target"
@@ -17,8 +20,13 @@ const (
 	TargetValueStrategy = "target-value"
 )
 
-func IsInternal(p string) bool {
-	switch p {
+func IsInternal(driver, pluginDir string) bool {
+	// Use a plugin binary if one is available
+	if _, err := os.Stat(path.Join(pluginDir, driver)); err == nil {
+		return false
+	}
+
+	switch driver {
 	case
 		NomadAPM,
 		NomadTarget,

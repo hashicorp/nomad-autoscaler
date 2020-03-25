@@ -336,6 +336,11 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 		"strategy", p.Strategy.Name,
 	)
 
+	if !p.Enabled {
+		logger.Info("policy not enabled")
+		return
+	}
+
 	var target targetpkg.Target
 	var apm apmpkg.APM
 	var strategy strategypkg.Strategy

@@ -7,13 +7,13 @@ The Nomad Autoscaler is an autoscaling daemon for [Nomad](https://nomadproject.i
 Known issues and limitations:
  * [scaling cooldowns](https://github.com/hashicorp/nomad-autoscaler/issues/12) are not implemented, this makes the autoscaling of applications aggressive
  * internal state for fast lookups is currently [in-progress](https://github.com/hashicorp/nomad-autoscaler/pull/30), this means the Nomad API will be put under load when running the autoscaler
- * there is currently a limit number of supported APMs, this will be addressed but limits the usability
+ * there is currently a limited number of supported APMs, this will be addressed but limits the usability
 
 The Nomad Autoscaler currently supports:
 * **Horizontal Application Autoscaling**: The process of automatically controlling the number of instances of an application to have sufficient work throughput to meet service-level agreements (SLA). In Nomad, horizontal application autoscaling can be achieved by modifying the number of allocations in a task group based on the value of a relevant metric, such as CPU and memory utilization or number of open connections.
 
 ## Documentation
-Documentation is available on the within this repository [here](./docs/README.md).
+Documentation is available within this repository [here](./docs/README.md).
 
 ## Demo
 The [Vagrant based demo](./demo/vagrant/README.md) provides a guided example of running and autoscaling an application based on Prometheus metrics using the Nomad Autoscaler.

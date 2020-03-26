@@ -24,6 +24,19 @@ job "autoscaler" {
         }
       }
 
+      ## Alternatively, you could also run the Autoscaler using the exec driver
+      # driver = "exec"
+      #
+      # config {
+      #   command = "/usr/local/bin/nomad-autoscaler"
+      #   args    = ["agent", "-config", "${NOMAD_TASK_DIR}/config.hcl"]
+      # }
+      #
+      # artifact {
+      #   source      = "https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview1/nomad-autoscaler_0.0.1-techpreview1_linux_amd64.zip"
+      #   destination = "/usr/local/bin"
+      # }
+
       template {
         data = <<EOF
 nomad {

@@ -70,15 +70,6 @@ Vagrant.configure("2") do |config|
     ln -s /opt/hashicorp/bin/{nomad,consul} /usr/local/bin
     popd
 
-    # Download and install Nomad Autoscaler.
-    # The Autoscaler will run in an exec job, so it can't be symlinked
-    pushd /tmp/downloads
-    curl --silent --show-error --remote-name-all \
-      https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview1/nomad-autoscaler_0.0.1-techpreview1_linux_amd64.zip
-    unzip nomad-autoscaler_0.0.1-techpreview1_linux_amd64.zip
-    mv nomad-autoscaler /usr/local/bin
-    popd
-
     rm -fr /tmp/downloads
   SHELL
 

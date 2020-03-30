@@ -1,7 +1,3 @@
-# ignore binaries
-example/nomad
-example/consul
-
 # binary output directory
 bin/
 

@@ -1,6 +1,11 @@
 SHELL = bash
 default: lint test build
 
+GIT_COMMIT := $(shell git rev-parse --short HEAD)
+GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
+
+GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_COMMIT)$(GIT_DIRTY)"
+
 .PHONY: tools
 tools: ## Install the tools used to test and build
 	@echo "==> Installing tools"
@@ -10,7 +15,10 @@ tools: ## Install the tools used to test and build
 .PHONY: build
 build:
 	@echo "==> Building autoscaler..."
-	@GOPRIVATE=$$GOPRIVATE,github.com/hashicorp/nomad-private go build -o ./bin/nomad-autoscaler
+	@CGO_ENABLED=0 GO111MODULE=on \
+	go build \
+	-ldflags $(GO_LDFLAGS) \
+	-o ./bin/nomad-autoscaler
 	@echo "==> Done"
 
 .PHONY: lint
@@ -23,13 +31,6 @@ lint: ## Lint the source code
 test: ## Test the source code
 	@echo "==> Testing source code..."
 	@go test -v -race -cover ./...
-	@echo "==> Done"
-
-.PHONY: build-docker
-build-docker:
-	@echo "==> Building autoscaler docker container..."
-	@env GOOS=linux GOARCH=amd64 go build -v -o ./bin/nomad-autoscaler-linux-amd64
-	@docker build .
 	@echo "==> Done"
 
 .PHONY: clean-plugins

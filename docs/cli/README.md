@@ -24,3 +24,17 @@ A subset of the available Nomad Autoscaler agent configuration can optionally be
  * `-nomad-client-key=<path>`: Path to an unencrypted PEM encoded private key matching the client certificate from `-nomad-client-cert`.
  * `-nomad-tls-server-name=<name>`: The server name to use as the SNI host when connecting via TLS.
  * `-nomad-skip-verify`: Do not verify TLS certificates. This is strongly discouraged.
+
+## Command: version
+The `version` command displays build information about the running binary, including the release version and the exact revision.
+
+### Usage
+```
+$ nomad-autoscaler version
+```
+
+### Examples
+```
+$ nomad-autoscaler version
+Nomad Autoscaler v0.0.1-techpreview1 (440bca3+CHANGES)
+```

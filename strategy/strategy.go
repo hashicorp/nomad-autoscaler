@@ -13,7 +13,7 @@ type Strategy interface {
 }
 
 type Action struct {
-	Count  int64
+	Count  *int64
 	Reason string
 	Meta   map[string]interface{}
 }
@@ -24,18 +24,28 @@ func (a *Action) Canonicalize() {
 	}
 }
 
-func (a *Action) IsWithinLimits(min, max int64) bool {
-	return a.Count >= min && a.Count <= max
+func (a *Action) IsWithinLimits(min, max int64) (bool, error) {
+	if a.Count == nil {
+		return false, fmt.Errorf("count is nil")
+	}
+
+	return (*a.Count >= min && *a.Count <= max), nil
 }
 
-func (a *Action) CapCount(min, max int64) {
-	if a.Count < min {
-		a.Count = min
+func (a *Action) CapCount(min, max int64) error {
+	if a.Count == nil {
+		return fmt.Errorf("count is nil")
+	}
+
+	if *a.Count < min {
+		a.Count = &min
 		a.PushReason(fmt.Sprintf("capping count to min value of %d", min))
-	} else if a.Count > max {
-		a.Count = max
+	} else if *a.Count > max {
+		a.Count = &max
 		a.PushReason(fmt.Sprintf("capping count to max value of %d", max))
 	}
+
+	return nil
 }
 
 func (a *Action) PushReason(r string) {

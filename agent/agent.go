@@ -398,17 +398,18 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	}
 
 	if len(results.Actions) == 0 {
-		// Make sure we are currently within [min, max] limits
+		// Make sure we are currently within [min, max] limits even if there's
+		// no action to execute
 		var minMaxAction *strategypkg.Action
 
 		if currentCount < p.Min {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Min,
+				Count:  &p.Min,
 				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentCount, p.Min),
 			}
 		} else if currentCount > p.Max {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Max,
+				Count:  &p.Max,
 				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentCount, p.Max),
 			}
 		}
@@ -427,18 +428,52 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 		// plugins doing this.
 		action.Canonicalize()
 
-		if !action.IsWithinLimits(p.Min, p.Max) {
+		// If the policy is configured with dry-run:true then we set the
+		// action count to nil so its no-nop. This allows us to still
+		// submit the job, but not alter its state.
+		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
+			logger.Info("scaling dry-run is enabled, using no-op task group count",
+				"target_config", p.Target.Config)
+			action.Count = nil
+		}
+
+		// A nil count indicates that the current value shouldn't change,
+		// so just notify the policy's target of this event.
+		if action.Count == nil {
+			logger.Info("no change in count")
+
+			if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
+				logger.Error("failed to scale target", "error", err)
+			}
+			continue
+		}
+
+		// Check if this action will not violate the min and max limits set by
+		// the policy.
+		withinLimts, err := action.IsWithinLimits(p.Min, p.Max)
+		if err != nil {
+			logger.Error(fmt.Sprintf("failed to execute action: %s", err))
+			continue
+		}
+
+		if !withinLimts {
 			logger.Info("next count outside limits",
 				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
 
 			// Make sure new count value is within [min, max] limits
-			action.CapCount(p.Min, p.Max)
+			err := action.CapCount(p.Min, p.Max)
+			if err != nil {
+				logger.Error(fmt.Sprintf("failed to execute action: %s", err))
+				continue
+			}
 
 			logger.Info("updated count to be within limits",
 				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
 		}
 
-		if action.Count == currentCount {
+		// If count is not nil, but its value doesn't change, assume that
+		// no action should happen, not even an empty scale event.
+		if *action.Count == currentCount {
 			logger.Info("nothing to do: intended count equals current count",
 				"from", currentCount, "to", action.Count)
 			continue
@@ -446,15 +481,6 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 		logger.Info("scaling target",
 			"target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
-
-		// If the policy is configured with dry-run:true then we reset the
-		// action count to the current count so its no-nop. This allows us to
-		// still submit the job, but not alter its state.
-		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
-			logger.Info("scaling dry-run is enabled, using no-op task group count",
-				"target_config", p.Target.Config)
-			action.Count = currentCount
-		}
 
 		if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
 			logger.Error("failed to scale target", "error", err)

@@ -458,7 +458,7 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 		if !withinLimts {
 			logger.Info("next count outside limits",
-				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
+				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)
 
 			// Make sure new count value is within [min, max] limits
 			err := action.CapCount(p.Min, p.Max)
@@ -468,19 +468,19 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 			}
 
 			logger.Info("updated count to be within limits",
-				"from", currentCount, "to", action.Count, "min", p.Min, "max", p.Max)
+				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)
 		}
 
 		// If count is not nil, but its value doesn't change, assume that
 		// no action should happen, not even an empty scale event.
 		if *action.Count == currentCount {
 			logger.Info("nothing to do: intended count equals current count",
-				"from", currentCount, "to", action.Count)
+				"from", currentCount, "to", *action.Count)
 			continue
 		}
 
 		logger.Info("scaling target",
-			"target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
+			"target_config", p.Target.Config, "from", currentCount, "to", *action.Count, "reason", action.Reason)
 
 		if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
 			logger.Error("failed to scale target", "error", err)

@@ -452,22 +452,15 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 		// Check if this action will not violate the min and max limits set by
 		// the policy.
-		withinLimts, err := action.IsWithinLimits(p.Min, p.Max)
-		if err != nil {
-			logger.Error(fmt.Sprintf("failed to execute action: %s", err))
-			continue
-		}
-
+		// We can ignore the returned error becase we check for nil Count above.
+		withinLimts, _ := action.IsWithinLimits(p.Min, p.Max)
 		if !withinLimts {
 			logger.Info("next count outside limits",
 				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)
 
 			// Make sure new count value is within [min, max] limits
-			err := action.CapCount(p.Min, p.Max)
-			if err != nil {
-				logger.Error(fmt.Sprintf("failed to execute action: %s", err))
-				continue
-			}
+			// We can ignore the returned error becase we check for nil Count above.
+			action.CapCount(p.Min, p.Max)
 
 			logger.Info("updated count to be within limits",
 				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)

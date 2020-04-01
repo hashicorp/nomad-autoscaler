@@ -434,6 +434,8 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
 			logger.Info("scaling dry-run is enabled, using no-op task group count",
 				"target_config", p.Target.Config)
+			action.Meta["nomad_autoscaler.dry_run"] = "true"
+			action.Meta["nomad_autoscaler.dry_run_count"] = action.Count
 			action.Count = nil
 		}
 

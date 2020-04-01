@@ -424,62 +424,35 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 	// scale target
 	for _, action := range results.Actions {
+		actionLogger := logger.With("target_config", p.Target.Config)
+
 		// Make sure returned action has sane defaults instead of relying on
 		// plugins doing this.
 		action.Canonicalize()
+
+		// Make sure new count value is within [min, max] limits
+		action.CapCount(p.Min, p.Max)
 
 		// If the policy is configured with dry-run:true then we set the
 		// action count to nil so its no-nop. This allows us to still
 		// submit the job, but not alter its state.
 		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
-			logger.Info("scaling dry-run is enabled, using no-op task group count",
-				"target_config", p.Target.Config)
-			action.Meta["nomad_autoscaler.dry_run"] = "true"
-			action.Meta["nomad_autoscaler.dry_run_count"] = action.Count
-			action.Count = nil
+			actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
+			action.SetDryRun(true)
 		}
 
-		// A nil count indicates that the current value shouldn't change,
-		// so just notify the policy's target of this event.
 		if action.Count == nil {
-			logger.Info("no change in count")
-
-			if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
-				logger.Error("failed to scale target", "error", err)
-			}
-			continue
+			actionLogger.Info("registering scaling event",
+				"count", currentCount, "reason", action.Reason, "meta", action.Meta)
+		} else {
+			actionLogger.Info("scaling target",
+				"from", currentCount, "to", *action.Count,
+				"reason", action.Reason, "meta", action.Meta)
 		}
-
-		// Check if this action will not violate the min and max limits set by
-		// the policy.
-		// We can ignore the returned error becase we check for nil Count above.
-		withinLimts, _ := action.IsWithinLimits(p.Min, p.Max)
-		if !withinLimts {
-			logger.Info("next count outside limits",
-				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)
-
-			// Make sure new count value is within [min, max] limits
-			// We can ignore the returned error becase we check for nil Count above.
-			action.CapCount(p.Min, p.Max)
-
-			logger.Info("updated count to be within limits",
-				"from", currentCount, "to", *action.Count, "min", p.Min, "max", p.Max)
-		}
-
-		// If count is not nil, but its value doesn't change, assume that
-		// no action should happen, not even an empty scale event.
-		if *action.Count == currentCount {
-			logger.Info("nothing to do: intended count equals current count",
-				"from", currentCount, "to", *action.Count)
-			continue
-		}
-
-		logger.Info("scaling target",
-			"target_config", p.Target.Config, "from", currentCount, "to", *action.Count, "reason", action.Reason)
 
 		if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
-			logger.Error("failed to scale target", "error", err)
-			return
+			actionLogger.Error("failed to scale target", "error", err)
+			continue
 		}
 	}
 }

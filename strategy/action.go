@@ -58,7 +58,7 @@ func (a *Action) CapCount(min, max int64) {
 	if newCount != oldCount {
 		a.Meta[metaKeyCountCapped] = true
 		a.Meta[metaKeyCountOriginal] = oldCount
-		a.PushReason(fmt.Sprintf("capped count from %d to %d to stay withing limits", oldCount, newCount))
+		a.PushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
 		a.Count = &newCount
 	}
 }

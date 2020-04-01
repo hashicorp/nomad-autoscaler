@@ -14,7 +14,7 @@ The Nomad Autoscaler currently supports:
 
 ## Requirements
 
-The autoscaler relies on Nomad APIs that were introduced in Nomad 0.11-beta1, some of which were changed throughout the beta.
+The autoscaler relies on Nomad APIs that were introduced in Nomad 0.11-beta1, some of which have been changed throughout the beta.
 The compability requirements are as follows: 
 
 | Autoscaler Version  | Nomad Version |

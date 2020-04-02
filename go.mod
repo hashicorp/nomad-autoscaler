@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-hclog v0.12.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0
-	github.com/hashicorp/nomad/api v0.0.0-20200325162707-68cfe74a2ec5
+	github.com/hashicorp/nomad/api v0.0.0-20200401211951-3e99ef7b1f7c
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect

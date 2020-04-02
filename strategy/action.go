@@ -15,6 +15,7 @@ const (
 type Action struct {
 	Count  *int64
 	Reason string
+	Error  bool
 	Meta   map[string]interface{}
 }
 

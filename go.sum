@@ -70,6 +70,8 @@ github.com/hashicorp/hcl/v2 v2.3.0 h1:iRly8YaMwTBAKhn1Ybk7VSdzbnopghktCD031P8ggU
 github.com/hashicorp/hcl/v2 v2.3.0/go.mod h1:d+FwDBbOLvpAM3Z6J7gPj/VoAGkNe/gm352ZhjJ/Zv8=
 github.com/hashicorp/nomad/api v0.0.0-20200325162707-68cfe74a2ec5 h1:98OmzamtqiBGNKocE+kSH5DW/k7lJoVksYf8kPnr8xY=
 github.com/hashicorp/nomad/api v0.0.0-20200325162707-68cfe74a2ec5/go.mod h1:WKCL+tLVhN1D+APwH3JiTRZoxcdwRk86bWu1LVCUPaE=
+github.com/hashicorp/nomad/api v0.0.0-20200401211951-3e99ef7b1f7c h1:im+zs9oC6vJV/5FqX2PgaZs0opQcWhVqA7orkWzPvUA=
+github.com/hashicorp/nomad/api v0.0.0-20200401211951-3e99ef7b1f7c/go.mod h1:WKCL+tLVhN1D+APwH3JiTRZoxcdwRk86bWu1LVCUPaE=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb h1:b5rjCoWHc7eqmAS4/qyk21ZsHyb6Mxv/jykxvNTkU4M=
 github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb/go.mod h1:+NfK9FKeTrX5uv1uIXGdwYDTeHna2qgaIlx54MXqjAM=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=

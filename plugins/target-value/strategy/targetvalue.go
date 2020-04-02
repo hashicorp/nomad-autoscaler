@@ -51,7 +51,7 @@ func (s *Strategy) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
 	}
 
 	action := strategy.Action{
-		Count:  newCount,
+		Count:  &newCount,
 		Reason: reason,
 	}
 	resp.Actions = append(resp.Actions, action)

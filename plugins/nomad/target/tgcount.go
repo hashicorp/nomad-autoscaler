@@ -43,8 +43,12 @@ func (t *NomadGroupCount) Count(config map[string]string) (int64, error) {
 }
 
 func (t *NomadGroupCount) Scale(action strategy.Action, config map[string]string) error {
-	countInt := int(action.Count)
-	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], &countInt, &action.Reason, nil, nil, nil)
+	var countIntPtr *int
+	if action.Count != nil {
+		countInt := int(*action.Count)
+		countIntPtr = &countInt
+	}
+	_, _, err := t.client.Jobs().Scale(config["job_id"], config["group"], countIntPtr, &action.Reason, nil, nil, nil)
 	if err != nil {
 		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
 	}

@@ -12,6 +12,16 @@ Known issues and limitations:
 The Nomad Autoscaler currently supports:
 * **Horizontal Application Autoscaling**: The process of automatically controlling the number of instances of an application to have sufficient work throughput to meet service-level agreements (SLA). In Nomad, horizontal application autoscaling can be achieved by modifying the number of allocations in a task group based on the value of a relevant metric, such as CPU and memory utilization or number of open connections.
 
+## Requirements
+
+The autoscaler relies on Nomad APIs that were introduced in Nomad 0.11-beta1, some of which have been changed during the beta.
+The compability requirements are as follows: 
+
+| Autoscaler Version  | Nomad Version |
+|:-------------------:|:-------------:|
+| 0.0.1-techpreview1  |  0.11-beta1   |
+| wip                 |  0.11-beta2   |
+
 ## Documentation
 Documentation is available within this repository [here](./docs/README.md).
 

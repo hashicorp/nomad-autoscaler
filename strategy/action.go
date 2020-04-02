@@ -8,7 +8,6 @@ const (
 	metaKeyDryRunCount   = "nomad_autoscaler.dry_run.count"
 	metaKeyCountCapped   = "nomad_autoscaler.count.capped"
 	metaKeyCountOriginal = "nomad_autoscaler.count.original"
-	metaKeyCountNil      = "nomad_autoscaler.count.nil"
 	metaKeyReasonHistory = "nomad_autoscaler.reason_history"
 )
 
@@ -23,10 +22,6 @@ type Action struct {
 func (a *Action) Canonicalize() {
 	if a.Meta == nil {
 		a.Meta = make(map[string]interface{})
-	}
-
-	if a.Count == nil {
-		a.Meta[metaKeyCountNil] = true
 	}
 }
 

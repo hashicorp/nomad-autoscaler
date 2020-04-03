@@ -63,7 +63,7 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 	}
 
 	if to.Target.Name == "" {
-		to.Target.Name = "local-nomad"
+		to.Target.Name = "nomad-target"
 	}
 
 	if to.Target.Config == nil {
@@ -74,7 +74,7 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 	to.Target.Config["group"] = from.Target["Group"]
 
 	if to.Source == "" {
-		to.Source = "local-nomad"
+		to.Source = "nomad-apm"
 
 		parts := strings.Split(to.Query, "_")
 		op := parts[0]

@@ -22,6 +22,8 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
+	assert.Len(t, def.APMs, 1)
+	assert.Len(t, def.Targets, 1)
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -111,6 +113,10 @@ func TestAgent_Merge(t *testing.T) {
 		},
 		APMs: []*Plugin{
 			{
+				Name:   "nomad-apm",
+				Driver: "nomad-apm",
+			},
+			{
 				Name:   "prometheus",
 				Driver: "prometheus",
 				Config: map[string]string{"address": "http://prometheus-new.systems:9090"},
@@ -119,6 +125,12 @@ func TestAgent_Merge(t *testing.T) {
 			{
 				Name:   "influx-db",
 				Driver: "influx-db",
+			},
+		},
+		Targets: []*Plugin{
+			{
+				Name:   "nomad-target",
+				Driver: "nomad-target",
 			},
 		},
 		Strategies: []*Plugin{

@@ -13,8 +13,8 @@ type Plugin interface {
 	// sent back to the caller so it can be presented.
 	PluginInfo() (*plugins.PluginInfo, error)
 
-	// SetConfig is used by the Autoscaler core to set plugin specific
-	// configuration on  the remote target. If this call fails, the plugin
+	// SetConfig is used by the Autoscaler core to set plugin-specific
+	// configuration on the remote target. If this call fails, the plugin
 	// should be considered in a terminal state.
 	SetConfig(config map[string]string) error
 }

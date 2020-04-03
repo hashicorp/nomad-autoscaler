@@ -116,22 +116,29 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 // agent failing on startup.
 func (pm *PluginManager) dispensePlugins() error {
 
+	// This function only gets called once currently; but it does perform all
+	// the plugin loading based on the current configuration. Therefore for
+	// future protection blat out our instances map.
+	pm.pluginInstancesLock.Lock()
+	pm.pluginInstances = make(map[plugins.PluginID]PluginInstance)
+	pm.pluginInstancesLock.Unlock()
+
 	var mErr multierror.Error
 
-	pm.pluginsLock.RLock()
-	p := pm.plugins
-	pm.pluginsLock.RUnlock()
+	pm.pluginsLock.Lock()
+	defer pm.pluginsLock.Unlock()
 
-	for pID, pInfo := range p {
+	for pID, pInfo := range pm.plugins {
 
 		var (
 			inst PluginInstance
+			info *plugins.PluginInfo
 			err  error
 		)
 		if pInfo.factory != nil {
-			inst, err = pm.launchInternalPlugin(pID, pInfo)
+			inst, info, err = pm.launchInternalPlugin(pID, pInfo)
 		} else {
-			inst, err = pm.launchExternalPlugin(pID, pInfo)
+			inst, info, err = pm.launchExternalPlugin(pID, pInfo)
 		}
 
 		// If we got an error dispensing the plugin, add this to the muilterror
@@ -140,6 +147,12 @@ func (pm *PluginManager) dispensePlugins() error {
 			_ = multierror.Append(&mErr, fmt.Errorf("failed to dispense plugin %s: %v", pID.Name, err))
 			continue
 		}
+
+		// Update our tracking to detail the plugin base information returned
+		// from the plugin itself.
+		pm.pluginsLock.Lock()
+		pm.plugins[pID].baseInfo = info
+		pm.pluginsLock.Unlock()
 
 		// Perform the SetConfig on the plugin to ensure its state is as the
 		// operator desires.
@@ -163,20 +176,21 @@ func (pm *PluginManager) dispensePlugins() error {
 }
 
 // launchInternalPlugin is used to dispense internal plugins.
-func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, error) {
+func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *plugins.PluginInfo, error) {
 
 	raw := info.factory(pm.logger.ResetNamed("internal-plugin"))
 
-	if err := pm.pluginLaunchCheck(id, raw); err != nil {
-		return nil, err
+	pInfo, err := pm.pluginLaunchCheck(id, raw)
+	if err != nil {
+		return nil, nil, err
 	}
-	return &internalPluginInstance{instance: raw}, nil
+	return &internalPluginInstance{instance: raw}, pInfo, nil
 }
 
 // launchExternalPlugin is used to dispense external plugins. These plugins
 // are therefore run as separate binaries and require more setup than internal
 // ones.
-func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, error) {
+func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *plugins.PluginInfo, error) {
 
 	// Create a new client for the external plugin. This includes items such as
 	// the command to execute and also the logger to use. The loggers name is
@@ -192,37 +206,38 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 	rpcClient, err := client.Client()
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Errorf("failed to instantiate plugin %s client: %v", id.Name, err)
+		return nil, nil, fmt.Errorf("failed to instantiate plugin %s client: %v", id.Name, err)
 	}
 
 	// Dispense a new instance of the external plugin.
 	raw, err := rpcClient.Dispense(id.PluginType)
 	if err != nil {
 		client.Kill()
-		return nil, fmt.Errorf("failed to dispense plugin %s: %v", id.Name, err)
+		return nil, nil, fmt.Errorf("failed to dispense plugin %s: %v", id.Name, err)
 	}
 
-	if err := pm.pluginLaunchCheck(id, raw); err != nil {
+	pInfo, err := pm.pluginLaunchCheck(id, raw)
+	if err != nil {
 		client.Kill()
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &externalPluginInstance{instance: raw, client: client}, nil
+	return &externalPluginInstance{instance: raw, client: client}, pInfo, nil
 }
 
-func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{}) error {
+func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{}) (*plugins.PluginInfo, error) {
 
 	// Check that the plugin implements the base plugin interface. As these are
 	// external plugins we need to check this safely, otherwise an incorrect
 	// plugin can cause the core application to panic.
 	b, ok := raw.(base.Plugin)
 	if !ok {
-		return fmt.Errorf("plugin %s does not implement base plugin", id.Name)
+		return nil, fmt.Errorf("plugin %s does not implement base plugin", id.Name)
 	}
 
 	pluginInfo, err := b.PluginInfo()
 	if err != nil {
-		return fmt.Errorf("failed to call PluginInfo on %s: %v", id.Name, err)
+		return nil, fmt.Errorf("failed to call PluginInfo on %s: %v", id.Name, err)
 	}
 
 	// If the plugin name, or plugin do not match it means the executed plugin
@@ -230,13 +245,8 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{})
 	// problem, particularly in the PluginType sense as it means it will be
 	// unable to fulfill its role.
 	if pluginInfo.Name != id.Name || pluginInfo.PluginType != id.PluginType {
-		return fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
+		return nil, fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
 	}
 
-	// Update our stored plugin information with the discovered information.
-	pm.pluginsLock.Lock()
-	pm.plugins[id].baseInfo = pluginInfo
-	pm.pluginsLock.Unlock()
-
-	return nil
+	return pluginInfo, nil
 }

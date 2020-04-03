@@ -9,7 +9,7 @@ type Plugin interface {
 
 	// PluginInfo returns information regarding the plugin. This is used during
 	// the plugin's setup as well as lifecycle. Any error generated during the
-	// plugins internal process to create and return this information should be
+	// plugin's internal process to create and return this information should be
 	// sent back to the caller so it can be presented.
 	PluginInfo() (*plugins.PluginInfo, error)
 

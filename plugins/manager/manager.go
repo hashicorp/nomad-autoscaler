@@ -173,7 +173,7 @@ func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginI
 	return &internalPluginInstance{instance: raw}, nil
 }
 
-// dispenseExternalPlugin is used to dispense external plugins. These plugins
+// launchExternalPlugin is used to dispense external plugins. These plugins
 // are therefore run as separate binaries and require more setup than internal
 // ones.
 func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, error) {

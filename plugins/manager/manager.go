@@ -150,9 +150,7 @@ func (pm *PluginManager) dispensePlugins() error {
 
 		// Update our tracking to detail the plugin base information returned
 		// from the plugin itself.
-		pm.pluginsLock.Lock()
 		pm.plugins[pID].baseInfo = info
-		pm.pluginsLock.Unlock()
 
 		// Perform the SetConfig on the plugin to ensure its state is as the
 		// operator desires.

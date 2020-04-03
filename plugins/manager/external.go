@@ -25,7 +25,7 @@ func (pm *PluginManager) loadExternalPlugin(cfg *config.Plugin, pluginType strin
 
 }
 
-// cleanPluginExecutable is a helper function to remove commonly found binary
+// cleanPluginExecutable is a helper function to remove commonly-found binary
 // extensions which are not needed.
 func cleanPluginExecutable(name string) string {
 	switch {

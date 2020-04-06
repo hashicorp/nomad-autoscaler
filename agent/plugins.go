@@ -41,7 +41,7 @@ func (a *Agent) setupPluginConfig() map[string][]*config.Plugin {
 	// over.
 	for _, cfgs := range cfg {
 		for _, c := range cfgs {
-			if (c.Name == "nomad-apm" || c.Name == "nomad-target") && len(c.Config) == 0 {
+			if (c.Name == plugins.InternalAPMNomad || c.Name == plugins.InternalTargetNomad) && len(c.Config) == 0 {
 				c.Config = nomadHelper.ConfigToMap(a.config.Nomad)
 			}
 		}

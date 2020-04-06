@@ -45,23 +45,29 @@ clean: clean-plugins
 	@rm -f ./bin/nomad-autoscaler
 	@echo "==> Done"
 
-bin/plugins/nomad:
+bin/plugins/nomad-apm:
 	@echo "==> Building $@"
 	@mkdir -p $$(dirname $@)
-	@cd ./plugins/nomad && go build -o ../../$@
+	@cd ./plugins/builtin/apm/nomad && go build -o ../../../../$@
+	@echo "==> Done"
+
+bin/plugins/nomad-target:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/nomad && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/prometheus:
 	@echo "==> Building $@"
 	@mkdir -p $$(dirname $@)
-	@cd ./plugins/prometheus && go build -o ../../$@
+	@cd ./plugins/builtin/apm/prometheus && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/target-value:
 	@echo "==> Building $@"
 	@mkdir -p $$(dirname $@)
-	@cd ./plugins/target-value && go build -o ../../$@
+	@cd ./plugins/builtin/strategy/target-value && go build -o ../../../../$@
 	@echo "==> Done"
 
 .PHONY: plugins
-plugins: bin/plugins/nomad bin/plugins/prometheus bin/plugins/target-value
+plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value

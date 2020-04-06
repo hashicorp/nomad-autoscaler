@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/mitchellh/copystructure"
 )
 
@@ -162,6 +163,8 @@ func Default() (*Agent, error) {
 			Address: defaultNomadAddress,
 			Region:  defaultNomadRegion,
 		},
+		APMs:    []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
+		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
 	}, nil
 }
 

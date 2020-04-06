@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,22 +18,22 @@ func TestPluginManager_useInternal(t *testing.T) {
 	}{
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
-			inputPlugin:    internalAPMNomad,
+			inputPlugin:    plugins.InternalAPMNomad,
 			expectedOutput: true,
 		},
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
-			inputPlugin:    internalTargetNomad,
+			inputPlugin:    plugins.InternalTargetNomad,
 			expectedOutput: true,
 		},
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
-			inputPlugin:    internalAPMPrometheus,
+			inputPlugin:    plugins.InternalAPMPrometheus,
 			expectedOutput: true,
 		},
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
-			inputPlugin:    internalStrategyTargetValue,
+			inputPlugin:    plugins.InternalStrategyTargetValue,
 			expectedOutput: true,
 		},
 		{

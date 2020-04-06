@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/mitchellh/copystructure"
 )
 
@@ -138,13 +139,6 @@ const (
 	// defaultNomadRegion is the default Nomad region to use when performing
 	// Nomad API calls.
 	defaultNomadRegion = "global"
-
-	// defaultNomadAPM is the default enabled APM source of using Nomad
-	// metrics.
-	defaultNomadAPM = "nomad-apm"
-
-	// defaultNomadTarget is the default enabled Target of a Nomad cluster.
-	defaultNomadTarget = "nomad-target"
 )
 
 // Default is used to generate a new default agent configuration.
@@ -169,8 +163,8 @@ func Default() (*Agent, error) {
 			Address: defaultNomadAddress,
 			Region:  defaultNomadRegion,
 		},
-		APMs:    []*Plugin{{Name: defaultNomadAPM, Driver: defaultNomadAPM}},
-		Targets: []*Plugin{{Name: defaultNomadTarget, Driver: defaultNomadTarget}},
+		APMs:    []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
+		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
 	}, nil
 }
 

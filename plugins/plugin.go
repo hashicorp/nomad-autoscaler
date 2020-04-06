@@ -18,6 +18,22 @@ const (
 	PluginTypeStrategy = "strategy"
 )
 
+const (
+
+	// InternalAPMNomad is the Nomad APM internal plugin name.
+	InternalAPMNomad = "nomad-apm"
+
+	// InternalTargetNomad is the Nomad Target internal plugin name.
+	InternalTargetNomad = "nomad-target"
+
+	// InternalAPMPrometheus is the Prometheus APM internal plugin name.
+	InternalAPMPrometheus = "prometheus"
+
+	// InternalStrategyTargetValue is the Target Value Strategy internal plugin
+	// name.
+	InternalStrategyTargetValue = "target-value"
+)
+
 var (
 	// Handshake is used to do a basic handshake between a plugin and host. If
 	// the handshake fails, a user friendly error is shown. This prevents users

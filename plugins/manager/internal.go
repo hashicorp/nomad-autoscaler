@@ -12,16 +12,6 @@ import (
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
-// internal plugin names should be detailed here so the Autoscaler attempts to
-// load the named plugin internally. Additions to these constants should also
-// be reflected in the registerInternalPlugin function.
-const (
-	internalAPMNomad            = "nomad-apm"
-	internalTargetNomad         = "nomad-target"
-	internalAPMPrometheus       = "prometheus"
-	internalStrategyTargetValue = "target-value"
-)
-
 // loadInternalPlugin takes the plugin configuration and attempts to load it
 // from internally to the plugin store.
 func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType string) {
@@ -29,13 +19,13 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	info := &pluginInfo{config: cfg.Config}
 
 	switch cfg.Driver {
-	case internalAPMNomad:
+	case plugins.InternalAPMNomad:
 		info.factory = nomadAPM.PluginConfig.Factory
-	case internalTargetNomad:
+	case plugins.InternalTargetNomad:
 		info.factory = nomadTarget.PluginConfig.Factory
-	case internalStrategyTargetValue:
+	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
-	case internalAPMPrometheus:
+	case plugins.InternalAPMPrometheus:
 		info.factory = prometheus.PluginConfig.Factory
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
@@ -73,7 +63,10 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 	}
 
 	switch plugin {
-	case internalAPMNomad, internalTargetNomad, internalAPMPrometheus, internalStrategyTargetValue:
+	case plugins.InternalAPMNomad,
+		plugins.InternalTargetNomad,
+		plugins.InternalAPMPrometheus,
+		plugins.InternalStrategyTargetValue:
 		return true
 	default:
 		return false

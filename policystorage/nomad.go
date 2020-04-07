@@ -64,7 +64,7 @@ func canonicalize(from *api.ScalingPolicy, to *Policy) {
 	}
 
 	if to.Target.Name == "" {
-		to.Target.Name = plugins.InternalAPMNomad
+		to.Target.Name = plugins.InternalTargetNomad
 	}
 
 	if to.Target.Config == nil {

@@ -43,12 +43,6 @@ type Handler struct {
 	// status state.
 	statusState status.State
 
-	// statusUpdateChan is the channel where status.Watcher processes should
-	// send any updates to a jobs scaling status. The state handler is
-	// responsible for listening to this, and processing any items on the
-	// channel.
-	statusUpdateChan chan *api.JobScaleStatusResponse
-
 	// statusWatcherHandlerLock is the mutex which should be used when
 	// manipulating the statusWatcherHandlers map.
 	statusWatcherHandlerLock sync.RWMutex
@@ -65,13 +59,12 @@ type Handler struct {
 func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handler {
 	h := Handler{
 		ctx:                   ctx,
-		log:                   log.Named("state-handler"),
+		log:                   log.Named("state_handler"),
 		nomad:                 nomad,
 		PolicyState:           policy.NewStateBackend(),
 		policyUpdateChan:      make(chan *api.ScalingPolicy, 10),
 		statusWatcherHandlers: make(map[string]*status.Watcher),
 		statusState:           status.NewStateBackend(),
-		statusUpdateChan:      make(chan *api.JobScaleStatusResponse, 10),
 	}
 
 	h.policyWatcher = policy.NewWatcher(log, nomad, h.policyUpdateChan)
@@ -82,8 +75,7 @@ func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handl
 // Start starts the initially required state handling processes.
 func (h *Handler) Start() {
 
-	// Start the update handlers before anything else.
-	go h.statusUpdateHandler()
+	// Start the policy update handler before anything else.
 	go h.policyUpdateHandler()
 
 	// The policy watcher runs as a single process per Autoscaler agent, start

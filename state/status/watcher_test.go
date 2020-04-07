@@ -9,5 +9,5 @@ import (
 
 func TestNewWatcher(t *testing.T) {
 	w := NewWatcher(hclog.Default(), "example", nil, nil)
-	assert.Equal(t, "status-watcher-example", w.log.Name())
+	assert.Equal(t, "status_watcher_example", w.log.Name())
 }

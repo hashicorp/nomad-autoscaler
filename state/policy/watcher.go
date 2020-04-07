@@ -19,7 +19,7 @@ type Watcher struct {
 // monitor changes from Nomad.
 func NewWatcher(log hclog.Logger, nomad *api.Client, updateChan chan *api.ScalingPolicy) *Watcher {
 	return &Watcher{
-		log:        log.Named("policy-watcher"),
+		log:        log.Named("policy_watcher"),
 		nomad:      nomad,
 		updateChan: updateChan,
 	}
@@ -66,7 +66,7 @@ func (w *Watcher) Start() {
 			p, _, err := w.nomad.Scaling().GetPolicy(policy.ID, nil)
 			if err != nil {
 				w.log.Error("failed call the Nomad read policy API",
-					"error", err, "policy-id", policy.ID)
+					"error", err, "policy_id", policy.ID)
 				continue
 			}
 

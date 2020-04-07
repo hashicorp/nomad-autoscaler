@@ -2,32 +2,27 @@ package state
 
 import (
 	"github.com/hashicorp/nomad-autoscaler/state/status"
+	"github.com/hashicorp/nomad/api"
 )
 
-// statusUpdateHandler handles all updates from the status.Watcher and is
-// responsible for all safety checks and sanitization before the status object
-// is placed into our internal state.
-func (h *Handler) statusUpdateHandler() {
-	select {
-	case s := <-h.statusUpdateChan:
+// statusUpdate is responsible for taking a Nomad JobScaleStatusResponse and
+// updating the autoscaler internal state.
+func (h *Handler) statusUpdate(update *api.JobScaleStatusResponse) {
 
-		// If the job is stopped, remove the scaling policies, remove the scale
-		// status handler and delete the scale status state. Even if the job is
-		// started again, the Autoscaler will gather all the information it
-		// needs so we can clear everything out.
-		if s.JobStopped {
-			h.PolicyState.DeleteJobPolicies(s.JobID)
-			h.removeStatusHandler(s.JobID)
-			h.statusState.DeleteJob(s.JobID)
-			h.log.Info("job is stopped, removed internal state", "job-id", s.JobID)
-		} else {
-			// Store the new scale status information and move along.
-			h.statusState.SetJob(s)
-			h.log.Info("set scale status in state", "job-id", s.JobID)
-		}
-
-	case <-h.ctx.Done():
-		return
+	// If the job is stopped, remove the scaling policies, remove the scale
+	// status handler and delete the scale status state. Even if the job is
+	// started again, the Autoscaler will gather all the information it
+	// needs so we can clear everything out.
+	switch update.JobStopped {
+	case true:
+		h.PolicyState.DeleteJobPolicies(update.JobID)
+		h.removeStatusHandler(update.JobID)
+		h.statusState.DeleteJob(update.JobID)
+		h.log.Debug("job is stopped, removed internal state", "job_id", update.JobID)
+	default:
+		// Store the new scale status information and move along.
+		h.statusState.SetJob(update)
+		h.log.Debug("set scale status in state", "job_id", update.JobID)
 	}
 }
 
@@ -39,13 +34,13 @@ func (h *Handler) startStatusWatcher(jobID string) {
 	defer h.statusWatcherHandlerLock.Unlock()
 
 	if _, ok := h.statusWatcherHandlers[jobID]; ok {
-		h.log.Trace("found existing handler for job scale status", "job-id", jobID)
+		h.log.Trace("found existing handler for job scale status", "job_id", jobID)
 		return
 	}
-	h.log.Debug("starting new handler for job scale status", "job-id", jobID)
+	h.log.Debug("starting new handler for job scale status", "job_id", jobID)
 
 	// Setup the new handler, start it and wait for its initial run to finish.
-	h.statusWatcherHandlers[jobID] = status.NewWatcher(h.log, jobID, h.nomad, h.statusUpdateChan)
+	h.statusWatcherHandlers[jobID] = status.NewWatcher(h.log, jobID, h.nomad, h.statusUpdate)
 	go h.statusWatcherHandlers[jobID].Start()
 	<-h.statusWatcherHandlers[jobID].InitialLoad
 }
@@ -61,5 +56,5 @@ func (h *Handler) removeStatusHandler(jobID string) {
 
 	// Delete the handle.
 	delete(h.statusWatcherHandlers, jobID)
-	h.log.Trace("deleted scale status watcher handle", "job-id", jobID)
+	h.log.Debug("deleted scale status watcher handle", "job_id", jobID)
 }

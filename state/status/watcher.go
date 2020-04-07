@@ -3,7 +3,7 @@ package status
 import (
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad/api"
 )
@@ -13,24 +13,40 @@ type Watcher struct {
 	jobID           string
 	nomad           *api.Client
 	lastChangeIndex uint64
-	updateChan      chan *api.JobScaleStatusResponse
-	InitialLoad     chan bool
-	initialRun      bool
+	updateFunc      updateFunc
+
+	// InitialLoad helps callers understand when the initial run of the Start()
+	// loop has finished. This results in our status state being populated
+	// which is required when first processing a scaling policy.
+	InitialLoad chan bool
+	initialRun  bool
 }
+
+// updateFunc is the function that is used to reflect an update in a job
+// scaling status Nomad information locally. This differs from the policy
+// watcher (which uses a channel to process updates) in order to solve race a
+// condition problem when using channels. This condition is that when
+// processing a policy for the first time, we need to ensure we have local
+// status state to check the JobStopped field. Using channels for this has no
+// timing guarantees unless adding complex logic. It is simpler and easier to
+// just use a blocking function to ensure the ordering.
+type updateFunc func(update *api.JobScaleStatusResponse)
 
 // NewWatcher creates a new scale status watcher, using blocking queries to
 // monitor changes from Nomad.
-func NewWatcher(log hclog.Logger, jobID string, nomad *api.Client, updateChan chan *api.JobScaleStatusResponse) *Watcher {
+func NewWatcher(log hclog.Logger, jobID string, nomad *api.Client, updateFunc updateFunc) *Watcher {
 	return &Watcher{
 		InitialLoad: make(chan bool, 1),
 		initialRun:  true,
 		jobID:       jobID,
-		log:         log.Named("status-watcher-" + jobID),
+		log:         log.Named("status_watcher_" + jobID),
 		nomad:       nomad,
-		updateChan:  updateChan,
+		updateFunc:  updateFunc,
 	}
 }
 
+// Start starts the query loop that performs a blocking query on the scaling
+// status endpoint of a specific job.
 func (w *Watcher) Start() {
 	var maxFound uint64
 
@@ -50,8 +66,9 @@ func (w *Watcher) Start() {
 			continue
 		}
 
-		// Send the scale status to the channel.
-		w.updateChan <- status
+		// Run the update function so the new status information is persisted
+		// in the internal store.
+		w.updateFunc(status)
 
 		maxFound = blocking.FindMaxFound(meta.LastIndex, maxFound)
 

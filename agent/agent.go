@@ -3,55 +3,35 @@ package agent
 import (
 	"context"
 	"fmt"
-	"os/exec"
-	"path"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	apmpkg "github.com/hashicorp/nomad-autoscaler/apm"
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
+	apmpkg "github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	strategypkg "github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/state"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
-	strategypkg "github.com/hashicorp/nomad-autoscaler/strategy"
-	targetpkg "github.com/hashicorp/nomad-autoscaler/target"
 	"github.com/hashicorp/nomad/api"
 )
 
-var (
-	PluginHandshakeConfig = plugin.HandshakeConfig{
-		ProtocolVersion:  1,
-		MagicCookieKey:   "magic",
-		MagicCookieValue: "magic",
-	}
-)
-
 type Agent struct {
-	logger          hclog.Logger
-	config          *config.Agent
-	nomadClient     *api.Client
-	apmPlugins      map[string]*Plugin
-	apmManager      *apmpkg.Manager
-	targetPlugins   map[string]*Plugin
-	targetManager   *targetpkg.Manager
-	strategyPlugins map[string]*Plugin
-	strategyManager *strategypkg.Manager
+	logger        hclog.Logger
+	config        *config.Agent
+	nomadClient   *api.Client
+	pluginManager *manager.PluginManager
 }
 
 type Plugin struct{}
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	return &Agent{
-		logger:          logger,
-		config:          c,
-		apmPlugins:      make(map[string]*Plugin),
-		apmManager:      apmpkg.NewAPMManager(),
-		targetPlugins:   make(map[string]*Plugin),
-		targetManager:   targetpkg.NewTargetManager(),
-		strategyPlugins: make(map[string]*Plugin),
-		strategyManager: strategypkg.NewStrategyManager(),
+		logger: logger,
+		config: c,
 	}
 }
 
@@ -66,8 +46,8 @@ func (a *Agent) Run(ctx context.Context) error {
 	stateHandler.Start()
 
 	// launch plugins
-	if err := a.loadPlugins(); err != nil {
-		return fmt.Errorf("failed to load plugins: %v", err)
+	if err := a.setupPlugins(); err != nil {
+		return fmt.Errorf("failed to setup plugins: %v", err)
 	}
 
 	// Setup and start the HTTP health server.
@@ -108,10 +88,7 @@ Loop:
 			healthServer.stop()
 
 			// stop plugins before exiting
-			a.logger.Info("killing plugins")
-			a.apmManager.Kill()
-			a.targetManager.Kill()
-			a.strategyManager.Kill()
+			a.pluginManager.KillPlugins()
 			break Loop
 		}
 	}
@@ -123,9 +100,9 @@ Loop:
 // merges it into a Nomad API config object and creates a client.
 func (a *Agent) generateNomadClient() error {
 
-	// Use an empty config object. When calling NewClient, the Nomad API will
-	// merge options with those returned from DefaultConfig().
-	cfg := &api.Config{}
+	// Use the Nomad API default config which gets populated by defaults and
+	// also checks for environment variables.
+	cfg := api.DefaultConfig()
 
 	// Merge our top level configuration options in.
 	if a.config.Nomad.Address != "" {
@@ -143,19 +120,7 @@ func (a *Agent) generateNomadClient() error {
 
 	// Merge HTTP auth.
 	if a.config.Nomad.HTTPAuth != "" {
-		var username, password string
-		if strings.Contains(a.config.Nomad.HTTPAuth, ":") {
-			split := strings.SplitN(a.config.Nomad.HTTPAuth, ":", 2)
-			username = split[0]
-			password = split[1]
-		} else {
-			username = a.config.Nomad.HTTPAuth
-		}
-
-		cfg.HttpAuth = &api.HttpBasicAuth{
-			Username: username,
-			Password: password,
-		}
+		cfg.HttpAuth = nomadHelper.HTTPAuthFromString(a.config.Nomad.HTTPAuth)
 	}
 
 	// Merge TLS.
@@ -188,135 +153,6 @@ func (a *Agent) generateNomadClient() error {
 	return nil
 }
 
-func (a *Agent) loadPlugins() error {
-	// load APM plugins
-	err := a.loadAPMPlugins()
-	if err != nil {
-		return err
-	}
-
-	// load target plugins
-	err = a.loadTargetPlugins()
-	if err != nil {
-		return err
-	}
-
-	// load strategy plugins
-	err = a.loadStrategyPlugins()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (a *Agent) loadAPMPlugins() error {
-	// create default local-nomad target
-	a.config.APMs = append(a.config.APMs, &config.Plugin{
-		Name:   "local-nomad",
-		Driver: "nomad-apm",
-		Config: map[string]string{
-			"address": a.config.Nomad.Address,
-			"region":  a.config.Nomad.Region,
-		},
-	})
-
-	for _, apmConfig := range a.config.APMs {
-		a.logger.Info("loading APM plugin", "plugin", apmConfig)
-
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"apm": &apmpkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, apmConfig.Driver)),
-		}
-		err := a.apmManager.RegisterPlugin(apmConfig.Name, pluginConfig)
-		if err != nil {
-			return err
-		}
-
-		// configure plugin
-		apmPlugin, err := a.apmManager.Dispense(apmConfig.Name)
-		if err != nil {
-			return err
-		}
-		err = (*apmPlugin).SetConfig(apmConfig.Config)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *Agent) loadTargetPlugins() error {
-	// create default local-nomad target
-	a.config.Targets = append(a.config.Targets, &config.Plugin{
-		Name:   "local-nomad",
-		Driver: "nomad",
-		Config: map[string]string{
-			"address": a.config.Nomad.Address,
-			"region":  a.config.Nomad.Region,
-		},
-	})
-
-	for _, targetConfig := range a.config.Targets {
-		a.logger.Info("loading Target plugin", "plugin", targetConfig)
-
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"target": &targetpkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, targetConfig.Driver)),
-		}
-		err := a.targetManager.RegisterPlugin(targetConfig.Name, pluginConfig)
-		if err != nil {
-			return err
-		}
-
-		// configure plugin
-		targetPlugin, err := a.targetManager.Dispense(targetConfig.Name)
-		if err != nil {
-			return err
-		}
-		err = (*targetPlugin).SetConfig(targetConfig.Config)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (a *Agent) loadStrategyPlugins() error {
-	for _, strategyConfig := range a.config.Strategies {
-		a.logger.Info("loading Strategy plugin", "plugin", strategyConfig)
-
-		pluginConfig := &plugin.ClientConfig{
-			HandshakeConfig: PluginHandshakeConfig,
-			Plugins: map[string]plugin.Plugin{
-				"strategy": &strategypkg.Plugin{},
-			},
-			Cmd: exec.Command(path.Join(a.config.PluginDir, strategyConfig.Driver)),
-		}
-		err := a.strategyManager.RegisterPlugin(strategyConfig.Name, pluginConfig)
-		if err != nil {
-			return err
-		}
-
-		// configure plugin
-		strategyPlugin, err := a.strategyManager.Dispense(strategyConfig.Name)
-		if err != nil {
-			return err
-		}
-		err = (*strategyPlugin).SetConfig(strategyConfig.Config)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (a *Agent) handlePolicy(p *policy.Policy) {
 	logger := a.logger.With(
 		"policy_id", p.ID,
@@ -325,35 +161,40 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		"strategy", p.Strategy.Name,
 	)
 
-	var target targetpkg.Target
-	var apm apmpkg.APM
-	var strategy strategypkg.Strategy
+	if !p.Enabled {
+		logger.Info("policy not enabled")
+		return
+	}
+
+	var targetInst targetpkg.Target
+	var apmInst apmpkg.APM
+	var strategyInst strategypkg.Strategy
 
 	// dispense plugins
-	targetPlugin, err := a.targetManager.Dispense(p.Target.Name)
+	targetPlugin, err := a.pluginManager.Dispense(p.Target.Name, plugins.PluginTypeTarget)
 	if err != nil {
 		logger.Error("target plugin not initialized", "error", err, "plugin", p.Target.Name)
 		return
 	}
-	target = *targetPlugin
+	targetInst = targetPlugin.Plugin().(targetpkg.Target)
 
-	apmPlugin, err := a.apmManager.Dispense(p.Source)
+	apmPlugin, err := a.pluginManager.Dispense(p.Source, plugins.PluginTypeAPM)
 	if err != nil {
-		logger.Error("apm plugin not initialized", "error", err, "plugin", p.Target.Name)
+		logger.Error("apm plugin not initialized", "error", err, "plugin", p.Source)
 		return
 	}
-	apm = *apmPlugin
+	apmInst = apmPlugin.Plugin().(apmpkg.APM)
 
-	strategyPlugin, err := a.strategyManager.Dispense(p.Strategy.Name)
+	strategyPlugin, err := a.pluginManager.Dispense(p.Strategy.Name, plugins.PluginTypeStrategy)
 	if err != nil {
-		logger.Error("strategy plugin not initialized", "error", err, "plugin", p.Target.Name)
+		logger.Error("strategy plugin not initialized", "error", err, "plugin", p.Strategy.Name)
 		return
 	}
-	strategy = *strategyPlugin
+	strategyInst = strategyPlugin.Plugin().(strategypkg.Strategy)
 
 	// fetch target count
 	logger.Info("fetching current count")
-	currentCount, err := target.Count(p.Target.Config)
+	currentCount, err := targetInst.Count(p.Target.Config)
 	if err != nil {
 		logger.Error("failed to fetch current count", "error", err)
 		return
@@ -361,7 +202,7 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 
 	// query policy's APM
 	logger.Info("querying APM")
-	value, err := apm.Query(p.Query)
+	value, err := apmInst.Query(p.Query)
 	if err != nil {
 		logger.Error("failed to query APM", "error", err)
 		return
@@ -370,40 +211,73 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 	// calculate new count using policy's Strategy
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
-		CurrentCount: int64(currentCount),
-		MinCount:     p.Min,
-		MaxCount:     p.Max,
-		CurrentValue: value,
-		Config:       p.Strategy.Config,
+		PolicyID: p.ID,
+		Count:    currentCount,
+		Metric:   value,
+		Config:   p.Strategy.Config,
 	}
-	results, err := strategy.Run(req)
+	results, err := strategyInst.Run(req)
 	if err != nil {
 		logger.Error("failed to calculate strategy", "error", err)
 		return
 	}
 
 	if len(results.Actions) == 0 {
-		logger.Info("nothing to do")
-		return
+		// Make sure we are currently within [min, max] limits even if there's
+		// no action to execute
+		var minMaxAction *strategypkg.Action
+
+		if currentCount < p.Min {
+			minMaxAction = &strategypkg.Action{
+				Count:  &p.Min,
+				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentCount, p.Min),
+			}
+		} else if currentCount > p.Max {
+			minMaxAction = &strategypkg.Action{
+				Count:  &p.Max,
+				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentCount, p.Max),
+			}
+		}
+
+		if minMaxAction != nil {
+			results.Actions = append(results.Actions, *minMaxAction)
+		} else {
+			logger.Info("nothing to do")
+			return
+		}
 	}
 
 	// scale target
 	for _, action := range results.Actions {
-		logger.Info("scaling target",
-			"target_config", p.Target.Config, "from", currentCount, "to", action.Count, "reason", action.Reason)
+		actionLogger := logger.With("target_config", p.Target.Config)
 
-		// If the policy is configured with dry-run:true then we reset the
-		// action count to the current count so its no-nop. This allows us to
-		// still submit the job, but not alter its state.
+		// Make sure returned action has sane defaults instead of relying on
+		// plugins doing this.
+		action.Canonicalize()
+
+		// Make sure new count value is within [min, max] limits
+		action.CapCount(p.Min, p.Max)
+
+		// If the policy is configured with dry-run:true then we set the
+		// action count to nil so its no-nop. This allows us to still
+		// submit the job, but not alter its state.
 		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
-			logger.Info("scaling dry-run is enabled, using no-op task group count",
-				"target_config", p.Target.Config)
-			action.Count = currentCount
+			actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
+			action.SetDryRun(true)
 		}
 
-		if err = (*targetPlugin).Scale(action, p.Target.Config); err != nil {
-			logger.Error("failed to scale target", "error", err)
-			return
+		if action.Count == nil {
+			actionLogger.Info("registering scaling event",
+				"count", currentCount, "reason", action.Reason, "meta", action.Meta)
+		} else {
+			actionLogger.Info("scaling target",
+				"from", currentCount, "to", *action.Count,
+				"reason", action.Reason, "meta", action.Meta)
+		}
+
+		if err = targetInst.Scale(action, p.Target.Config); err != nil {
+			actionLogger.Error("failed to scale target", "error", err)
+			continue
 		}
 	}
 }

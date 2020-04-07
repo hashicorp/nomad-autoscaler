@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -13,6 +14,7 @@ type Policy struct {
 	Max      int64
 	Source   string
 	Query    string
+	Enabled  bool
 	Target   *Target
 	Strategy *Strategy
 }
@@ -40,8 +42,12 @@ const (
 
 func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 
+	if from.Enabled == nil {
+		to.Enabled = true
+	}
+
 	if to.Target.Name == "" {
-		to.Target.Name = "local-nomad"
+		to.Target.Name = plugins.InternalAPMNomad
 	}
 
 	if to.Target.Config == nil {
@@ -52,7 +58,7 @@ func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 	to.Target.Config["group"] = from.Target["Group"]
 
 	if to.Source == "" {
-		to.Source = "local-nomad"
+		to.Source = plugins.InternalAPMNomad
 
 		parts := strings.Split(to.Query, "_")
 		op := parts[0]

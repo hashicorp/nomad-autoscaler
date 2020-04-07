@@ -1,3 +1,8 @@
+## Unreleased
+
+BUG FIXES:
+ * plugin: allow the internal `target-value` plugin to handle scaling to zero as well as use target values of zero [[GH-77](https://github.com/hashicorp/nomad-autoscaler/pull/77)]
+
 ## 0.0.1-techpreview1 (March 25, 2020)
 
 Initial tech-preview release.

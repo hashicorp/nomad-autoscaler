@@ -10,12 +10,22 @@ import (
 func (h *Handler) policyUpdateHandler() {
 	for {
 		select {
+
+		// The channel has received a policy which has been determined to
+		// have a update. Assign this to `p` and perform the processing
+		// required to reflect the change in our state.
 		case p := <-h.policyUpdateChan:
+
+			// Protect against nil policies so senders do not have to keeping
+			// this logic in a single place.
+			if p == nil {
+				break
+			}
 
 			jobID := p.Target["Job"]
 
 			// Ensure the scale status watcher is running for the job.
-			h.startStatusWatcher(jobID)
+			h.startJobStatusWatcher(jobID)
 
 			// If the job is stopped, we don't need to work on storing the policy
 			// and should exit.

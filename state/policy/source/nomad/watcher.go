@@ -1,34 +1,39 @@
-package policy
+package nomad
 
 import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
+	"github.com/hashicorp/nomad-autoscaler/state/policy/source"
 	"github.com/hashicorp/nomad/api"
 )
 
-type Watcher struct {
+// Ensure PolicySource satisfies the source.PolicySource interface.
+var _ source.PolicySource = (*PolicySource)(nil)
+
+type PolicySource struct {
 	log             hclog.Logger
 	nomad           *api.Client
 	lastChangeIndex uint64
 	updateChan      chan *api.ScalingPolicy
 }
 
-// NewWatcher creates a new scale policies watcher, using blocking queries to
-// monitor changes from Nomad.
-func NewWatcher(log hclog.Logger, nomad *api.Client, updateChan chan *api.ScalingPolicy) *Watcher {
-	return &Watcher{
-		log:        log.Named("policy_watcher"),
-		nomad:      nomad,
-		updateChan: updateChan,
+// NewNomadPolicySource creates a new Nomad scaling policy source which uses
+// blocking queries to efficiently track policy updates from the Nomad API.
+func NewNomadPolicySource(log hclog.Logger, nomad *api.Client) source.PolicySource {
+	return &PolicySource{
+		log:   log.Named("policy_source"),
+		nomad: nomad,
 	}
 }
 
-// Start triggers the running on the scaling policy watcher, which uses
-// blocking queries to monitor the Nomad API for changes in the stored scaling
-// polices.
-func (w *Watcher) Start() {
+// Start satisfies the Start function on the source.PolicySource interface.
+func (ps *PolicySource) Start(updateChan chan *api.ScalingPolicy) {
+
+	// Store the update channel.
+	ps.updateChan = updateChan
+
 	var maxFound uint64
 
 	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
@@ -39,16 +44,16 @@ func (w *Watcher) Start() {
 		// sleep and try again.
 		//
 		// TODO(jrasell) in the future maybe use a better method than sleep.
-		policies, meta, err := w.nomad.Scaling().ListPolicies(q)
+		policies, meta, err := ps.nomad.Scaling().ListPolicies(q)
 		if err != nil {
-			w.log.Error("failed to call the Nomad list policies API", "error", err)
+			ps.log.Error("failed to call the Nomad list policies API", "error", err)
 			time.Sleep(10 * time.Second)
 			continue
 		}
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChange(meta.LastIndex, q.WaitIndex) {
+		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
 			continue
 		}
 
@@ -58,20 +63,20 @@ func (w *Watcher) Start() {
 			// If the index on the individual policy is not great than our last
 			// seen, look at the next policy. If it is great, then move forward
 			// and process the policy.
-			if !blocking.IndexHasChange(policy.ModifyIndex, w.lastChangeIndex) {
+			if !blocking.IndexHasChanged(policy.ModifyIndex, ps.lastChangeIndex) {
 				continue
 			}
 
 			// Perform a read on the policy to get all the information.
-			p, _, err := w.nomad.Scaling().GetPolicy(policy.ID, nil)
+			p, _, err := ps.nomad.Scaling().GetPolicy(policy.ID, nil)
 			if err != nil {
-				w.log.Error("failed call the Nomad read policy API",
+				ps.log.Error("failed call the Nomad read policy API",
 					"error", err, "policy_id", policy.ID)
 				continue
 			}
 
 			// Send the policy to the channel.
-			w.updateChan <- p
+			ps.updateChan <- p
 
 			// Update our currently recorded maxFound index.
 			maxFound = blocking.FindMaxFound(policy.ModifyIndex, maxFound)
@@ -81,6 +86,6 @@ func (w *Watcher) Start() {
 		// correct point and update our recorded lastChangeIndex so we have the
 		// correct point to use during the next API return.
 		q.WaitIndex = meta.LastIndex
-		w.lastChangeIndex = maxFound
+		ps.lastChangeIndex = maxFound
 	}
 }

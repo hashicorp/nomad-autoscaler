@@ -43,12 +43,19 @@ func TestBackend(t *testing.T) {
 
 	// Check the state store has 3 policy entries and two job entries.
 	assert.Len(t, backend.state, 3)
-	assert.Len(t, backend.jobIDs, 2)
+	assert.Len(t, backend.resourceIDs, 2)
 
 	// Delete all the policies for job-3.
-	backend.DeleteJobPolicies("job-3")
+	backend.DeletePolicies("job-3")
 	assert.Len(t, backend.state, 1)
-	assert.Len(t, backend.jobIDs, 1)
+	assert.Len(t, backend.resourceIDs, 1)
+
+	// Add a Nomad node client class scaling policy.
+	policy4 := generateTestPolicy("4")
+	backend.Set("high-compute", policy4)
+	assert.Len(t, backend.state, 2)
+	assert.Len(t, backend.resourceIDs, 2)
+	assert.Equal(t, policy4, backend.List()[policy4.ID])
 }
 
 func generateTestPolicy(id string) *Policy {

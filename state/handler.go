@@ -6,6 +6,8 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
+	"github.com/hashicorp/nomad-autoscaler/state/policy/source"
+	nomadSource "github.com/hashicorp/nomad-autoscaler/state/policy/source/nomad"
 	"github.com/hashicorp/nomad-autoscaler/state/status"
 	"github.com/hashicorp/nomad/api"
 )
@@ -35,9 +37,8 @@ type Handler struct {
 	// listening to this, and processing any items on the channel.
 	policyUpdateChan chan *api.ScalingPolicy
 
-	// policyWatcher is the handle to the blocking query process monitoring the
-	// Nomad scaling policy API for changes.
-	policyWatcher *policy.Watcher
+	// policySource
+	policySource source.PolicySource
 
 	// statusState is the interface for interacting with the internal job scale
 	// status state.
@@ -67,7 +68,7 @@ func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handl
 		statusState:           status.NewStateBackend(),
 	}
 
-	h.policyWatcher = policy.NewWatcher(log, nomad, h.policyUpdateChan)
+	h.policySource = nomadSource.NewNomadPolicySource(h.log, h.nomad)
 
 	return &h
 }
@@ -78,7 +79,7 @@ func (h *Handler) Start() {
 	// Start the policy update handler before anything else.
 	go h.policyUpdateHandler()
 
-	// The policy watcher runs as a single process per Autoscaler agent, start
+	// The policy source runs as a single process per Autoscaler agent, start
 	// it now.
-	go h.policyWatcher.Start()
+	go h.policySource.Start(h.policyUpdateChan)
 }

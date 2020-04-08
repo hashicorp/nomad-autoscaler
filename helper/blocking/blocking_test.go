@@ -30,7 +30,7 @@ func Test_indexHasChange(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		res := IndexHasChange(tc.newValue, tc.oldValue)
+		res := IndexHasChanged(tc.newValue, tc.oldValue)
 		assert.Equal(t, tc.expectedReturn, res)
 	}
 }

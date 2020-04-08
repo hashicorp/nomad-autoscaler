@@ -11,15 +11,13 @@ import (
 
 func TestBackend(t *testing.T) {
 
-	// Setup a new backend and ensure the state is empty.
+	// Setup a new backend.
 	b := NewStateBackend()
 	assert.NotNil(t, b)
-	assert.Len(t, b.state, 0)
 
-	// Write a job status result and ensure the state length.
+	// Write a job status result.
 	job1 := generateScaleStatusResponse("job-1", 2)
 	b.SetJob(job1)
-	assert.Len(t, b.state, 1)
 
 	// Ensure we can read both groups state from job-1.
 	job1Group1 := b.GetGroup("job-1", "job-1-task-group-1")
@@ -33,7 +31,6 @@ func TestBackend(t *testing.T) {
 	// Write a new job status result.
 	job2 := generateScaleStatusResponse("job-2", 1)
 	b.SetJob(job2)
-	assert.Len(t, b.state, 2)
 
 	// Read the job out and check its status.
 	job2Group1 := b.GetGroup(job2.JobID, "job-2-task-group-1")

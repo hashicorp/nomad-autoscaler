@@ -62,13 +62,15 @@ func (w *Watcher) Start() {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChange(meta.LastIndex, q.WaitIndex) {
+		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
 			continue
 		}
 
 		// Run the update function so the new status information is persisted
 		// in the internal store.
-		w.updateFunc(status)
+		if status != nil {
+			w.updateFunc(status)
+		}
 
 		maxFound = blocking.FindMaxFound(meta.LastIndex, maxFound)
 

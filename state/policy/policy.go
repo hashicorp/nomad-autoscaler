@@ -19,8 +19,6 @@ type Policy struct {
 	Strategy *Strategy
 }
 
-type JobPolicies map[string]*Policy
-
 type Strategy struct {
 	Name   string
 	Config map[string]string

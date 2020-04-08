@@ -56,7 +56,7 @@ type pluginInfo struct {
 func NewPluginManager(log hclog.Logger, dir string, cfg map[string][]*config.Plugin) *PluginManager {
 	return &PluginManager{
 		cfg:             generateConfigMap(cfg),
-		logger:          log.Named("plugin-manager"),
+		logger:          log.Named("plugin_manager"),
 		pluginDir:       dir,
 		pluginInstances: make(map[plugins.PluginID]PluginInstance),
 		plugins:         make(map[plugins.PluginID]*pluginInfo),
@@ -176,7 +176,7 @@ func (pm *PluginManager) dispensePlugins() error {
 // launchInternalPlugin is used to dispense internal plugins.
 func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *plugins.PluginInfo, error) {
 
-	raw := info.factory(pm.logger.ResetNamed("internal-plugin"))
+	raw := info.factory(pm.logger.ResetNamed("internal_plugin"))
 
 	pInfo, err := pm.pluginLaunchCheck(id, raw)
 	if err != nil {
@@ -197,7 +197,7 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 		HandshakeConfig: plugins.Handshake,
 		Plugins:         getPluginMap(id.PluginType),
 		Cmd:             exec.Command(info.exePath, info.args...),
-		Logger:          pm.logger.ResetNamed("external-plugin"),
+		Logger:          pm.logger.ResetNamed("external_plugin"),
 	})
 
 	// Connect via RPC.

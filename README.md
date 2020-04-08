@@ -17,10 +17,10 @@ The Nomad Autoscaler currently supports:
 The autoscaler relies on Nomad APIs that were introduced in Nomad 0.11-beta1, some of which have been changed during the beta.
 The compability requirements are as follows: 
 
-| Autoscaler Version  | Nomad Version |
-|:-------------------:|:-------------:|
-| 0.0.1-techpreview1  |  0.11-beta1   |
-| wip                 |  0.11-beta2   |
+| Autoscaler Version                                                            | Nomad Version |
+|:-----------------------------------------------------------------------------:|:-------------:|
+| 0.0.1-techpreview1                                                            | 0.11-beta1    |
+| [nightly](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly) | 0.11-beta2 +  |
 
 ## Documentation
 Documentation is available within this repository [here](./docs/README.md).

@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,7 +20,7 @@ func TestStrategyPlugin_SetConfig(t *testing.T) {
 
 func TestStrategyPlugin_PluginInfo(t *testing.T) {
 	s := &StrategyPlugin{}
-	expectedOutput := &plugins.PluginInfo{Name: "target-value", PluginType: "strategy"}
+	expectedOutput := &base.PluginInfo{Name: "target-value", PluginType: "strategy"}
 	actualOutput, err := s.PluginInfo()
 	assert.Nil(t, err)
 	assert.Equal(t, expectedOutput, actualOutput)

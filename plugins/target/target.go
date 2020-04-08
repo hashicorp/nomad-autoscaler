@@ -4,14 +4,14 @@ import (
 	"net/rpc"
 
 	plugin "github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 )
 
 type Target interface {
 	Count(config map[string]string) (int64, error)
 	Scale(action strategy.Action, config map[string]string) error
-	PluginInfo() (*plugins.PluginInfo, error)
+	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }
 
@@ -34,8 +34,8 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) PluginInfo() (*plugins.PluginInfo, error) {
-	var resp plugins.PluginInfo
+func (r *RPC) PluginInfo() (*base.PluginInfo, error) {
+	var resp base.PluginInfo
 	err := r.client.Call("Plugin.PluginInfo", new(interface{}), &resp)
 	if err != nil {
 		return &resp, err
@@ -76,7 +76,7 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) PluginInfo(_ interface{}, r *plugins.PluginInfo) error {
+func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
 	resp, err := s.Impl.PluginInfo()
 	if resp != nil {
 		*r = *resp

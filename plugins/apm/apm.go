@@ -4,12 +4,12 @@ import (
 	"net/rpc"
 
 	plugin "github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 )
 
 type APM interface {
 	Query(q string) (float64, error)
-	PluginInfo() (*plugins.PluginInfo, error)
+	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }
 
@@ -36,8 +36,8 @@ func (r *RPC) Query(q string) (float64, error) {
 	return resp, nil
 }
 
-func (r *RPC) PluginInfo() (*plugins.PluginInfo, error) {
-	var resp plugins.PluginInfo
+func (r *RPC) PluginInfo() (*base.PluginInfo, error) {
+	var resp base.PluginInfo
 	err := r.client.Call("Plugin.PluginInfo", new(interface{}), &resp)
 	if err != nil {
 		return &resp, err
@@ -65,7 +65,7 @@ func (s *RPCServer) Query(q string, resp *float64) error {
 	return nil
 }
 
-func (s *RPCServer) PluginInfo(_ interface{}, r *plugins.PluginInfo) error {
+func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
 	resp, err := s.Impl.PluginInfo()
 	if resp != nil {
 		*r = *resp

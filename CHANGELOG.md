@@ -1,4 +1,6 @@
-## Unreleased
+## UNRELEASED
+
+## 0.0.1-techpreview2 (April 9, 2020)
 
 IMPROVEMENTS:
  * core: update Nomad API dependency to 0.11.0 [[GH-85](https://github.com/hashicorp/nomad-autoscaler/pull/85)]

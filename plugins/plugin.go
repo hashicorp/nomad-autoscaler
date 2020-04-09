@@ -82,8 +82,8 @@ func Serve(f PluginFactory) {
 	// Generate the plugin.
 	p := f(logger)
 	if p == nil {
-	  logger.Error("plugin factory returned nil")
-	  return
+		logger.Error("plugin factory returned nil")
+		return
 	}
 
 	// Build the base plugin configuration which is independent of the plugin

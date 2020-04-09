@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -28,7 +29,7 @@ var (
 		Factory: func(l hclog.Logger) interface{} { return NewPrometheusPlugin(l) },
 	}
 
-	pluginInfo = &plugins.PluginInfo{
+	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
 		PluginType: plugins.PluginTypeAPM,
 	}
@@ -66,7 +67,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
-func (a *APMPlugin) PluginInfo() (*plugins.PluginInfo, error) {
+func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }
 

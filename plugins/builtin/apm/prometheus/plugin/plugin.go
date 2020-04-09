@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -90,6 +91,14 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 		return 0, fmt.Errorf("result type (`%v`) is not `scalar`", t)
 	}
 
-	s := result.(*model.Scalar)
-	return float64(s.Value), nil
+	// Grab the Value from the result object and convert to a float64.
+	floatVal := float64(result.(*model.Scalar).Value)
+
+	// Check whether floatVal is an IEEE 754 not-a-number value. If it is
+	// return an error.
+	if math.IsNaN(floatVal) {
+		return 0, fmt.Errorf("query result value is not-a-number")
+	}
+
+	return floatVal, nil
 }

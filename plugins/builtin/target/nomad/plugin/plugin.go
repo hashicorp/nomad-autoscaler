@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad/api"
 )
@@ -25,7 +26,7 @@ var (
 		Factory: func(l hclog.Logger) interface{} { return NewNomadPlugin(l) },
 	}
 
-	pluginInfo = &plugins.PluginInfo{
+	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
 		PluginType: plugins.PluginTypeTarget,
 	}
@@ -55,7 +56,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
-func (t *TargetPlugin) PluginInfo() (*plugins.PluginInfo, error) {
+func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }
 

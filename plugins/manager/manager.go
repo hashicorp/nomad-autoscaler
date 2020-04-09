@@ -41,7 +41,7 @@ type PluginManager struct {
 // plugin. Not all details are required depending on whether the plugin is
 // internal or external; these are noted on the params.
 type pluginInfo struct {
-	baseInfo *plugins.PluginInfo
+	baseInfo *base.PluginInfo
 	config   map[string]string
 
 	// args and exePath are required to execute the external plugin command.
@@ -132,7 +132,7 @@ func (pm *PluginManager) dispensePlugins() error {
 
 		var (
 			inst PluginInstance
-			info *plugins.PluginInfo
+			info *base.PluginInfo
 			err  error
 		)
 		if pInfo.factory != nil {
@@ -174,7 +174,7 @@ func (pm *PluginManager) dispensePlugins() error {
 }
 
 // launchInternalPlugin is used to dispense internal plugins.
-func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *plugins.PluginInfo, error) {
+func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *base.PluginInfo, error) {
 
 	raw := info.factory(pm.logger.ResetNamed("internal_plugin"))
 
@@ -188,7 +188,7 @@ func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginI
 // launchExternalPlugin is used to dispense external plugins. These plugins
 // are therefore run as separate binaries and require more setup than internal
 // ones.
-func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *plugins.PluginInfo, error) {
+func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *base.PluginInfo, error) {
 
 	// Create a new client for the external plugin. This includes items such as
 	// the command to execute and also the logger to use. The loggers name is
@@ -223,7 +223,7 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 	return &externalPluginInstance{instance: raw, client: client}, pInfo, nil
 }
 
-func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{}) (*plugins.PluginInfo, error) {
+func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{}) (*base.PluginInfo, error) {
 
 	// Check that the plugin implements the base plugin interface. As these are
 	// external plugins we need to check this safely, otherwise an incorrect

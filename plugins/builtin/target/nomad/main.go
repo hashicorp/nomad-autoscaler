@@ -1,17 +1,16 @@
 package main
 
 import (
-	"github.com/hashicorp/go-plugin"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadtarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
 func main() {
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: plugins.Handshake,
-		Plugins: map[string]plugin.Plugin{
-			plugins.PluginTypeTarget: &target.Plugin{Impl: &nomadtarget.TargetPlugin{}},
-		},
-	})
+	plugins.Serve(factory)
+}
+
+// factory returns a new instance of the Nomad Target plugin.
+func factory(log hclog.Logger) interface{} {
+	return nomadtarget.NewNomadPlugin(log)
 }

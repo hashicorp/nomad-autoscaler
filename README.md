@@ -20,7 +20,7 @@ The compability requirements are as follows:
 | Autoscaler Version  | Nomad Version |
 |:-------------------:|:-------------:|
 | 0.0.1-techpreview1  |  0.11-beta1   |
-| wip                 |  0.11-beta2   |
+| wip                 |  0.11.0       |
 
 ## Documentation
 Documentation is available within this repository [here](./docs/README.md).

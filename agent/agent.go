@@ -26,8 +26,6 @@ type Agent struct {
 	pluginManager *manager.PluginManager
 }
 
-type Plugin struct{}
-
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	return &Agent{
 		logger: logger,

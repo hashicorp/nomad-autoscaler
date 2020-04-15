@@ -75,7 +75,6 @@ EOH
 
       service {
         name = "prometheus"
-        tags = ["urlprefix-/"]
         port = "prometheus_ui"
 
         check {

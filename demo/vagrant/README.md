@@ -47,7 +47,7 @@ First start the Nomad job which will be autoscaled. The `webapp.nomad` jobfile c
 - `enabled = false` is a parameter to allow operators to administratively disable scaling for a task group.
 - `source = "prometheus"` specifies that the Autoscaler will use the Prometheus APM plugin to retrieve metrics.
 - `query  = "scalar(avg((haproxy.."` is the query that will be run against the APM and is expected to return a single value.
-- `strategy = { name = "target-value"}` defines the calculation strategy the Autoscaler will use, in this case we a targeting a value.
+- `strategy = { name = "target-value" }` defines the calculation strategy the Autoscaler will use, in this case we a targeting a value.
 
 Register the application to Nomad, so Nomad can start 3 allocations of the example web application.
 ```

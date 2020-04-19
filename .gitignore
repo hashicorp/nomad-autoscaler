@@ -7,3 +7,6 @@ pkg/
 # ignore Vagrant related files
 *.log
 .vagrant
+
+# ignore GoLand IDE
+.idea

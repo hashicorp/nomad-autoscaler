@@ -143,7 +143,16 @@ func TestAgent_Merge(t *testing.T) {
 
 	actualResult := baseCfg.Merge(cfg1)
 	actualResult = actualResult.Merge(cfg2)
-	assert.Equal(t, expectedResult, actualResult)
+
+	assert.Equal(t, expectedResult.HTTP, actualResult.HTTP)
+	assert.Equal(t, expectedResult.LogJson, actualResult.LogJson)
+	assert.Equal(t, expectedResult.LogLevel, actualResult.LogLevel)
+	assert.Equal(t, expectedResult.Nomad, actualResult.Nomad)
+	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
+	assert.Equal(t, expectedResult.ScanInterval, actualResult.ScanInterval)
+	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
+	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
+	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)
 }
 
 func TestAgent_parseFile(t *testing.T) {

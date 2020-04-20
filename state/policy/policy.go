@@ -3,20 +3,22 @@ package policy
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad/api"
 )
 
 type Policy struct {
-	ID       string
-	Min      int64
-	Max      int64
-	Source   string
-	Query    string
-	Enabled  bool
-	Target   *Target
-	Strategy *Strategy
+	ID                 string
+	Min                int64
+	Max                int64
+	Source             string
+	Query              string
+	Enabled            bool
+	EvaluationInterval time.Duration
+	Target             *Target
+	Strategy           *Strategy
 }
 
 type Strategy struct {
@@ -32,16 +34,24 @@ type Target struct {
 // Keys represent the scaling policy document keys and help translate
 // the opaque object into a usable autoscaling policy.
 const (
-	KeySource   = "source"
-	KeyQuery    = "query"
-	KeyTarget   = "target"
-	KeyStrategy = "strategy"
+	KeySource             = "source"
+	KeyQuery              = "query"
+	KeyEvaluationInterval = "evaluation_interval"
+	KeyTarget             = "target"
+	KeyStrategy           = "strategy"
 )
 
+// Canonicalize sets standarized values for missing fields.
+// It must be called after Validate.
 func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 
 	if from.Enabled == nil {
 		to.Enabled = true
+	}
+
+	if evalInterval, ok := from.Policy[KeyEvaluationInterval].(string); ok {
+		// Ignore parse error since we assume Canonicalize is called after Validate
+		to.EvaluationInterval, _ = time.ParseDuration(evalInterval)
 	}
 
 	if to.Target.Name == "" {
@@ -58,6 +68,7 @@ func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 	if to.Source == "" {
 		to.Source = plugins.InternalAPMNomad
 
+		// TODO(luiz) move default query logic handling to the Nomad APM plugin
 		parts := strings.Split(to.Query, "_")
 		op := parts[0]
 		metric := parts[1]
@@ -75,6 +86,13 @@ func Canonicalize(from *api.ScalingPolicy, to *Policy) {
 
 func Validate(policy *api.ScalingPolicy) []error {
 	var errs []error
+
+	evalInterval, ok := policy.Policy[KeyEvaluationInterval].(string)
+	if ok {
+		if _, err := time.ParseDuration(evalInterval); err != nil {
+			errs = append(errs, fmt.Errorf("Policy.%s %s is not a time.Durations", KeyEvaluationInterval, evalInterval))
+		}
+	}
 
 	strategyList, ok := policy.Policy["strategy"].([]interface{})
 	if !ok {

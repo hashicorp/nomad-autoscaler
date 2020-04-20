@@ -39,14 +39,15 @@ func (h *Handler) policyUpdateHandler() {
 			}
 
 			autoPolicy := &policy.Policy{
-				ID:       p.ID,
-				Min:      *p.Min,
-				Max:      p.Max,
-				Enabled:  *p.Enabled,
-				Source:   p.Policy[policy.KeySource].(string),
-				Query:    p.Policy[policy.KeyQuery].(string),
-				Target:   policy.ParseTarget(p.Policy[policy.KeyTarget]),
-				Strategy: policy.ParseStrategy(p.Policy[policy.KeyStrategy]),
+				ID:                 p.ID,
+				Min:                *p.Min,
+				Max:                p.Max,
+				Enabled:            *p.Enabled,
+				Source:             p.Policy[policy.KeySource].(string),
+				Query:              p.Policy[policy.KeyQuery].(string),
+				EvaluationInterval: h.defaultEvaluationInterval,
+				Target:             policy.ParseTarget(p.Policy[policy.KeyTarget]),
+				Strategy:           policy.ParseStrategy(p.Policy[policy.KeyStrategy]),
 			}
 
 			policy.Canonicalize(p, autoPolicy)

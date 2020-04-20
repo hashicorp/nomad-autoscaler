@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"sync"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
@@ -11,6 +12,13 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/state/status"
 	"github.com/hashicorp/nomad/api"
 )
+
+// HandlerConfig stores configuration values for a Handler.
+type HandlerConfig struct {
+	Logger             hclog.Logger
+	NomadClient        *api.Client
+	EvaluationInterval time.Duration
+}
 
 // Handler manages the internal state storage for the Autoscaler agent and
 // should be used to ensure required information from Nomad (our source of
@@ -27,6 +35,10 @@ type Handler struct {
 
 	log   hclog.Logger
 	nomad *api.Client
+
+	// defaultEvaluationInterval is the interval used to evaluate a policy if
+	// one is not defined by the policy itself.
+	defaultEvaluationInterval time.Duration
 
 	// PolicyState is the interface for interacting with the internal policy
 	// state. It is public as the agent needs to be able to list policies.
@@ -64,17 +76,18 @@ type Handler struct {
 
 // NewHandler is used to build a new state Handler object for use in managing
 // the Autoscaler internal state.
-func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handler {
+func NewHandler(ctx context.Context, config *HandlerConfig) *Handler {
 	h := Handler{
-		ctx:                   ctx,
-		log:                   log.Named("state_handler"),
-		nomad:                 nomad,
-		PolicyState:           policy.NewStateBackend(),
-		policyReconcileChan:   make(chan []*api.ScalingPolicyListStub),
-		policyUpdateChan:      make(chan *api.ScalingPolicy, 10),
-		statusWatcherHandlers: make(map[string]*status.Watcher),
-		statusState:           status.NewStateBackend(),
-		statusUpdateChan:      make(chan *api.JobScaleStatusResponse, 10),
+		ctx:                       ctx,
+		log:                       config.Logger.Named("state_handler"),
+		nomad:                     config.NomadClient,
+		defaultEvaluationInterval: config.EvaluationInterval,
+		PolicyState:               policy.NewStateBackend(),
+		policyReconcileChan:       make(chan []*api.ScalingPolicyListStub),
+		policyUpdateChan:          make(chan *api.ScalingPolicy, 10),
+		statusWatcherHandlers:     make(map[string]*status.Watcher),
+		statusState:               status.NewStateBackend(),
+		statusUpdateChan:          make(chan *api.JobScaleStatusResponse, 10),
 	}
 
 	h.policySource = nomadSource.NewNomadPolicySource(h.log, h.nomad)

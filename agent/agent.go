@@ -40,7 +40,13 @@ func (a *Agent) Run(ctx context.Context) error {
 		return err
 	}
 
-	stateHandler := state.NewHandler(ctx, a.logger, a.nomadClient)
+	stateHandlerConfig := &state.HandlerConfig{
+		Logger:             a.logger,
+		NomadClient:        a.nomadClient,
+		EvaluationInterval: a.config.ScanInterval,
+	}
+
+	stateHandler := state.NewHandler(ctx, stateHandlerConfig)
 	stateHandler.Start()
 
 	// launch plugins

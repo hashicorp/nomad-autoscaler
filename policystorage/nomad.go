@@ -98,6 +98,7 @@ func validate(policy *api.ScalingPolicy) []error {
 	strategyList, ok := policy.Policy["strategy"].([]interface{})
 	if !ok {
 		errs = append(errs, fmt.Errorf("Policy.strategy (%T) is not a []interface{}", policy.Policy["strategy"]))
+		return errs
 	}
 
 	_, ok = strategyList[0].(map[string]interface{})

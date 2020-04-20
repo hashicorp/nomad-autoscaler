@@ -5,6 +5,9 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	plugin "github.com/hashicorp/go-plugin"
+	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
 const (
@@ -69,10 +72,39 @@ func (p PluginID) String() string {
 	return fmt.Sprintf("%q (%v)", p.Name, p.PluginType)
 }
 
-// PluginInfo is the information used by plugins to identify themselves and
-// contains critical information about their configuration. It is used within
-// the base plugin PluginInfo response RPC call.
-type PluginInfo struct {
-	Name       string
-	PluginType string
+// Serve is used to serve a Nomad Autoscaler Plugin.
+func Serve(f PluginFactory) {
+	logger := hclog.New(&hclog.LoggerOptions{
+		Level:      hclog.Trace,
+		JSONFormat: true,
+	})
+
+	// Generate the plugin.
+	p := f(logger)
+	if p == nil {
+		logger.Error("plugin factory returned nil")
+		return
+	}
+
+	// Build the base plugin configuration which is independent of the plugin
+	// type.
+	pCfg := plugin.ServeConfig{
+		HandshakeConfig: Handshake,
+		Logger:          logger,
+	}
+
+	switch pType := p.(type) {
+	case apm.APM:
+		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeAPM: &apm.Plugin{Impl: p.(apm.APM)}}
+	case target.Target:
+		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeTarget: &target.Plugin{Impl: p.(target.Target)}}
+	case strategy.Strategy:
+		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeStrategy: &strategy.Plugin{Impl: p.(strategy.Strategy)}}
+	default:
+		logger.Error("unsupported plugin type %q", pType)
+		return
+	}
+
+	// Serve the plugin; lovely jubbly.
+	plugin.Serve(&pCfg)
 }

@@ -43,7 +43,7 @@ type healthServer struct {
 func newHealthServer(cfg *config.HTTP, log hclog.Logger) (*healthServer, error) {
 
 	srv := &healthServer{
-		log: log.Named("health-server"),
+		log: log.Named("health_server"),
 	}
 
 	// Setup our router and single health check route.

@@ -3,11 +3,13 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/prometheus/client_golang/api"
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"
 	"github.com/prometheus/common/model"
@@ -28,7 +30,7 @@ var (
 		Factory: func(l hclog.Logger) interface{} { return NewPrometheusPlugin(l) },
 	}
 
-	pluginInfo = &plugins.PluginInfo{
+	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
 		PluginType: plugins.PluginTypeAPM,
 	}
@@ -66,7 +68,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
-func (a *APMPlugin) PluginInfo() (*plugins.PluginInfo, error) {
+func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }
 
@@ -89,6 +91,14 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 		return 0, fmt.Errorf("result type (`%v`) is not `scalar`", t)
 	}
 
-	s := result.(*model.Scalar)
-	return float64(s.Value), nil
+	// Grab the Value from the result object and convert to a float64.
+	floatVal := float64(result.(*model.Scalar).Value)
+
+	// Check whether floatVal is an IEEE 754 not-a-number value. If it is
+	// return an error.
+	if math.IsNaN(floatVal) {
+		return 0, fmt.Errorf("query result value is not-a-number")
+	}
+
+	return floatVal, nil
 }

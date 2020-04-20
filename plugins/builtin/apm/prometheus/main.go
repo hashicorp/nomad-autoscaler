@@ -1,17 +1,16 @@
 package main
 
 import (
-	plugin "github.com/hashicorp/go-plugin"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
-	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 )
 
 func main() {
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: plugins.Handshake,
-		Plugins: map[string]plugin.Plugin{
-			plugins.PluginTypeAPM: &apm.Plugin{Impl: &prometheus.APMPlugin{}},
-		},
-	})
+	plugins.Serve(factory)
+}
+
+// factory returns a new instance of the Prometheus APM plugin.
+func factory(log hclog.Logger) interface{} {
+	return prometheus.NewPrometheusPlugin(log)
 }

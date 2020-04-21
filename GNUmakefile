@@ -1,5 +1,5 @@
 SHELL = bash
-default: lint test build
+default: lint test build check-mod
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
@@ -25,6 +25,16 @@ build:
 lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
+	@echo "==> Done"
+
+.PHONEY: check-mod
+check-mod: ## Checks the Go mod is tidy
+	@echo "==> Checking Go mod.."
+	@GO111MODULE=on go mod tidy
+	@if (git status --porcelain | grep -q go.mod); then \
+		echo go.mod needs updating; \
+		git --no-pager diff go.mod; \
+		exit 1; fi
 	@echo "==> Done"
 
 .PHONY: test

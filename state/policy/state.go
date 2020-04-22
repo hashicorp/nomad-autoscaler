@@ -2,6 +2,8 @@ package policy
 
 import (
 	"sync"
+
+	"github.com/hashicorp/nomad/api"
 )
 
 // State is the interface which must be met in order to implement the
@@ -11,13 +13,14 @@ type State interface {
 	// List is used to return all the currently stored policies.
 	List() map[string]*Policy
 
-	// DeletePolicy is used to delete an individual scaling policy associated
-	// to the specified resource.
-	DeletePolicy(resourceID, policyID string)
-
 	// DeletePolicies will delete all the scaling policies associated to the
 	// specified resource.
 	DeletePolicies(resourceID string)
+
+	// ReconcilePolicies compares the input policy list against the internal
+	// store. Any policies that are found within the store, but are not present
+	// in the input list are removed.
+	ReconcilePolicies(policies []*api.ScalingPolicyListStub)
 
 	// Set stores the passed policy into the state store. If a policy with the
 	// same identifier already exists, this call should perform an overwrite as
@@ -26,11 +29,11 @@ type State interface {
 }
 
 // Ensure Backend satisfies the State interface.
-var _ State = (*Backend)(nil)
+var _ State = (*backend)(nil)
 
 // Backend is currently the only implementation of the State interface and
 // provides and in-memory state store with locking safety.
-type Backend struct {
+type backend struct {
 
 	// lock is the mutex that should be used when interacting with either of
 	// the below maps.
@@ -50,15 +53,15 @@ type Backend struct {
 }
 
 // NewStateBackend returns the Backend implementation of the State interface.
-func NewStateBackend() *Backend {
-	return &Backend{
+func NewStateBackend() State {
+	return &backend{
 		state:       make(map[string]*Policy),
 		resourceIDs: make(map[string]map[string]interface{}),
 	}
 }
 
 // List satisfies the List function on the State interface.
-func (b *Backend) List() map[string]*Policy {
+func (b *backend) List() map[string]*Policy {
 	b.lock.RLock()
 	policies := b.state
 	b.lock.RUnlock()
@@ -66,7 +69,7 @@ func (b *Backend) List() map[string]*Policy {
 }
 
 // Set satisfies the Set function on the State interface.
-func (b *Backend) Set(resourceID string, policy *Policy) {
+func (b *backend) Set(resourceID string, policy *Policy) {
 	b.lock.Lock()
 	b.state[policy.ID] = policy
 
@@ -78,23 +81,8 @@ func (b *Backend) Set(resourceID string, policy *Policy) {
 	b.lock.Unlock()
 }
 
-// DeletePolicy satisfies the DeletePolicy function on the State interface.
-func (b *Backend) DeletePolicy(resourceID, policyID string) {
-	b.lock.Lock()
-
-	delete(b.resourceIDs[resourceID], policyID)
-
-	if len(b.resourceIDs[resourceID]) == 0 {
-		delete(b.resourceIDs, resourceID)
-	}
-
-	delete(b.state, policyID)
-
-	b.lock.Unlock()
-}
-
 // DeletePolicies satisfies the DeletePolicies function on the State interface.
-func (b *Backend) DeletePolicies(resourceID string) {
+func (b *backend) DeletePolicies(resourceID string) {
 	b.lock.Lock()
 
 	policyIDs := b.resourceIDs[resourceID]
@@ -104,4 +92,40 @@ func (b *Backend) DeletePolicies(resourceID string) {
 
 	delete(b.resourceIDs, resourceID)
 	b.lock.Unlock()
+}
+
+// ReconcilePolicies satisfies the ReconcilePolicies function on the State
+// interface.
+func (b *backend) ReconcilePolicies(policies []*api.ScalingPolicyListStub) {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
+	for k, v := range b.state {
+
+		var found bool
+
+		for _, listPolicy := range policies {
+			if k == listPolicy.ID {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			if id, ok := v.Target.Config["job_id"]; ok {
+				b.deletePolicy(id, k)
+			}
+			delete(b.state, k)
+		}
+	}
+}
+
+func (b *backend) deletePolicy(resourceID, policyID string) {
+	delete(b.resourceIDs[resourceID], policyID)
+
+	if len(b.resourceIDs[resourceID]) == 0 {
+		delete(b.resourceIDs, resourceID)
+	}
+
+	delete(b.state, policyID)
 }

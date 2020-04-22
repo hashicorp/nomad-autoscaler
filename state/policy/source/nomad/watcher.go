@@ -3,7 +3,7 @@ package nomad
 import (
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad-autoscaler/state/policy/source"
 	"github.com/hashicorp/nomad/api"
@@ -16,6 +16,7 @@ type PolicySource struct {
 	log             hclog.Logger
 	nomad           *api.Client
 	lastChangeIndex uint64
+	reconcileChan   chan []*api.ScalingPolicyListStub
 	updateChan      chan *api.ScalingPolicy
 }
 
@@ -29,9 +30,11 @@ func NewNomadPolicySource(log hclog.Logger, nomad *api.Client) source.PolicySour
 }
 
 // Start satisfies the Start function on the source.PolicySource interface.
-func (ps *PolicySource) Start(updateChan chan *api.ScalingPolicy) {
+func (ps *PolicySource) Start(updateChan chan *api.ScalingPolicy, reconcileChan chan []*api.ScalingPolicyListStub) {
+	ps.log.Debug("starting policy blocking query watcher")
 
-	// Store the update channel.
+	// Store the update and reconcile channel.
+	ps.reconcileChan = reconcileChan
 	ps.updateChan = updateChan
 
 	var maxFound uint64
@@ -50,6 +53,8 @@ func (ps *PolicySource) Start(updateChan chan *api.ScalingPolicy) {
 			time.Sleep(10 * time.Second)
 			continue
 		}
+
+		ps.reconcile(policies)
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
@@ -88,4 +93,8 @@ func (ps *PolicySource) Start(updateChan chan *api.ScalingPolicy) {
 		q.WaitIndex = meta.LastIndex
 		ps.lastChangeIndex = maxFound
 	}
+}
+
+func (ps *PolicySource) reconcile(policies []*api.ScalingPolicyListStub) {
+	ps.reconcileChan <- policies
 }

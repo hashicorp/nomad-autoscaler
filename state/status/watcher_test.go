@@ -8,6 +8,6 @@ import (
 )
 
 func TestNewWatcher(t *testing.T) {
-	w := NewWatcher(hclog.Default(), "example", nil, nil)
+	w := NewWatcher(hclog.Default(), "example", nil)
 	assert.Equal(t, "status_watcher_example", w.log.Name())
 }

@@ -32,17 +32,24 @@ type Handler struct {
 	// state. It is public as the agent needs to be able to list policies.
 	PolicyState policy.State
 
+	policyReconcileChan chan []*api.ScalingPolicyListStub
+
 	// policyUpdateChan is the channel where policy.Watcher process should send
 	// any updates to scaling policies. The state handler is responsible for
 	// listening to this, and processing any items on the channel.
 	policyUpdateChan chan *api.ScalingPolicy
 
-	// policySource
+	// policySource is the backend implementation which is responsible for
+	// retrieving policies from their canonical source.
 	policySource source.PolicySource
 
 	// statusState is the interface for interacting with the internal job scale
 	// status state.
 	statusState status.State
+
+	// statusUpdateChan is the channel where the status.Watcher process should
+	// send any updates to the scaling status of a job.
+	statusUpdateChan chan *api.JobScaleStatusResponse
 
 	// statusWatcherHandlerLock is the mutex which should be used when
 	// manipulating the statusWatcherHandlers map.
@@ -63,9 +70,11 @@ func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handl
 		log:                   log.Named("state_handler"),
 		nomad:                 nomad,
 		PolicyState:           policy.NewStateBackend(),
+		policyReconcileChan:   make(chan []*api.ScalingPolicyListStub),
 		policyUpdateChan:      make(chan *api.ScalingPolicy, 10),
 		statusWatcherHandlers: make(map[string]*status.Watcher),
 		statusState:           status.NewStateBackend(),
+		statusUpdateChan:      make(chan *api.JobScaleStatusResponse, 10),
 	}
 
 	h.policySource = nomadSource.NewNomadPolicySource(h.log, h.nomad)
@@ -76,10 +85,19 @@ func NewHandler(ctx context.Context, log hclog.Logger, nomad *api.Client) *Handl
 // Start starts the initially required state handling processes.
 func (h *Handler) Start() {
 
-	// Start the policy update handler before anything else.
+	// Start the policy and job status update handlers before anything else.
 	go h.policyUpdateHandler()
+	go h.jobStatusUpdateHandler()
+
+	// The policy reconciliation handler should be started before the policy
+	// store is triggered.
+	go h.policyReconciliationHandler()
 
 	// The policy source runs as a single process per Autoscaler agent, start
 	// it now.
-	go h.policySource.Start(h.policyUpdateChan)
+	go h.policySource.Start(h.policyUpdateChan, h.policyReconcileChan)
+
+	// Start the GC loop last, this is the least critical and runs in the
+	// background periodically.
+	go h.garbageCollectStateLoop()
 }

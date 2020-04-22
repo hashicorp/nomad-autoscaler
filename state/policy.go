@@ -16,7 +16,7 @@ func (h *Handler) policyUpdateHandler() {
 		// required to reflect the change in our state.
 		case p := <-h.policyUpdateChan:
 
-			// Protect against nil policies so senders do not have to keeping
+			// Protect against nil policies so senders do not have to, keeping
 			// this logic in a single place.
 			if p == nil {
 				break
@@ -26,13 +26,6 @@ func (h *Handler) policyUpdateHandler() {
 
 			// Ensure the scale status watcher is running for the job.
 			h.startJobStatusWatcher(jobID)
-
-			// If the job is stopped, we don't need to work on storing the policy
-			// and should exit.
-			if h.statusState.IsJobStopped(jobID) {
-				h.log.Debug("job in stopped state, skipping policy update", "job_id", jobID)
-				break
-			}
 
 			// TODO(jrasell) once we have a better method for surfacing errors to the
 			//  user, this error should be presented.

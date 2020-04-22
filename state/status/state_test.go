@@ -43,10 +43,17 @@ func TestBackend(t *testing.T) {
 	assert.Equal(t, job2.TaskGroups["job-2-task-group-1"], *job2Group1)
 	assert.False(t, b.IsJobStopped(job2.JobID))
 
-	// Delete the job and then ensure it doesn't exist and is reported as stopped.
-	b.DeleteJob(job2.JobID)
-	assert.True(t, b.IsJobStopped(job2.JobID))
-	assert.Nil(t, b.GetGroup(job2.JobID, "job-2-task-group-1"))
+	// Test garbage collection doesn't delete running jobs.
+	deleted := b.GarbageCollect(0)
+	assert.Len(t, deleted, 0)
+
+	// Set job1 to stopped and trigger the GC to see if it gets correctly
+	// removed.
+	job1.JobStopped = true
+	b.SetJob(job1)
+	deleted = b.GarbageCollect(0)
+	expectedDelete := []string{job1.JobID}
+	assert.ElementsMatch(t, deleted, expectedDelete)
 }
 
 func generateScaleStatusResponse(jobID string, numTaskGroups int) *api.JobScaleStatusResponse {

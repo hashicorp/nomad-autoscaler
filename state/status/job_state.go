@@ -9,9 +9,12 @@ import (
 // status.
 type JobState interface {
 
-	// DeleteJob is used to delete all the stored scaling status state for the
-	// specified job.
-	DeleteJob(jobID string)
+	// GarbageCollect is used to perform job status state garbage collection.
+	// The passed threshold (nanoseconds) is compared against the entries last
+	// update time to decide whether the object should be removed. A list of
+	// removed job IDs should then be returned so that any follow up cleanup
+	// can be performed.
+	GarbageCollect(threshold int64) []string
 
 	// GetGroup returns the scale status information for the specified job and
 	// group.

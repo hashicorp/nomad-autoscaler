@@ -1,6 +1,6 @@
 executor: go
 steps:
   - install-go
+  - install-golangci-lint
   - checkout
-  - run: make tools
   - run: make lint

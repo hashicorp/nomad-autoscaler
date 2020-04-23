@@ -23,6 +23,7 @@ type jobStateHandler struct {
 	// initialDone helps synchronise the caller waiting for the state to be
 	// populated after starting the API query loop.
 	initialDone chan bool
+	initialized bool
 
 	// isRunning details whether the loop within start() is currently running
 	// or not.
@@ -70,8 +71,6 @@ func (jsh *jobStateHandler) start() {
 
 	jsh.isRunning = true
 
-	defer jsh.handleFirstRun()
-
 	q := &api.QueryOptions{WaitTime: 1 * time.Minute, WaitIndex: 1}
 
 	for {
@@ -97,6 +96,12 @@ func (jsh *jobStateHandler) start() {
 		// was reached, therefore start the next query loop.
 		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
 			continue
+		}
+
+		// Mark the handler as initialized and notify initialDone channel.
+		if !jsh.initialized {
+			jsh.handleFirstRun()
+			jsh.initialized = true
 		}
 
 		// Update the handlers state.

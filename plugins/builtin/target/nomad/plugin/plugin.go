@@ -2,7 +2,8 @@ package nomad
 
 import (
 	"fmt"
-	"strings"
+	"sync"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
@@ -16,6 +17,9 @@ import (
 const (
 	// pluginName is the name of the plugin
 	pluginName = "nomad-target"
+
+	configKeyJobID = "job_id"
+	configKeyGroup = "group"
 )
 
 var (
@@ -37,15 +41,25 @@ var (
 type TargetPlugin struct {
 	client *api.Client
 	logger hclog.Logger
+
+	statusHandlers     map[string]*jobStateHandler
+	statusHandlersLock sync.RWMutex
+
+	gcRunning bool
 }
 
 func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
-		logger: log,
+		logger:         log,
+		statusHandlers: make(map[string]*jobStateHandler),
 	}
 }
 
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
+
+	if !t.gcRunning {
+		go t.garbageCollectionLoop()
+	}
 
 	cfg := nomadHelper.ConfigFromMap(config)
 
@@ -101,26 +115,81 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 }
 
 func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) {
-	status, _, err := t.client.Jobs().ScaleStatus(config["job_id"], nil)
-	if err != nil {
-		if strings.Contains(err.Error(), "404") {
-			// Job doesn't exist anymore.
-			return nil, nil
-		}
-		return nil, err
+
+	// Get the JobID from the config map. This is a required param and results
+	// in an error if not found.
+	jobID, ok := config[configKeyJobID]
+	if !ok {
+		return nil, fmt.Errorf("required config key %q not found", configKeyJobID)
 	}
 
-	var count int
-	for name, tg := range status.TaskGroups {
-		if name == config["group"] {
-			//TODO(luiz): not sure if this is the right value
-			count = tg.Running
-			break
-		}
+	// Get the GroupName from the config map. This is a required param and
+	// results in an error if not found.
+	group, ok := config[configKeyGroup]
+	if !ok {
+		return nil, fmt.Errorf("required config key %q not found", configKeyGroup)
 	}
 
-	return &target.Status{
-		Ready: !status.JobStopped,
-		Count: int64(count),
-	}, nil
+	// Create a read/write lock on the handlers so we can safely interact.
+	t.statusHandlersLock.Lock()
+	defer t.statusHandlersLock.Unlock()
+
+	// Create a handler for the job if one does not currently exist.
+	if _, ok := t.statusHandlers[jobID]; !ok {
+		t.statusHandlers[jobID] = newJobStateHandler(t.client, jobID, t.logger)
+	}
+
+	// If the handler is not in a running state, start it and wait for the
+	// first run to finish.
+	if !t.statusHandlers[jobID].isRunning {
+		go t.statusHandlers[jobID].start()
+		<-t.statusHandlers[jobID].initialDone
+	}
+
+	// Return the status data from the handler to the caller.
+	return t.statusHandlers[jobID].status(group)
+}
+
+func (t *TargetPlugin) garbageCollectionLoop() {
+
+	ticker := time.NewTicker(60 * time.Second)
+	t.gcRunning = true
+
+	for {
+		select {
+		case <-ticker.C:
+			t.garbageCollect()
+		}
+	}
+}
+
+func (t *TargetPlugin) garbageCollect() {
+
+	// Generate the GC threshold based on the current time.
+	threshold := time.Now().UTC().UnixNano() - 14400000000000
+
+	// Iterate all the handlers, ensuring we lock for safety.
+	t.statusHandlersLock.Lock()
+
+	for jobID, handle := range t.statusHandlers {
+
+		// If the handler is running, there is no need to GC.
+		if handle.isRunning {
+			continue
+		}
+
+		// If the last updated time is more recent than our threshold,
+		// do not GC. The handler isn't quite ready to meet its death,
+		// maybe soon though.
+		if handle.lastUpdated > threshold {
+			continue
+		}
+
+		// If we have reached this point, the handler should be
+		// removed. Goodbye old friend.
+		delete(t.statusHandlers, jobID)
+		t.logger.Debug("removed inactive job status handler", "job_id", jobID)
+	}
+
+	t.statusHandlersLock.Unlock()
 }

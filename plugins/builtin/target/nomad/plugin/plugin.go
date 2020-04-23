@@ -2,12 +2,14 @@ package nomad
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -96,4 +98,29 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
 	}
 	return nil
+}
+
+func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) {
+	status, _, err := t.client.Jobs().ScaleStatus(config["job_id"], nil)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") {
+			// Job doesn't exist anymore.
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	var count int
+	for name, tg := range status.TaskGroups {
+		if name == config["group"] {
+			//TODO(luiz): not sure if this is the right value
+			count = tg.Running
+			break
+		}
+	}
+
+	return &target.Status{
+		Ready: !status.JobStopped,
+		Count: int64(count),
+	}, nil
 }

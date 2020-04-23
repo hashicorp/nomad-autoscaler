@@ -14,9 +14,11 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
+	newpolicy "github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/state"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
 	"github.com/hashicorp/nomad/api"
+	"github.com/kr/pretty"
 )
 
 type Agent struct {
@@ -60,6 +62,23 @@ func (a *Agent) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
 	}
 	go healthServer.run()
+
+	source := newpolicy.NewNomadSource(a.logger, a.nomadClient)
+	manager := newpolicy.NewManager(a.logger, source, a.pluginManager)
+
+	policyEvalCh := make(chan *newpolicy.Evaluation, 10)
+	go manager.Run(ctx, policyEvalCh)
+
+	for {
+		select {
+		case <-ctx.Done():
+			a.logger.Info("done")
+			return nil
+		case policyEval := <-policyEvalCh:
+			a.logger.Info("received policy eval", "policy_eval", pretty.Sprint(policyEval))
+			//TODO(luiz): actually handle policy
+		}
+	}
 
 	// loop like there's no tomorrow
 	var wg sync.WaitGroup

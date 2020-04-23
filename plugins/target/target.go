@@ -11,8 +11,15 @@ import (
 type Target interface {
 	Count(config map[string]string) (int64, error)
 	Scale(action strategy.Action, config map[string]string) error
+	Status(config map[string]string) (*Status, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
+}
+
+type Status struct {
+	Ready bool
+	Count int64
+	Meta  map[string]string
 }
 
 // RPC is a plugin implementation that talks over net/rpc

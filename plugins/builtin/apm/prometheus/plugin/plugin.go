@@ -6,7 +6,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -18,6 +18,10 @@ import (
 const (
 	// pluginName is the name of the plugin
 	pluginName = "prometheus"
+
+	// configKeyAddress is the accepted configuration key which holds the
+	// address param.
+	configKeyAddress = "address"
 )
 
 var (
@@ -52,8 +56,15 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 
 	a.config = config
 
+	// If the address is not set, or is empty within the config, any client
+	// calls will fail. It seems logical to catch this here rather than just
+	// let queries fail.
+	if a.config[configKeyAddress] == "" {
+		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
+	}
+
 	promCfg := api.Config{
-		Address: a.config["address"],
+		Address: a.config[configKeyAddress],
 	}
 
 	// create Prometheus client

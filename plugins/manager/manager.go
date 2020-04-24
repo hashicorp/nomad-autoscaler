@@ -176,7 +176,7 @@ func (pm *PluginManager) dispensePlugins() error {
 // launchInternalPlugin is used to dispense internal plugins.
 func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginInfo) (PluginInstance, *base.PluginInfo, error) {
 
-	raw := info.factory(pm.logger.ResetNamed("internal_plugin"))
+	raw := info.factory(pm.logger.ResetNamed("internal_plugin." + id.Name))
 
 	pInfo, err := pm.pluginLaunchCheck(id, raw)
 	if err != nil {

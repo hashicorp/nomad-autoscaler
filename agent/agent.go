@@ -3,8 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -16,7 +14,6 @@ import (
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	newpolicy "github.com/hashicorp/nomad-autoscaler/policy"
 	nomadpolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
-	"github.com/hashicorp/nomad-autoscaler/state"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
 	"github.com/hashicorp/nomad/api"
 	"github.com/kr/pretty"
@@ -43,15 +40,6 @@ func (a *Agent) Run(ctx context.Context) error {
 		return err
 	}
 
-	stateHandlerConfig := &state.HandlerConfig{
-		Logger:             a.logger,
-		NomadClient:        a.nomadClient,
-		EvaluationInterval: a.config.ScanInterval,
-	}
-
-	stateHandler := state.NewHandler(ctx, stateHandlerConfig)
-	stateHandler.Start()
-
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
 		return fmt.Errorf("failed to setup plugins: %v", err)
@@ -73,51 +61,20 @@ func (a *Agent) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			a.logger.Info("done")
+			a.logger.Info("context closed, shutting down")
+
+			// Stop the health server.
+			healthServer.stop()
+
+			// Kill all the plugins.
+			a.pluginManager.KillPlugins()
+
 			return nil
 		case policyEval := <-policyEvalCh:
 			a.logger.Info("received policy eval", "policy_eval", pretty.Sprint(policyEval))
 			//TODO(luiz): actually handle policy
 		}
 	}
-
-	// loop like there's no tomorrow
-	var wg sync.WaitGroup
-	ticker := time.NewTicker(a.config.ScanInterval)
-Loop:
-	for {
-		select {
-		case <-ticker.C:
-
-			// read policies
-			policies := stateHandler.PolicyState.List()
-			a.logger.Info(fmt.Sprintf("found %d policies", len(policies)))
-
-			// handle policies
-			for _, p := range policies {
-				wg.Add(1)
-				go func(policy *policy.Policy) {
-					defer wg.Done()
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						a.handlePolicy(policy)
-					}
-				}(p)
-			}
-			wg.Wait()
-		case <-ctx.Done():
-			// Stop the health server.
-			healthServer.stop()
-
-			// stop plugins before exiting
-			a.pluginManager.KillPlugins()
-			break Loop
-		}
-	}
-
-	return nil
 }
 
 // generateNomadClient takes the internal Nomad configuration, translates and
@@ -218,7 +175,7 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 
 	// fetch target count
 	logger.Info("fetching current count")
-	currentCount, err := targetInst.Count(p.Target.Config)
+	currentStatus, err := targetInst.Status(p.Target.Config)
 	if err != nil {
 		logger.Error("failed to fetch current count", "error", err)
 		return
@@ -236,7 +193,7 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
 		PolicyID: p.ID,
-		Count:    currentCount,
+		Count:    currentStatus.Count,
 		Metric:   value,
 		Config:   p.Strategy.Config,
 	}
@@ -251,15 +208,15 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		// no action to execute
 		var minMaxAction *strategypkg.Action
 
-		if currentCount < p.Min {
+		if currentStatus.Count < p.Min {
 			minMaxAction = &strategypkg.Action{
 				Count:  &p.Min,
-				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentCount, p.Min),
+				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
 			}
-		} else if currentCount > p.Max {
+		} else if currentStatus.Count > p.Max {
 			minMaxAction = &strategypkg.Action{
 				Count:  &p.Max,
-				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentCount, p.Max),
+				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
 			}
 		}
 
@@ -292,10 +249,10 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 
 		if action.Count == nil {
 			actionLogger.Info("registering scaling event",
-				"count", currentCount, "reason", action.Reason, "meta", action.Meta)
+				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 		} else {
 			actionLogger.Info("scaling target",
-				"from", currentCount, "to", *action.Count,
+				"from", currentStatus.Count, "to", *action.Count,
 				"reason", action.Reason, "meta", action.Meta)
 		}
 

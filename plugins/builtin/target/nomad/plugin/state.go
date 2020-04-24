@@ -1,6 +1,8 @@
 package nomad
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,7 +12,20 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-type jobStateHandler struct {
+const (
+	// metaKeyPrefix is the key prefix to be used when adding items to the
+	// status response meta object.
+	metaKeyPrefix = "nomad_autoscaler.target.nomad."
+
+	// metaKeyJobStoppedSuffix is the key suffix used when adding a meta item
+	// to the status response detailing the jobs current stopped status.
+	metaKeyJobStoppedSuffix = ".stopped"
+)
+
+// jobScaleStatusHandler is an individual handler on the /v1/job/<job>/scale
+// GET endpoint. It provides methods for obtaining the current scaling state of
+// a job and task group.
+type jobScaleStatusHandler struct {
 	client *api.Client
 	jobID  string
 	logger hclog.Logger
@@ -34,8 +49,8 @@ type jobStateHandler struct {
 	lastUpdated int64
 }
 
-func newJobStateHandler(client *api.Client, jobID string, logger hclog.Logger) *jobStateHandler {
-	return &jobStateHandler{
+func newJobScaleStatusHandler(client *api.Client, jobID string, logger hclog.Logger) *jobScaleStatusHandler {
+	return &jobScaleStatusHandler{
 		client:      client,
 		initialDone: make(chan bool),
 		jobID:       jobID,
@@ -43,7 +58,8 @@ func newJobStateHandler(client *api.Client, jobID string, logger hclog.Logger) *
 	}
 }
 
-func (jsh *jobStateHandler) status(group string) (*target.Status, error) {
+// status returns the cached scaling status of the passed group.
+func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
 
 	// If the last status response included an error, just return this to the
 	// caller.
@@ -51,24 +67,48 @@ func (jsh *jobStateHandler) status(group string) (*target.Status, error) {
 		return nil, jsh.scaleStatusError
 	}
 
-	var count int
+	// If the scale status is nil, it means the main loop is stopped and
+	// therefore the job is not found on the cluster.
+	if jsh.scaleStatus == nil {
+		return nil, nil
+	}
+
+	var (
+		count int
+		found bool
+	)
+
 	for name, tg := range jsh.scaleStatus.TaskGroups {
 		if name == group {
 			// Currently "Running" is not populated:
 			//  https://github.com/hashicorp/nomad/issues/7789
 			count = tg.Healthy
+			found = true
 			break
 		}
+	}
+
+	// If we did not find the task group in the status list, we can't reliably
+	// inform the caller of any details. Therefore return an error.
+	if !found {
+		return nil, fmt.Errorf("task group %q not found", group)
 	}
 
 	return &target.Status{
 		Ready: !jsh.scaleStatus.JobStopped,
 		Count: int64(count),
+		Meta: map[string]string{
+			metaKeyPrefix + jsh.jobID + metaKeyJobStoppedSuffix: strconv.FormatBool(jsh.scaleStatus.JobStopped),
+		},
 	}, nil
 }
 
-func (jsh *jobStateHandler) start() {
+// start runs the blocking query loop that processes changes from the API and
+// reflects the status internally.
+func (jsh *jobScaleStatusHandler) start() {
 
+	// Log that we are starting, useful for debugging.
+	jsh.logger.Debug("starting job status handler")
 	jsh.isRunning = true
 
 	q := &api.QueryOptions{WaitTime: 1 * time.Minute, WaitIndex: 1}
@@ -76,7 +116,6 @@ func (jsh *jobStateHandler) start() {
 	for {
 		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
 		if err != nil {
-			jsh.updateStatusState(status, err)
 
 			// If the job is not found on the cluster, stop the handlers loop
 			// process and set terminal state. It is still possible to read the
@@ -85,6 +124,7 @@ func (jsh *jobStateHandler) start() {
 				jsh.setStopState()
 				return
 			}
+			jsh.updateStatusState(status, err)
 
 			// If the error was anything other than the job not being found,
 			// try again.
@@ -98,14 +138,14 @@ func (jsh *jobStateHandler) start() {
 			continue
 		}
 
+		// Update the handlers state.
+		jsh.updateStatusState(status, nil)
+
 		// Mark the handler as initialized and notify initialDone channel.
 		if !jsh.initialized {
 			jsh.handleFirstRun()
 			jsh.initialized = true
 		}
-
-		// Update the handlers state.
-		jsh.updateStatusState(status, nil)
 
 		// Modify the wait index on the QueryOptions so the blocking query
 		// is using the latest index value.
@@ -116,11 +156,11 @@ func (jsh *jobStateHandler) start() {
 // handleFirstRun is a helper function which responds to channel listeners that
 // the first run of the blocking query has completed and therefore data is
 // available for querying.
-func (jsh *jobStateHandler) handleFirstRun() { jsh.initialDone <- true }
+func (jsh *jobScaleStatusHandler) handleFirstRun() { jsh.initialDone <- true }
 
 // updateStatusState takes the API responses and updates the internal state
 // along with a timestamp.
-func (jsh *jobStateHandler) updateStatusState(status *api.JobScaleStatusResponse, err error) {
+func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusResponse, err error) {
 	jsh.scaleStatus = status
 	jsh.scaleStatusError = err
 	jsh.lastUpdated = time.Now().UTC().UnixNano()
@@ -128,8 +168,9 @@ func (jsh *jobStateHandler) updateStatusState(status *api.JobScaleStatusResponse
 
 // setStopState handles updating state when the job status handler is going to
 // stop.
-func (jsh *jobStateHandler) setStopState() {
+func (jsh *jobScaleStatusHandler) setStopState() {
 	jsh.isRunning = false
 	jsh.scaleStatus = nil
+	jsh.scaleStatusError = nil
 	jsh.lastUpdated = time.Now().UTC().UnixNano()
 }

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
-
+	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,15 +17,99 @@ func Test_newJobStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Create the new handler and perform assertions.
-	jsh := newJobStateHandler(c, "test", hclog.NewNullLogger())
+	jsh := newJobScaleStatusHandler(c, "test", hclog.NewNullLogger())
 	assert.NotNil(t, jsh.client)
 	assert.Equal(t, "test", jsh.jobID)
 	assert.NotNil(t, jsh.initialDone)
 	assert.NotNil(t, jsh.client)
 }
 
+func Test_jobStateHandler_status(t *testing.T) {
+	testCases := []struct {
+		inputJSH       *jobScaleStatusHandler
+		inputGroup     string
+		expectedReturn *target.Status
+		expectedError  error
+		name           string
+	}{
+		{
+			inputJSH:       &jobScaleStatusHandler{scaleStatusError: fmt.Errorf("this is an error message")},
+			inputGroup:     "test",
+			expectedReturn: nil,
+			expectedError:  fmt.Errorf("this is an error message"),
+			name:           "job status response currently in error",
+		},
+		{
+			inputJSH:       &jobScaleStatusHandler{},
+			inputGroup:     "test",
+			expectedReturn: nil,
+			expectedError:  nil,
+			name:           "job no longer running on cluster",
+		},
+		{
+			inputJSH: &jobScaleStatusHandler{
+				scaleStatus: &api.JobScaleStatusResponse{
+					TaskGroups: map[string]api.TaskGroupScaleStatus{},
+				},
+			},
+			inputGroup:     "this-doesnt-exist",
+			expectedReturn: nil,
+			expectedError:  fmt.Errorf("task group \"this-doesnt-exist\" not found"),
+			name:           "job group not found within scale status task groups",
+		},
+		{
+			inputJSH: &jobScaleStatusHandler{
+				jobID: "cant-think-of-a-funny-name",
+				scaleStatus: &api.JobScaleStatusResponse{
+					JobStopped: false,
+					TaskGroups: map[string]api.TaskGroupScaleStatus{
+						"this-does-exist": {Healthy: 7},
+					},
+				},
+			},
+			inputGroup: "this-does-exist",
+			expectedReturn: &target.Status{
+				Ready: true,
+				Count: 7,
+				Meta: map[string]string{
+					"nomad_autoscaler.target.nomad.cant-think-of-a-funny-name.stopped": "false",
+				},
+			},
+			expectedError: nil,
+			name:          "job group found within scale status task groups and job is running",
+		},
+		{
+			inputJSH: &jobScaleStatusHandler{
+				jobID: "cant-think-of-a-funny-name",
+				scaleStatus: &api.JobScaleStatusResponse{
+					JobStopped: true,
+					TaskGroups: map[string]api.TaskGroupScaleStatus{
+						"this-does-exist": {Healthy: 7},
+					},
+				},
+			},
+			inputGroup: "this-does-exist",
+			expectedReturn: &target.Status{
+				Ready: false,
+				Count: 7,
+				Meta: map[string]string{
+					"nomad_autoscaler.target.nomad.cant-think-of-a-funny-name.stopped": "true",
+				},
+			},
+			expectedError: nil,
+			name:          "job group found within scale status task groups and job is not running",
+		},
+	}
+
+	for _, tc := range testCases {
+		actualReturn, actualErr := tc.inputJSH.status(tc.inputGroup)
+		assert.Equal(t, tc.expectedReturn, actualReturn, tc.name)
+		assert.Equal(t, tc.expectedError, actualErr, tc.name)
+	}
+}
+
 func Test_jobStateHandler_updateStatusState(t *testing.T) {
-	jsh := &jobStateHandler{}
+	jsh := &jobScaleStatusHandler{}
 
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.
@@ -46,7 +130,7 @@ func Test_jobStateHandler_updateStatusState(t *testing.T) {
 }
 
 func Test_jobStateHandler_stop(t *testing.T) {
-	jsh := &jobStateHandler{}
+	jsh := &jobScaleStatusHandler{}
 
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.
@@ -60,5 +144,6 @@ func Test_jobStateHandler_stop(t *testing.T) {
 	jsh.setStopState()
 	assert.False(t, jsh.isRunning)
 	assert.Nil(t, jsh.scaleStatus)
+	assert.Nil(t, jsh.scaleStatusError)
 	assert.Greater(t, jsh.lastUpdated, int64(0))
 }

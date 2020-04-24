@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -119,11 +120,11 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 
 			// Exit early if the policy is not enabled.
 			if !policy.Enabled {
-				h.log.Trace("policy is not enabled")
+				h.log.Debug("policy is not enabled")
 				continue
 			}
 
-			// Dispense an instance of taret plugin used by the policy.
+			// Dispense an instance of target plugin used by the policy.
 			targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, plugins.PluginTypeTarget)
 			if err != nil {
 				h.log.Error("failed to dispense plugin", "error", err)
@@ -131,7 +132,8 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			}
 			targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
 			if !ok {
-				h.log.Error("target plugin is not a taret plugin")
+				h.log.Error("target plugin is not a target plugin",
+					"plugin_type", fmt.Sprintf("%T", targetInst))
 				return
 			}
 
@@ -148,7 +150,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			// monitor the policy anymore.
 			//
 			// TODO(luiz): if the policy is not removed the handler will keep being
-			// destroyed and recreated. Maybe wait instead of return?
+			//  destroyed and recreated. Maybe wait instead of return?
 			if status == nil {
 				h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
 				return

@@ -6,11 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
-	"github.com/kr/pretty"
 )
 
 // Handler monitors a policy for changes and controls when them are sent for
@@ -74,7 +74,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	h.runningLock.Unlock()
 
 	// Store a local copy of the policy so we can compare it for changes.
-	var policy *Policy
+	var currentPolicy *Policy
 
 	// Start with a long ticker until we receive the right interval.
 	// TODO(luiz): make this a config param
@@ -91,82 +91,19 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 		case <-h.doneCh:
 			return
 		case err := <-h.errCh:
-			// TODO(luiz) add better error handling
 			h.log.Error(err.Error())
+			return
 		case p := <-h.ch:
-			h.log.Trace("policy changed")
-			h.log.Trace(pretty.Sprint(p))
-
-			if policy == nil {
-				// We received the proper policy value, we can now set the
-				// ticker with the right interval.
-				h.ticker.Stop()
-				h.ticker = time.NewTicker(p.EvaluationInterval)
-			}
-
-			// TODO(luiz): handle policy update
-
-			// Update local copy of the policy
-			policy = &p
+			h.updateHandler(currentPolicy, &p)
+			currentPolicy = &p
 		case <-h.ticker.C:
-			h.log.Trace("tick")
-
-			if policy == nil {
-				// Initial ticker ticked without a policy being set, assume we are not able
-				// to retrieve the policy and exit.
-				h.log.Error("timeout: failed to read policy in time")
-				return
-			}
-
-			// Exit early if the policy is not enabled.
-			if !policy.Enabled {
-				h.log.Debug("policy is not enabled")
-				continue
-			}
-
-			// Dispense an instance of target plugin used by the policy.
-			targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, plugins.PluginTypeTarget)
+			eval, err := h.generateEvaluation(currentPolicy, evalCh)
 			if err != nil {
-				h.log.Error("failed to dispense plugin", "error", err)
-				continue
-			}
-			targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
-			if !ok {
-				h.log.Error("target plugin is not a target plugin",
-					"plugin_type", fmt.Sprintf("%T", targetInst))
+				h.log.Error(err.Error())
 				return
 			}
-
-			// Get target status.
-			h.log.Trace("getting target status")
-
-			status, err := targetInst.Status(policy.Target.Config)
-			if err != nil {
-				h.log.Error("failed to get target status", "error", err)
-				continue
-			}
-
-			// A nil status indicates the target doesn't exist, so we don't need to
-			// monitor the policy anymore.
-			//
-			// TODO(luiz): if the policy is not removed the handler will keep being
-			//  destroyed and recreated. Maybe wait instead of return?
-			if status == nil {
-				h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
-				return
-			}
-
-			// Exit early if the target is not ready yet.
-			if !status.Ready {
-				h.log.Trace("target is not ready")
-				continue
-			}
-
-			// Send policy for evaluation.
-			h.log.Trace("sending policy for evaluation")
-			evalCh <- &Evaluation{
-				Policy:       policy,
-				TargetStatus: status,
+			if eval != nil {
+				evalCh <- eval
 			}
 		}
 	}
@@ -184,4 +121,82 @@ func (h *Handler) Stop() {
 	}
 
 	h.running = false
+}
+
+// generateEvaluation returns an evaluation if the policy needs to be evaluated.
+// Returning an error will stop the handler.
+func (h *Handler) generateEvaluation(policy *Policy, evalCh chan<- *Evaluation) (*Evaluation, error) {
+	h.log.Trace("tick")
+
+	if policy == nil {
+		// Initial ticker ticked without a policy being set, assume we are not able
+		// to retrieve the policy and exit.
+		return nil, fmt.Errorf("timeout: failed to read policy in time")
+	}
+
+	// Exit early if the policy is not enabled.
+	if !policy.Enabled {
+		h.log.Debug("policy is not enabled")
+		return nil, nil
+	}
+
+	// Dispense an instance of target plugin used by the policy.
+	targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, plugins.PluginTypeTarget)
+	if err != nil {
+		return nil, err
+	}
+
+	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
+	if !ok {
+		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetInst)
+		return nil, err
+	}
+
+	// Get target status.
+	h.log.Trace("getting target status")
+
+	status, err := targetInst.Status(policy.Target.Config)
+	if err != nil {
+		h.log.Warn("failed to get target status", "error", err)
+		return nil, nil
+	}
+
+	// A nil status indicates the target doesn't exist, so we don't need to
+	// monitor the policy anymore.
+	if status == nil {
+		h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
+		h.Stop()
+		return nil, nil
+	}
+
+	// Exit early if the target is not ready yet.
+	if !status.Ready {
+		h.log.Trace("target is not ready")
+		return nil, nil
+	}
+
+	// Send policy for evaluation.
+	h.log.Trace("sending policy for evaluation")
+	return &Evaluation{
+		Policy:       policy,
+		TargetStatus: status,
+	}, nil
+}
+
+// updateHandler updates the handler's internal state based on the changes in
+// the policy being monitored.
+func (h *Handler) updateHandler(current, next *Policy) {
+	if current == nil {
+		h.log.Trace("received policy")
+	} else {
+		h.log.Trace("received policy change")
+		h.log.Trace(cmp.Diff(current, next))
+	}
+
+	// Update ticker if it's the first time we receive the policy or if the
+	// policy's evaluation interval has changed.
+	if current == nil || current.EvaluationInterval != next.EvaluationInterval {
+		h.ticker.Stop()
+		h.ticker = time.NewTicker(next.EvaluationInterval)
+	}
 }

@@ -15,6 +15,7 @@ import (
 	strategypkg "github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	newpolicy "github.com/hashicorp/nomad-autoscaler/policy"
+	nomadpolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/state"
 	"github.com/hashicorp/nomad-autoscaler/state/policy"
 	"github.com/hashicorp/nomad/api"
@@ -63,7 +64,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	go healthServer.run()
 
-	source := newpolicy.NewNomadSource(a.logger, a.nomadClient)
+	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient)
 	manager := newpolicy.NewManager(a.logger, source, a.pluginManager)
 
 	policyEvalCh := make(chan *newpolicy.Evaluation, 10)

@@ -2,23 +2,24 @@ package policy
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
-	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
-	"github.com/kr/pretty"
 )
 
-// Manager tracks policies and control the lifecycle of each policy handler.
+// Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
 	policySource  Source
 	pluginManager *manager.PluginManager
 
-	// handlers are used to track the Go routines tracking policies.
-	handlers map[PolicyID]*Subscription
+	// lock is used to synchronize parallel access to the maps below.
+	lock sync.RWMutex
+
+	// handlers are used to track the Go routines monitoring policies.
+	handlers map[PolicyID]*Handler
 
 	// keep is used to mark active policies during reconciliation.
 	keep map[PolicyID]bool
@@ -30,142 +31,86 @@ func NewManager(log hclog.Logger, ps Source, pm *manager.PluginManager) *Manager
 		log:           log.Named("policy_manager"),
 		policySource:  ps,
 		pluginManager: pm,
-		handlers:      make(map[PolicyID]*Subscription),
+		handlers:      make(map[PolicyID]*Handler),
 		keep:          make(map[PolicyID]bool),
 	}
 }
 
 // Run starts the manager and blocks until the context is canceled.
-//
 // Policies that need to be evaluated are sent in the evalCh.
 func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
+	defer m.stopHandlers()
 
 	policyIDsCh := make(chan []PolicyID)
+	policyIDsErrCh := make(chan error)
 
 	// Start the policy source and listen for changes in the list of policy IDs
-	go m.policySource.Start(ctx, policyIDsCh)
+	go m.policySource.MonitorIDs(ctx, policyIDsCh, policyIDsErrCh)
 
 	for {
 		select {
 		case <-ctx.Done():
-			m.log.Trace("done")
-			// TODO(luiz): stop handlers
+			m.log.Trace("stopping policy manager")
 			return
 		case policyIDs := <-policyIDsCh:
-			m.log.Trace("got new list of IDs")
+			m.log.Trace(fmt.Sprintf("detected %d policies", len(policyIDs)))
 
+			m.lock.Lock()
+
+			// Reset set of policies to keep. We will remove the policies that
+			// are not in policyIDs to reconcile our state.
+			m.keep = make(map[PolicyID]bool)
+
+			// Iterate over policy IDs and create new handlers if necessary
 			for _, policyID := range policyIDs {
-				// Check if we have a handler for this policy already.
-				// Create one otherwise.
-				if _, ok := m.handlers[policyID]; !ok {
-					m.log.Trace("creating new handler", "policy_id", policyID)
 
-					// TODO(luiz): maybe buffer these channels to avoid blocking?
-					s := &Subscription{
-						ID:       policyID,
-						PolicyCh: make(chan Policy),
-						ErrCh:    make(chan error),
-						DoneCh:   make(chan interface{}),
-					}
-
-					// Subscribe to changes in the policye
-					go m.policySource.Subscribe(s)
-
-					// Start Go routine to generate evaluations.
-					go m.handlePolicy(s, evalCh)
-
-					// Store subscription information
-					m.handlers[policyID] = s
-				}
-				// Mark policy as must-keep.
+				// Mark policy as must-keep so it doesn't get removed.
 				m.keep[policyID] = true
+
+				// Check if we already have a handler for this policy.
+				if _, ok := m.handlers[policyID]; ok {
+					m.log.Trace("handler already exists")
+					continue
+				}
+
+				// Create and store a new handler and use its channels to monitor
+				// the policy for changes.
+				m.log.Trace("creating new handler", "policy_id", policyID)
+
+				h := NewHandler(
+					policyID,
+					m.log.ResetNamed("policy_handler"),
+					m.pluginManager,
+					m.policySource)
+				m.handlers[policyID] = h
+
+				go func(ID PolicyID) {
+					h.Run(ctx, evalCh)
+
+					m.lock.Lock()
+					delete(m.handlers, ID)
+					m.lock.Unlock()
+				}(policyID)
 			}
 
-			// Remove and stop handlers for policies that don't exist anymore
-			for k, v := range m.handlers {
+			// Remove and stop handlers for policies that don't exist anymore.
+			for k, h := range m.handlers {
 				if !m.keep[k] {
-					close(v.DoneCh)
+					h.Stop()
 					delete(m.handlers, k)
 				}
 			}
+
+			m.lock.Unlock()
 		}
 	}
 }
 
-// handlePolicy tracks a policy for changes and control when the policy should
-// be evaluated.
-func (m *Manager) handlePolicy(s *Subscription, evalCh chan<- *Evaluation) {
-	log := m.log.ResetNamed("policy_handler").With("policy_id", s.ID)
+func (m *Manager) stopHandlers() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
-	log.Trace("start policy handler")
-
-	// Store a local copy of the policy so we can compare it for changes.
-	var policy *Policy
-
-	// Start with very long ticker until we receive the right interval.
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-s.DoneCh:
-			log.Trace("done")
-			return
-		case err := <-s.ErrCh:
-			// TODO(luiz) add better error handling
-			log.Error(err.Error())
-		case p := <-s.PolicyCh:
-			log.Trace("policy changed", p, pretty.Sprint(p))
-
-			if policy == nil {
-				// We received the proper policy value. We can now create the right ticker
-				ticker.Stop()
-				ticker = time.NewTicker(p.EvaluationInterval)
-			}
-
-			// TODO(luiz): handle policy update
-
-			// Update local copy of the policy
-			policy = &p
-		case <-ticker.C:
-			log.Trace("tick")
-
-			if policy == nil {
-				// Ticker is actually not ready yet.
-				continue
-			}
-
-			// Dispense taret plugin
-			targetPlugin, err := m.pluginManager.Dispense(policy.Target.Name, plugins.PluginTypeTarget)
-			if err != nil {
-				log.Error("failed to dispense plugin", "error", err)
-				continue
-			}
-			targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
-			if !ok {
-				log.Error("target plugin is not a taret plugin")
-				return
-			}
-
-			// Get target status
-			status, err := targetInst.Status(policy.Target.Config)
-			if err != nil {
-				log.Error("failed to get target status", "error", err)
-				continue
-			}
-
-			if status == nil {
-				log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
-				return
-			}
-
-			// Send evaluation in channel if target is ready
-			if status.Ready {
-				evalCh <- &Evaluation{
-					Policy:       policy,
-					TargetStatus: status,
-				}
-			}
-		}
+	for _, h := range m.handlers {
+		h.Stop()
 	}
 }

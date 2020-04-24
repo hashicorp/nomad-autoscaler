@@ -14,16 +14,10 @@ type Source interface {
 	// of policies is received. The channel receiver is responsible for
 	// comparing the current internal state with the provided list and removing
 	// policies where necessary. This helps during purge, stop and such events.
-	Start(ctx context.Context, ch chan<- []PolicyID)
+	// Start(ctx context.Context, ch chan<- []PolicyID)
 
-	Subscribe(s *Subscription)
+	MonitorIDs(ctx context.Context, resultCh chan<- []PolicyID, errCh chan<- error)
+	MonitorPolicy(ctx context.Context, ID PolicyID, resultCh chan<- Policy, errCh chan<- error)
 }
 
 type PolicyID string
-
-type Subscription struct {
-	ID       PolicyID
-	PolicyCh chan Policy
-	ErrCh    chan error
-	DoneCh   chan interface{}
-}

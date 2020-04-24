@@ -12,11 +12,9 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
-	newpolicy "github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/policy"
 	nomadpolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
-	"github.com/hashicorp/nomad-autoscaler/state/policy"
 	"github.com/hashicorp/nomad/api"
-	"github.com/kr/pretty"
 )
 
 type Agent struct {
@@ -53,9 +51,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	go healthServer.run()
 
 	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient)
-	manager := newpolicy.NewManager(a.logger, source, a.pluginManager)
+	manager := policy.NewManager(a.logger, source, a.pluginManager)
 
-	policyEvalCh := make(chan *newpolicy.Evaluation, 10)
+	policyEvalCh := make(chan *policy.Evaluation, 10)
 	go manager.Run(ctx, policyEvalCh)
 
 	for {
@@ -71,8 +69,7 @@ func (a *Agent) Run(ctx context.Context) error {
 
 			return nil
 		case policyEval := <-policyEvalCh:
-			a.logger.Info("received policy eval", "policy_eval", pretty.Sprint(policyEval))
-			//TODO(luiz): actually handle policy
+			a.handlePolicy(policyEval.Policy)
 		}
 	}
 }
@@ -142,10 +139,7 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		"strategy", p.Strategy.Name,
 	)
 
-	if !p.Enabled {
-		logger.Info("policy not enabled")
-		return
-	}
+	logger.Info("received policy for evaluation")
 
 	var targetInst targetpkg.Target
 	var apmInst apmpkg.APM
@@ -178,6 +172,10 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 	currentStatus, err := targetInst.Status(p.Target.Config)
 	if err != nil {
 		logger.Error("failed to fetch current count", "error", err)
+		return
+	}
+	if !currentStatus.Ready {
+		logger.Info("target not ready")
 		return
 	}
 

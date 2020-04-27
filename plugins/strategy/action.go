@@ -26,10 +26,10 @@ func (a *Action) Canonicalize() {
 	}
 }
 
-// SetDryRun marks the Action to be executed in dry-run mode.
-// Dry-run mode is indicated using Meta tags.
-// A dry-run action doesn't modify the Target's count value.
-func (a *Action) SetDryRun(dryRun bool) {
+// SetDryRun marks the Action to be executed in dry-run mode. Dry-run mode is
+// indicated using Meta tags. A dry-run action doesn't modify the Target's
+// count value.
+func (a *Action) SetDryRun() {
 	a.Meta[metaKeyDryRun] = true
 	if a.Count != nil {
 		a.Meta[metaKeyDryRunCount] = *a.Count

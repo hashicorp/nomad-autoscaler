@@ -49,6 +49,10 @@ var (
 	}
 )
 
+// Assert that TargetPlugin meets the target.Target interface.
+var _ target.Target = (*TargetPlugin)(nil)
+
+// TargetPlugin is the Nomad implementation of the target.Target interface.
 type TargetPlugin struct {
 	client *api.Client
 	logger hclog.Logger
@@ -63,6 +67,8 @@ type TargetPlugin struct {
 	gcRunning bool
 }
 
+// NewNomadPlugin returns the Nomad implementation of the target.Target
+// interface.
 func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
 		logger:         log,
@@ -70,6 +76,7 @@ func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 	}
 }
 
+// SetConfig satisfies the SetConfig function on the base.Plugin interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
 
 	if !t.gcRunning {
@@ -87,10 +94,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
+// PluginInfo satisfies the PluginInfo function on the base.Plugin interface.
 func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }
 
+// Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) error {
 	var countIntPtr *int
 	if action.Count != nil {
@@ -112,6 +121,7 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 	return nil
 }
 
+// Status satisfies the Status function on the target.Target interface.
 func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) {
 
 	// Get the JobID from the config map. This is a required param and results

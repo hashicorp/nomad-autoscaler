@@ -125,9 +125,8 @@ func (c *AgentCommand) Run(args []string) int {
 
 	c.args = args
 
-	parsedConfig, err := c.readConfig()
-	if err != nil {
-		fmt.Printf("Error parsing command arguments: %v", err)
+	parsedConfig := c.readConfig()
+	if parsedConfig == nil {
 		fmt.Print(c.Help())
 		return 1
 	}
@@ -141,14 +140,14 @@ func (c *AgentCommand) Run(args []string) int {
 
 	// create and run agent
 	a := agent.NewAgent(parsedConfig, logger)
-	if err = a.Run(c.Ctx); err != nil {
+	if err := a.Run(c.Ctx); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}
 	return 0
 }
 
-func (c *AgentCommand) readConfig() (*config.Agent, error) {
+func (c *AgentCommand) readConfig() *config.Agent {
 	var configPath []string
 
 	// cmdConfig is used to store any passed CLI flags.
@@ -188,19 +187,21 @@ func (c *AgentCommand) readConfig() (*config.Agent, error) {
 	flags.BoolVar(&cmdConfig.Nomad.SkipVerify, "nomad-skip-verify", false, "")
 
 	if err := flags.Parse(c.args); err != nil {
-		return nil, err
+		return nil
 	}
 
 	// Grab a default config as the base.
 	cfg, err := config.Default()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate default agent config: %v", err)
+		fmt.Printf("Error generating default agent config: %v\n", err)
+		return nil
 	}
 
 	for _, path := range configPath {
 		current, err := config.Load(path)
 		if err != nil {
-			return nil, fmt.Errorf("error loading configuration from %s: %s", path, err)
+			fmt.Printf("Error loading configuration from %s: %s\n", path, err)
+			return nil
 		}
 
 		if cfg == nil {
@@ -213,5 +214,5 @@ func (c *AgentCommand) readConfig() (*config.Agent, error) {
 	// Merge the read file based configuration with the passed CLI args.
 	cfg = cfg.Merge(cmdConfig)
 
-	return cfg, nil
+	return cfg
 }

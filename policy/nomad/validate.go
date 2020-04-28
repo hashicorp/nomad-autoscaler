@@ -39,12 +39,14 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	}
 
 	// Validate Target
-	targetErr := validateTarget(policy.Target)
-	result = multierror.Append(result, targetErr)
+	if targetErr := validateTarget(policy.Target); targetErr != nil {
+		result = multierror.Append(result, targetErr)
+	}
 
 	// Validate Policy
-	policyErr := validatePolicy(policy.Policy)
-	result = multierror.Append(result, policyErr)
+	if policyErr := validatePolicy(policy.Policy); policyErr != nil {
+		result = multierror.Append(result, policyErr)
+	}
 
 	return result.ErrorOrNil()
 }
@@ -133,12 +135,12 @@ func validatePolicy(p map[string]interface{}) error {
 				if !ok {
 					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyMap))
 				} else {
-					strategyErrs := validateStrategy(strategyMap)
-					result = multierror.Append(result, strategyErrs)
+					if strategyErrs := validateStrategy(strategyMap); strategyErrs != nil {
+						result = multierror.Append(result, strategyErrs)
+					}
 				}
 			}
 		}
-
 	}
 
 	return result.ErrorOrNil()

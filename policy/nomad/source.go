@@ -28,7 +28,7 @@ const (
 // Ensure NomadSource satisfies the Source interface.
 var _ policy.Source = (*Source)(nil)
 
-// NomadSource is an implementation of the Source interface that retrieves
+// Source is an implementation of the Source interface that retrieves
 // policies from a Nomad cluster.
 type Source struct {
 	log   hclog.Logger
@@ -43,15 +43,12 @@ func NewNomadSource(log hclog.Logger, nomad *api.Client) *Source {
 	}
 }
 
-// Start retrieves a list of policy IDs from a Nomad cluster and send the list
-// in the channel when it changes.
+// MonitorIDs retrieves a list of policy IDs from a Nomad cluster and sends it
+// in the resultCh channel when change is detected. Errors are sent through the
+// errCh channel.
 //
-// This function blocks until the DoneCh is closed.
-func (s *Source) MonitorIDs(
-	ctx context.Context,
-	resultCh chan<- []policy.PolicyID,
-	errCh chan<- error,
-) {
+// This function blocks until the context is closed.
+func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- []policy.PolicyID, errCh chan<- error) {
 	s.log.Debug("starting policy blocking query watcher")
 
 	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
@@ -98,16 +95,11 @@ func (s *Source) MonitorIDs(
 	}
 }
 
-// MonitorPolicy monitors a policy and sends it through the subscription
-// channel when a change is detect. Errors are sent in the error channel.
+// MonitorPolicy monitors a policy and sends it through the resultCh channel
+// when a change is detect. Errors are sent through the errCh channel.
 //
-// This function blocks until the DoneCh in the subscription is closed.
-func (s *Source) MonitorPolicy(
-	ctx context.Context,
-	ID policy.PolicyID,
-	resultCh chan<- policy.Policy,
-	errCh chan<- error,
-) {
+// This function blocks until the context is closed.
+func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh chan<- policy.Policy, errCh chan<- error) {
 	log := s.log.With("policy_id", ID)
 
 	// Close channels when done with the monitoring loop.

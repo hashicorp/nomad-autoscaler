@@ -97,7 +97,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			h.updateHandler(currentPolicy, &p)
 			currentPolicy = &p
 		case <-h.ticker.C:
-			eval, err := h.generateEvaluation(currentPolicy, evalCh)
+			eval, err := h.generateEvaluation(currentPolicy)
 			if err != nil {
 				h.log.Error(err.Error())
 				return
@@ -125,7 +125,7 @@ func (h *Handler) Stop() {
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.
 // Returning an error will stop the handler.
-func (h *Handler) generateEvaluation(policy *Policy, evalCh chan<- *Evaluation) (*Evaluation, error) {
+func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
 	h.log.Trace("tick")
 
 	if policy == nil {

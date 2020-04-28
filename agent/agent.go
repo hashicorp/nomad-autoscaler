@@ -242,7 +242,7 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		// submit the job, but not alter its state.
 		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
 			actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
-			action.SetDryRun(true)
+			action.SetDryRun()
 		}
 
 		if action.Count == nil {

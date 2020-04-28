@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad/api"
@@ -14,7 +13,7 @@ import (
 func parsePolicy(p *api.ScalingPolicy) (policy.Policy, error) {
 	var to policy.Policy
 
-	if err := validatePolicy(p); err != nil {
+	if err := validateScalingPolicy(p); err != nil {
 		return to, err
 	}
 
@@ -38,30 +37,6 @@ func parsePolicy(p *api.ScalingPolicy) (policy.Policy, error) {
 	canonicalizePolicy(p, &to)
 
 	return to, nil
-}
-
-func validatePolicy(policy *api.ScalingPolicy) error {
-	var result error
-
-	evalInterval, ok := policy.Policy[keyEvaluationInterval].(string)
-	if ok {
-		if _, err := time.ParseDuration(evalInterval); err != nil {
-			result = multierror.Append(result, fmt.Errorf("Policy.%s %s is not a time.Durations", keyEvaluationInterval, evalInterval))
-		}
-	}
-
-	strategyList, ok := policy.Policy[keyStrategy].([]interface{})
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf("Policy.strategy (%T) is not a []interface{}", policy.Policy[keyStrategy]))
-		return result
-	}
-
-	_, ok = strategyList[0].(map[string]interface{})
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf("Policy.strategy[0] (%T) is not a map[string]string", strategyList[0]))
-	}
-
-	return result
 }
 
 func parseStrategy(s interface{}) *policy.Strategy {

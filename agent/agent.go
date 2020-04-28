@@ -250,8 +250,8 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 		} else {
 			// Skip action if count doesn't change.
-			if currentCount == *action.Count {
-				actionLogger.Info("nothing to do", "from", currentCount, "to", *action.Count)
+			if currentStatus.Count == *action.Count {
+				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", *action.Count)
 				continue
 			}
 

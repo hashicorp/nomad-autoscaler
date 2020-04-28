@@ -249,6 +249,12 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 			actionLogger.Info("registering scaling event",
 				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 		} else {
+			// Skip action if count doesn't change.
+			if currentCount == *action.Count {
+				actionLogger.Info("nothing to do", "from", currentCount, "to", *action.Count)
+				continue
+			}
+
 			actionLogger.Info("scaling target",
 				"from", currentStatus.Count, "to", *action.Count,
 				"reason", action.Reason, "meta", action.Meta)

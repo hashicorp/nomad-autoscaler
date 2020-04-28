@@ -193,6 +193,19 @@ func Test_validatePolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "policy.source is not a string",
+			input: map[string]interface{}{
+				keySource:             2,
+				keyQuery:              "query",
+				keyEvaluationInterval: "5s",
+				keyStrategy: []interface{}{map[string]interface{}{
+					"name":   "strategy",
+					"config": map[string]string{"key": "value"},
+				}},
+			},
+			expectError: true,
+		},
+		{
 			name: "policy.query is missing",
 			input: map[string]interface{}{
 				keySource:             "source",

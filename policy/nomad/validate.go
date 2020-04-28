@@ -80,6 +80,16 @@ func validatePolicy(p map[string]interface{}) error {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
 
+	// Validate Source.
+	//   1. Source value must be a string if defined.
+	source, ok := p[keySource]
+	if ok {
+		sourceString, ok := source.(string)
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keySource, sourceString))
+		}
+	}
+
 	// Validate Query.
 	//   1. Query key must exist.
 	//   2. Query must have string value.

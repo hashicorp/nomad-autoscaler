@@ -3,6 +3,7 @@ package nomad
 import (
 	"testing"
 
+	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -69,7 +70,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			name: "min is negative",
 			input: func() *api.ScalingPolicy {
 				p := validPolicy()
-				p.Min = int64ToPtr(-1)
+				p.Min = ptr.Int64ToPtr(-1)
 				return p
 			}(),
 			expectError: true,
@@ -88,7 +89,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			input: func() *api.ScalingPolicy {
 				p := validPolicy()
 				p.Max = 1
-				p.Min = int64ToPtr(2)
+				p.Min = ptr.Int64ToPtr(2)
 				return p
 			}(),
 			expectError: true,
@@ -409,14 +410,6 @@ func Test_validateStrategy(t *testing.T) {
 	}
 }
 
-func int64ToPtr(i int64) *int64 {
-	return &i
-}
-
-func boolToPtr(b bool) *bool {
-	return &b
-}
-
 func validPolicy() *api.ScalingPolicy {
 	return &api.ScalingPolicy{
 		ID:        "id",
@@ -425,7 +418,7 @@ func validPolicy() *api.ScalingPolicy {
 			"Job":   "example",
 			"Group": "cache",
 		},
-		Min: int64ToPtr(1),
+		Min: ptr.Int64ToPtr(1),
 		Max: 5,
 		Policy: map[string]interface{}{
 			keySource: "source",
@@ -435,6 +428,6 @@ func validPolicy() *api.ScalingPolicy {
 				"config": map[string]string{"key": "value"},
 			}},
 		},
-		Enabled: boolToPtr(true),
+		Enabled: ptr.BoolToPtr(true),
 	}
 }

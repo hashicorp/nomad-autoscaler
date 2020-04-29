@@ -92,8 +92,10 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to query: %v", err)
 	}
+
+	// If Prometheus returned warnings, report these to the user.
 	for _, w := range warnings {
-		fmt.Printf("[WARN] %s", w)
+		a.logger.Warn("prometheus query returned warning", "warning", w)
 	}
 
 	// only support scalar types for now

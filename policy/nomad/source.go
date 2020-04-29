@@ -65,6 +65,13 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- []policy.Policy
 			//
 			// TODO(jrasell) in the future maybe use a better method than sleep.
 			policies, meta, err := s.nomad.Scaling().ListPolicies(q)
+
+			// Return immediately if context is closed.
+			if ctx.Err() != nil {
+				s.log.Trace("stopping ID subscription")
+				return
+			}
+
 			if err != nil {
 				errCh <- fmt.Errorf("failed to call the Nomad list policies API: %v", err)
 				time.Sleep(10 * time.Second)
@@ -121,6 +128,13 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 			//
 			// TODO(jrasell) in the future maybe use a better method than sleep.
 			p, meta, err := s.nomad.Scaling().GetPolicy(string(ID), q)
+
+			// Return immediately if context is closed.
+			if ctx.Err() != nil {
+				log.Trace("done with policy monitoring")
+				return
+			}
+
 			if err != nil {
 				errCh <- fmt.Errorf("failed to get policy: %v", err)
 				time.Sleep(10 * time.Second)

@@ -81,8 +81,13 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	policyReadTimeout := 3 * time.Minute
 	h.ticker = time.NewTicker(policyReadTimeout)
 
+	// Create separate context so we can stop the monitoring Go routine if
+	// doneCh is closed, but ctx is still valid.
+	monitorCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	// Start monitoring the policy for changes.
-	go h.policySource.MonitorPolicy(ctx, h.policyID, h.ch, h.errCh)
+	go h.policySource.MonitorPolicy(monitorCtx, h.policyID, h.ch, h.errCh)
 
 	for {
 		select {

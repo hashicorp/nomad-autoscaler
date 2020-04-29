@@ -54,13 +54,13 @@ func (a *Action) CapCount(min, max int64) {
 	if newCount != oldCount {
 		a.Meta[metaKeyCountCapped] = true
 		a.Meta[metaKeyCountOriginal] = oldCount
-		a.PushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
+		a.pushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
 		a.Count = &newCount
 	}
 }
 
 // PushReason updates the Reason value and stores previous Reason into Meta.
-func (a *Action) PushReason(r string) {
+func (a *Action) pushReason(r string) {
 	history := []string{}
 
 	// Check if we already have a reason stack in Meta
@@ -70,7 +70,7 @@ func (a *Action) PushReason(r string) {
 		}
 	}
 
-	// Append current reason to history and update action
-	a.Meta[metaKeyReasonHistory] = append(history, a.Reason)
+	// Append current reason to history and update action.
 	a.Reason = r
+	a.Meta[metaKeyReasonHistory] = append(history, a.Reason)
 }

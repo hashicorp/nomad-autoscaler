@@ -42,10 +42,12 @@ type Query struct {
 }
 
 func (a *APMPlugin) Query(q string) (float64, error) {
-	query, err := a.parseQuery(q)
+	query, err := parseQuery(q)
 	if err != nil {
 		return 0, fmt.Errorf("failed to parse query: %v", err)
 	}
+
+	a.logger.Debug("expanded query", "from", q, "to", fmt.Sprintf("%# v", query))
 
 	var resp Metrics
 	_, err = a.client.Raw().Query("/v1/metrics", &resp, nil)
@@ -94,7 +96,7 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	return result, nil
 }
 
-func (a *APMPlugin) parseQuery(q string) (*Query, error) {
+func parseQuery(q string) (*Query, error) {
 	mainParts := strings.Split(q, "/")
 	if len(mainParts) != 3 {
 		return nil, fmt.Errorf("expected <query>/<job>/group>, received %s", q)
@@ -106,12 +108,12 @@ func (a *APMPlugin) parseQuery(q string) (*Query, error) {
 	}
 
 	opMetricParts := strings.Split(mainParts[0], "_")
-	if len(opMetricParts) != 2 {
+	if len(opMetricParts) < 2 {
 		return nil, fmt.Errorf(`expected <operation>_<metric>, received "%s"`, mainParts[0])
 	}
 
 	op := opMetricParts[0]
-	metric := opMetricParts[1]
+	metric := strings.Join(opMetricParts[1:], "_")
 
 	switch metric {
 	case "cpu":
@@ -134,8 +136,6 @@ func (a *APMPlugin) parseQuery(q string) (*Query, error) {
 	default:
 		return nil, fmt.Errorf(`invalid operation "%s", allowed values are sum, avg, min or max`, op)
 	}
-
-	a.logger.Debug("expanded query", "from", q, "to", fmt.Sprintf("%# v", query))
 
 	return query, nil
 }

@@ -111,7 +111,7 @@ func (jsh *jobScaleStatusHandler) start() {
 	jsh.logger.Debug("starting job status handler")
 	jsh.isRunning = true
 
-	q := &api.QueryOptions{WaitTime: 1 * time.Minute, WaitIndex: 1}
+	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
 
 	for {
 		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)

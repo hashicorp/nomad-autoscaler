@@ -9,10 +9,16 @@ import (
 )
 
 type Target interface {
-	Count(config map[string]string) (int64, error)
 	Scale(action strategy.Action, config map[string]string) error
+	Status(config map[string]string) (*Status, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
+}
+
+type Status struct {
+	Ready bool
+	Count int64
+	Meta  map[string]string
 }
 
 // RPC is a plugin implementation that talks over net/rpc
@@ -37,19 +43,13 @@ func (r *RPC) SetConfig(config map[string]string) error {
 func (r *RPC) PluginInfo() (*base.PluginInfo, error) {
 	var resp base.PluginInfo
 	err := r.client.Call("Plugin.PluginInfo", new(interface{}), &resp)
-	if err != nil {
-		return &resp, err
-	}
-	return &resp, nil
+	return &resp, err
 }
 
-func (r *RPC) Count(config map[string]string) (int64, error) {
-	var resp int64
-	err := r.client.Call("Plugin.Count", config, &resp)
-	if err != nil {
-		return 0, err
-	}
-	return resp, nil
+func (r *RPC) Status(config map[string]string) (*Status, error) {
+	var resp Status
+	err := r.client.Call("Plugin.Status", config, &resp)
+	return &resp, err
 }
 
 func (r *RPC) Scale(action strategy.Action, config map[string]string) error {
@@ -84,13 +84,12 @@ func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
 	return err
 }
 
-func (s *RPCServer) Count(config map[string]string, resp *int64) error {
-	count, err := s.Impl.Count(config)
-	if err != nil {
-		return err
+func (s *RPCServer) Status(config map[string]string, resp *Status) error {
+	status, err := s.Impl.Status(config)
+	if status != nil {
+		*resp = *status
 	}
-	*resp = count
-	return nil
+	return err
 }
 
 func (s *RPCServer) Scale(req RPCScaleRequest, resp *error) error {

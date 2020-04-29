@@ -3,9 +3,6 @@ package agent
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"sync"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -15,7 +12,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	strategypkg "github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
-	"github.com/hashicorp/nomad-autoscaler/policystorage"
+	"github.com/hashicorp/nomad-autoscaler/policy"
+	nomadpolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -24,6 +22,7 @@ type Agent struct {
 	config        *config.Agent
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
+	healthServer  *healthServer
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
@@ -34,13 +33,12 @@ func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	defer a.stop()
 
 	// Generate the Nomad client.
 	if err := a.generateNomadClient(); err != nil {
 		return err
 	}
-
-	ps := policystorage.Nomad{Client: a.nomadClient}
 
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
@@ -52,56 +50,37 @@ func (a *Agent) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
 	}
-	go healthServer.run()
 
-	// loop like there's no tomorrow
-	var wg sync.WaitGroup
-	ticker := time.NewTicker(a.config.ScanInterval)
-Loop:
+	a.healthServer = healthServer
+	go a.healthServer.run()
+
+	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient)
+	manager := policy.NewManager(a.logger, source, a.pluginManager)
+
+	policyEvalCh := make(chan *policy.Evaluation, 10)
+	go manager.Run(ctx, policyEvalCh)
+
 	for {
 		select {
-		case <-ticker.C:
-			logger := a.logger.With("policy_storage", reflect.TypeOf(ps))
-			logger.Info("reading policies")
-
-			// read policies
-			policies, err := ps.List()
-			if err != nil {
-				logger.Error("failed to fetch policies", "error", err)
-				continue
-			}
-			logger.Info(fmt.Sprintf("found %d policies", len(policies)))
-
-			// handle policies
-			for _, p := range policies {
-				wg.Add(1)
-				go func(ID string) {
-					defer wg.Done()
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						policy, err := ps.Get(ID)
-						if err != nil {
-							logger.Error("failed to fetch policy", "policy_id", ID, "error", err)
-							return
-						}
-						a.handlePolicy(policy)
-					}
-				}(p.ID)
-			}
-			wg.Wait()
 		case <-ctx.Done():
-			// Stop the health server.
-			healthServer.stop()
-
-			// stop plugins before exiting
-			a.pluginManager.KillPlugins()
-			break Loop
+			a.logger.Info("context closed, shutting down")
+			return nil
+		case policyEval := <-policyEvalCh:
+			a.handlePolicy(policyEval.Policy)
 		}
 	}
+}
 
-	return nil
+func (a *Agent) stop() {
+	// Stop the health server.
+	if a.healthServer != nil {
+		a.healthServer.stop()
+	}
+
+	// Kill all the plugins.
+	if a.pluginManager != nil {
+		a.pluginManager.KillPlugins()
+	}
 }
 
 // generateNomadClient takes the internal Nomad configuration, translates and
@@ -161,7 +140,7 @@ func (a *Agent) generateNomadClient() error {
 	return nil
 }
 
-func (a *Agent) handlePolicy(p *policystorage.Policy) {
+func (a *Agent) handlePolicy(p *policy.Policy) {
 	logger := a.logger.With(
 		"policy_id", p.ID,
 		"source", p.Source,
@@ -169,10 +148,7 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 		"strategy", p.Strategy.Name,
 	)
 
-	if !p.Enabled {
-		logger.Info("policy not enabled")
-		return
-	}
+	logger.Info("received policy for evaluation")
 
 	var targetInst targetpkg.Target
 	var apmInst apmpkg.APM
@@ -202,9 +178,13 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 	// fetch target count
 	logger.Info("fetching current count")
-	currentCount, err := targetInst.Count(p.Target.Config)
+	currentStatus, err := targetInst.Status(p.Target.Config)
 	if err != nil {
 		logger.Error("failed to fetch current count", "error", err)
+		return
+	}
+	if !currentStatus.Ready {
+		logger.Info("target not ready")
 		return
 	}
 
@@ -220,7 +200,7 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 	logger.Info("calculating new count")
 	req := strategypkg.RunRequest{
 		PolicyID: p.ID,
-		Count:    currentCount,
+		Count:    currentStatus.Count,
 		Metric:   value,
 		Config:   p.Strategy.Config,
 	}
@@ -235,15 +215,15 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 		// no action to execute
 		var minMaxAction *strategypkg.Action
 
-		if currentCount < p.Min {
+		if currentStatus.Count < p.Min {
 			minMaxAction = &strategypkg.Action{
 				Count:  &p.Min,
-				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentCount, p.Min),
+				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
 			}
-		} else if currentCount > p.Max {
+		} else if currentStatus.Count > p.Max {
 			minMaxAction = &strategypkg.Action{
 				Count:  &p.Max,
-				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentCount, p.Max),
+				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
 			}
 		}
 
@@ -276,16 +256,16 @@ func (a *Agent) handlePolicy(p *policystorage.Policy) {
 
 		if action.Count == nil {
 			actionLogger.Info("registering scaling event",
-				"count", currentCount, "reason", action.Reason, "meta", action.Meta)
+				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 		} else {
 			// Skip action if count doesn't change.
-			if currentCount == *action.Count {
-				actionLogger.Info("nothing to do", "from", currentCount, "to", *action.Count)
+			if currentStatus.Count == *action.Count {
+				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", *action.Count)
 				continue
 			}
 
 			actionLogger.Info("scaling target",
-				"from", currentCount, "to", *action.Count,
+				"from", currentStatus.Count, "to", *action.Count,
 				"reason", action.Reason, "meta", action.Meta)
 		}
 

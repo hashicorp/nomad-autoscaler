@@ -96,8 +96,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			// Remove and stop handlers for policies that don't exist anymore.
 			for k, h := range m.handlers {
 				if !m.keep[k] {
-					h.Stop()
-					delete(m.handlers, k)
+					m.stopHandler(h)
 				}
 			}
 
@@ -111,6 +110,20 @@ func (m *Manager) stopHandlers() {
 	defer m.lock.Unlock()
 
 	for _, h := range m.handlers {
-		h.Stop()
+		m.stopHandler(h)
 	}
+}
+
+// stopHandler stops a handler and removes it from the manager's internal
+// state storage.
+//
+// This method is not thread-safe so a RW lock should be acquired before
+// calling it.
+func (m *Manager) stopHandler(h *Handler) {
+	if h == nil {
+		return
+	}
+
+	h.Stop()
+	delete(m.handlers, h.policyID)
 }

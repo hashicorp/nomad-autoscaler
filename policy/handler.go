@@ -148,7 +148,7 @@ func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
 
 	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
 	if !ok {
-		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetInst)
+		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetPlugin.Plugin())
 		return nil, err
 	}
 

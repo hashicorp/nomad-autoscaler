@@ -84,9 +84,9 @@ func validatePolicy(p map[string]interface{}) error {
 	//   1. Source value must be a string if defined.
 	source, ok := p[keySource]
 	if ok {
-		sourceString, ok := source.(string)
+		_, ok := source.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keySource, sourceString))
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keySource, source))
 		}
 	}
 
@@ -100,7 +100,7 @@ func validatePolicy(p map[string]interface{}) error {
 	} else {
 		queryStr, ok := query.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyQuery, queryStr))
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyQuery, query))
 		} else {
 			if queryStr == "" {
 				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, keyQuery))
@@ -115,10 +115,10 @@ func validatePolicy(p map[string]interface{}) error {
 	if ok {
 		evalIntervalString, ok := evalInterval.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyEvaluationInterval, evalIntervalString))
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyEvaluationInterval, evalInterval))
 		} else {
 			if _, err := time.ParseDuration(evalIntervalString); err != nil {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] must have time.Duration format", keyEvaluationInterval, evalInterval))
+				result = multierror.Append(result, fmt.Errorf("%s[%s] must have time.Duration format", path, keyEvaluationInterval))
 			}
 		}
 	}
@@ -136,14 +136,14 @@ func validatePolicy(p map[string]interface{}) error {
 	} else {
 		strategyList, ok := strategyInterface.([]interface{})
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be []interface{}, found %T", path, keyStrategy, strategyList))
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be []interface{}, found %T", path, keyStrategy, strategyInterface))
 		} else {
 			if len(strategyList) != 1 {
 				result = multierror.Append(result, fmt.Errorf("%s[%s] must have length 1, found %d", path, keyStrategy, len(strategyList)))
 			} else {
 				strategyMap, ok := strategyList[0].(map[string]interface{})
 				if !ok {
-					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyMap))
+					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyList))
 				} else {
 					if strategyErrs := validateStrategy(strategyMap); strategyErrs != nil {
 						result = multierror.Append(result, strategyErrs)
@@ -176,7 +176,7 @@ func validateStrategy(s map[string]interface{}) error {
 	} else {
 		nameString, ok := nameInterface.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, nameKey, nameString))
+			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, nameKey, nameInterface))
 		} else {
 			if nameString == "" {
 				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, nameKey))

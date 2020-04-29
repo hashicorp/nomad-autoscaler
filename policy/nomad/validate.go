@@ -143,7 +143,7 @@ func validatePolicy(p map[string]interface{}) error {
 			} else {
 				strategyMap, ok := strategyList[0].(map[string]interface{})
 				if !ok {
-					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyList))
+					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyList[0]))
 				} else {
 					if strategyErrs := validateStrategy(strategyMap); strategyErrs != nil {
 						result = multierror.Append(result, strategyErrs)

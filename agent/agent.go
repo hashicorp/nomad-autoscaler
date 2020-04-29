@@ -22,6 +22,7 @@ type Agent struct {
 	config        *config.Agent
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
+	healthServer  *healthServer
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
@@ -32,6 +33,7 @@ func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 }
 
 func (a *Agent) Run(ctx context.Context) error {
+	defer a.stop()
 
 	// Generate the Nomad client.
 	if err := a.generateNomadClient(); err != nil {
@@ -48,7 +50,9 @@ func (a *Agent) Run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
 	}
-	go healthServer.run()
+
+	a.healthServer = healthServer
+	go a.healthServer.run()
 
 	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient)
 	manager := policy.NewManager(a.logger, source, a.pluginManager)
@@ -60,17 +64,22 @@ func (a *Agent) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			a.logger.Info("context closed, shutting down")
-
-			// Stop the health server.
-			healthServer.stop()
-
-			// Kill all the plugins.
-			a.pluginManager.KillPlugins()
-
 			return nil
 		case policyEval := <-policyEvalCh:
 			a.handlePolicy(policyEval.Policy)
 		}
+	}
+}
+
+func (a *Agent) stop() {
+	// Stop the health server.
+	if a.healthServer != nil {
+		a.healthServer.stop()
+	}
+
+	// Kill all the plugins.
+	if a.pluginManager != nil {
+		a.pluginManager.KillPlugins()
 	}
 }
 

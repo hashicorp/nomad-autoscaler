@@ -158,6 +158,7 @@ func validateStrategy(s map[string]interface{}) error {
 
 	var result *multierror.Error
 
+	// It shouldn't happen, but it's better to prevent a panic.
 	if s == nil {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
@@ -212,6 +213,11 @@ func validateTarget(t map[string]interface{}) error {
 	var path = fmt.Sprintf("scaling->policy->%s", keyTarget)
 
 	var result *multierror.Error
+
+	// It shouldn't happen, but it's better to prevent a panic.
+	if t == nil {
+		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+	}
 
 	// Validate name (optional).
 	//   1. Name must have string value if present.

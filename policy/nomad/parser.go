@@ -2,7 +2,6 @@ package nomad
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -103,19 +102,9 @@ func canonicalizePolicy(from *api.ScalingPolicy, to *policy.Policy) {
 
 	if to.Source == "" {
 		to.Source = plugins.InternalAPMNomad
+	}
 
-		// TODO(luiz) move default query logic handling to the Nomad APM plugin
-		parts := strings.Split(to.Query, "_")
-		op := parts[0]
-		metric := parts[1]
-
-		switch metric {
-		case "cpu":
-			metric = "nomad.client.allocs.cpu.total_percent"
-		case "memory":
-			metric = "nomad.client.allocs.memory.usage"
-		}
-
-		to.Query = fmt.Sprintf("%s/%s/%s/%s", metric, from.Target["Job"], from.Target["Group"], op)
+	if to.Source == plugins.InternalAPMNomad {
+		to.Query = fmt.Sprintf("%s/%s/%s", to.Query, from.Target["Group"], from.Target["Job"])
 	}
 }

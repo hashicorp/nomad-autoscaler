@@ -34,26 +34,30 @@ type Sample struct {
 	Counter
 }
 
+type Query struct {
+	Metric    string
+	Job       string
+	Group     string
+	Operation string
+}
+
 func (a *APMPlugin) Query(q string) (float64, error) {
-	parts := strings.Split(q, "/")
-	if len(parts) != 4 {
-		return 0, fmt.Errorf("invalid query %s, expected 4 parts, got %d", q, len(parts))
+	query, err := parseQuery(q)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse query: %v", err)
 	}
 
-	metric := parts[0]
-	job := parts[1]
-	group := parts[2]
-	op := parts[3]
+	a.logger.Debug("expanded query", "from", q, "to", fmt.Sprintf("%# v", query))
 
 	var resp Metrics
-	_, err := a.client.Raw().Query("/v1/metrics", &resp, nil)
+	_, err = a.client.Raw().Query("/v1/metrics", &resp, nil)
 	if err != nil {
 		return 0, err
 	}
 
 	metrics := []Gauge{}
 	for _, g := range resp.Gauges {
-		if g.Name == metric && g.Labels["job"] == job && g.Labels["task_group"] == group {
+		if g.Name == query.Metric && g.Labels["job"] == query.Job && g.Labels["task_group"] == query.Group {
 			metrics = append(metrics, g)
 		}
 	}
@@ -63,7 +67,7 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	}
 
 	var result float64
-	switch op {
+	switch query.Operation {
 	case "sum":
 		for _, m := range metrics {
 			result += m.Value
@@ -90,4 +94,42 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	}
 
 	return result, nil
+}
+
+func parseQuery(q string) (*Query, error) {
+	mainParts := strings.SplitN(q, "/", 3)
+	if len(mainParts) != 3 {
+		return nil, fmt.Errorf("expected <query>/<job>/group>, received %s", q)
+	}
+
+	query := &Query{
+		Group: mainParts[1],
+		Job:   mainParts[2],
+	}
+
+	opMetricParts := strings.SplitN(mainParts[0], "_", 2)
+	if len(opMetricParts) != 2 {
+		return nil, fmt.Errorf(`expected <operation>_<metric>, received "%s"`, mainParts[0])
+	}
+
+	op := opMetricParts[0]
+	metric := opMetricParts[1]
+
+	switch metric {
+	case "cpu":
+		query.Metric = "nomad.client.allocs.cpu.total_percent"
+	case "memory":
+		query.Metric = "nomad.client.allocs.memory.usage"
+	default:
+		query.Metric = metric
+	}
+
+	switch op {
+	case "sum", "avg", "min", "max":
+		query.Operation = op
+	default:
+		return nil, fmt.Errorf(`invalid operation "%s", allowed values are sum, avg, min or max`, op)
+	}
+
+	return query, nil
 }

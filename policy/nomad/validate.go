@@ -19,7 +19,7 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 
 	// Validate ID.
 	if policy.ID == "" {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.ID is empty"))
+		result = multierror.Append(result, fmt.Errorf("ID is empty"))
 	}
 
 	// Validate Min and Max values.
@@ -28,25 +28,25 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	//   3. Max must be positive.
 	//   4. Min must be smaller than Max.
 	if policy.Min == nil {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min is nil"))
+		result = multierror.Append(result, fmt.Errorf("scaling->min is missing"))
 	} else {
 		min := *policy.Min
 		if min < 0 {
-			result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min can't be negative"))
+			result = multierror.Append(result, fmt.Errorf("scaling->min can't be negative"))
 		}
 
 		if min > policy.Max {
-			result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min must be smaller than ScalingPolicy.Max"))
+			result = multierror.Append(result, fmt.Errorf("scaling->min must be smaller than scaling->max"))
 		}
 	}
 
 	if policy.Max < 0 {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Max can't be negative"))
+		result = multierror.Append(result, fmt.Errorf("scaling->max can't be negative"))
 	}
 
 	// Validate Target.
 	if policy.Target == nil {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Target is nil"))
+		result = multierror.Append(result, fmt.Errorf("Target is nil"))
 	}
 
 	// Validate Policy.

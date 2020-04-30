@@ -107,13 +107,13 @@ func parseQuery(q string) (*Query, error) {
 		Job:   mainParts[2],
 	}
 
-	opMetricParts := strings.Split(mainParts[0], "_")
-	if len(opMetricParts) < 2 {
+	opMetricParts := strings.SplitN(mainParts[0], "_", 2)
+	if len(opMetricParts) != 2 {
 		return nil, fmt.Errorf(`expected <operation>_<metric>, received "%s"`, mainParts[0])
 	}
 
 	op := opMetricParts[0]
-	metric := strings.Join(opMetricParts[1:], "_")
+	metric := opMetricParts[1]
 
 	switch metric {
 	case "cpu":

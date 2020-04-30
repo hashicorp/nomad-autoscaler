@@ -125,13 +125,7 @@ func parseQuery(q string) (*Query, error) {
 	}
 
 	switch op {
-	case "sum":
-		fallthrough
-	case "avg":
-		fallthrough
-	case "min":
-		fallthrough
-	case "max":
+	case "sum", "avg", "min", "max":
 		query.Operation = op
 	default:
 		return nil, fmt.Errorf(`invalid operation "%s", allowed values are sum, avg, min or max`, op)

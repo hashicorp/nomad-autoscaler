@@ -546,6 +546,13 @@ func Test_validateBlock(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name: "valid block map",
+			input: map[string]interface{}{
+				"key": "value",
+			},
+			expectError: false,
+		},
+		{
 			name:        "block root has wrong type",
 			input:       true,
 			expectError: true,
@@ -576,6 +583,16 @@ func Test_validateBlock(t *testing.T) {
 				map[string]interface{}{
 					"key": "value",
 				},
+			},
+			validator: func(in map[string]interface{}) error {
+				return fmt.Errorf("error from validator")
+			},
+			expectError: true,
+		},
+		{
+			name: "validator is called with map",
+			input: map[string]interface{}{
+				"key": "value",
 			},
 			validator: func(in map[string]interface{}) error {
 				return fmt.Errorf("error from validator")

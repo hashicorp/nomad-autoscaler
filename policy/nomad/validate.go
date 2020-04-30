@@ -252,6 +252,21 @@ func validateTarget(t map[string]interface{}) error {
 func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}) error) error {
 	var result *multierror.Error
 
+	runValidator := func(input map[string]interface{}) {
+		if validator == nil {
+			return
+		}
+		if err := validator(input); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	// Return early if input already has the expected nested type.
+	if inMap, ok := in.(map[string]interface{}); ok {
+		runValidator(inMap)
+		return result.ErrorOrNil()
+	}
+
 	list, ok := in.([]interface{})
 	if !ok {
 		return multierror.Append(result, fmt.Errorf("%s->%s must be []interface{}, found %T", path, key, in))
@@ -266,11 +281,7 @@ func validateBlock(in interface{}, path, key string, validator func(in map[strin
 		return multierror.Append(result, fmt.Errorf("%s->%s[0] must be map[string]interface{}, found %T", path, key, list[0]))
 	}
 
-	if validator != nil {
-		if err := validator(inMap); err != nil {
-			result = multierror.Append(result, err)
-		}
-	}
+	runValidator(inMap)
 
 	return result.ErrorOrNil()
 }

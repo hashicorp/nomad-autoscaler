@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"flag"
 	"fmt"
 	"testing"
 
@@ -8,6 +9,8 @@ import (
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
+
+var showValidationError = flag.Bool("show-validation-error", false, "")
 
 func Test_validateScalingPolicy(t *testing.T) {
 	testCases := []struct {
@@ -515,8 +518,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateScalingPolicy(tc.input)
-			if err != nil {
-				t.Log(err)
+			if err != nil && *showValidationError {
+				fmt.Println(err)
 			}
 
 			assertFunc := assert.NoError
@@ -604,8 +607,8 @@ func Test_validateBlock(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			err := validateBlock(tc.input, "path", "key", tc.validator)
-			if err != nil {
-				t.Log(err)
+			if err != nil && *showValidationError {
+				fmt.Println(err)
 			}
 
 			assertFunc := assert.NoError

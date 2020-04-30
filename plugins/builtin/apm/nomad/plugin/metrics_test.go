@@ -15,7 +15,7 @@ func Test_parseQuery(t *testing.T) {
 	}{
 		{
 			name:  "avg_cpu",
-			input: "avg_cpu/job/group",
+			input: "avg_cpu/group/job",
 			expected: &Query{
 				Metric:    "nomad.client.allocs.cpu.total_percent",
 				Job:       "job",
@@ -26,7 +26,7 @@ func Test_parseQuery(t *testing.T) {
 		},
 		{
 			name:  "avg_memory",
-			input: "avg_memory/job/group",
+			input: "avg_memory/group/job",
 			expected: &Query{
 				Metric:    "nomad.client.allocs.memory.usage",
 				Job:       "job",
@@ -37,10 +37,21 @@ func Test_parseQuery(t *testing.T) {
 		},
 		{
 			name:  "arbritary metric",
-			input: "avg_nomad.client.allocs.cpu.total_percent/job/group",
+			input: "avg_nomad.client.allocs.cpu.total_percent/group/job",
 			expected: &Query{
 				Metric:    "nomad.client.allocs.cpu.total_percent",
 				Job:       "job",
+				Group:     "group",
+				Operation: "avg",
+			},
+			expectError: false,
+		},
+		{
+			name:  "job with fwd slashes",
+			input: "avg_cpu/group/my/super/job//",
+			expected: &Query{
+				Metric:    "nomad.client.allocs.cpu.total_percent",
+				Job:       "my/super/job//",
 				Group:     "group",
 				Operation: "avg",
 			},
@@ -59,20 +70,20 @@ func Test_parseQuery(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name:        "missing group",
-			input:       "avg_cpu/job",
+			name:        "missing job",
+			input:       "avg_cpu/group",
 			expected:    nil,
 			expectError: true,
 		},
 		{
 			name:        "invalid op_metric format",
-			input:       "invalid/job/group",
+			input:       "invalid/groups/job",
 			expected:    nil,
 			expectError: true,
 		},
 		{
 			name:        "invalid operation",
-			input:       "op_invalid/job/group",
+			input:       "op_invalid/group/job",
 			expected:    nil,
 			expectError: true,
 		},

@@ -97,14 +97,14 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 }
 
 func parseQuery(q string) (*Query, error) {
-	mainParts := strings.Split(q, "/")
+	mainParts := strings.SplitN(q, "/", 3)
 	if len(mainParts) != 3 {
 		return nil, fmt.Errorf("expected <query>/<job>/group>, received %s", q)
 	}
 
 	query := &Query{
-		Job:   mainParts[1],
-		Group: mainParts[2],
+		Group: mainParts[1],
+		Job:   mainParts[2],
 	}
 
 	opMetricParts := strings.Split(mainParts[0], "_")

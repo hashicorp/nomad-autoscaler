@@ -105,6 +105,6 @@ func canonicalizePolicy(from *api.ScalingPolicy, to *policy.Policy) {
 	}
 
 	if to.Source == plugins.InternalAPMNomad {
-		to.Query = fmt.Sprintf("%s/%s/%s", to.Query, from.Target["Job"], from.Target["Group"])
+		to.Query = fmt.Sprintf("%s/%s/%s", to.Query, from.Target["Group"], from.Target["Job"])
 	}
 }

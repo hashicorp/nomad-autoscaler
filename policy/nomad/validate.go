@@ -120,17 +120,17 @@ func validatePolicy(p map[string]interface{}) error {
 
 	// Validate Strategy.
 	//   1. Strategy key must exist.
-	//   2. Strategy must be a valid HCL block.
-	strategyErrs := validateHCLBlock(p[keyStrategy], path, keyStrategy, validateStrategy)
+	//   2. Strategy must be a valid block.
+	strategyErrs := validateBlock(p[keyStrategy], path, keyStrategy, validateStrategy)
 	if strategyErrs != nil {
 		result = multierror.Append(result, strategyErrs)
 	}
 
 	// Validate Target (optional).
-	//   1. Target must be a valid HCL block if present.
+	//   1. Target must be a valid block if present.
 	targetInterface, ok := p[keyTarget]
 	if ok {
-		targetErr := validateHCLBlock(targetInterface, path, keyTarget, validateTarget)
+		targetErr := validateBlock(targetInterface, path, keyTarget, validateTarget)
 		if targetErr != nil {
 			result = multierror.Append(result, targetErr)
 		}
@@ -183,10 +183,10 @@ func validateStrategy(s map[string]interface{}) error {
 	}
 
 	// Validate config (optional).
-	//   1. Config must be an HCL block if present.
+	//   1. Config must be a block if present.
 	configKey := "config"
 	if config, ok := s[configKey]; ok {
-		err := validateHCLBlock(config, path, configKey, nil)
+		err := validateBlock(config, path, configKey, nil)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
@@ -236,10 +236,10 @@ func validateTarget(t map[string]interface{}) error {
 	}
 
 	// Validate config (optional).
-	//   1. Config must be an HCL block if present.
+	//   1. Config must be a block if present.
 	configKey := "config"
 	if config, ok := t[configKey]; ok {
-		err := validateHCLBlock(config, path, configKey, nil)
+		err := validateBlock(config, path, configKey, nil)
 		if err != nil {
 			result = multierror.Append(result, err)
 		}
@@ -248,8 +248,8 @@ func validateTarget(t map[string]interface{}) error {
 	return result.ErrorOrNil()
 }
 
-// validateHCLBlock validates the kind of unusual structure we receive when the policy HCL block is parsed.
-func validateHCLBlock(in interface{}, path, key string, validator func(in map[string]interface{}) error) error {
+// validateBlock validates the kind of unusual structure we receive when the policy is parsed.
+func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}) error) error {
 	var result *multierror.Error
 
 	list, ok := in.([]interface{})

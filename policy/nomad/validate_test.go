@@ -529,7 +529,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 	}
 }
 
-func Test_validateHCLBlock(t *testing.T) {
+func Test_validateBlock(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       interface{}
@@ -586,7 +586,7 @@ func Test_validateHCLBlock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateHCLBlock(tc.input, "path", "key", tc.validator)
+			err := validateBlock(tc.input, "path", "key", tc.validator)
 			if err != nil {
 				t.Log(err)
 			}

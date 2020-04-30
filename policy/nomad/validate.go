@@ -67,7 +67,7 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 //   +----------+
 //  }
 func validatePolicy(p map[string]interface{}) error {
-	const path = "ScalingPolicy.Policy"
+	const path = "scaling->policy"
 
 	var result *multierror.Error
 
@@ -81,7 +81,7 @@ func validatePolicy(p map[string]interface{}) error {
 	if ok {
 		_, ok := source.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keySource, source))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keySource, source))
 		}
 	}
 
@@ -91,14 +91,14 @@ func validatePolicy(p map[string]interface{}) error {
 	//   3. Query must not be empty.
 	query, ok := p[keyQuery]
 	if !ok {
-		result = multierror.Append(result, fmt.Errorf(`%s is missing key "%s"`, path, keyQuery))
+		result = multierror.Append(result, fmt.Errorf("%s->%s is missing", path, keyQuery))
 	} else {
 		queryStr, ok := query.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyQuery, query))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyQuery, query))
 		} else {
 			if queryStr == "" {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, keyQuery))
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, keyQuery))
 			}
 		}
 	}
@@ -110,10 +110,10 @@ func validatePolicy(p map[string]interface{}) error {
 	if ok {
 		evalIntervalString, ok := evalInterval.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyEvaluationInterval, evalInterval))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyEvaluationInterval, evalInterval))
 		} else {
 			if _, err := time.ParseDuration(evalIntervalString); err != nil {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] must have time.Duration format", path, keyEvaluationInterval))
+				result = multierror.Append(result, fmt.Errorf("%s->%s must have time.Duration format", path, keyEvaluationInterval))
 			}
 		}
 	}
@@ -154,7 +154,7 @@ func validatePolicy(p map[string]interface{}) error {
 //    }
 //  }
 func validateStrategy(s map[string]interface{}) error {
-	var path = fmt.Sprintf("ScalingPolicy.Policy[%s]", keyStrategy)
+	var path = fmt.Sprintf("scaling->policy->%s", keyStrategy)
 
 	var result *multierror.Error
 
@@ -169,14 +169,14 @@ func validateStrategy(s map[string]interface{}) error {
 	nameKey := "name"
 	nameInterface, ok := s[nameKey]
 	if !ok {
-		result = multierror.Append(result, fmt.Errorf(`%s is missing key "%s"`, path, nameKey))
+		result = multierror.Append(result, fmt.Errorf("%s->%s is missing", path, nameKey))
 	} else {
 		nameString, ok := nameInterface.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, nameKey, nameInterface))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, nameKey, nameInterface))
 		} else {
 			if nameString == "" {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, nameKey))
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, nameKey))
 			}
 		}
 	}
@@ -209,7 +209,7 @@ func validateStrategy(s map[string]interface{}) error {
 //    }
 //  }
 func validateTarget(t map[string]interface{}) error {
-	var path = fmt.Sprintf("ScalingPolicy.Policy[%s]", keyTarget)
+	var path = fmt.Sprintf("scaling->policy->%s", keyTarget)
 
 	var result *multierror.Error
 
@@ -221,10 +221,10 @@ func validateTarget(t map[string]interface{}) error {
 	if ok {
 		nameString, ok := nameInterface.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, nameKey, nameInterface))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, nameKey, nameInterface))
 		} else {
 			if nameString == "" {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, nameKey))
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, nameKey))
 			}
 		}
 	}
@@ -248,16 +248,16 @@ func validateHCLBlock(in interface{}, path, key string, validator func(in map[st
 
 	list, ok := in.([]interface{})
 	if !ok {
-		return multierror.Append(result, fmt.Errorf("%s[%s] must be []interface{}, found %T", path, key, in))
+		return multierror.Append(result, fmt.Errorf("%s->%s must be []interface{}, found %T", path, key, in))
 	}
 
 	if len(list) != 1 {
-		return multierror.Append(result, fmt.Errorf("%s[%s] must have length 1, found %d", path, key, len(list)))
+		return multierror.Append(result, fmt.Errorf("%s->%s must have length 1, found %d", path, key, len(list)))
 	}
 
 	inMap, ok := list[0].(map[string]interface{})
 	if !ok {
-		return multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, key, list[0]))
+		return multierror.Append(result, fmt.Errorf("%s->%s[0] must be map[string]interface{}, found %T", path, key, list[0]))
 	}
 
 	if validator != nil {

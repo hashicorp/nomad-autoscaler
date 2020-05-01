@@ -54,7 +54,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.healthServer = healthServer
 	go a.healthServer.run()
 
-	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient)
+	sourceConfig := &nomadpolicy.SourceConfig{
+		DefaultEvaluationInterval: a.config.ScanInterval,
+	}
+	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig)
 	manager := policy.NewManager(a.logger, source, a.pluginManager)
 
 	policyEvalCh := make(chan *policy.Evaluation, 10)

@@ -3,10 +3,12 @@ package nomad
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad/api"
 )
@@ -21,25 +23,36 @@ const (
 	keyStrategy           = "strategy"
 )
 
-const (
-	defaultEvaluationInterval = 10 * time.Second
-)
-
 // Ensure NomadSource satisfies the Source interface.
 var _ policy.Source = (*Source)(nil)
+
+// SourceConfig holds configuration values for the Nomad source.
+type SourceConfig struct {
+	DefaultEvaluationInterval time.Duration
+}
+
+func (c *SourceConfig) canonicalize() {
+	if c.DefaultEvaluationInterval == 0 {
+		c.DefaultEvaluationInterval = policy.DefaultEvaluationInterval
+	}
+}
 
 // Source is an implementation of the Source interface that retrieves
 // policies from a Nomad cluster.
 type Source struct {
-	log   hclog.Logger
-	nomad *api.Client
+	log    hclog.Logger
+	nomad  *api.Client
+	config *SourceConfig
 }
 
 // NewNomadSource returns a new Nomad policy source.
-func NewNomadSource(log hclog.Logger, nomad *api.Client) *Source {
+func NewNomadSource(log hclog.Logger, nomad *api.Client, config *SourceConfig) *Source {
+	config.canonicalize()
+
 	return &Source{
-		log:   log.Named("nomad_policy_source"),
-		nomad: nomad,
+		log:    log.Named("nomad_policy_source"),
+		nomad:  nomad,
+		config: config,
 	}
 }
 
@@ -147,16 +160,86 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 				continue
 			}
 
-			var autoPolicy policy.Policy
-			// TODO(jrasell) once we have a better method for surfacing errors to the
-			//  user, this error should be presented.
-			if autoPolicy, err = parsePolicy(p); err != nil {
-				errCh <- fmt.Errorf("failed to parse policy: %v", err)
-				return
+			if err := validateScalingPolicy(p); err != nil {
+				errCh <- fmt.Errorf("invalid policy: %v", err)
+				continue
 			}
+
+			autoPolicy := parsePolicy(p)
+			s.canonicalizePolicy(&autoPolicy)
 
 			resultCh <- autoPolicy
 			q.WaitIndex = meta.LastIndex
 		}
 	}
+}
+
+// canonicalizePolicy sets standarized values for missing fields.
+func (s *Source) canonicalizePolicy(p *policy.Policy) {
+	if p == nil {
+		return
+	}
+
+	// Default EvaluationInterval to the agent's ScanInterval.
+	if p.EvaluationInterval == 0 {
+		p.EvaluationInterval = s.config.DefaultEvaluationInterval
+	}
+
+	// Set default values for Strategy.
+	if p.Strategy == nil {
+		p.Strategy = &policy.Strategy{}
+	}
+
+	if p.Strategy.Config == nil {
+		p.Strategy.Config = make(map[string]string)
+	}
+
+	// Set default values for Target.
+	if p.Target == nil {
+		p.Target = &policy.Target{}
+	}
+
+	if p.Target.Name == "" {
+		p.Target.Name = plugins.InternalTargetNomad
+	}
+
+	if p.Target.Config == nil {
+		p.Target.Config = make(map[string]string)
+	}
+
+	// Map values from the original api.ScalingPolicy.Target into
+	// policy.Policy.Target.Config
+	// TODO(luiz): is this really necessay? We should probably just use what's returned in Target
+	targetConfigKeyMapping := map[string]string{
+		"Job":   "job_id",
+		"Group": "group",
+	}
+
+	for k1, k2 := range targetConfigKeyMapping {
+		v, hasK1 := p.Target.Config[k1]
+		_, hasK2 := p.Target.Config[k2]
+
+		if hasK1 && !hasK2 {
+			p.Target.Config[k2] = v
+		}
+	}
+
+	// Default source to the Nomad APM.
+	if p.Source == "" {
+		p.Source = plugins.InternalAPMNomad
+	}
+
+	// Expand short Nomad APM query from <op>_<metric> into <op>_<metric>/<group>/<job>.
+	// <job> must be the last element so we can parse the query correctly
+	// since Nomad allows "/" in job IDs.
+	if p.Source == plugins.InternalAPMNomad && isShortQuery(p.Query) {
+		p.Query = fmt.Sprintf("%s/%s/%s", p.Query, p.Target.Config["group"], p.Target.Config["job_id"])
+	}
+}
+
+// isShortQuery detects if a query is in the <op>_<metric> format.
+func isShortQuery(q string) bool {
+	opMetric := strings.SplitN(q, "_", 2)
+	hasSlash := strings.Contains(q, "/")
+	return len(opMetric) == 2 && !hasSlash
 }

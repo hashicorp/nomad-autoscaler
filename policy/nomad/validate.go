@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// validateScalingPolicy validates an api.ScalingPolicy object from the Nomad API
 func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
 
@@ -16,34 +17,39 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 		return result
 	}
 
+	// Validate ID.
+	if policy.ID == "" {
+		result = multierror.Append(result, fmt.Errorf("ID is empty"))
+	}
+
 	// Validate Min and Max values.
 	//   1. Min must not be nil.
 	//   2. Min must be positive.
 	//   3. Max must be positive.
 	//   4. Min must be smaller than Max.
 	if policy.Min == nil {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min is nil"))
+		result = multierror.Append(result, fmt.Errorf("scaling->min is missing"))
 	} else {
 		min := *policy.Min
 		if min < 0 {
-			result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min can't be negative"))
+			result = multierror.Append(result, fmt.Errorf("scaling->min can't be negative"))
 		}
 
 		if min > policy.Max {
-			result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Min must be smaller than ScalingPolicy.Max"))
+			result = multierror.Append(result, fmt.Errorf("scaling->min must be smaller than scaling->max"))
 		}
 	}
 
 	if policy.Max < 0 {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy.Max can't be negative"))
+		result = multierror.Append(result, fmt.Errorf("scaling->max can't be negative"))
 	}
 
-	// Validate Target
-	if targetErr := validateTarget(policy.Target); targetErr != nil {
-		result = multierror.Append(result, targetErr)
+	// Validate Target.
+	if policy.Target == nil {
+		result = multierror.Append(result, fmt.Errorf("Target is nil"))
 	}
 
-	// Validate Policy
+	// Validate Policy.
 	if policyErr := validatePolicy(policy.Policy); policyErr != nil {
 		result = multierror.Append(result, policyErr)
 	}
@@ -51,28 +57,17 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	return result.ErrorOrNil()
 }
 
-func validateTarget(t map[string]string) error {
-	const path = "ScalingPolicy.Target"
-
-	var result *multierror.Error
-
-	if t == nil {
-		return multierror.Append(result, fmt.Errorf("%s is nil", path))
-	}
-
-	// Validate required keys are defined.
-	requiredKeys := []string{"Job", "Group"}
-	for _, k := range requiredKeys {
-		if v := t[k]; v == "" {
-			result = multierror.Append(result, fmt.Errorf(`%s is missing key "%s"`, path, k))
-		}
-	}
-
-	return result.ErrorOrNil()
-}
-
+// validatePolicy validates the content of the policy block inside scaling.
+//
+//  scaling {
+//   +----------+
+//   | policy { |
+//   |   ...    |
+//   | }        |
+//   +----------+
+//  }
 func validatePolicy(p map[string]interface{}) error {
-	const path = "ScalingPolicy.Policy"
+	const path = "scaling->policy"
 
 	var result *multierror.Error
 
@@ -80,13 +75,13 @@ func validatePolicy(p map[string]interface{}) error {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
 
-	// Validate Source.
+	// Validate Source (optional).
 	//   1. Source value must be a string if defined.
 	source, ok := p[keySource]
 	if ok {
 		_, ok := source.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keySource, source))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keySource, source))
 		}
 	}
 
@@ -96,14 +91,14 @@ func validatePolicy(p map[string]interface{}) error {
 	//   3. Query must not be empty.
 	query, ok := p[keyQuery]
 	if !ok {
-		result = multierror.Append(result, fmt.Errorf(`%s is missing key "%s"`, path, keyQuery))
+		result = multierror.Append(result, fmt.Errorf("%s->%s is missing", path, keyQuery))
 	} else {
 		queryStr, ok := query.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyQuery, query))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyQuery, query))
 		} else {
 			if queryStr == "" {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, keyQuery))
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, keyQuery))
 			}
 		}
 	}
@@ -115,52 +110,55 @@ func validatePolicy(p map[string]interface{}) error {
 	if ok {
 		evalIntervalString, ok := evalInterval.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, keyEvaluationInterval, evalInterval))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyEvaluationInterval, evalInterval))
 		} else {
 			if _, err := time.ParseDuration(evalIntervalString); err != nil {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] must have time.Duration format", path, keyEvaluationInterval))
+				result = multierror.Append(result, fmt.Errorf("%s->%s must have time.Duration format", path, keyEvaluationInterval))
 			}
 		}
 	}
 
 	// Validate Strategy.
 	//   1. Strategy key must exist.
-	//   2. Strategy must have []interface{} value.
-	//        This is due the way HCL parses blocks, it creates a list to avoid
-	//        overwriting blocks of the same type.
-	//   3. Strategy must have just one element.
-	//   4. The element in Strategy must be of type map[string]interface{}
-	strategyInterface, ok := p[keyStrategy]
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf(`%s missing key "%s"`, path, keyStrategy))
-	} else {
-		strategyList, ok := strategyInterface.([]interface{})
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be []interface{}, found %T", path, keyStrategy, strategyInterface))
-		} else {
-			if len(strategyList) != 1 {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] must have length 1, found %d", path, keyStrategy, len(strategyList)))
-			} else {
-				strategyMap, ok := strategyList[0].(map[string]interface{})
-				if !ok {
-					result = multierror.Append(result, fmt.Errorf("%s[%s][0] must be map[string]interface{}, found %T", path, keyStrategy, strategyList[0]))
-				} else {
-					if strategyErrs := validateStrategy(strategyMap); strategyErrs != nil {
-						result = multierror.Append(result, strategyErrs)
-					}
-				}
-			}
+	//   2. Strategy must be a valid block.
+	strategyErrs := validateBlock(p[keyStrategy], path, keyStrategy, validateStrategy)
+	if strategyErrs != nil {
+		result = multierror.Append(result, strategyErrs)
+	}
+
+	// Validate Target (optional).
+	//   1. Target must be a valid block if present.
+	targetInterface, ok := p[keyTarget]
+	if ok {
+		targetErr := validateBlock(targetInterface, path, keyTarget, validateTarget)
+		if targetErr != nil {
+			result = multierror.Append(result, targetErr)
 		}
 	}
 
 	return result.ErrorOrNil()
 }
 
+// validateStrategy validates the content of the strategy block inside policy.
+//
+//  scaling {
+//    policy {
+//      strategy = {
+//      +-------------------+
+//      | name = "strategy" |
+//      | config = {        |
+//      |   key = "value"   |
+//      | }                 |
+//      +-------------------+
+//      }
+//    }
+//  }
 func validateStrategy(s map[string]interface{}) error {
-	var path = fmt.Sprintf("ScalingPolicy.Policy[%s]", keyStrategy)
+	var path = fmt.Sprintf("scaling->policy->%s", keyStrategy)
 
 	var result *multierror.Error
 
+	// It shouldn't happen, but it's better to prevent a panic.
 	if s == nil {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
@@ -172,17 +170,118 @@ func validateStrategy(s map[string]interface{}) error {
 	nameKey := "name"
 	nameInterface, ok := s[nameKey]
 	if !ok {
-		result = multierror.Append(result, fmt.Errorf(`%s is missing key "%s"`, path, nameKey))
+		result = multierror.Append(result, fmt.Errorf("%s->%s is missing", path, nameKey))
 	} else {
 		nameString, ok := nameInterface.(string)
 		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s[%s] must be string, found %T", path, nameKey, nameInterface))
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, nameKey, nameInterface))
 		} else {
 			if nameString == "" {
-				result = multierror.Append(result, fmt.Errorf("%s[%s] can't be empty", path, nameKey))
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, nameKey))
 			}
 		}
 	}
+
+	// Validate config (optional).
+	//   1. Config must be a block if present.
+	configKey := "config"
+	if config, ok := s[configKey]; ok {
+		err := validateBlock(config, path, configKey, nil)
+		if err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	return result.ErrorOrNil()
+}
+
+// validateTarget validates the content of the target block inside policy.
+//
+//  scaling {
+//    policy {
+//      target = {
+//      +-----------------+
+//      | name = "target" |
+//      | config = {      |
+//      |   key = "value" |
+//      | }               |
+//      +-----------------+
+//      }
+//    }
+//  }
+func validateTarget(t map[string]interface{}) error {
+	var path = fmt.Sprintf("scaling->policy->%s", keyTarget)
+
+	var result *multierror.Error
+
+	// It shouldn't happen, but it's better to prevent a panic.
+	if t == nil {
+		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+	}
+
+	// Validate name (optional).
+	//   1. Name must have string value if present.
+	//   2. Name must not be empty if present.
+	nameKey := "name"
+	nameInterface, ok := t[nameKey]
+	if ok {
+		nameString, ok := nameInterface.(string)
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, nameKey, nameInterface))
+		} else {
+			if nameString == "" {
+				result = multierror.Append(result, fmt.Errorf("%s->%s can't be empty", path, nameKey))
+			}
+		}
+	}
+
+	// Validate config (optional).
+	//   1. Config must be a block if present.
+	configKey := "config"
+	if config, ok := t[configKey]; ok {
+		err := validateBlock(config, path, configKey, nil)
+		if err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	return result.ErrorOrNil()
+}
+
+// validateBlock validates the kind of unusual structure we receive when the policy is parsed.
+func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}) error) error {
+	var result *multierror.Error
+
+	runValidator := func(input map[string]interface{}) {
+		if validator == nil {
+			return
+		}
+		if err := validator(input); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	// Return early if input already has the expected nested type.
+	if inMap, ok := in.(map[string]interface{}); ok {
+		runValidator(inMap)
+		return result.ErrorOrNil()
+	}
+
+	list, ok := in.([]interface{})
+	if !ok {
+		return multierror.Append(result, fmt.Errorf("%s->%s must be []interface{}, found %T", path, key, in))
+	}
+
+	if len(list) != 1 {
+		return multierror.Append(result, fmt.Errorf("%s->%s must have length 1, found %d", path, key, len(list)))
+	}
+
+	inMap, ok := list[0].(map[string]interface{})
+	if !ok {
+		return multierror.Append(result, fmt.Errorf("%s->%s[0] must be map[string]interface{}, found %T", path, key, list[0]))
+	}
+
+	runValidator(inMap)
 
 	return result.ErrorOrNil()
 }

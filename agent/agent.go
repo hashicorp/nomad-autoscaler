@@ -55,7 +55,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	go a.healthServer.run()
 
 	sourceConfig := &nomadpolicy.SourceConfig{
-		DefaultEvaluationInterval: a.config.ScanInterval,
+		DefaultEvaluationInterval: a.config.DefaultEvaluationInterval,
 	}
 	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig)
 	manager := policy.NewManager(a.logger, source, a.pluginManager)

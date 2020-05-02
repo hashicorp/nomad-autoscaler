@@ -180,7 +180,7 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 		return
 	}
 
-	// Default EvaluationInterval to the agent's ScanInterval.
+	// Default EvaluationInterval to the agent's DefaultEvaluationInterval.
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = s.config.DefaultEvaluationInterval
 	}

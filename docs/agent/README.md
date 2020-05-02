@@ -39,7 +39,7 @@ As each file is processed, its contents are merged into the existing configurati
  * `log_level` `(string: "INFO")` -  Specify the verbosity level of Nomad Autoscaler's logs. Valid values include `DEBUG`, `INFO`, and `WARN`, in decreasing order of verbosity.
  * `log_json` `(bool: false)` - Output logs in a JSON format.
  * `plugin_dir` `(string: "./plugins")` - The plugin directory used to discover Nomad Autoscaler plugins.
- * `scan_interval` `(duration: "10s")` - The time to wait between Nomad Autoscaler evaluations.
+ * `default_evaluation_interval` `(duration: "10s")` - The default time to use when a policy doesn't specify an `evaluation_interval`.
 
 ## `http` Block
 The `http` block configures the Nomad Autoscaler's HTTP health endpoint.

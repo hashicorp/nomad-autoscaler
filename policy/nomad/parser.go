@@ -17,6 +17,7 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 	to := policy.Policy{
 		ID:       p.ID,
 		Max:      p.Max,
+		Enabled:  true,
 		Target:   parseTarget(p.Policy[keyTarget], p.Target),
 		Strategy: parseStrategy(p.Policy[keyStrategy]),
 	}
@@ -34,10 +35,7 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 		to.Source = source
 	}
 
-	// Policy is enabled by default.
-	if p.Enabled == nil {
-		to.Enabled = true
-	} else {
+	if p.Enabled != nil {
 		to.Enabled = *p.Enabled
 	}
 

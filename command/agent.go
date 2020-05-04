@@ -104,7 +104,7 @@ Nomad Options:
 
   -nomad-skip-verify
     Do not verify TLS certificates. This is strongly discouraged.
-  
+
 `
 	return strings.TrimSpace(helpText)
 }
@@ -165,7 +165,7 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
 	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
-		cmdConfig.ScanInterval = d
+		cmdConfig.DefaultEvaluationInterval = d
 		return nil
 	}), "scan-interval", "")
 

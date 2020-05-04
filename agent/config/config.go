@@ -35,10 +35,10 @@ type Agent struct {
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
-	// ScanInterval is the time duration interval at which the autoscaler runs
-	// evaluations.
-	ScanInterval    time.Duration
-	ScanIntervalHCL string `hcl:"scan_interval,optional" json:"-"`
+	// DefaultEvaluationInterval is the time duration interval used when
+	// `evaluation_interval` is not defined in a policy.
+	DefaultEvaluationInterval    time.Duration
+	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
 
 	// HTTP is the configuration used to setup the HTTP health server.
 	HTTP *HTTP `hcl:"http,block"`
@@ -124,9 +124,9 @@ const (
 	// defaultHTTPBindPort is the default port used for the HTTP health server.
 	defaultHTTPBindPort = 8080
 
-	// defaultScanInterval is the default value for the ScaInterval in nano
-	// seconds.
-	defaultScanInterval = time.Duration(10000000000)
+	// defaultEvaluationInterval is the default value for the
+	// DefaultEvaluationInterval in nano seconds.
+	defaultEvaluationInterval = time.Duration(10000000000)
 
 	// defaultPluginDirSuffix is the suffix appended to the PWD when building
 	// the PluginDir default value.
@@ -152,9 +152,9 @@ func Default() (*Agent, error) {
 	}
 
 	return &Agent{
-		LogLevel:     defaultLogLevel,
-		PluginDir:    pwd + defaultPluginDirSuffix,
-		ScanInterval: defaultScanInterval,
+		LogLevel:                  defaultLogLevel,
+		PluginDir:                 pwd + defaultPluginDirSuffix,
+		DefaultEvaluationInterval: defaultEvaluationInterval,
 		HTTP: &HTTP{
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
@@ -181,8 +181,8 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir
 	}
-	if b.ScanInterval != 0 {
-		result.ScanInterval = b.ScanInterval
+	if b.DefaultEvaluationInterval != 0 {
+		result.DefaultEvaluationInterval = b.DefaultEvaluationInterval
 	}
 
 	if b.HTTP != nil {
@@ -349,12 +349,12 @@ func parseFile(file string, cfg *Agent) error {
 		return err
 	}
 
-	if cfg.ScanIntervalHCL != "" {
-		d, err := time.ParseDuration(cfg.ScanIntervalHCL)
+	if cfg.DefaultEvaluationIntervalHCL != "" {
+		d, err := time.ParseDuration(cfg.DefaultEvaluationIntervalHCL)
 		if err != nil {
 			return err
 		}
-		cfg.ScanInterval = d
+		cfg.DefaultEvaluationInterval = d
 	}
 	return nil
 }

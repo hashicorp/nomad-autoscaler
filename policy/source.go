@@ -1,6 +1,13 @@
 package policy
 
-import "context"
+import (
+	"context"
+	"time"
+)
+
+const (
+	DefaultEvaluationInterval = 10 * time.Second
+)
 
 // Source is the interface that must be implemented by backends which
 // provide the canonical source for scaling policies.

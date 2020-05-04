@@ -4,107 +4,159 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad/api"
 )
 
-func parsePolicy(p *api.ScalingPolicy) (policy.Policy, error) {
-	var to policy.Policy
-
-	if err := validateScalingPolicy(p); err != nil {
-		return to, err
+// parsePolicy parses the values on an api.ScalingPolicy into a policy.Policy.
+//
+// It provides best-effort parsing, with any invalid values being skipped from
+// the end result. To avoid missing values use validateScalingPolicy() to
+// detect errors first.
+func parsePolicy(p *api.ScalingPolicy) policy.Policy {
+	to := policy.Policy{
+		ID:       p.ID,
+		Max:      p.Max,
+		Enabled:  true,
+		Target:   parseTarget(p.Policy[keyTarget], p.Target),
+		Strategy: parseStrategy(p.Policy[keyStrategy]),
 	}
 
-	source := p.Policy[keySource]
-	if source == nil {
-		source = ""
+	// Add non-typed values.
+	if p.Min != nil {
+		to.Min = *p.Min
 	}
 
-	to = policy.Policy{
-		ID:                 p.ID,
-		Min:                *p.Min,
-		Max:                p.Max,
-		Enabled:            *p.Enabled,
-		Source:             source.(string),
-		Query:              p.Policy[keyQuery].(string),
-		EvaluationInterval: defaultEvaluationInterval, //TODO(luiz): use agent scan interval as default
-		Target:             parseTarget(p.Policy[keyTarget]),
-		Strategy:           parseStrategy(p.Policy[keyStrategy]),
+	if query, ok := p.Policy[keyQuery].(string); ok {
+		to.Query = query
 	}
 
-	canonicalizePolicy(p, &to)
+	if source, ok := p.Policy[keySource].(string); ok {
+		to.Source = source
+	}
 
-	return to, nil
+	if p.Enabled != nil {
+		to.Enabled = *p.Enabled
+	}
+
+	// Parse evaluation_interval as time.Duration.
+	// Ignore error since we assume policy has been validated.
+	if eval, ok := p.Policy[keyEvaluationInterval].(string); ok {
+		to.EvaluationInterval, _ = time.ParseDuration(eval)
+	}
+
+	return to
 }
 
+// parseStrategy parses the content of the strategy block from a policy.
+//
+// It provides best-effort parsing and will return `nil` in case of errors.
+//
+//  scaling {
+//    policy {
+//      strategy = {
+//      +-------------------+
+//      | name = "strategy" |
+//      | config = {        |
+//      |   key = "value"   |
+//      | }                 |
+//      +-------------------+
+//      }
+//    }
+//  }
 func parseStrategy(s interface{}) *policy.Strategy {
-	strategyMap := s.([]interface{})[0].(map[string]interface{})
-	configMap := strategyMap["config"].([]interface{})[0].(map[string]interface{})
-	configMapString := make(map[string]string)
-	for k, v := range configMap {
-		configMapString[k] = fmt.Sprintf("%v", v)
+	if s == nil {
+		return nil
 	}
 
-	return &policy.Strategy{
-		Name:   strategyMap["name"].(string),
-		Config: configMapString,
-	}
-}
-
-func parseTarget(t interface{}) *policy.Target {
-	if t == nil {
-		return &policy.Target{}
-	}
-
-	targetMap := t.([]interface{})[0].(map[string]interface{})
-	if targetMap == nil {
-		return &policy.Target{}
+	strategyMap := parseBlock(s)
+	if strategyMap == nil {
+		return nil
 	}
 
 	var configMapString map[string]string
-	if targetMap["config"] != nil {
-		configMap := targetMap["config"].([]interface{})[0].(map[string]interface{})
+	configMap := parseBlock(strategyMap["config"])
+
+	if configMap != nil {
 		configMapString = make(map[string]string)
 		for k, v := range configMap {
 			configMapString[k] = fmt.Sprintf("%v", v)
 		}
 	}
-	return &policy.Target{
-		Name:   targetMap["name"].(string),
+
+	// Ignore ok, but we need _ to avoid panics.
+	name, _ := strategyMap["name"].(string)
+
+	return &policy.Strategy{
+		Name:   name,
 		Config: configMapString,
 	}
 }
 
-// canonicalizePolicy sets standarized values for missing fields.
-// It must be called after Validate.
-func canonicalizePolicy(from *api.ScalingPolicy, to *policy.Policy) {
-
-	if from.Enabled == nil {
-		to.Enabled = true
+// parseTarget parses the content of the target block from a policy and
+// enhances it with values defined in Target as well. Values in target.config
+// takes precedence over values in Target.
+//
+// It provides best-effort parsing and will return `nil` in case of errors.
+//
+//  scaling {
+//    policy {
+//      target = {
+//      +-----------------+
+//      | name = "target" |
+//      | config = {      |
+//      |   key = "value" |
+//      | }               |
+//      +-----------------+
+//      }
+//    }
+//  }
+func parseTarget(targetBlock interface{}, targetAttr map[string]string) *policy.Target {
+	if targetBlock == nil && targetAttr == nil {
+		return nil
 	}
 
-	if evalInterval, ok := from.Policy[keyEvaluationInterval].(string); ok {
-		// Ignore parse error since we assume Canonicalize is called after Validate
-		to.EvaluationInterval, _ = time.ParseDuration(evalInterval)
+	targetMap := parseBlock(targetBlock)
+	if targetMap == nil {
+		return nil
 	}
 
-	if to.Target.Name == "" {
-		to.Target.Name = plugins.InternalTargetNomad
+	var configMapString map[string]string
+	configMap := parseBlock(targetMap["config"])
+
+	if configMap != nil {
+		configMapString = make(map[string]string)
+
+		for k, v := range targetAttr {
+			configMapString[k] = v
+		}
+
+		for k, v := range configMap {
+			configMapString[k] = fmt.Sprintf("%v", v)
+		}
 	}
 
-	if to.Target.Config == nil {
-		to.Target.Config = make(map[string]string)
+	// Ignore ok, but we need _ to avoid panics.
+	name, _ := targetMap["name"].(string)
+
+	return &policy.Target{
+		Name:   name,
+		Config: configMapString,
+	}
+}
+
+// parseBlock parses the specific structure of a block into a more usable
+// value of map[string]interface{}.
+func parseBlock(block interface{}) map[string]interface{} {
+	blockInterfaceList, ok := block.([]interface{})
+	if !ok || len(blockInterfaceList) != 1 {
+		return nil
 	}
 
-	to.Target.Config["job_id"] = from.Target["Job"]
-	to.Target.Config["group"] = from.Target["Group"]
-
-	if to.Source == "" {
-		to.Source = plugins.InternalAPMNomad
+	blockMap, ok := blockInterfaceList[0].(map[string]interface{})
+	if !ok {
+		return nil
 	}
 
-	if to.Source == plugins.InternalAPMNomad {
-		to.Query = fmt.Sprintf("%s/%s/%s", to.Query, from.Target["Group"], from.Target["Job"])
-	}
+	return blockMap
 }

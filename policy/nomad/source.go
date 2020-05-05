@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
@@ -161,7 +162,15 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 			}
 
 			if err := validateScalingPolicy(p); err != nil {
-				errCh <- fmt.Errorf("invalid policy: %v", err)
+				errMsg := "policy validation failed"
+				if _, ok := err.(*multierror.Error); ok {
+					// Add new error message as first error item.
+					err = multierror.Append(fmt.Errorf(errMsg), err)
+				} else {
+					err = fmt.Errorf("%s: %v", errMsg, err)
+				}
+
+				errCh <- err
 				continue
 			}
 

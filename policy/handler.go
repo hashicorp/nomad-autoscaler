@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
@@ -96,6 +97,18 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 		case <-h.doneCh:
 			return
 		case err := <-h.errCh:
+			merr, ok := err.(*multierror.Error)
+			if ok && len(merr.Errors) > 1 {
+				// Transform Errors into a slice of strings to avoid logging
+				// empty objects when using JSON format.
+				errors := make([]string, len(merr.Errors))
+				for i, e := range merr.Errors {
+					errors[i] = e.Error()
+				}
+				h.log.Error(errors[0], "errors", errors[1:])
+				return
+			}
+
 			h.log.Error(err.Error())
 			return
 		case p := <-h.ch:

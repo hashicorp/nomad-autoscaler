@@ -79,7 +79,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 
 				h := NewHandler(
 					policyID,
-					m.log.ResetNamed("policy_handler"),
+					m.log.ResetNamed(""),
 					m.pluginManager,
 					m.policySource)
 				m.handlers[policyID] = h

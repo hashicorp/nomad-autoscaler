@@ -81,6 +81,59 @@ func Test_parsePolicy(t *testing.T) {
 			},
 		},
 		{
+			name: "policy with empty policy target",
+			input: &api.ScalingPolicy{
+				ID:        "id",
+				Namespace: "default",
+				Target: map[string]string{
+					"Namespace": "namespace",
+					"Job":       "example",
+					"Group":     "cache",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keySource:             "source",
+					keyQuery:              "query",
+					keyEvaluationInterval: "5s",
+					keyStrategy: []interface{}{
+						map[string]interface{}{
+							"name": "strategy",
+							"config": []interface{}{
+								map[string]interface{}{
+									"bool_config": true,
+								},
+							},
+						},
+					},
+				},
+				Enabled: ptr.BoolToPtr(true),
+			},
+			expected: policy.Policy{
+				ID:                 "id",
+				Min:                1,
+				Max:                5,
+				Source:             "source",
+				Query:              "query",
+				Enabled:            true,
+				EvaluationInterval: 5 * time.Second,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "namespace",
+						"Job":       "example",
+						"Group":     "cache",
+					},
+				},
+				Strategy: &policy.Strategy{
+					Name: "strategy",
+					Config: map[string]string{
+						"bool_config": "true",
+					},
+				},
+			},
+		},
+		{
 			name:  "empty policy",
 			input: &api.ScalingPolicy{},
 			expected: policy.Policy{

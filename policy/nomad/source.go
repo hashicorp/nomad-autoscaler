@@ -207,23 +207,6 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 		p.Target.Config = make(map[string]string)
 	}
 
-	// Map values from the original api.ScalingPolicy.Target into
-	// policy.Policy.Target.Config
-	// TODO(luiz): is this really necessay? We should probably just use what's returned in Target
-	targetConfigKeyMapping := map[string]string{
-		"Job":   "job_id",
-		"Group": "group",
-	}
-
-	for k1, k2 := range targetConfigKeyMapping {
-		v, hasK1 := p.Target.Config[k1]
-		_, hasK2 := p.Target.Config[k2]
-
-		if hasK1 && !hasK2 {
-			p.Target.Config[k2] = v
-		}
-	}
-
 	// Default source to the Nomad APM.
 	if p.Source == "" {
 		p.Source = plugins.InternalAPMNomad
@@ -233,7 +216,7 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 	// <job> must be the last element so we can parse the query correctly
 	// since Nomad allows "/" in job IDs.
 	if p.Source == plugins.InternalAPMNomad && isShortQuery(p.Query) {
-		p.Query = fmt.Sprintf("%s/%s/%s", p.Query, p.Target.Config["group"], p.Target.Config["job_id"])
+		p.Query = fmt.Sprintf("%s/%s/%s", p.Query, p.Target.Config["Group"], p.Target.Config["Job"])
 	}
 }
 

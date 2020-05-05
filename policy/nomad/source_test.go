@@ -91,8 +91,6 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"target_config2": "no",
 						"Job":            "job",
 						"Group":          "group",
-						"job_id":         "job",
-						"group":          "group",
 					},
 				},
 				Strategy: &policy.Strategy{
@@ -142,10 +140,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "job",
-						"group":  "group",
+						"Job":   "job",
+						"Group": "group",
 					},
 				},
 				Strategy: &policy.Strategy{
@@ -172,10 +168,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "job",
-						"group":  "group",
+						"Job":   "job",
+						"Group": "group",
 					},
 				},
 				Strategy: &policy.Strategy{
@@ -189,10 +183,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Query: "avg_cpu",
 				Target: &policy.Target{
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "my_job",
-						"group":  "my_group",
+						"Job":   "my_job",
+						"Group": "my_group",
 					},
 				},
 			},
@@ -203,10 +195,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "my_job",
-						"group":  "my_group",
+						"Job":   "my_job",
+						"Group": "my_group",
 					},
 				},
 				Strategy: &policy.Strategy{
@@ -233,10 +223,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "job",
-						"group":  "group",
+						"Job":   "job",
+						"Group": "group",
 					},
 				},
 				Strategy: &policy.Strategy{
@@ -262,10 +250,8 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":    "job",
-						"Group":  "group",
-						"job_id": "job",
-						"group":  "group",
+						"Job":   "job",
+						"Group": "group",
 					},
 				},
 				Strategy: &policy.Strategy{

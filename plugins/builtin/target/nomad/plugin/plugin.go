@@ -21,8 +21,8 @@ const (
 
 	// configKeys are the accepted configuration map keys which can be
 	// processed when performing SetConfig().
-	configKeyJobID = "job_id"
-	configKeyGroup = "group"
+	configKeyJobID = "Job"
+	configKeyGroup = "Group"
 
 	// garbageCollectionNanoSecondThreshold is the nanosecond threshold used
 	// when performing garbage collection of job status handlers.
@@ -107,8 +107,8 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 		countIntPtr = &countInt
 	}
 
-	_, _, err := t.client.Jobs().Scale(config["job_id"],
-		config["group"],
+	_, _, err := t.client.Jobs().Scale(config[configKeyJobID],
+		config[configKeyGroup],
 		countIntPtr,
 		action.Reason,
 		action.Error,

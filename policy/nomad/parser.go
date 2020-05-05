@@ -112,27 +112,23 @@ func parseStrategy(s interface{}) *policy.Strategy {
 //    }
 //  }
 func parseTarget(targetBlock interface{}, targetAttr map[string]string) *policy.Target {
-	if targetBlock == nil && targetAttr == nil {
-		return nil
-	}
 
 	targetMap := parseBlock(targetBlock)
-	if targetMap == nil {
+	if targetMap == nil && targetAttr == nil {
 		return nil
 	}
 
-	var configMapString map[string]string
-	configMap := parseBlock(targetMap["config"])
+	configMapString := make(map[string]string)
+	for k, v := range targetAttr {
+		configMapString[k] = v
+	}
+	if targetMap != nil {
+		configMap := parseBlock(targetMap["config"])
 
-	if configMap != nil {
-		configMapString = make(map[string]string)
-
-		for k, v := range targetAttr {
-			configMapString[k] = v
-		}
-
-		for k, v := range configMap {
-			configMapString[k] = fmt.Sprintf("%v", v)
+		if configMap != nil {
+			for k, v := range configMap {
+				configMapString[k] = fmt.Sprintf("%v", v)
+			}
 		}
 	}
 

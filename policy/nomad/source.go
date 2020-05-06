@@ -100,9 +100,12 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- []policy.Policy
 
 			var policyIDs []policy.PolicyID
 
-			// Iterate all policies in the list.
+			// Iterate over all policies in the list and filter out policies
+			// that are not enabled.
 			for _, p := range policies {
-				policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				if p.Enabled {
+					policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				}
 			}
 
 			// Update the Nomad API wait index to start long polling from the

@@ -45,6 +45,12 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 		to.EvaluationInterval, _ = time.ParseDuration(eval)
 	}
 
+	// Parse cooldown as time.Duraction
+	// Ignore error since we assume policy has been validated.
+	if cooldown, ok := p.Policy[keyCooldown].(string); ok {
+		to.Cooldown, _ = time.ParseDuration(cooldown)
+	}
+
 	return to
 }
 

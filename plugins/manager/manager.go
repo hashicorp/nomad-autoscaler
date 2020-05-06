@@ -105,7 +105,7 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 	//  exited.
 	inst, ok := pm.pluginInstances[plugins.PluginID{Name: name, PluginType: pluginType}]
 	if !ok {
-		return nil, fmt.Errorf("failed to dispense plugin: %s of type %s is not stored", name, pluginType)
+		return nil, fmt.Errorf("failed to dispense plugin: %q of type %q is not stored", name, pluginType)
 	}
 	return inst, nil
 }

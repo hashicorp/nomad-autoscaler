@@ -22,6 +22,7 @@ type Agent struct {
 	config        *config.Agent
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
+	policyManager *policy.Manager
 	healthServer  *healthServer
 }
 
@@ -55,13 +56,14 @@ func (a *Agent) Run(ctx context.Context) error {
 	go a.healthServer.run()
 
 	sourceConfig := &nomadpolicy.SourceConfig{
+		DefaultCooldown:           a.config.Policy.DefaultCooldown,
 		DefaultEvaluationInterval: a.config.DefaultEvaluationInterval,
 	}
 	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig)
-	manager := policy.NewManager(a.logger, source, a.pluginManager)
+	a.policyManager = policy.NewManager(a.logger, source, a.pluginManager)
 
 	policyEvalCh := make(chan *policy.Evaluation, 10)
-	go manager.Run(ctx, policyEvalCh)
+	go a.policyManager.Run(ctx, policyEvalCh)
 
 	for {
 		select {
@@ -276,5 +278,8 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 			actionLogger.Error("failed to scale target", "error", err)
 			continue
 		}
+
+		// Enforce the cooldown after a successful scaling event.
+		a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
 	}
 }

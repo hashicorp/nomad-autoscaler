@@ -13,6 +13,7 @@ type Policy struct {
 	Source             string
 	Query              string
 	Enabled            bool
+	Cooldown           time.Duration
 	EvaluationInterval time.Duration
 	Target             *Target
 	Strategy           *Strategy

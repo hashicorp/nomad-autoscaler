@@ -162,6 +162,30 @@ func Test_parsePolicy(t *testing.T) {
 				Enabled: true,
 			},
 		},
+		{
+			name: "policy with evaluation_interval",
+			input: &api.ScalingPolicy{
+				Policy: map[string]interface{}{
+					keyEvaluationInterval: "7s",
+				},
+			},
+			expected: policy.Policy{
+				Enabled: true,
+				EvaluationInterval: 7*time.Second,
+			},
+		},
+		{
+			name: "policy with cooldown",
+			input: &api.ScalingPolicy{
+				Policy: map[string]interface{}{
+					keyCooldown: "7s",
+				},
+			},
+			expected: policy.Policy{
+				Enabled: true,
+				Cooldown: 7*time.Second,
+			},
+		},
 	}
 
 	for _, tc := range testCases {

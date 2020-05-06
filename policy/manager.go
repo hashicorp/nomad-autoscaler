@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
@@ -126,4 +127,25 @@ func (m *Manager) stopHandler(h *Handler) {
 
 	h.Stop()
 	delete(m.handlers, h.policyID)
+}
+
+// EnforceCooldown attempts to enforce cooldown on the policy handler
+// representing the passed ID.
+func (m *Manager) EnforceCooldown(id string, t time.Duration) {
+	m.lock.RLock()
+	defer m.lock.RUnlock()
+
+	// Attempt to grab the handler and pass the enforcement onto the
+	// implementation. Its possible cooldown is requested on a policy which
+	// gets removed, its not a problem but log to aid debugging.
+	//
+	// Thinking(jrasell): when enforcing cooldown, should we calculate the
+	// duration based on the remaining time between calling this function and
+	// it actually running. Obtaining the lock could cause a delay which may
+	// skew the cooldown period, but this is likely very small.
+	if handler, ok := m.handlers[PolicyID(id)]; ok && handler.cooldownCh != nil {
+		handler.cooldownCh <- t
+	} else {
+		m.log.Debug("attempted to set cooldown on on-existent handler", "policy_id", id)
+	}
 }

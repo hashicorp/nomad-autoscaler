@@ -127,7 +127,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			// consistency.
 			curTime := time.Now().UTC().UnixNano()
 
-			eval, err := h.generateEvaluation(currentPolicy, curTime)
+			eval, err := h.generateEvaluation(currentPolicy)
 			if err != nil {
 				h.log.Error(err.Error())
 				return
@@ -155,10 +155,11 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 					// If the handler should be placed into cooldown due to scaling
 					// outside of the Autoscaler process, enforce.
 					if h.isInCooldown(currentPolicy.Cooldown, curTime, lastTS) {
-						h.enforceCooldown(ctx, h.calculateRemainingCooldown(currentPolicy.Cooldown, curTime, int64(lastTS)))
 
-						// Check whether the handler should exit.
-						if ctx.Err() != nil || !h.running {
+						cdPeriod := h.calculateRemainingCooldown(currentPolicy.Cooldown, curTime, int64(lastTS))
+
+						// Enforce the cooldown which will block until complete.
+						if !h.enforceCooldown(ctx, cdPeriod) {
 							return
 						}
 
@@ -177,10 +178,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 		case ts := <-h.cooldownCh:
 
 			// Enforce the cooldown which will block until complete.
-			h.enforceCooldown(ctx, ts)
-
-			// Check whether the handler should exit.
-			if ctx.Err() != nil || !h.running {
+			if !h.enforceCooldown(ctx, ts) {
 				return
 			}
 		}
@@ -203,7 +201,7 @@ func (h *Handler) Stop() {
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.
 // Returning an error will stop the handler.
-func (h *Handler) generateEvaluation(policy *Policy, evalTimestamp int64) (*Evaluation, error) {
+func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
 	h.log.Trace("tick")
 
 	if policy == nil {
@@ -280,14 +278,9 @@ func (h *Handler) updateHandler(current, next *Policy) {
 }
 
 // enforceCooldown blocks until the cooldown period has been reached, or the
-// handler has been instructed to exit. When this function returns the caller
-// should perform a check to identify if the handler should exit or not. This
-// can be done:
-//
-// if ctx.Err() != nil || !h.running {
-//   return
-// }
-func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) {
+// handler has been instructed to exit. The boolean return details whether or
+// not the cooldown period passed without being interrupted.
+func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) bool {
 
 	// Log that cooldown is being enforced. This is very useful as cooldown
 	// blocks the ticker making this the only indication of cooldown to
@@ -302,15 +295,14 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) {
 
 	// Cooldown should not mean we miss other handler control signals. So wait
 	// on all the channels desired here.
-	for {
-		select {
-		case <-timer.C:
-			return
-		case <-ctx.Done():
-			return
-		case <-h.doneCh:
-			return
-		}
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
+	case <-h.doneCh:
+		return false
+
 	}
 }
 
@@ -319,11 +311,7 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) {
 // autoscaler to enforce a cooldown on objects that have been scaled outside of
 // the autoscaler.
 func (h *Handler) isInCooldown(cd time.Duration, ts int64, lastEvent uint64) bool {
-	if threshold := int64(lastEvent) + cd.Nanoseconds(); threshold >= ts {
-		h.log.Info("policy is in cooldown due to out-of-band change")
-		return true
-	}
-	return false
+	return int64(lastEvent)+cd.Nanoseconds() >= ts
 }
 
 // calculateRemainingCooldown calculates the remaining cooldown based on the

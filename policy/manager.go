@@ -146,6 +146,6 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 	if handler, ok := m.handlers[PolicyID(id)]; ok && handler.cooldownCh != nil {
 		handler.cooldownCh <- t
 	} else {
-		m.log.Debug("attempted to set cooldown on on-existent handler", "policy_id", id)
+		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
 	}
 }

@@ -124,7 +124,10 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 
 			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
-				h.log.Error("failed to complete evaluation", "error", err)
+				if err == context.Canceled {
+					return
+				}
+				h.log.Error(err.Error())
 				return
 			}
 
@@ -202,7 +205,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, 
 	// Enforce the cooldown which will block until complete. A false response
 	// means we did not reach the end of cooldown due to a request to shutdown.
 	if !h.enforceCooldown(ctx, cdPeriod) {
-		return nil, fmt.Errorf("cooldown period interupted by shutdown request")
+		return nil, context.Canceled
 	}
 
 	// If we reach this point, we have entered and exited cooldown. Our data is

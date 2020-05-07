@@ -22,7 +22,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
-	assert.Equal(t, def.Policy.DefaultCooldown, time.Duration(300000000000))
+	assert.Equal(t, def.Policy.DefaultCooldown, 5 * time.Minute)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 }

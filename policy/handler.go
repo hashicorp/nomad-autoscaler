@@ -122,58 +122,15 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			currentPolicy = &p
 		case <-h.ticker.C:
 
-			// Timestamp the invocation of this evaluation run. This can be
-			// used when checking cooldown or emitting metrics to ensure some
-			// consistency.
-			curTime := time.Now().UTC().UnixNano()
-
-			eval, err := h.generateEvaluation(currentPolicy)
+			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
-				h.log.Error(err.Error())
+				h.log.Error("failed to complete evaluation", "error", err)
 				return
 			}
 
-			// If the evaluation is nil there is nothing to be done this time
-			// around.
-			if eval == nil {
-				continue
+			if eval != nil {
+				evalCh <- eval
 			}
-
-			// If the target status includes a last event meta key, check for cooldown
-			// due to out-of-band events. This is also useful if the Autoscaler has
-			// been re-deployed.
-			if ts, ok := eval.TargetStatus.Meta[targetpkg.MetaKeyLastEvent]; ok {
-
-				// Convert the last event string. If an error occurs, just log and
-				// continue with the evaluation. A malformed timestamp shouldn't mean
-				// we skip scaling.
-				lastTS, err := strconv.ParseUint(ts, 10, 64)
-				if err != nil {
-					h.log.Error("failed to parse last event timestamp as uint64", "error", err)
-				} else {
-
-					// If the handler should be placed into cooldown due to scaling
-					// outside of the Autoscaler process, enforce.
-					if h.isInCooldown(currentPolicy.Cooldown, curTime, lastTS) {
-
-						cdPeriod := h.calculateRemainingCooldown(currentPolicy.Cooldown, curTime, int64(lastTS))
-
-						// Enforce the cooldown which will block until complete.
-						if !h.enforceCooldown(ctx, cdPeriod) {
-							return
-						}
-
-						// After the cooldown, the evaluation data is
-						// potentially stale. Therefore continue and allow a
-						// new tick to occur.
-						continue
-					}
-				}
-			}
-
-			// If we got this far, the evaluation can be sent to the channel
-			// for processing.
-			evalCh <- eval
 
 		case ts := <-h.cooldownCh:
 
@@ -197,6 +154,61 @@ func (h *Handler) Stop() {
 	}
 
 	h.running = false
+}
+
+func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, error) {
+
+	// Timestamp the invocation of this evaluation run. This can be
+	// used when checking cooldown or emitting metrics to ensure some
+	// consistency.
+	curTime := time.Now().UTC().UnixNano()
+
+	eval, err := h.generateEvaluation(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the evaluation is nil there is nothing to be done this time
+	// around.
+	if eval == nil {
+		return nil, nil
+	}
+
+	// If the target status includes a last event meta key, check for cooldown
+	// due to out-of-band events. This is also useful if the Autoscaler has
+	// been re-deployed.
+	ts, ok := eval.TargetStatus.Meta[targetpkg.MetaKeyLastEvent]
+	if !ok {
+		return eval, nil
+	}
+
+	// Convert the last event string. If an error occurs, just log and
+	// continue with the evaluation. A malformed timestamp shouldn't mean
+	// we skip scaling.
+	lastTS, err := strconv.ParseUint(ts, 10, 64)
+	if err != nil {
+		h.log.Error("failed to parse last event timestamp as uint64", "error", err)
+		return eval, nil
+	}
+
+	// Check whether we need to enter cooldown or not.
+	if !h.isInCooldown(policy.Cooldown, curTime, lastTS) {
+		return eval, nil
+	}
+
+	// Calculate the remaining time period left on the cooldown.
+	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
+
+	// Enforce the cooldown which will block until complete. A false response
+	// means we did not reach the end of cooldown due to a request to shutdown.
+	if !h.enforceCooldown(ctx, cdPeriod) {
+		return nil, fmt.Errorf("cooldown period interupted by shutdown request")
+	}
+
+	// If we reach this point, we have entered and exited cooldown. Our data is
+	// stale, therefore return so that we do not send the eval this time and
+	// wait for the next tick.
+	return nil, nil
 }
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.

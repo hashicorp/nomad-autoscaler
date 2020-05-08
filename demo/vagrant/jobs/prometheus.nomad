@@ -4,23 +4,31 @@ job "prometheus" {
   group "prometheus" {
     count = 1
 
-    restart {
-      attempts = 2
-      interval = "30m"
-      delay    = "15s"
-      mode     = "fail"
-    }
-
-    ephemeral_disk {
-      size = 300
-    }
-
     task "prometheus" {
-      template {
-        change_mode   = "signal"
-        change_signal = "SIGHUP"
-        destination   = "local/prometheus.yml"
+      driver = "docker"
 
+      config {
+        image = "prom/prometheus:v2.18.1"
+
+        args = [
+          "--config.file=/etc/prometheus/config/prometheus.yml",
+          "--storage.tsdb.path=/prometheus",
+          "--web.console.libraries=/usr/share/prometheus/console_libraries",
+          "--web.console.templates=/usr/share/prometheus/consoles",
+        ]
+
+        network_mode = "host"
+
+        volumes = [
+          "local/config:/etc/prometheus/config",
+        ]
+
+        port_map {
+          prometheus_ui = 9090
+        }
+      }
+
+      template {
         data = <<EOH
 ---
 global:
@@ -37,33 +45,25 @@ scrape_configs:
     params:
       format: ['prometheus']
     static_configs:
-    - targets: ['127.0.0.1:8500']
+    - targets: ['{{ env "attr.unique.network.ip-address" }}:8500']
 
   - job_name: nomad
     metrics_path: /v1/metrics
     params:
       format: ['prometheus']
     static_configs:
-    - targets: ['127.0.0.1:4646']
+    - targets: ['{{ env "attr.unique.network.ip-address" }}:4646']
 EOH
-      }
 
-      driver = "docker"
-
-      config {
-        image        = "prom/prometheus:latest"
-        network_mode = "host"
-
-        volumes = [
-          "local/prometheus.yml:/etc/prometheus/prometheus.yml",
-        ]
-
-        port_map {
-          prometheus_ui = 9090
-        }
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
+        destination   = "local/config/prometheus.yml"
       }
 
       resources {
+        cpu    = 100
+        memory = 256
+
         network {
           mbits = 10
 
@@ -78,7 +78,6 @@ EOH
         port = "prometheus_ui"
 
         check {
-          name     = "prometheus_ui port alive"
           type     = "http"
           path     = "/-/healthy"
           interval = "10s"

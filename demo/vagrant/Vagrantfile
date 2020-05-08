@@ -11,6 +11,7 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 8000, host: 8000, host_ip: "127.0.0.1"    # Demo webapp
   config.vm.network "forwarded_port", guest: 1936, host: 1936, host_ip: "127.0.0.1"    # HAProxy stats
   config.vm.network "forwarded_port", guest: 9090, host: 9090, host_ip: "127.0.0.1"    # Prometheus
+  config.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "127.0.0.1"    # Grafana
 
   # Share current directory with jobs and configuration files with the VM.
   config.vm.synced_folder "./", "/home/vagrant/nomad-autoscaler"
@@ -82,6 +83,13 @@ Vagrant.configure("2") do |config|
   #   - Create daemons for Nomad and Consul
   # Runs everytime the VM starts.
   config.vm.provision "app:setup", type: "shell", run: "always", inline: <<-SHELL
+    # create paths for Nomad host volumes
+    mkdir -p /opt/nomad-volumes
+    pushd /opt/nomad-volumes
+    mkdir grafana
+    chown 472:472 grafana
+    popd
+
     # configure Nomad and Consul daemons
     pushd /home/vagrant/nomad-autoscaler/files
     for t in consul nomad; do

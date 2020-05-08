@@ -18,39 +18,42 @@ job "haproxy" {
 
       template {
         data = <<EOF
+global
+   maxconn 256
+
 defaults
    mode http
 
 frontend stats
-   bind *:1936
+   bind *:{{ env "NOMAD_PORT_haproxy_ui" }}
    stats uri /
    stats show-legends
    no log
 
 frontend http_front
-   bind *:8000
+   bind *:{{ env "NOMAD_PORT_webapp" }}
    default_backend http_back
 
 backend http_back
     balance roundrobin
-    server-template mywebapp 10 _webapp._tcp.service.consul resolvers consul resolve-opts allow-dup-ip resolve-prefer ipv4 check
+    server-template mywebapp 20 _toxiproxy-webapp._tcp.service.consul resolvers consul resolve-opts allow-dup-ip resolve-prefer ipv4 check
 
 resolvers consul
-  nameserver consul 127.0.0.1:8600
+  nameserver consul {{ env "attr.unique.network.ip-address" }}:8600
   accepted_payload_size 8192
   hold valid 5s
 EOF
 
-        destination = "local/haproxy.cfg"
-        change_mode = "restart"
+        destination   = "local/haproxy.cfg"
+        change_mode   = "signal"
+        change_signal = "SIGUSR1"
       }
 
       service {
-        name = "haproxy"
+        name = "haproxy-ui"
         port = "haproxy_ui"
 
         check {
-          name     = "haproxy alive"
           type     = "http"
           path     = "/"
           interval = "10s"
@@ -59,13 +62,13 @@ EOF
       }
 
       service {
-        name = "webapp-haproxy"
+        name = "haproxy-webapp"
         port = "webapp"
       }
 
       resources {
-        cpu    = 200
-        memory = 512
+        cpu    = 500
+        memory = 128
 
         network {
           mbits = 10
@@ -84,8 +87,13 @@ EOF
     task "haproxy_prometheus" {
       driver = "docker"
 
+      lifecycle {
+        hook    = "prestart"
+        sidecar = true
+      }
+
       config {
-        image = "prom/haproxy-exporter"
+        image = "prom/haproxy-exporter:v0.10.0"
 
         args = ["--haproxy.scrape-uri", "http://${NOMAD_ADDR_haproxy_haproxy_ui}/?stats;csv"]
 
@@ -99,7 +107,6 @@ EOF
         port = "http"
 
         check {
-          name     = "haproxy_exporter port alive"
           type     = "http"
           path     = "/metrics"
           interval = "10s"
@@ -108,8 +115,8 @@ EOF
       }
 
       resources {
-        cpu    = 200
-        memory = 128
+        cpu    = 100
+        memory = 32
 
         network {
           mbits = 10

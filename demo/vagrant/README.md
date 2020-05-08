@@ -42,7 +42,16 @@ Prometheus can now be started, again using the `nomad run` command. The virtual 
 $ nomad run prometheus.nomad
 ```
 
+To visualize the state of the system and better understand what actions are being taken by the Autoscaler, you can run the Grafana service which comes with a sample dashboard that can be accessed from your browser at [http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s).
+
+```
+$ nomad run grafana.nomad
+```
+
+We will explore the details of each panel shortly.
+
 ## Start the Autoscaler Component Jobs
+
 First start the Nomad job which will be autoscaled. The `webapp.nomad` jobfile contains a scaling stanza which defines the key autoscaling parameters for a task group. There are a number of interesting key options to understand.
 - `enabled = false` is a parameter to allow operators to administratively disable scaling for a task group.
 - `source = "prometheus"` specifies that the Autoscaler will use the Prometheus APM plugin to retrieve metrics.
@@ -101,7 +110,22 @@ The increase in load will be reflected through Prometheus metrics to the Autosca
 2020-03-25T17:23:12.735Z [INFO]  agent: scaling target: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad target_config="map[group:demo job_id:webapp]" from=1 to=2 reason="scaling up because factor is 1.500000"
 ```
 
+## Understanding the dashboard
+
+From the [dashboard](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s) you will be see the actions taken by the Autoscaler:
+
+![dashboard](images/dashboard.png)
+
+The green shaded area in the middle of the dashboard is the `count` of the `webapp` task group that the Autoscaler will act on. The blue line is the total number of connections hitting our services and the purple line is the average number of connections per instance of `webapp`, and it's the metric we are monitoring. 
+
+You can see that the `count` starts at 3, but drops to 1 after the Autoscaler is started because the average number of connections is at 0. Once we run the `hey` command and start to generate load into our system, the number of connections sharply increases, along with the average.
+
+The Autoscaler notices this spike and reacts a few seconds later by increasing the `count`. This will add more instances of our web app to handle the load and drop the average number of connections to our target value. Once the load is removed, the Autoscaler returns `count` to 1.
+
+The actual values you observe might be different, but the general idea of `count` reacting to the average number of connections should be noticeable.
+
 ## Demo End
+
 Congratulations, you have run through the Nomad Autoscaler Vagrant demo. In order to destroy the created virtual machine, close all SSH connection and then issue a `vagrant destroy -f` command.
 ```
 $ vagrant destroy -f

@@ -7,7 +7,7 @@ job "webapp" {
     scaling {
       enabled = false
       min     = 1
-      max     = 10
+      max     = 20
 
       policy {
         source = "prometheus"
@@ -17,22 +17,17 @@ job "webapp" {
           name = "target-value"
 
           config = {
-            target = 20
+            target = 5
           }
         }
       }
     }
 
-    task "server" {
+    task "webapp" {
       driver = "docker"
 
       config {
-        image          = "hashicorp/demo-webapp-lb-guide"
-        cpu_hard_limit = true
-
-        ulimit {
-          nofile = "512:512"
-        }
+        image = "hashicorp/demo-webapp-lb-guide"
       }
 
       env {
@@ -41,7 +36,8 @@ job "webapp" {
       }
 
       resources {
-        cpu = 50
+        cpu    = 100
+        memory = 16
 
         network {
           mbits = 10
@@ -50,14 +46,82 @@ job "webapp" {
       }
 
       service {
-        name = "webapp"
+        name = "demo-webapp"
         port = "http"
 
         check {
           type     = "http"
           path     = "/"
-          interval = "2s"
-          timeout  = "2s"
+          interval = "3s"
+          timeout  = "1s"
+        }
+      }
+    }
+
+    task "toxiproxy" {
+      driver = "docker"
+
+      lifecycle {
+        hook    = "prestart"
+        sidecar = true
+      }
+
+      config {
+        image      = "shopify/toxiproxy:2.1.4"
+        entrypoint = ["/entrypoint.sh"]
+
+        volumes = [
+          "local/entrypoint.sh:/entrypoint.sh",
+        ]
+
+        port_map = {
+          api = 8474
+        }
+      }
+
+      template {
+        data = <<EOH
+#!/bin/sh
+
+set -ex
+
+/go/bin/toxiproxy -host 0.0.0.0  &
+/go/bin/toxiproxy-cli create webapp -l 0.0.0.0:{{ env "NOMAD_PORT_webapp"  }} -u {{ env "NOMAD_ADDR_webapp_http" }}
+/go/bin/toxiproxy-cli toxic add -n latency -t latency -a latency=1000 -a jitter=500 webapp
+tail -f /dev/null
+        EOH
+
+        destination = "local/entrypoint.sh"
+        perms       = "755"
+      }
+
+      service {
+        name = "toxiproxy-api"
+        port = "api"
+
+        check {
+          type     = "http"
+          path     = "/proxies/webapp"
+          interval = "3s"
+          timeout  = "1s"
+        }
+      }
+
+      service {
+        name = "toxiproxy-webapp"
+        port = "webapp"
+      }
+
+      resources {
+        cpu    = 100
+        memory = 32
+
+        network {
+          mbits = 10
+          mode  = "bridge"
+
+          port "api"{}
+          port "webapp"{}
         }
       }
     }

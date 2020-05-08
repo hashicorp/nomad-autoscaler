@@ -123,7 +123,7 @@ type Policy struct {
 	// DefaultCooldown is the default cooldown parameter added to all policies
 	// which do not explicitly configure the parameter.
 	DefaultCooldown    time.Duration
-	DefaultCooldownHCL string `hcl:"default_cooldown,optional" json:"-"`
+	DefaultCooldownHCL string `hcl:"default_cooldown,optional"`
 }
 
 const (

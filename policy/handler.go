@@ -124,10 +124,9 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 
 			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
-				if err == context.Canceled {
-					return
+				if err != context.Canceled {
+					h.log.Error(err.Error())
 				}
-				h.log.Error(err.Error())
 				return
 			}
 
@@ -194,13 +193,12 @@ func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, 
 		return eval, nil
 	}
 
-	// Check whether we need to enter cooldown or not.
-	if !h.isInCooldown(policy.Cooldown, curTime, lastTS) {
+	// Calculate the remaining time period left on the cooldown. If this is 0
+	// or below, we do not need to enter cooldown.
+	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
+	if cdPeriod <= 0 {
 		return eval, nil
 	}
-
-	// Calculate the remaining time period left on the cooldown.
-	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
 
 	// Enforce the cooldown which will block until complete. A false response
 	// means we did not reach the end of cooldown due to a request to shutdown.
@@ -295,7 +293,7 @@ func (h *Handler) updateHandler(current, next *Policy) {
 // enforceCooldown blocks until the cooldown period has been reached, or the
 // handler has been instructed to exit. The boolean return details whether or
 // not the cooldown period passed without being interrupted.
-func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) bool {
+func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complete bool) {
 
 	// Log that cooldown is being enforced. This is very useful as cooldown
 	// blocks the ticker making this the only indication of cooldown to
@@ -312,25 +310,18 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) bool {
 	// on all the channels desired here.
 	select {
 	case <-timer.C:
-		return true
+		complete = true
+		return
 	case <-ctx.Done():
-		return false
+		return
 	case <-h.doneCh:
-		return false
-
+		return
 	}
 }
 
-// isInCooldown is used to check whether the handler should be in cooldown or
-// not. This is used when performing a policy evaluation and allows the
-// autoscaler to enforce a cooldown on objects that have been scaled outside of
-// the autoscaler.
-func (h *Handler) isInCooldown(cd time.Duration, ts int64, lastEvent uint64) bool {
-	return int64(lastEvent)+cd.Nanoseconds() >= ts
-}
-
 // calculateRemainingCooldown calculates the remaining cooldown based on the
-// time since the last event.
+// time since the last event. The remaining period can be negative, indicating
+// no cooldown period is required.
 func (h *Handler) calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Duration {
 	return cd - time.Duration(ts-lastEvent)
 }

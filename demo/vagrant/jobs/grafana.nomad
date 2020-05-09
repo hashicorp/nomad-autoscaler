@@ -67,7 +67,7 @@ EOH
       }
 
       artifact {
-        source      = "https://gist.githubusercontent.com/lgfa29/229af0e06c04f28316a1a23e67718a78/raw/ac1f4261e1c4629125271391eccdca6e9d7af3d1/dashboard.json"
+        source      = "https://raw.githubusercontent.com/hashicorp/nomad-autoscaler/improve-demo/demo/vagrant/files/dashboard.json"
         destination = "local/dashboards/src/nomad-autoscaler.json"
         mode        = "file"
       }

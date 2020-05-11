@@ -5,6 +5,7 @@ __BACKWARDS INCOMPATIBILITIES:__
 
 FEATURES:
  * agent: allow policies to specify `evaluation_interval` [[GH-30](https://github.com/hashicorp/nomad-autoscaler/pull/30)]
+ * agent: allow policies to specify `cooldown` [[GH-117](https://github.com/hashicorp/nomad-autoscaler/pull/117)]
 
 IMPROVEMENTS:
  * agent: use blocking queries to communicate with the Nomad API [[GH-38](https://github.com/hashicorp/nomad-autoscaler/issues/38)]

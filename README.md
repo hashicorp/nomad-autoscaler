@@ -5,8 +5,6 @@ The Nomad Autoscaler is an autoscaling daemon for [Nomad](https://nomadproject.i
 ***This project is in the early stages of development and is supplied without guarantees and subject to change without warning***
 
 Known issues and limitations:
- * [scaling cooldowns](https://github.com/hashicorp/nomad-autoscaler/issues/12) are not implemented, this makes the autoscaling of applications aggressive
- * internal state for fast lookups is currently [in-progress](https://github.com/hashicorp/nomad-autoscaler/pull/30), this means the Nomad API will be put under load when running the autoscaler
  * there is currently a limited number of supported APMs, this will be addressed but limits the usability
 
 The Nomad Autoscaler currently supports:

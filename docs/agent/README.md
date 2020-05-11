@@ -76,6 +76,17 @@ nomad {
  * `tls_server_name` `(string "")` - The server name to use as the SNI host when connecting via TLS.
  * `skip_verify` `(bool false)` - Do not verify TLS certificates. This is strongly discouraged.
 
+## `policy` Block
+The `policy` block configures the Nomad Autoscaler's policy handling.
+```hcl
+policy {
+  default_cooldown = "2m"
+}
+```
+
+### `policy` Parameters
+ * `default_cooldown` `(string "5m")` - The default cooldown that will be applied to all scaling policies which do not specify a cooldown period.
+
 ## `apm` Block
 The `apm` block is used to configure application performance metric (APM) plugins.
 ```hcl

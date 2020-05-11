@@ -86,7 +86,7 @@ Vagrant.configure("2") do |config|
     # create paths for Nomad host volumes
     mkdir -p /opt/nomad-volumes
     pushd /opt/nomad-volumes
-    mkdir grafana
+    mkdir -p grafana
     chown 472:472 grafana
     popd
 

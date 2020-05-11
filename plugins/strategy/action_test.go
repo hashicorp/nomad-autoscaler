@@ -40,26 +40,17 @@ func TestAction_SetDryRun(t *testing.T) {
 	}{
 		{
 			inputAction: &Action{
-				Count: int64ToPointer(3),
+				Count: 3,
 				Meta:  map[string]interface{}{},
 			},
 			expectedOutputAction: &Action{
-				Count: nil,
+				Count: -1,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.dry_run":       true,
 					"nomad_autoscaler.dry_run.count": int64(3),
 				},
 			},
 			name: "count greater than zero",
-		},
-		{
-			inputAction: &Action{
-				Meta: map[string]interface{}{},
-			},
-			expectedOutputAction: &Action{
-				Count: nil,
-				Meta:  map[string]interface{}{"nomad_autoscaler.dry_run": true}},
-			name: "count not set",
 		},
 	}
 
@@ -88,13 +79,13 @@ func TestAction_CapCount(t *testing.T) {
 		},
 		{
 			inputAction: &Action{
-				Count: int64ToPointer(4),
+				Count: 4,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
 			expectedOutputAction: &Action{
-				Count: int64ToPointer(5),
+				Count: 5,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
 					"nomad_autoscaler.count.original": int64(4),
@@ -108,13 +99,13 @@ func TestAction_CapCount(t *testing.T) {
 		},
 		{
 			inputAction: &Action{
-				Count: int64ToPointer(15),
+				Count: 15,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
 			expectedOutputAction: &Action{
-				Count: int64ToPointer(10),
+				Count: 10,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
 					"nomad_autoscaler.count.original": int64(15),
@@ -128,13 +119,13 @@ func TestAction_CapCount(t *testing.T) {
 		},
 		{
 			inputAction: &Action{
-				Count: int64ToPointer(7),
+				Count: 7,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
 			expectedOutputAction: &Action{
-				Count: int64ToPointer(7),
+				Count: 7,
 				Meta:  map[string]interface{}{},
 			},
 			name: "desired count doesn't break thresholds",
@@ -200,5 +191,3 @@ func TestAction_pushReason(t *testing.T) {
 		})
 	}
 }
-
-func int64ToPointer(i int64) *int64 { return &i }

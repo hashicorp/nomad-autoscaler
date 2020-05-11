@@ -220,12 +220,12 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 
 		if currentStatus.Count < p.Min {
 			minMaxAction = &strategypkg.Action{
-				Count:  &p.Min,
+				Count:  p.Min,
 				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
 			}
 		} else if currentStatus.Count > p.Max {
 			minMaxAction = &strategypkg.Action{
-				Count:  &p.Max,
+				Count:  p.Max,
 				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
 			}
 		}
@@ -257,18 +257,18 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 			action.SetDryRun()
 		}
 
-		if action.Count == nil {
+		if action.Count == strategypkg.MetaValueDryRunCount {
 			actionLogger.Info("registering scaling event",
 				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 		} else {
 			// Skip action if count doesn't change.
-			if currentStatus.Count == *action.Count {
-				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", *action.Count)
+			if currentStatus.Count == action.Count {
+				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
 				continue
 			}
 
 			actionLogger.Info("scaling target",
-				"from", currentStatus.Count, "to", *action.Count,
+				"from", currentStatus.Count, "to", action.Count,
 				"reason", action.Reason, "meta", action.Meta)
 		}
 

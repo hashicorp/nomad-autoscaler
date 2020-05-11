@@ -120,7 +120,7 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	}
 
 	action := strategy.Action{
-		Count:  &newCount,
+		Count:  newCount,
 		Reason: fmt.Sprintf("scaling %s because factor is %f", direction, factor),
 	}
 	resp.Actions = append(resp.Actions, action)

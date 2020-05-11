@@ -46,6 +46,9 @@ type Agent struct {
 	// Nomad is the configuration used to setup the Nomad client.
 	Nomad *Nomad `hcl:"nomad,block"`
 
+	// Policy is the configuration used to setup the policy manager.
+	Policy *Policy `hcl:"policy,block"`
+
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
@@ -113,6 +116,16 @@ type Plugin struct {
 	Config map[string]string `hcl:"config,optional"`
 }
 
+// Policy holds the configuration information specific to the policy manager
+// and resulting policy parsing.
+type Policy struct {
+
+	// DefaultCooldown is the default cooldown parameter added to all policies
+	// which do not explicitly configure the parameter.
+	DefaultCooldown    time.Duration
+	DefaultCooldownHCL string `hcl:"default_cooldown,optional"`
+}
+
 const (
 	// defaultLogLevel is the default log level used for the Autoscaler agent.
 	defaultLogLevel = "info"
@@ -139,6 +152,10 @@ const (
 	// defaultNomadRegion is the default Nomad region to use when performing
 	// Nomad API calls.
 	defaultNomadRegion = "global"
+
+	// defaultPolicyCooldown is the default time duration applied to policies
+	// which do not explicitly configure a cooldown.
+	defaultPolicyCooldown = 5 * time.Minute
 )
 
 // Default is used to generate a new default agent configuration.
@@ -162,6 +179,9 @@ func Default() (*Agent, error) {
 		Nomad: &Nomad{
 			Address: defaultNomadAddress,
 			Region:  defaultNomadRegion,
+		},
+		Policy: &Policy{
+			DefaultCooldown: defaultPolicyCooldown,
 		},
 		APMs:    []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
@@ -191,6 +211,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.Nomad != nil {
 		result.Nomad = result.Nomad.merge(b.Nomad)
+	}
+
+	if b.Policy != nil {
+		result.Policy = result.Policy.merge(b.Policy)
 	}
 
 	if len(result.APMs) == 0 && len(b.APMs) != 0 {
@@ -305,6 +329,15 @@ func (p *Plugin) copy() *Plugin {
 	return &c
 }
 
+func (p *Policy) merge(b *Policy) *Policy {
+	result := *p
+
+	if b.DefaultCooldown != 0 {
+		result.DefaultCooldown = b.DefaultCooldown
+	}
+	return &result
+}
+
 // pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
 // same name, the configs are merged.
 func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
@@ -356,6 +389,15 @@ func parseFile(file string, cfg *Agent) error {
 		}
 		cfg.DefaultEvaluationInterval = d
 	}
+
+	if cfg.Policy != nil && cfg.Policy.DefaultCooldownHCL != "" {
+		d, err := time.ParseDuration(cfg.Policy.DefaultCooldownHCL)
+		if err != nil {
+			return err
+		}
+		cfg.Policy.DefaultCooldown = d
+	}
+
 	return nil
 }
 

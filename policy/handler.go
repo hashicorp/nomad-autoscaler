@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -33,6 +34,10 @@ type Handler struct {
 	// ticker controls the frequency the policy is sent for evaluation.
 	ticker *time.Ticker
 
+	// cooldownCh is used to notify the handler that it should enter a cooldown
+	// period.
+	cooldownCh chan time.Duration
+
 	// running is used to help keep track if the handler is active or not.
 	running     bool
 	runningLock sync.RWMutex
@@ -57,6 +62,7 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 		ch:            make(chan Policy),
 		errCh:         make(chan error),
 		doneCh:        make(chan struct{}),
+		cooldownCh:    make(chan time.Duration),
 	}
 }
 
@@ -115,13 +121,24 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			h.updateHandler(currentPolicy, &p)
 			currentPolicy = &p
 		case <-h.ticker.C:
-			eval, err := h.generateEvaluation(currentPolicy)
+
+			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
-				h.log.Error(err.Error())
+				if err != context.Canceled {
+					h.log.Error(err.Error())
+				}
 				return
 			}
+
 			if eval != nil {
 				evalCh <- eval
+			}
+
+		case ts := <-h.cooldownCh:
+
+			// Enforce the cooldown which will block until complete.
+			if !h.enforceCooldown(ctx, ts) {
+				return
 			}
 		}
 	}
@@ -139,6 +156,60 @@ func (h *Handler) Stop() {
 	}
 
 	h.running = false
+}
+
+func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, error) {
+
+	// Timestamp the invocation of this evaluation run. This can be
+	// used when checking cooldown or emitting metrics to ensure some
+	// consistency.
+	curTime := time.Now().UTC().UnixNano()
+
+	eval, err := h.generateEvaluation(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	// If the evaluation is nil there is nothing to be done this time
+	// around.
+	if eval == nil {
+		return nil, nil
+	}
+
+	// If the target status includes a last event meta key, check for cooldown
+	// due to out-of-band events. This is also useful if the Autoscaler has
+	// been re-deployed.
+	ts, ok := eval.TargetStatus.Meta[targetpkg.MetaKeyLastEvent]
+	if !ok {
+		return eval, nil
+	}
+
+	// Convert the last event string. If an error occurs, just log and
+	// continue with the evaluation. A malformed timestamp shouldn't mean
+	// we skip scaling.
+	lastTS, err := strconv.ParseUint(ts, 10, 64)
+	if err != nil {
+		h.log.Error("failed to parse last event timestamp as uint64", "error", err)
+		return eval, nil
+	}
+
+	// Calculate the remaining time period left on the cooldown. If this is 0
+	// or below, we do not need to enter cooldown.
+	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
+	if cdPeriod <= 0 {
+		return eval, nil
+	}
+
+	// Enforce the cooldown which will block until complete. A false response
+	// means we did not reach the end of cooldown due to a request to shutdown.
+	if !h.enforceCooldown(ctx, cdPeriod) {
+		return nil, context.Canceled
+	}
+
+	// If we reach this point, we have entered and exited cooldown. Our data is
+	// stale, therefore return so that we do not send the eval this time and
+	// wait for the next tick.
+	return nil, nil
 }
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.
@@ -217,4 +288,40 @@ func (h *Handler) updateHandler(current, next *Policy) {
 		h.ticker.Stop()
 		h.ticker = time.NewTicker(next.EvaluationInterval)
 	}
+}
+
+// enforceCooldown blocks until the cooldown period has been reached, or the
+// handler has been instructed to exit. The boolean return details whether or
+// not the cooldown period passed without being interrupted.
+func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complete bool) {
+
+	// Log that cooldown is being enforced. This is very useful as cooldown
+	// blocks the ticker making this the only indication of cooldown to
+	// operators.
+	h.log.Debug("scaling policy has been placed into cooldown", "cooldown", t)
+
+	// Using a timer directly is mentioned to be more efficient than
+	// time.After() as long as we ensure to call Stop(). So setup a timer for
+	// use and defer the stop.
+	timer := time.NewTimer(t)
+	defer timer.Stop()
+
+	// Cooldown should not mean we miss other handler control signals. So wait
+	// on all the channels desired here.
+	select {
+	case <-timer.C:
+		complete = true
+		return
+	case <-ctx.Done():
+		return
+	case <-h.doneCh:
+		return
+	}
+}
+
+// calculateRemainingCooldown calculates the remaining cooldown based on the
+// time since the last event. The remaining period can be negative, indicating
+// no cooldown period is required.
+func (h *Handler) calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Duration {
+	return cd - time.Duration(ts-lastEvent)
 }

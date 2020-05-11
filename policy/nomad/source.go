@@ -22,6 +22,7 @@ const (
 	keyEvaluationInterval = "evaluation_interval"
 	keyTarget             = "target"
 	keyStrategy           = "strategy"
+	keyCooldown           = "cooldown"
 )
 
 // Ensure NomadSource satisfies the Source interface.
@@ -30,6 +31,7 @@ var _ policy.Source = (*Source)(nil)
 // SourceConfig holds configuration values for the Nomad source.
 type SourceConfig struct {
 	DefaultEvaluationInterval time.Duration
+	DefaultCooldown           time.Duration
 }
 
 func (c *SourceConfig) canonicalize() {
@@ -195,6 +197,11 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 	// Default EvaluationInterval to the agent's DefaultEvaluationInterval.
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = s.config.DefaultEvaluationInterval
+	}
+
+	// If the operator did not set a cooldown, use the agent's DefaultCooldown.
+	if p.Cooldown == 0 {
+		p.Cooldown = s.config.DefaultCooldown
 	}
 
 	// Set default values for Strategy.

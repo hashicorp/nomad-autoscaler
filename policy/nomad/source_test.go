@@ -277,6 +277,25 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				sourceConfig.DefaultEvaluationInterval = 5 * time.Second
 			},
 		},
+		{
+			name:  "sets cooldown from agent",
+			input: &policy.Policy{},
+			expected: &policy.Policy{
+				Source:             plugins.InternalAPMNomad,
+				EvaluationInterval: 10 * time.Second,
+				Cooldown:           1 * time.Hour,
+				Target: &policy.Target{
+					Name:   plugins.InternalTargetNomad,
+					Config: map[string]string{},
+				},
+				Strategy: &policy.Strategy{
+					Config: map[string]string{},
+				},
+			},
+			cb: func(_ *api.Config, sourceConfig *SourceConfig) {
+				sourceConfig.DefaultCooldown = 1 * time.Hour
+			},
+		},
 	}
 
 	for _, tc := range testCases {

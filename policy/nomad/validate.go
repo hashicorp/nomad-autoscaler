@@ -118,6 +118,20 @@ func validatePolicy(p map[string]interface{}) error {
 		}
 	}
 
+	// Validate Cooldown.
+	//   1. Cooldown must have string value if defined.
+	//   2. Cooldown must have time.Duration format if defined.
+	if cooldown, ok := p[keyCooldown]; ok {
+		cooldownString, ok := cooldown.(string)
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyCooldown, evalInterval))
+		} else {
+			if _, err := time.ParseDuration(cooldownString); err != nil {
+				result = multierror.Append(result, fmt.Errorf("%s->%s must have time.Duration format", path, keyCooldown))
+			}
+		}
+	}
+
 	// Validate Strategy.
 	//   1. Strategy key must exist.
 	//   2. Strategy must be a valid block.

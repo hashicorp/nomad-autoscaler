@@ -22,6 +22,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
+	assert.Equal(t, def.Policy.DefaultCooldown, 5 * time.Minute)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 }
@@ -69,6 +70,9 @@ func TestAgent_Merge(t *testing.T) {
 			TLSServerName: "cows-or-pets",
 			SkipVerify:    true,
 		},
+		Policy: &Policy{
+			DefaultCooldown: 20 * time.Minute,
+		},
 		APMs: []*Plugin{
 			{
 				Name:   "influx-db",
@@ -111,6 +115,9 @@ func TestAgent_Merge(t *testing.T) {
 			TLSServerName: "cows-or-pets",
 			SkipVerify:    true,
 		},
+		Policy: &Policy{
+			DefaultCooldown: 20 * time.Minute,
+		},
 		APMs: []*Plugin{
 			{
 				Name:   "nomad-apm",
@@ -150,6 +157,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.Nomad, actualResult.Nomad)
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.DefaultEvaluationInterval, actualResult.DefaultEvaluationInterval)
+	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)

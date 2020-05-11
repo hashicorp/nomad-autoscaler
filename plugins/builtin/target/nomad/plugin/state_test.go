@@ -102,9 +102,11 @@ func Test_jobStateHandler_status(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actualReturn, actualErr := tc.inputJSH.status(tc.inputGroup)
-		assert.Equal(t, tc.expectedReturn, actualReturn, tc.name)
-		assert.Equal(t, tc.expectedError, actualErr, tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			actualReturn, actualErr := tc.inputJSH.status(tc.inputGroup)
+			assert.Equal(t, tc.expectedReturn, actualReturn, tc.name)
+			assert.Equal(t, tc.expectedError, actualErr, tc.name)
+		})
 	}
 }
 

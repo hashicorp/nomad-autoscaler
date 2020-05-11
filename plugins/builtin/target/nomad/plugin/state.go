@@ -73,34 +73,48 @@ func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
 		return nil, nil
 	}
 
-	var (
-		count int
-		found bool
-	)
+	// Use a variable to sort the task group status if we find it. Using a
+	// pointer allows us to perform a nil check to see if we found the task
+	// group or not.
+	var status *api.TaskGroupScaleStatus
 
+	// Iterate the task groups until we find the one we are looking for.
 	for name, tg := range jsh.scaleStatus.TaskGroups {
 		if name == group {
-			// Currently "Running" is not populated:
-			//  https://github.com/hashicorp/nomad/issues/7789
-			count = tg.Healthy
-			found = true
+			status = &tg
 			break
 		}
 	}
 
 	// If we did not find the task group in the status list, we can't reliably
 	// inform the caller of any details. Therefore return an error.
-	if !found {
+	if status == nil {
 		return nil, fmt.Errorf("task group %q not found", group)
 	}
 
-	return &target.Status{
+	// Hydrate the response object with the information we have collected that
+	// is nil safe.
+	// TODO(jrasell) Currently "Running" is not populated in a tagged release:
+	//  https://github.com/hashicorp/nomad/issues/7789
+	resp := target.Status{
 		Ready: !jsh.scaleStatus.JobStopped,
-		Count: int64(count),
+		Count: int64(status.Healthy),
 		Meta: map[string]string{
 			metaKeyPrefix + jsh.jobID + metaKeyJobStoppedSuffix: strconv.FormatBool(jsh.scaleStatus.JobStopped),
 		},
-	}, nil
+	}
+
+	// Scaling events are an ordered list. If we have entries take the
+	// timestamp of the most recent and add this to our meta.
+	//
+	// Currently any event registered will cause the cooldown period to take
+	// effect. If we use the scale endpoint in the future to register events
+	// such as policy parsing errors, we should filter those out.
+	if len(status.Events) > 0 {
+		resp.Meta[target.MetaKeyLastEvent] = strconv.FormatUint(status.Events[0].Time, 10)
+	}
+
+	return &resp, nil
 }
 
 // start runs the blocking query loop that processes changes from the API and

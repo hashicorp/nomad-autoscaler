@@ -105,6 +105,11 @@ Nomad Options:
   -nomad-skip-verify
     Do not verify TLS certificates. This is strongly discouraged.
 
+Policy Options:
+
+  -policy-default-cooldown=<dur>
+    The default cooldown that will be applied to all scaling policies which do
+    not specify a cooldown period.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -152,8 +157,9 @@ func (c *AgentCommand) readConfig() *config.Agent {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
-		HTTP:  &config.HTTP{},
-		Nomad: &config.Nomad{},
+		HTTP:   &config.HTTP{},
+		Nomad:  &config.Nomad{},
+		Policy: &config.Policy{},
 	}
 
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
@@ -185,6 +191,12 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	flags.StringVar(&cmdConfig.Nomad.ClientKey, "nomad-client-key", "", "")
 	flags.StringVar(&cmdConfig.Nomad.TLSServerName, "nomad-tls-server-name", "", "")
 	flags.BoolVar(&cmdConfig.Nomad.SkipVerify, "nomad-skip-verify", false, "")
+
+	// Specify our Policy CLI flags.
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.Policy.DefaultCooldown = d
+		return nil
+	}), "policy-default-cooldown", "")
 
 	if err := flags.Parse(c.args); err != nil {
 		return nil

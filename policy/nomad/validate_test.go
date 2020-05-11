@@ -513,6 +513,50 @@ func Test_validateScalingPolicy(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "policy.cooldown has wrong type",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keySource:   "source",
+					keyQuery:    "query",
+					keyCooldown: 5,
+					keyStrategy: []interface{}{
+						map[string]interface{}{
+							"name": "strategy",
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.cooldown has wrong format",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keySource:   "source",
+					keyQuery:    "query",
+					keyCooldown: "5 seconds",
+					keyStrategy: []interface{}{
+						map[string]interface{}{
+							"name": "strategy",
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
 	}
 
 	for _, tc := range testCases {

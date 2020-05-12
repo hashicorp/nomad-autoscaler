@@ -86,7 +86,13 @@ job "webapp" {
 set -ex
 
 /go/bin/toxiproxy -host 0.0.0.0  &
-/go/bin/toxiproxy-cli create webapp -l 0.0.0.0:{{ env "NOMAD_PORT_webapp"  }} -u {{ env "NOMAD_ADDR_webapp_http" }}
+
+while ! wget --spider -q http://localhost:8474/version; do
+  echo "toxiproxy not ready yet"
+  sleep 0.2
+done
+
+/go/bin/toxiproxy-cli create webapp -l 0.0.0.0:${NOMAD_PORT_webapp} -u ${NOMAD_ADDR_webapp_http}
 /go/bin/toxiproxy-cli toxic add -n latency -t latency -a latency=1000 -a jitter=500 webapp
 tail -f /dev/null
         EOH

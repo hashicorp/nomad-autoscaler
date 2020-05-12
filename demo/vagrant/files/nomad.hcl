@@ -1,5 +1,6 @@
 datacenter = "dc1"
-data_dir   = "/opt/nomad"
+
+data_dir = "/opt/nomad"
 
 server {
   enabled          = true
@@ -8,6 +9,10 @@ server {
 
 client {
   enabled = true
+
+  host_volume "grafana" {
+    path = "/opt/nomad-volumes/grafana"
+  }
 }
 
 telemetry {

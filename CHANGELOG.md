@@ -13,6 +13,9 @@ IMPROVEMENTS:
  * agent: skip scaling action if the desired count matches the current count [[GH-108](https://github.com/hashicorp/nomad-autoscaler/pull/108)]
  * plugin: use the logger rather than fmt.Print to output Prometheus query warnings [[GH-107](https://github.com/hashicorp/nomad-autoscaler/pull/107)]
 
+BUG FIXES:
+ * plugin: fix bug in external strategy plugins suggesting scale to zero [[GH-112](https://github.com/hashicorp/nomad-autoscaler/pull/122)]
+
 ## 0.0.1-techpreview2 (April 9, 2020)
 
 IMPROVEMENTS:

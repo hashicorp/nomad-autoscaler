@@ -110,7 +110,7 @@ The increase in load will be reflected through Prometheus metrics to the Autosca
 ```
 
 ## Understanding the dashboard
-From the [dashboard](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s) you will be see the actions taken by the Autoscaler:
+From the [dashboard](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s) you will be able to see the actions taken by the Autoscaler:
 
 ![dashboard](images/dashboard.png)
 

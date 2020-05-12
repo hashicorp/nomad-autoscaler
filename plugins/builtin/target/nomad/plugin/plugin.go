@@ -102,8 +102,8 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) error {
 	var countIntPtr *int
-	if action.Count != nil {
-		countInt := int(*action.Count)
+	if action.Count != strategy.MetaValueDryRunCount {
+		countInt := int(action.Count)
 		countIntPtr = &countInt
 	}
 

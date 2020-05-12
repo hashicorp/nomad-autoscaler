@@ -71,7 +71,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
 				{
-					Count:  intToPointer(4),
+					Count:  4,
 					Reason: "scaling up because factor is 2.000000",
 				},
 			}},
@@ -87,7 +87,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
 				{
-					Count:  intToPointer(2),
+					Count:  2,
 					Reason: "scaling up because factor is 2.000000",
 				},
 			}},
@@ -114,7 +114,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
 				{
-					Count:  intToPointer(1),
+					Count:  1,
 					Reason: "scaling up because factor is 1.000000",
 				},
 			}},
@@ -130,7 +130,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
 				{
-					Count:  intToPointer(0),
+					Count:  0,
 					Reason: "scaling down because factor is 0.000000",
 				},
 			}},
@@ -166,5 +166,3 @@ func TestStrategyPlugin_calculateDirection(t *testing.T) {
 		assert.Equal(t, tc.expectedOutput, s.calculateDirection(tc.inputCount, tc.inputFactor))
 	}
 }
-
-func intToPointer(i int64) *int64 { return &i }

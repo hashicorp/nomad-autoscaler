@@ -124,7 +124,6 @@ tail -f /dev/null
 
         network {
           mbits = 10
-          mode  = "bridge"
 
           port "api"{}
           port "webapp"{}

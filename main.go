@@ -38,7 +38,6 @@ func main() {
 	exitCode, err := c.Run()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error executing CLI: %v\n", err)
-		os.Exit(1)
 	}
 	os.Exit(exitCode)
 }

@@ -278,6 +278,8 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 			actionLogger.Error("failed to scale target", "error", err)
 			continue
 		}
+		actionLogger.Info("successfully submitted scaling action to target",
+			"desired_count", action.Count)
 
 		// Enforce the cooldown after a successful scaling event.
 		a.policyManager.EnforceCooldown(p.ID, p.Cooldown)

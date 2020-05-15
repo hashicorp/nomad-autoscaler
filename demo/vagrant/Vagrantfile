@@ -26,7 +26,7 @@ Vagrant.configure("2") do |config|
   #   - Downloads and install Nomad, Consul and Docker
   # Only runs when the VM is created.
   config.vm.provision "deps", type: "shell", inline: <<-SHELL
-    nomad_version=0.11.1
+    nomad_version=0.11.2
     consul_version=1.7.2
 
     mkdir /tmp/downloads

@@ -63,7 +63,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 				scaleStatus: &api.JobScaleStatusResponse{
 					JobStopped: false,
 					TaskGroups: map[string]api.TaskGroupScaleStatus{
-						"this-does-exist": {Healthy: 7},
+						"this-does-exist": {Running: 7},
 					},
 				},
 			},
@@ -84,7 +84,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 				scaleStatus: &api.JobScaleStatusResponse{
 					JobStopped: true,
 					TaskGroups: map[string]api.TaskGroupScaleStatus{
-						"this-does-exist": {Healthy: 7},
+						"this-does-exist": {Running: 7},
 					},
 				},
 			},

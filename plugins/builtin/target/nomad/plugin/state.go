@@ -94,11 +94,9 @@ func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
 
 	// Hydrate the response object with the information we have collected that
 	// is nil safe.
-	// TODO(jrasell) Currently "Running" is not populated in a tagged release:
-	//  https://github.com/hashicorp/nomad/issues/7789
 	resp := target.Status{
 		Ready: !jsh.scaleStatus.JobStopped,
-		Count: int64(status.Healthy),
+		Count: int64(status.Running),
 		Meta: map[string]string{
 			metaKeyPrefix + jsh.jobID + metaKeyJobStoppedSuffix: strconv.FormatBool(jsh.scaleStatus.JobStopped),
 		},

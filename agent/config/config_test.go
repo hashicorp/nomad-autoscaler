@@ -22,9 +22,10 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
-	assert.Equal(t, def.Policy.DefaultCooldown, 5 * time.Minute)
+	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
+	assert.Len(t, def.Strategies, 1)
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -87,8 +88,8 @@ func TestAgent_Merge(t *testing.T) {
 		},
 		Strategies: []*Plugin{
 			{
-				Name:   "target-value",
-				Driver: "target-value",
+				Name:   "pid",
+				Driver: "pid",
 			},
 		},
 	}
@@ -144,6 +145,10 @@ func TestAgent_Merge(t *testing.T) {
 			{
 				Name:   "target-value",
 				Driver: "target-value",
+			},
+			{
+				Name:   "pid",
+				Driver: "pid",
 			},
 		},
 	}

@@ -29,6 +29,13 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 				Config: map[string]string{"address": "http://127.0.0.1:4646", "region": "global"},
 			},
 		},
+		"strategy": {
+			{
+				Name:   "target-value",
+				Driver: "target-value",
+				Config: nil,
+			},
+		},
 	}
 
 	assert.Equal(t, expectedOutput, a.setupPluginConfig())

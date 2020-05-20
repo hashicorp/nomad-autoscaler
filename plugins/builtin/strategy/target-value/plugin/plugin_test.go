@@ -54,6 +54,15 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		{
 			inputReq: strategy.RunRequest{
 				PolicyID: "test-policy",
+				Config:   map[string]string{"target": "0", "precision": "not-the-float-you're-looking-for"},
+			},
+			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedError: fmt.Errorf("invalid value for `precision`: not-the-float-you're-looking-for (string)"),
+			name:          "incorrect input config target value",
+		},
+		{
+			inputReq: strategy.RunRequest{
+				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "13"},
 				Metric:   13,
 				Count:    2,
@@ -137,6 +146,33 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			expectedError: nil,
 			name:          "scale to 0 with 0 target eg. idle build agents",
 		},
+		{
+			inputReq: strategy.RunRequest{
+				PolicyID: "test-policy",
+				Config:   map[string]string{"target": "5"},
+				Metric:   5.00001,
+				Count:    8,
+			},
+			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedError: nil,
+			name:          "don't scale when the factor change is small",
+		},
+		{
+			inputReq: strategy.RunRequest{
+				PolicyID: "test-policy",
+				Config:   map[string]string{"target": "5", "precision": "0.000001"},
+				Metric:   5.00001,
+				Count:    8,
+			},
+			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
+				{
+					Count:  9,
+					Reason: "scaling up because factor is 1.000002",
+				},
+			}},
+			expectedError: nil,
+			name:          "scale up on small changes if precision is small",
+		},
 	}
 
 	s := &StrategyPlugin{logger: hclog.NewNullLogger()}
@@ -152,17 +188,22 @@ func TestStrategyPlugin_calculateDirection(t *testing.T) {
 	testCases := []struct {
 		inputCount     int64
 		inputFactor    float64
-		expectedOutput string
+		precision      float64
+		expectedOutput scaleDirection
 	}{
-		{inputCount: 0, inputFactor: 1, expectedOutput: "up"},
-		{inputCount: 5, inputFactor: 1, expectedOutput: ""},
-		{inputCount: 4, inputFactor: 0.5, expectedOutput: "down"},
-		{inputCount: 5, inputFactor: 2, expectedOutput: "up"},
+		{inputCount: 0, inputFactor: 1, expectedOutput: scaleDirectionUp},
+		{inputCount: 5, inputFactor: 1, expectedOutput: scaleDirectionNone},
+		{inputCount: 4, inputFactor: 0.5, expectedOutput: scaleDirectionDown},
+		{inputCount: 5, inputFactor: 2, expectedOutput: scaleDirectionUp},
+		{inputCount: 5, inputFactor: 1.0001, precision: 0.01, expectedOutput: scaleDirectionNone},
+		{inputCount: 5, inputFactor: 1.02, precision: 0.01, expectedOutput: scaleDirectionUp},
+		{inputCount: 5, inputFactor: 0.99, precision: 0.01, expectedOutput: scaleDirectionNone},
+		{inputCount: 5, inputFactor: 0.98, precision: 0.01, expectedOutput: scaleDirectionDown},
 	}
 
 	s := &StrategyPlugin{}
 
 	for _, tc := range testCases {
-		assert.Equal(t, tc.expectedOutput, s.calculateDirection(tc.inputCount, tc.inputFactor))
+		assert.Equal(t, tc.expectedOutput, s.calculateDirection(tc.inputCount, tc.inputFactor, tc.precision))
 	}
 }

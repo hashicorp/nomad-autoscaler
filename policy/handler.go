@@ -102,7 +102,14 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			return
 		case <-h.doneCh:
 			return
+
 		case err := <-h.errCh:
+			// In case of error, log the error message and loop around.
+			// Handlers never stop running unless ctx.Done() or doneCh is
+			// closed.
+
+			// multierror.Error objects are logged differently to allow for a
+			// more structured output.
 			merr, ok := err.(*multierror.Error)
 			if ok && len(merr.Errors) > 1 {
 				// Transform Errors into a slice of strings to avoid logging
@@ -112,22 +119,24 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 					errors[i] = e.Error()
 				}
 				h.log.Error(errors[0], "errors", errors[1:])
-				return
+			} else {
+				h.log.Error(err.Error())
 			}
+			continue
 
-			h.log.Error(err.Error())
-			return
 		case p := <-h.ch:
 			h.updateHandler(currentPolicy, &p)
 			currentPolicy = &p
-		case <-h.ticker.C:
 
+		case <-h.ticker.C:
 			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
-				if err != context.Canceled {
-					h.log.Error(err.Error())
+				if err == context.Canceled {
+					// Context was canceled, return to stop the handler.
+					return
 				}
-				return
+				h.log.Error(err.Error())
+				continue
 			}
 
 			if eval != nil {
@@ -135,9 +144,9 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			}
 
 		case ts := <-h.cooldownCh:
-
 			// Enforce the cooldown which will block until complete.
 			if !h.enforceCooldown(ctx, ts) {
+				// Context was canceled, return to stop the handler.
 				return
 			}
 		}

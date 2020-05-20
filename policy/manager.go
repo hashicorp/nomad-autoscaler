@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,14 +46,28 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	policyIDsCh := make(chan []PolicyID)
 	policyIDsErrCh := make(chan error)
 
-	// Start the policy source and listen for changes in the list of policy IDs
-	go m.policySource.MonitorIDs(ctx, policyIDsCh, policyIDsErrCh)
+	// Create a separate context so we can stop the goroutine monitoring the
+	// list of policies independently from the parent context.
+	monitorCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
+	// Start the policy source and listen for changes in the list of policy IDs
+	go m.policySource.MonitorIDs(monitorCtx, policyIDsCh, policyIDsErrCh)
+
+LOOP:
 	for {
 		select {
 		case <-ctx.Done():
 			m.log.Trace("stopping policy manager")
 			return
+
+		case err := <-policyIDsErrCh:
+			m.log.Error(err.Error())
+			if isUnrecoverableError(err) {
+				break LOOP
+			}
+			continue
+
 		case policyIDs := <-policyIDsCh:
 			m.log.Trace(fmt.Sprintf("detected %d policies", len(policyIDs)))
 
@@ -88,6 +103,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 				go func(ID PolicyID) {
 					h.Run(ctx, evalCh)
 
+					// Remove the handler when it stops running.
 					m.lock.Lock()
 					delete(m.handlers, ID)
 					m.lock.Unlock()
@@ -104,6 +120,21 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 			m.lock.Unlock()
 		}
 	}
+
+	// If we reach this point it means an unrecoverable error happened.
+	// We should reset any internal state and re-run the policy manager.
+	m.log.Debug("re-starting policy manager")
+
+	// Explicitly stop the handlers and cancel the monitoring context instead
+	// of relying on the deferred statements, otherwise the next iteration of
+	// m.Run would be executed before they are complete.
+	m.stopHandlers()
+	m.handlers = make(map[PolicyID]*Handler)
+	cancel()
+
+	// Delay the next iteration of m.Run to avoid re-runs to start too often.
+	time.Sleep(10 * time.Second)
+	go m.Run(ctx, evalCh)
 }
 
 func (m *Manager) stopHandlers() {
@@ -148,4 +179,24 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 	} else {
 		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
 	}
+}
+
+// isUnrecoverableError checks if the input error should be considered
+// unrecoverable.
+//
+// An error is considered unrecoverable if it has the potential to affect the
+// policy manager's internal state, and so the policy manager should re-run.
+//
+// Example of an unrecoverable error: the Nomad server becomes unreachable;
+// upon reconnecting, the state of the Nomad cluster could be different from
+// what's stored in the policy manager (e.g., a different cluster becomes
+// available in the same address).
+func isUnrecoverableError(err error) bool {
+	unrecoverableErrors := []string{"connection refused", "EOF"}
+	for _, e := range unrecoverableErrors {
+		if strings.Contains(err.Error(), e) {
+			return true
+		}
+	}
+	return false
 }

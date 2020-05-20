@@ -94,6 +94,12 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- []policy.Policy
 				continue
 			}
 
+			// If the index has not changed, the query returned because the timeout
+			// was reached, therefore start the next query loop.
+			if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+				continue
+			}
+
 			var policyIDs []policy.PolicyID
 
 			// Iterate over all policies in the list and filter out policies

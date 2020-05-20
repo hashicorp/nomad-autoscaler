@@ -138,6 +138,11 @@ func (jsh *jobScaleStatusHandler) start() {
 			}
 			jsh.updateStatusState(status, err)
 
+			// Reset query WaitIndex to zero so we can get the job status
+			// immediately in the next request instead of blocking and having
+			// to wait for a timeout.
+			q.WaitIndex = 0
+
 			// If the error was anything other than the job not being found,
 			// try again.
 			time.Sleep(10 * time.Second)
@@ -146,7 +151,9 @@ func (jsh *jobScaleStatusHandler) start() {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+		// The index could also be the same when a reconnect happens, in which
+		// case the handler state needs to be updated regardless of the index.
+		if jsh.scaleStatus != nil && !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
 			continue
 		}
 

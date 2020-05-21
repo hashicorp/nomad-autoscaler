@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.0.2 (May 21, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__
  * agent: configuration `scan_interval` renamed to `default_evaluation_interval` [[GH-114](https://github.com/hashicorp/nomad-autoscaler/pull/114)]

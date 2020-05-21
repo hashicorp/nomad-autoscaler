@@ -15,6 +15,14 @@ const (
 	// pluginName is the unique name of the this plugin amongst strategy
 	// plugins.
 	pluginName = "target-value"
+
+	// These are the keys read from the RunRequest.Config map.
+	runConfigKeyTarget    = "target"
+	runConfigKeyThreshold = "threshold"
+
+	// defaultThreshold controls how significant is a change in the input
+	// metric value.
+	defaultThreshold = "0.01"
 )
 
 var (
@@ -43,6 +51,27 @@ type StrategyPlugin struct {
 	logger hclog.Logger
 }
 
+// scaleDirection is used to indicate if the resulting count should increase
+// (scale up), descrease (scale down), or stay the same (none).
+type scaleDirection int8
+
+const (
+	scaleDirectionNone scaleDirection = iota
+	scaleDirectionUp
+	scaleDirectionDown
+)
+
+func (d scaleDirection) String() string {
+	switch d {
+	case scaleDirectionUp:
+		return "up"
+	case scaleDirectionDown:
+		return "down"
+	default:
+		return ""
+	}
+}
+
 // NewTargetValuePlugin returns the TargetValue implementation of the
 // strategy.Strategy interface.
 func NewTargetValuePlugin(log hclog.Logger) strategy.Strategy {
@@ -66,7 +95,8 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
 	resp := strategy.RunResponse{Actions: []strategy.Action{}}
 
-	t := req.Config["target"]
+	// Read and parse target value from req.Config.
+	t := req.Config[runConfigKeyTarget]
 	if t == "" {
 		return resp, fmt.Errorf("missing required field `target`")
 	}
@@ -74,6 +104,17 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	target, err := strconv.ParseFloat(t, 64)
 	if err != nil {
 		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", t, t)
+	}
+
+	// Read and parse threshold value from req.Config.
+	th := req.Config[runConfigKeyThreshold]
+	if th == "" {
+		th = defaultThreshold
+	}
+
+	threshold, err := strconv.ParseFloat(th, 64)
+	if err != nil {
+		return resp, fmt.Errorf("invalid value for `threshold`: %v (%T)", th, th)
 	}
 
 	var factor float64
@@ -89,8 +130,8 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	}
 
 	// Identify the direction of scaling, if any.
-	direction := s.calculateDirection(req.Count, factor)
-	if direction == "" {
+	direction := s.calculateDirection(req.Count, factor, threshold)
+	if direction == scaleDirectionNone {
 		return resp, nil
 	}
 
@@ -131,23 +172,22 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 // occur, if any at all. It takes into account the current task group count in
 // order to correctly account for 0 counts.
 //
-// TODO(jrasell) the direction should probably be a type, rather than a plain
-// 	string so we don't have to return an empty string for no direction.
-func (s *StrategyPlugin) calculateDirection(count int64, factor float64) string {
+// The input factor value is padded by e, such that no action will be taken if
+// factor is within [1-e; 1+e].
+func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) scaleDirection {
 	switch count {
 	case 0:
 		if factor > 0 {
-			return "up"
-		} else {
-			return "down"
+			return scaleDirectionUp
 		}
+		return scaleDirectionNone
 	default:
-		if factor < 1 {
-			return "down"
-		} else if factor > 1 {
-			return "up"
+		if factor < (1 - e) {
+			return scaleDirectionDown
+		} else if factor > (1 + e) {
+			return scaleDirectionUp
 		} else {
-			return ""
+			return scaleDirectionNone
 		}
 	}
 }

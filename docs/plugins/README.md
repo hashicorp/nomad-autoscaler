@@ -77,7 +77,7 @@ next_count = current_count * (metric_value / target)
 ```
 
 ##### Sample policy
-An example would be attempting to keep the number of active connections to a web server at 20 per instance of the application.  
+An example would be attempting to keep the number of active connections to a web server at 20 per instance of the application.
 
 ```hcl
 policy {
@@ -86,8 +86,14 @@ policy {
     name = "target-value"
 
     config = {
-      target = 20
+      target    = 20
+      threshold = 0.0001
     }
   }
   ...
 ```
+
+##### Policy configuration
+
+* `target` `(float: <required>)` - Specifies the metric value the Autscaler should try to meet.
+* `threshold` `(float: 0.01)` - Specifies how significant a change in the input metric should be considered. Small threshold values can lead to output fluctuation.

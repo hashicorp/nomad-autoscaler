@@ -180,7 +180,7 @@ func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) scal
 		if factor > 0 {
 			return scaleDirectionUp
 		}
-		return scaleDirectionDown
+		return scaleDirectionNone
 	default:
 		if factor < (1 - e) {
 			return scaleDirectionDown

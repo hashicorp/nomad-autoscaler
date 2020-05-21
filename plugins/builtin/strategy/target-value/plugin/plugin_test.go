@@ -54,10 +54,10 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		{
 			inputReq: strategy.RunRequest{
 				PolicyID: "test-policy",
-				Config:   map[string]string{"target": "0", "precision": "not-the-float-you're-looking-for"},
+				Config:   map[string]string{"target": "0", "threshold": "not-the-float-you're-looking-for"},
 			},
 			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
-			expectedError: fmt.Errorf("invalid value for `precision`: not-the-float-you're-looking-for (string)"),
+			expectedError: fmt.Errorf("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input config target value",
 		},
 		{
@@ -160,7 +160,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		{
 			inputReq: strategy.RunRequest{
 				PolicyID: "test-policy",
-				Config:   map[string]string{"target": "5", "precision": "0.000001"},
+				Config:   map[string]string{"target": "5", "threshold": "0.000001"},
 				Metric:   5.00001,
 				Count:    8,
 			},
@@ -171,7 +171,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 			}},
 			expectedError: nil,
-			name:          "scale up on small changes if precision is small",
+			name:          "scale up on small changes if threshold is small",
 		},
 	}
 
@@ -188,22 +188,22 @@ func TestStrategyPlugin_calculateDirection(t *testing.T) {
 	testCases := []struct {
 		inputCount     int64
 		inputFactor    float64
-		precision      float64
+		threshold      float64
 		expectedOutput scaleDirection
 	}{
 		{inputCount: 0, inputFactor: 1, expectedOutput: scaleDirectionUp},
 		{inputCount: 5, inputFactor: 1, expectedOutput: scaleDirectionNone},
 		{inputCount: 4, inputFactor: 0.5, expectedOutput: scaleDirectionDown},
 		{inputCount: 5, inputFactor: 2, expectedOutput: scaleDirectionUp},
-		{inputCount: 5, inputFactor: 1.0001, precision: 0.01, expectedOutput: scaleDirectionNone},
-		{inputCount: 5, inputFactor: 1.02, precision: 0.01, expectedOutput: scaleDirectionUp},
-		{inputCount: 5, inputFactor: 0.99, precision: 0.01, expectedOutput: scaleDirectionNone},
-		{inputCount: 5, inputFactor: 0.98, precision: 0.01, expectedOutput: scaleDirectionDown},
+		{inputCount: 5, inputFactor: 1.0001, threshold: 0.01, expectedOutput: scaleDirectionNone},
+		{inputCount: 5, inputFactor: 1.02, threshold: 0.01, expectedOutput: scaleDirectionUp},
+		{inputCount: 5, inputFactor: 0.99, threshold: 0.01, expectedOutput: scaleDirectionNone},
+		{inputCount: 5, inputFactor: 0.98, threshold: 0.01, expectedOutput: scaleDirectionDown},
 	}
 
 	s := &StrategyPlugin{}
 
 	for _, tc := range testCases {
-		assert.Equal(t, tc.expectedOutput, s.calculateDirection(tc.inputCount, tc.inputFactor, tc.precision))
+		assert.Equal(t, tc.expectedOutput, s.calculateDirection(tc.inputCount, tc.inputFactor, tc.threshold))
 	}
 }

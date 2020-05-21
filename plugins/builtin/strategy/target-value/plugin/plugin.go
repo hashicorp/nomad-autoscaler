@@ -18,11 +18,11 @@ const (
 
 	// These are the keys read from the RunRequest.Config map.
 	runConfigKeyTarget    = "target"
-	runConfigKeyPrecision = "precision"
+	runConfigKeyThreshold = "threshold"
 
-	// defaultPrecision controls how significant is a change in the input
+	// defaultThreshold controls how significant is a change in the input
 	// metric value.
-	defaultPrecision = "0.01"
+	defaultThreshold = "0.01"
 )
 
 var (
@@ -106,15 +106,15 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", t, t)
 	}
 
-	// Read and parse precision value from req.Config.
-	p := req.Config[runConfigKeyPrecision]
-	if p == "" {
-		p = defaultPrecision
+	// Read and parse threshold value from req.Config.
+	th := req.Config[runConfigKeyThreshold]
+	if th == "" {
+		th = defaultThreshold
 	}
 
-	precision, err := strconv.ParseFloat(p, 64)
+	threshold, err := strconv.ParseFloat(th, 64)
 	if err != nil {
-		return resp, fmt.Errorf("invalid value for `precision`: %v (%T)", p, p)
+		return resp, fmt.Errorf("invalid value for `threshold`: %v (%T)", th, th)
 	}
 
 	var factor float64
@@ -130,7 +130,7 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	}
 
 	// Identify the direction of scaling, if any.
-	direction := s.calculateDirection(req.Count, factor, precision)
+	direction := s.calculateDirection(req.Count, factor, threshold)
 	if direction == scaleDirectionNone {
 		return resp, nil
 	}

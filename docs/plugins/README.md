@@ -87,7 +87,7 @@ policy {
 
     config = {
       target    = 20
-      precision = 0.0001
+      threshold = 0.0001
     }
   }
   ...
@@ -96,4 +96,4 @@ policy {
 ##### Policy configuration
 
 * `target` `(float: <required>)` - Specifies the metric value the Autscaler should try to meet.
-* `precision` `(float: 0.01)` - Specifies how significant a change in the input metric should be considered. Small precision values can lead to output fluctuation.
+* `threshold` `(float: 0.01)` - Specifies how significant a change in the input metric should be considered. Small threshold values can lead to output fluctuation.

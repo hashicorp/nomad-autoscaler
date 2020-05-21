@@ -56,9 +56,9 @@ type StrategyPlugin struct {
 type scaleDirection int8
 
 const (
-	scaleDirectionUp scaleDirection = iota
+	scaleDirectionNone scaleDirection = iota
+	scaleDirectionUp
 	scaleDirectionDown
-	scaleDirectionNone
 )
 
 func (d scaleDirection) String() string {

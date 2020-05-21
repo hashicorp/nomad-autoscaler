@@ -86,7 +86,7 @@ policy {
     name = "target-value"
 
     config = {
-      target = 20
+      target    = 20
       precision = 0.0001
     }
   }

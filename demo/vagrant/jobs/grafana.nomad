@@ -22,7 +22,7 @@ job "grafana" {
         volumes = [
           "local/datasources:/etc/grafana/provisioning/datasources",
           "local/dashboards:/etc/grafana/provisioning/dashboards",
-          "local/dashboards/src:/var/lib/grafana/dashboards",
+          "/home/vagrant/nomad-autoscaler/files:/var/lib/grafana/dashboards",
         ]
       }
 
@@ -64,12 +64,6 @@ providers:
 EOH
 
         destination = "local/dashboards/nomad-autoscaler.yaml"
-      }
-
-      artifact {
-        source      = "https://raw.githubusercontent.com/hashicorp/nomad-autoscaler/master/demo/vagrant/files/dashboard.json"
-        destination = "local/dashboards/src/nomad-autoscaler.json"
-        mode        = "file"
       }
 
       volume_mount {

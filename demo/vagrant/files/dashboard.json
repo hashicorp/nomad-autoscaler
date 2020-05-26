@@ -4,11 +4,15 @@
       {
         "$$hashKey": "object:103",
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": "Loki",
         "enable": true,
+        "expr": "{job=\"autoscaler\"} |= \"submitted scaling action\"",
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
-        "name": "Annotations & Alerts",
+        "limit": 100,
+        "name": "Scaling Actions",
+        "showIn": 0,
+        "target": {},
         "type": "dashboard"
       }
     ]
@@ -686,7 +690,7 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
+        "w": 6,
         "x": 0,
         "y": 22
       },
@@ -784,8 +788,8 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 4,
+        "w": 6,
+        "x": 6,
         "y": 22
       },
       "hiddenSeries": false,
@@ -881,8 +885,8 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 8,
+        "w": 6,
+        "x": 12,
         "y": 22
       },
       "hiddenSeries": false,
@@ -978,8 +982,8 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 12,
+        "w": 6,
+        "x": 18,
         "y": 22
       },
       "hiddenSeries": false,
@@ -1075,12 +1079,12 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 16,
-        "y": 22
+        "w": 6,
+        "x": 0,
+        "y": 27
       },
       "hiddenSeries": false,
-      "id": 16,
+      "id": 30,
       "legend": {
         "avg": false,
         "current": false,
@@ -1172,12 +1176,12 @@
       "fillGradient": 0,
       "gridPos": {
         "h": 5,
-        "w": 4,
-        "x": 20,
-        "y": 22
+        "w": 6,
+        "x": 6,
+        "y": 27
       },
       "hiddenSeries": false,
-      "id": 19,
+      "id": 31,
       "legend": {
         "avg": false,
         "current": false,
@@ -1221,6 +1225,200 @@
       "timeRegions": [],
       "timeShift": null,
       "title": "Grafana Mem",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:841",
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:842",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 0,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 27
+      },
+      "hiddenSeries": false,
+      "id": 32,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideEmpty": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "max(sum(nomad_client_allocs_memory_allocated{task_group=\"loki\",task=\"loki\"}) by (alloc_id))",
+          "interval": "",
+          "legendFormat": "limit",
+          "refId": "B"
+        },
+        {
+          "expr": "max(sum(nomad_client_allocs_memory_usage{task_group=\"loki\",task=\"loki\"}) by (alloc_id))",
+          "interval": "",
+          "legendFormat": "usage",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Loki Mem",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "$$hashKey": "object:841",
+          "format": "bytes",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "$$hashKey": "object:842",
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": null,
+      "fill": 0,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 27
+      },
+      "hiddenSeries": false,
+      "id": 33,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "hideEmpty": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "max(sum(nomad_client_allocs_memory_allocated{task_group=\"autoscaler\",task=\"promtail\"}) by (alloc_id))",
+          "interval": "",
+          "legendFormat": "limit",
+          "refId": "B"
+        },
+        {
+          "expr": "max(sum(nomad_client_allocs_memory_usage{task_group=\"autoscaler\",task=\"promtail\"}) by (alloc_id))",
+          "interval": "",
+          "legendFormat": "usage",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Promtail Mem",
       "tooltip": {
         "shared": true,
         "sort": 0,

@@ -50,6 +50,22 @@ EOH
       template {
         data = <<EOH
 apiVersion: 1
+datasources:
+- name: Loki
+  type: loki
+  access: proxy
+  url: http://{{ range $i, $s := service "loki" }}{{ if eq $i 0 }}{{.Address}}:{{.Port}}{{end}}{{end}}
+  isDefault: false
+  version: 1
+  editable: false
+EOH
+
+        destination = "local/datasources/loki.yaml"
+      }
+
+      template {
+        data = <<EOH
+apiVersion: 1
 
 providers:
 - name: Nomad Autoscaler
@@ -67,7 +83,7 @@ EOH
       }
 
       artifact {
-        source      = "https://raw.githubusercontent.com/hashicorp/nomad-autoscaler/master/demo/vagrant/files/dashboard.json"
+        source      = "https://raw.githubusercontent.com/attachmentgenie/nomad-autoscaler/annotations/demo/vagrant/files/dashboard.json"
         destination = "local/dashboards/src/nomad-autoscaler.json"
         mode        = "file"
       }

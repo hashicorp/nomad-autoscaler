@@ -80,5 +80,75 @@ strategy "target-value" {
         }
       }
     }
+
+    task "promtail" {
+      driver = "docker"
+
+      lifecycle {
+        hook    = "prestart"
+        sidecar = true
+      }
+
+      config {
+        image = "grafana/promtail:1.5.0"
+
+        args = [
+          "-config.file",
+          "local/promtail.yaml",
+        ]
+
+        port_map {
+          promtail_port = 9080
+        }
+      }
+
+      template {
+        data = <<EOH
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+client:
+  url: http://{{ range $i, $s := service "loki" }}{{ if eq $i 0 }}{{.Address}}:{{.Port}}{{end}}{{end}}/api/prom/push
+
+scrape_configs:
+- job_name: system
+  entry_parser: raw
+  static_configs:
+  - targets:
+      - localhost
+    labels:
+      job: autoscaler
+      __path__: /alloc/logs/autoscaler*
+EOH
+
+        destination = "local/promtail.yaml"
+      }
+
+      resources {
+        cpu    = 50
+        memory = 32
+
+        network {
+          mbits = 1
+          port  "promtail_port"{}
+        }
+      }
+
+      service {
+        name = "promtail"
+        port = "promtail_port"
+
+        check {
+          type     = "http"
+          path     = "/ready"
+          interval = "10s"
+          timeout  = "2s"
+        }
+      }
+    }
   }
 }

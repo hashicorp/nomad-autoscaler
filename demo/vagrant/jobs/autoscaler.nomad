@@ -8,7 +8,7 @@ job "autoscaler" {
       driver = "docker"
 
       config {
-        image   = "hashicorp/nomad-autoscaler:0.0.1-techpreview2"
+        image   = "hashicorp/nomad-autoscaler:0.0.2"
         command = "nomad-autoscaler"
 
         args = [
@@ -33,7 +33,7 @@ job "autoscaler" {
       # }
       #
       # artifact {
-      #   source      = "https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview2/nomad-autoscaler_0.0.1-techpreview2_linux_amd64.zip"
+      #   source      = "https://releases.hashicorp.com/nomad-autoscaler/0.0.2/nomad-autoscaler_0.0.2_linux_amd64.zip"
       #   destination = "/usr/local/bin"
       # }
 

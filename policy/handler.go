@@ -15,6 +15,10 @@ import (
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
+const (
+	cooldownIgnoreTime = 1 * time.Second
+)
+
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
 type Handler struct {
@@ -202,10 +206,11 @@ func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, 
 		return eval, nil
 	}
 
-	// Calculate the remaining time period left on the cooldown. If this is 0
-	// or below, we do not need to enter cooldown.
+	// Calculate the remaining time period left on the cooldown. If this is
+	// cooldownIgnoreTime or below, we do not need to enter cooldown. Reasoning
+	// on ignoring small variations can be seen within GH-138.
 	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
-	if cdPeriod <= 0 {
+	if cdPeriod <= cooldownIgnoreTime {
 		return eval, nil
 	}
 

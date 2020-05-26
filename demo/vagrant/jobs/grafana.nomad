@@ -13,7 +13,7 @@ job "grafana" {
       driver = "docker"
 
       config {
-        image = "grafana/grafana:6.7.3"
+        image = "grafana/grafana:7.0.0"
 
         port_map {
           grafana_ui = 3000

@@ -8,7 +8,7 @@ job "haproxy" {
       driver = "docker"
 
       config {
-        image        = "haproxy:2.0"
+        image        = "haproxy:2.1.4"
         network_mode = "host"
 
         volumes = [

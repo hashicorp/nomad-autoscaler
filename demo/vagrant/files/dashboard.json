@@ -6,7 +6,7 @@
         "builtIn": 1,
         "datasource": "Loki",
         "enable": true,
-        "expr": "{job=\"autoscaler\"} |= \"submitted scaling action\"",
+        "expr": "{job=\"autoscaler\"} |= \"scaling target\"",
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
         "limit": 100,

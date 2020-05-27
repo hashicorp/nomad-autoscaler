@@ -14,8 +14,6 @@ job "loki" {
           "--config.file=/etc/loki/config/loki.yml",
         ]
 
-        network_mode = "host"
-
         volumes = [
           "local/config:/etc/loki/config",
         ]
@@ -79,9 +77,7 @@ EOH
         network {
           mbits = 10
 
-          port "loki_port" {
-            static = 3100
-          }
+          port "loki_port" {}
         }
       }
 

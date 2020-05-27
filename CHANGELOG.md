@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+ * agent: only enter out-of-bounds cooldown if time greater than 1s [[GH-139](https://github.com/hashicorp/nomad-autoscaler/pull/139)]
+
 ## 0.0.2 (May 21, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__

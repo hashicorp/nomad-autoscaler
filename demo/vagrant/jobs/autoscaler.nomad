@@ -121,8 +121,22 @@ scrape_configs:
   - targets:
       - localhost
     labels:
-      job: autoscaler
+      task: autoscaler
       __path__: /alloc/logs/autoscaler*
+  pipeline_stages:
+  - match:
+      selector: '{task="autoscaler"}'
+      stages:
+      - regex:
+          expression: '.*policy_id=(?P<policy_id>[a-zA-Z0-9_-]+).*source=(?P<source>[a-zA-Z0-9_-]+).*strategy=(?P<strategy>[a-zA-Z0-9_-]+).*target=(?P<target>[a-zA-Z0-9_-]+).*Group:(?P<group>[a-zA-Z0-9]+).*Job:(?P<job>[a-zA-Z0-9_-]+).*Namespace:(?P<namespace>[a-zA-Z0-9_-]+)'
+      - labels:
+          policy_id:
+          source:
+          strategy:
+          target:
+          group:
+          job:
+          namespace:
 EOH
 
         destination = "local/promtail.yaml"

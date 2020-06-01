@@ -89,9 +89,7 @@ func TestAction_CapCount(t *testing.T) {
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
 					"nomad_autoscaler.count.original": int64(4),
-					"nomad_autoscaler.reason_history": []string{
-						"capped count from 4 to 5 to stay within limits",
-					},
+					"nomad_autoscaler.reason_history": []string{},
 				},
 				Reason: "capped count from 4 to 5 to stay within limits",
 			},
@@ -109,13 +107,30 @@ func TestAction_CapCount(t *testing.T) {
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
 					"nomad_autoscaler.count.original": int64(15),
-					"nomad_autoscaler.reason_history": []string{
-						"capped count from 15 to 10 to stay within limits",
-					},
+					"nomad_autoscaler.reason_history": []string{},
 				},
 				Reason: "capped count from 15 to 10 to stay within limits",
 			},
 			name: "desired count higher than max threshold",
+		},
+		{
+			inputAction: &Action{
+				Count:  0,
+				Meta:   map[string]interface{}{},
+				Reason: "scaled to 0",
+			},
+			inputMin: 5,
+			inputMax: 10,
+			expectedOutputAction: &Action{
+				Count: 5,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.capped":   true,
+					"nomad_autoscaler.count.original": int64(0),
+					"nomad_autoscaler.reason_history": []string{"scaled to 0"},
+				},
+				Reason: "capped count from 0 to 5 to stay within limits",
+			},
+			name: "store previous reason",
 		},
 		{
 			inputAction: &Action{
@@ -151,31 +166,24 @@ func TestAction_pushReason(t *testing.T) {
 			inputAction: &Action{Meta: map[string]interface{}{}},
 			inputReason: "capped count from 0 to 1 to stay within limits",
 			expectedOutputAction: &Action{
-				Meta: map[string]interface{}{
-					"nomad_autoscaler.reason_history": []string{
-						"capped count from 0 to 1 to stay within limits",
-					},
-				},
 				Reason: "capped count from 0 to 1 to stay within limits",
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.reason_history": []string{},
+				},
 			},
 			name: "no existing reason history",
 		},
 
 		{
 			inputAction: &Action{
-				Meta: map[string]interface{}{
-					"nomad_autoscaler.reason_history": []string{
-						"capped count from 0 to 1 to stay within limits",
-					},
-				},
 				Reason: "capped count from 0 to 1 to stay within limits",
+				Meta:   map[string]interface{}{},
 			},
 			inputReason: "capped count from 10 to 20 to stay within limits",
 			expectedOutputAction: &Action{
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.reason_history": []string{
 						"capped count from 0 to 1 to stay within limits",
-						"capped count from 10 to 20 to stay within limits",
 					},
 				},
 				Reason: "capped count from 10 to 20 to stay within limits",

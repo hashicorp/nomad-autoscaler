@@ -80,6 +80,6 @@ func (a *Action) pushReason(r string) {
 	}
 
 	// Append current reason to history and update action.
-	a.Reason = r
 	a.Meta[metaKeyReasonHistory] = append(history, a.Reason)
+	a.Reason = r
 }

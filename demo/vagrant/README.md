@@ -119,7 +119,7 @@ The green shaded area in the middle of the dashboard is the `count` of the `weba
 
 You can see that the `count` starts at 3, but drops to 1 after the Autoscaler is started because the average number of connections is at 0. Once we run the `hey` command and start to generate load into our system, the number of connections sharply increases, along with the average.
 
-The Autoscaler notices this spike and reacts a few seconds later by increasing the `count`. This will add more instances of our web app to handle the load and drop the average number of connections to our target value. Once the load is removed, the Autoscaler returns `count` to 1. The log entries for the scaling actions performed by the Autoscaler are automatically added to the graphs as annotations represented by light blue vertical lines.
+The Autoscaler notices this spike and reacts a few seconds later by increasing the `count`. This will add more instances of our web app to handle the load and drop the average number of connections to our target value. Once the load is removed, the Autoscaler returns `count` to 1. The log entries for the scaling actions performed by the Autoscaler are automatically added to the graphs as annotations represented by the dashed light blue vertical lines. Hovering over them will display more details about the scaling event.
 
 The actual values you observe might be different, but the general idea of `count` reacting to the average number of connections should be noticeable.
 

@@ -155,6 +155,71 @@ func TestAction_CapCount(t *testing.T) {
 	}
 }
 
+func TestAction_LimitChange(t *testing.T) {
+	testCases := []struct {
+		inputAction          *Action
+		inputCurrentCount    int64
+		inputMaxChange       int64
+		expectedOutputAction *Action
+		name                 string
+	}{
+		{
+			inputAction: &Action{
+				Count: 7,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrentCount: 5,
+			inputMaxChange:    2,
+			expectedOutputAction: &Action{
+				Count: 7,
+				Meta:  map[string]interface{}{},
+			},
+			name: "desired count doesn't break max change",
+		},
+		{
+			inputAction: &Action{
+				Count: 8,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrentCount: 5,
+			inputMaxChange:    2,
+			expectedOutputAction: &Action{
+				Count: 7,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.original": int64(8),
+					"nomad_autoscaler.reason_history": []string{},
+				},
+				Reason: "modified desired count from 8 to 7 to limit change to 2",
+			},
+			name: "scale out count breaks max change",
+		},
+		{
+			inputAction: &Action{
+				Count: 2,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrentCount: 5,
+			inputMaxChange:    2,
+			expectedOutputAction: &Action{
+				Count: 3,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.original": int64(2),
+					"nomad_autoscaler.reason_history": []string{},
+				},
+				Reason: "modified desired count from 2 to 3 to limit change to 2",
+			},
+			name: "scale in count breaks max change",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.inputAction.LimitChange(tc.inputCurrentCount, tc.inputMaxChange)
+			assert.Equal(t, tc.expectedOutputAction, tc.inputAction)
+		})
+	}
+}
+
 func TestAction_pushReason(t *testing.T) {
 	testCases := []struct {
 		inputAction          *Action

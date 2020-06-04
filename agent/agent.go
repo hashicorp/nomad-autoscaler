@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -248,8 +249,14 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		// plugins doing this.
 		action.Canonicalize()
 
-		// Make sure new count value is within [min, max] limits
-		action.CapCount(p.Min, p.Max)
+		// Run the limit enforcement on the action to keep changes within all
+		// applicable bounds. An error received here means we are unable to
+		// continue as we my make changes which are undesirable for the
+		// operator.
+		if err := a.enforceActionLimits(p, &action, currentStatus); err != nil {
+			actionLogger.Error("failed to enforce policy limits", "error", err)
+			continue
+		}
 
 		// If the policy is configured with dry-run:true then we set the
 		// action count to nil so its no-nop. This allows us to still
@@ -284,4 +291,28 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		// Enforce the cooldown after a successful scaling event.
 		a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
 	}
+}
+
+// enforceActionLimits takes the desired actions and enforces any operator
+// specified limits. The current limits include the policy min and max, as well
+// as the target max change value.
+func (a *Agent) enforceActionLimits(p *policy.Policy, action *strategypkg.Action, status *targetpkg.Status) error {
+
+	if action.Count == strategypkg.MetaValueDryRunCount {
+		return nil
+	}
+
+	// Make sure new count value is within [min, max] limits.
+	action.CapCount(p.Min, p.Max)
+
+	// If the operator has configured a max_change value, attempt to enforce
+	// this.
+	if maxChange, ok := p.Target.Config[targetpkg.ConfigKeyMaxChange]; ok {
+		maxChangeInt, err := strconv.ParseInt(maxChange, 10, 64)
+		if err != nil {
+			return fmt.Errorf("failed to convert max_change value to int64: %v", err)
+		}
+		action.LimitChange(status.Count, maxChangeInt)
+	}
+	return nil
 }

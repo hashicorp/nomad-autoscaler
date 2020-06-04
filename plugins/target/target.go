@@ -21,11 +21,18 @@ type Status struct {
 	Meta  map[string]string
 }
 
-// MetaKeyLastEvent is an optional meta key that can be added to the status
-// return. The value represents the last scaling event of the target as seen by
-// the remote providers view point. This helps enforce cooldown where
-// out-of-band scaling activities have been triggered.
-const MetaKeyLastEvent = "nomad_autoscaler.last_event"
+const (
+	// MetaKeyLastEvent is an optional meta key that can be added to the status
+	// return. The value represents the last scaling event of the target as
+	// seen by the remote providers view point. This helps enforce cooldown
+	// where out-of-band scaling activities have been triggered.
+	MetaKeyLastEvent = "nomad_autoscaler.last_event"
+
+	// ConfigKeyMaxChange is the optional target config parameter that
+	// operators can use to limit the change the autoscaler makes in a single
+	// evaluation.
+	ConfigKeyMaxChange = "max_change"
+)
 
 // RPC is a plugin implementation that talks over net/rpc
 type RPC struct {

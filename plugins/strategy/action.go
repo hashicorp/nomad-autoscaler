@@ -47,11 +47,7 @@ func (a *Action) SetDryRun() {
 }
 
 // CapCount caps the value of Count so it remains within the specified limits.
-// If Count is MetaValueDryRunCount this method has no effect.
 func (a *Action) CapCount(min, max int64) {
-	if a.Count == MetaValueDryRunCount {
-		return
-	}
 
 	oldCount, newCount := a.Count, a.Count
 	if newCount < min {
@@ -62,13 +58,59 @@ func (a *Action) CapCount(min, max int64) {
 
 	if newCount != oldCount {
 		a.Meta[metaKeyCountCapped] = true
-		a.Meta[metaKeyCountOriginal] = oldCount
-		a.pushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
-		a.Count = newCount
+		r := fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount)
+		a.handleCountChange(oldCount, newCount, r)
 	}
 }
 
-// PushReason updates the Reason value and stores previous Reason into Meta.
+// LimitChange is used to modify the desired action based on the operator
+// specified maximum allowed change.
+func (a *Action) LimitChange(currentCount, maxChange int64) {
+
+	oldCount, newCount := a.Count, a.Count
+
+	// Determine whether this action is scaling in or out so we can correctly
+	// perform our calculations.
+	if a.Count < currentCount {
+		if change := currentCount - a.Count; change > maxChange {
+			newCount = currentCount - maxChange
+		}
+	} else if a.Count > currentCount {
+		if change := a.Count - currentCount; change > maxChange {
+			newCount = currentCount + maxChange
+		}
+	}
+
+	// If we limited the scope of the change, update the action count and
+	// insert a reason for the modification.
+	if newCount != oldCount {
+		r := fmt.Sprintf("modified desired count from %d to %d to limit change to %d",
+			oldCount, newCount, maxChange)
+		a.handleCountChange(oldCount, newCount, r)
+	}
+}
+
+// handleCountChange is a helper function which encompasses updates to an
+// action when the count needs to be changed by limits or thresholds. This
+// importantly allows for any functions which perform limit checks or capping
+// to be run in any order.
+func (a *Action) handleCountChange(oldCount, newCount int64, reason string) {
+
+	// If we don't have an existing original count, add the meta parameter. We
+	// don't want to overwrite the value as writing a single time ensures we
+	// have the real original desired count.
+	if _, ok := a.Meta[metaKeyCountOriginal]; !ok {
+		a.Meta[metaKeyCountOriginal] = oldCount
+	}
+
+	// Most importantly, set our new count.
+	a.Count = newCount
+
+	// Store the reason for the change in our action object.
+	a.pushReason(reason)
+}
+
+// pushReason updates the Reason value and stores previous Reason into Meta.
 func (a *Action) pushReason(r string) {
 	history := []string{}
 

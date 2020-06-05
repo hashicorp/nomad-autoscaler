@@ -64,7 +64,6 @@ type InternalPluginConfig struct{ Factory PluginFactory }
 // within PluginInfo, but will not include all.
 type PluginID struct {
 	Name       string
-	Driver     string
 	PluginType string
 }
 

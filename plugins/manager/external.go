@@ -15,12 +15,18 @@ func (pm *PluginManager) loadExternalPlugin(cfg *config.Plugin, pluginType strin
 	info := &pluginInfo{
 		args:    cfg.Args,
 		config:  cfg.Config,
-		exePath: filepath.Join(pm.pluginDir, cleanPluginExecutable(cfg.Name)),
+		exePath: filepath.Join(pm.pluginDir, cleanPluginExecutable(cfg.Driver)),
 	}
 
 	// Add the plugin.
+	pluginID := plugins.PluginID{
+		Name:       cfg.Name,
+		Driver:     cfg.Driver,
+		PluginType: pluginType,
+	}
+
 	pm.pluginsLock.Lock()
-	pm.plugins[plugins.PluginID{Name: cfg.Name, PluginType: pluginType}] = info
+	pm.plugins[pluginID] = info
 	pm.pluginsLock.Unlock()
 
 }

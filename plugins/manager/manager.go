@@ -242,7 +242,7 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{})
 	// has returned its metadata that is different to the configured. This is a
 	// problem, particularly in the PluginType sense as it means it will be
 	// unable to fulfill its role.
-	if pluginInfo.Name != id.Name || pluginInfo.PluginType != id.PluginType {
+	if pluginInfo.Name != id.Driver || pluginInfo.PluginType != id.PluginType {
 		return nil, fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
 	}
 

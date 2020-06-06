@@ -15,7 +15,8 @@ func (pm *PluginManager) loadExternalPlugin(cfg *config.Plugin, pluginType strin
 	info := &pluginInfo{
 		args:    cfg.Args,
 		config:  cfg.Config,
-		exePath: filepath.Join(pm.pluginDir, cleanPluginExecutable(cfg.Name)),
+		driver:  cfg.Driver,
+		exePath: filepath.Join(pm.pluginDir, cleanPluginExecutable(cfg.Driver)),
 	}
 
 	// Add the plugin.

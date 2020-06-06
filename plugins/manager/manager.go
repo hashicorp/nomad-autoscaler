@@ -45,6 +45,7 @@ type pluginInfo struct {
 	config   map[string]string
 
 	// args and exePath are required to execute the external plugin command.
+	driver  string
 	args    []string
 	exePath string
 
@@ -178,7 +179,7 @@ func (pm *PluginManager) launchInternalPlugin(id plugins.PluginID, info *pluginI
 
 	raw := info.factory(pm.logger.ResetNamed("internal_plugin." + id.Name))
 
-	pInfo, err := pm.pluginLaunchCheck(id, raw)
+	pInfo, err := pm.pluginLaunchCheck(id, info, raw)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -214,7 +215,7 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 		return nil, nil, fmt.Errorf("failed to dispense plugin %s: %v", id.Name, err)
 	}
 
-	pInfo, err := pm.pluginLaunchCheck(id, raw)
+	pInfo, err := pm.pluginLaunchCheck(id, info, raw)
 	if err != nil {
 		client.Kill()
 		return nil, nil, err
@@ -223,7 +224,7 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 	return &externalPluginInstance{instance: raw, client: client}, pInfo, nil
 }
 
-func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{}) (*base.PluginInfo, error) {
+func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo, raw interface{}) (*base.PluginInfo, error) {
 
 	// Check that the plugin implements the base plugin interface. As these are
 	// external plugins we need to check this safely, otherwise an incorrect
@@ -242,7 +243,7 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, raw interface{})
 	// has returned its metadata that is different to the configured. This is a
 	// problem, particularly in the PluginType sense as it means it will be
 	// unable to fulfill its role.
-	if pluginInfo.Name != id.Name || pluginInfo.PluginType != id.PluginType {
+	if pluginInfo.Name != info.driver || pluginInfo.PluginType != id.PluginType {
 		return nil, fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
 	}
 

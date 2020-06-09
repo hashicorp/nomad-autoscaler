@@ -29,7 +29,7 @@ func (sr *ScaleInReq) validate() error {
 	var err *multierror.Error
 
 	if sr.Num < 1 {
-		err = multierror.Append(errors.New("num should be non-zero"), err)
+		err = multierror.Append(errors.New("num should be positive and non-zero"), err)
 	}
 
 	if sr.DrainDeadline == 0 {

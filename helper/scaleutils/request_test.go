@@ -40,7 +40,7 @@ func TestScaleInReq_validate(t *testing.T) {
 				NodeIDStrategy: "newest_create_index",
 			},
 			expectedOutputError: &multierror.Error{
-				Errors: []error{errors.New("num should be non-zero")},
+				Errors: []error{errors.New("num should be positive and non-zero")},
 			},
 			name: "missing num param",
 		},

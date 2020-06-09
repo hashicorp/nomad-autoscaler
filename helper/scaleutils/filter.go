@@ -6,9 +6,9 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-// NodeIDMap provides a mapping between the Nomad ID of a node and its remote
+// NodeID provides a mapping between the Nomad ID of a node and its remote
 // infrastructure provider specific ID.
-type NodeIDMap struct {
+type NodeID struct {
 	NomadID, RemoteID string
 }
 
@@ -25,10 +25,10 @@ const IdentifierKeyClass IdentifierKey = "class"
 // Nomad NodeID to an ID that the provider understands.
 type RemoteProvider string
 
-// RemoteProviderAWS is the Amazon Web Services remote provider. This provider
-// will use the node attribute as defined by nodeAttrAWSInstanceID to perform
-// ID translation.
-const RemoteProviderAWS RemoteProvider = "aws"
+// RemoteProviderAWSInstanceID is the Amazon Web Services remote provider for
+// EC2 instances. This provider will use the node attribute as defined by
+// nodeAttrAWSInstanceID to perform ID translation.
+const RemoteProviderAWSInstanceID RemoteProvider = "aws_instance_id"
 
 // NodeIDStrategy is the strategy used to identify nodes for removal as part of
 // scaling in.
@@ -83,9 +83,15 @@ func filterByClass(n []*api.NodeListStub, id string) []*api.NodeListStub {
 	return out
 }
 
-// nodeIDMapFunc is the function signature used to find the Nomad nodes remote
+// nodeIDMapFunc is the function signature used to find the Nomad node's remote
 // identifier. Specific implementations can be found below.
 type nodeIDMapFunc func(n *api.Node) (string, error)
+
+// idFuncMap contains a mapping of RemoteProvider to the function which can
+// pull the remote ID information from the node.
+var idFuncMap = map[RemoteProvider]nodeIDMapFunc{
+	RemoteProviderAWSInstanceID: awsNodeIDMap,
+}
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using
 // the relevant attribute value.

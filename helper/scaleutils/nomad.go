@@ -42,7 +42,7 @@ func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
 // RunPreScaleInTasks helps tie together all the tasks required prior to
 // scaling in Nomad nodes, and thus terminating the server in the remote
 // provider.
-func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]NodeIDMap, error) {
+func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]NodeID, error) {
 
 	if err := req.validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate request: %v", err)
@@ -76,8 +76,8 @@ func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]N
 
 // identifyTargets filters the current Nomad cluster node list and then sorts
 // and selects nodes for removal based on the specified strategy. It is
-// possible the list does not contain any many nodes as requested do to the
-// limited number available after filtering.
+// possible the list does not contain as many nodes as requested. In this case,
+// do the limited number available after filtering.
 func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy NodeIDStrategy) ([]*api.NodeListStub, error) {
 
 	// Pull a current list of Nomad nodes from the API.
@@ -131,21 +131,15 @@ func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy Node
 	return out, nil
 }
 
-func (si *ScaleIn) getRemoteIDMap(nodes []*api.NodeListStub, remoteProvider RemoteProvider) ([]NodeIDMap, error) {
+func (si *ScaleIn) getRemoteIDMap(nodes []*api.NodeListStub, remoteProvider RemoteProvider) ([]NodeID, error) {
 
-	var idFunc nodeIDMapFunc
-
-	// Depending on the remote provider we are targeting, identify the function
-	// we need to use.
-	switch remoteProvider {
-	case RemoteProviderAWS:
-		idFunc = awsNodeIDMap
-	default:
-		return nil, fmt.Errorf("unsupported remote provider: %q", remoteProvider)
+	idFunc, ok := idFuncMap[remoteProvider]
+	if !ok {
+		return nil, fmt.Errorf("remote provider ID function not found: %s", remoteProvider)
 	}
 
 	var (
-		out  []NodeIDMap
+		out  []NodeID
 		mErr *multierror.Error
 	)
 
@@ -170,15 +164,15 @@ func (si *ScaleIn) getRemoteIDMap(nodes []*api.NodeListStub, remoteProvider Remo
 		si.log.Debug("identified remote provider ID for node",
 			"node_id", nodeInfo.ID, "remote_id", id)
 
-		out = append(out, NodeIDMap{NomadID: node.ID, RemoteID: id})
+		out = append(out, NodeID{NomadID: node.ID, RemoteID: id})
 	}
 
 	return out, mErr.ErrorOrNil()
 }
 
-// drainNodes iterates the provides nodeID list and performs a drain on each
+// drainNodes iterates the provided nodeID list and performs a drain on each
 // one.
-func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes []NodeIDMap) error {
+func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes []NodeID) error {
 
 	// Define a WaitGroup. This allows us to trigger each node drain in a go
 	// routine and then wait for them all to complete before exiting.
@@ -188,8 +182,12 @@ func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes
 	// use the same DrainSpec.
 	drainSpec := api.DrainSpec{Deadline: deadline}
 
-	// Define an error to collect errors from each drain routine.
-	var result error
+	// Define an error to collect errors from each drain routine and a mutex to
+	// provide thread safety when calling multierror.Append.
+	var (
+		result     error
+		resultLock sync.Mutex
+	)
 
 	for _, node := range nodes {
 
@@ -203,8 +201,14 @@ func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes
 		// Launch a routine to drain the node. Append any error returned to the
 		// error.
 		go func() {
-			if err := si.drainNode(ctx, &wg, n.NomadID, &drainSpec); err != nil {
+
+			// Ensure we call done on the WaitGroup to decrement the count remaining.
+			defer wg.Done()
+
+			if err := si.drainNode(ctx, n.NomadID, &drainSpec); err != nil {
+				resultLock.Lock()
 				result = multierror.Append(result, err)
+				resultLock.Unlock()
 			}
 		}()
 	}
@@ -217,12 +221,9 @@ func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes
 // drainNode triggers a drain on the supplied ID using the DrainSpec. The
 // function handles monitoring the drain and reporting its terminal status to
 // the caller.
-func (si *ScaleIn) drainNode(ctx context.Context, wg *sync.WaitGroup, nodeID string, spec *api.DrainSpec) error {
+func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.DrainSpec) error {
 
 	si.log.Info("triggering drain on node", "node_id", nodeID, "deadline", spec.Deadline)
-
-	// Ensure we call done on the WaitGroup to decrement the count remaining.
-	defer wg.Done()
 
 	// Update the drain on the node.
 	resp, err := si.nomad.Nodes().UpdateDrain(nodeID, spec, false, nil)

@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/google/go-cmp v0.4.0

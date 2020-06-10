@@ -120,6 +120,10 @@ type Plugin struct {
 // and resulting policy parsing.
 type Policy struct {
 
+	// Dir is the directory which contains scaling policies to be loaded from
+	// disk. This currently only supports cluster scaling policies.
+	Dir string `hcl:"dir,optional"`
+
 	// DefaultCooldown is the default cooldown parameter added to all policies
 	// which do not explicitly configure the parameter.
 	DefaultCooldown    time.Duration
@@ -333,6 +337,9 @@ func (p *Plugin) copy() *Plugin {
 func (p *Policy) merge(b *Policy) *Policy {
 	result := *p
 
+	if b.Dir != "" {
+		result.Dir = b.Dir
+	}
 	if b.DefaultCooldown != 0 {
 		result.DefaultCooldown = b.DefaultCooldown
 	}

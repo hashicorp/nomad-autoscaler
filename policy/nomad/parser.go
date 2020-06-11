@@ -15,24 +15,16 @@ import (
 // detect errors first.
 func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 	to := policy.Policy{
-		ID:       p.ID,
-		Max:      p.Max,
-		Enabled:  true,
-		Target:   parseTarget(p.Policy[keyTarget], p.Target),
-		Strategy: parseStrategy(p.Policy[keyStrategy]),
+		ID:      p.ID,
+		Max:     p.Max,
+		Enabled: true,
+		Target:  parseTarget(p.Policy[keyTarget], p.Target),
+		Checks:  parseChecks(p.Policy[keyChecks]),
 	}
 
 	// Add non-typed values.
 	if p.Min != nil {
 		to.Min = *p.Min
-	}
-
-	if query, ok := p.Policy[keyQuery].(string); ok {
-		to.Query = query
-	}
-
-	if source, ok := p.Policy[keySource].(string); ok {
-		to.Source = source
 	}
 
 	if p.Enabled != nil {
@@ -52,6 +44,60 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 	}
 
 	return to
+}
+
+func parseChecks(cs interface{}) []*policy.Check {
+	if cs == nil {
+		return nil
+	}
+
+	checkInterfaceList, ok := cs.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	var checks []*policy.Check
+	for _, checkInterface := range checkInterfaceList {
+		checkMap, ok := checkInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for k, v := range checkMap {
+			check := parseCheck(v)
+			if check != nil {
+				check.Name = k
+				checks = append(checks, check)
+			}
+		}
+	}
+
+	return checks
+}
+
+func parseCheck(c interface{}) *policy.Check {
+	if c == nil {
+		return nil
+	}
+
+	checkMap := parseBlock(c)
+	if checkMap == nil {
+		return nil
+	}
+
+	check := &policy.Check{
+		Strategy: parseStrategy(checkMap[keyStrategy]),
+	}
+
+	if query, ok := checkMap[keyQuery].(string); ok {
+		check.Query = query
+	}
+
+	if source, ok := checkMap[keySource].(string); ok {
+		check.Source = source
+	}
+
+	return check
 }
 
 // parseStrategy parses the content of the strategy block from a policy.

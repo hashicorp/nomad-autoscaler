@@ -580,7 +580,7 @@ func Test_validateBlock(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       interface{}
-		validator   func(in map[string]interface{}) error
+		validator   func(in map[string]interface{}, path string) error
 		expectError bool
 	}{
 		{
@@ -631,7 +631,7 @@ func Test_validateBlock(t *testing.T) {
 					"key": "value",
 				},
 			},
-			validator: func(in map[string]interface{}) error {
+			validator: func(in map[string]interface{}, path string) error {
 				return fmt.Errorf("error from validator")
 			},
 			expectError: true,
@@ -641,7 +641,7 @@ func Test_validateBlock(t *testing.T) {
 			input: map[string]interface{}{
 				"key": "value",
 			},
-			validator: func(in map[string]interface{}) error {
+			validator: func(in map[string]interface{}, path string) error {
 				return fmt.Errorf("error from validator")
 			},
 			expectError: true,

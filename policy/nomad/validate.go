@@ -75,34 +75,6 @@ func validatePolicy(p map[string]interface{}) error {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
 
-	// Validate Source (optional).
-	//   1. Source value must be a string if defined.
-	source, ok := p[keySource]
-	if ok {
-		_, ok := source.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keySource, source))
-		}
-	}
-
-	// Validate Query.
-	//   1. Query key must exist.
-	//   2. Query must have string value.
-	//   3. Query must not be empty.
-	query, ok := p[keyQuery]
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf("%s.%s is missing", path, keyQuery))
-	} else {
-		queryStr, ok := query.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keyQuery, query))
-		} else {
-			if queryStr == "" {
-				result = multierror.Append(result, fmt.Errorf("%s.%s can't be empty", path, keyQuery))
-			}
-		}
-	}
-
 	// Validate EvaluationInterval.
 	//   1. EvaluationInterval must have string value if defined.
 	//   2. EvaluationInterval must have time.Duration format if defined.
@@ -132,14 +104,6 @@ func validatePolicy(p map[string]interface{}) error {
 		}
 	}
 
-	// Validate Strategy.
-	//   1. Strategy key must exist.
-	//   2. Strategy must be a valid block.
-	strategyErrs := validateBlock(p[keyStrategy], path, keyStrategy, validateStrategy)
-	if strategyErrs != nil {
-		result = multierror.Append(result, strategyErrs)
-	}
-
 	// Validate Target (optional).
 	//   1. Target must be a valid block if present.
 	targetInterface, ok := p[keyTarget]
@@ -150,7 +114,90 @@ func validatePolicy(p map[string]interface{}) error {
 		}
 	}
 
+	checksErrs := validateChecks(p[keyChecks], path, keyChecks)
+	if checksErrs != nil {
+		result = multierror.Append(result, checksErrs)
+	}
+
 	return result.ErrorOrNil()
+}
+
+func validateChecks(in interface{}, path, key string) error {
+	var result *multierror.Error
+
+	inList, ok := in.([]interface{})
+	if !ok {
+		return multierror.Append(result, fmt.Errorf("%s.%s must be []interface{}, found %T", path, key, in))
+	}
+
+	for i, checkInterface := range inList {
+		checkMap, ok := checkInterface.(map[string]interface{})
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s.%s[%d] must be map[string]interface{}, found %T", path, key, i, checkInterface))
+			continue
+		}
+
+		for k, v := range checkMap {
+			if k == "" {
+				result = multierror.Append(result, fmt.Errorf("%s.%s[%d] must have a name", path, key, i))
+			}
+
+			checkErrs := validateBlock(v, path, fmt.Sprintf("%s.%s", key, k), validateCheck)
+			if checkErrs != nil {
+				result = multierror.Append(result, checkErrs)
+				continue
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateCheck(c map[string]interface{}, path string) error {
+	var result *multierror.Error
+
+	// It shouldn't happen, but it's better to prevent a panic.
+	if c == nil {
+		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+	}
+
+	// Validate Source (optional).
+	//   1. Source value must be a string if defined.
+	source, ok := c[keySource]
+	if ok {
+		_, ok := source.(string)
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keySource, source))
+		}
+	}
+
+	// Validate Query.
+	//   1. Query key must exist.
+	//   2. Query must have string value.
+	//   3. Query must not be empty.
+	query, ok := c[keyQuery]
+	if !ok {
+		result = multierror.Append(result, fmt.Errorf("%s.%s is missing", path, keyQuery))
+	} else {
+		queryStr, ok := query.(string)
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keyQuery, query))
+		} else {
+			if queryStr == "" {
+				result = multierror.Append(result, fmt.Errorf("%s.%s can't be empty", path, keyQuery))
+			}
+		}
+	}
+
+	// Validate Strategy.
+	//   1. Strategy key must exist.
+	//   2. Strategy must be a valid block.
+	strategyErrs := validateBlock(c[keyStrategy], path, keyStrategy, validateStrategy)
+	if strategyErrs != nil {
+		result = multierror.Append(result, strategyErrs)
+	}
+
+	return result
 }
 
 // validateStrategy validates the content of the strategy block inside policy.
@@ -167,9 +214,7 @@ func validatePolicy(p map[string]interface{}) error {
 //      }
 //    }
 //  }
-func validateStrategy(s map[string]interface{}) error {
-	var path = fmt.Sprintf("scaling.policy.%s", keyStrategy)
-
+func validateStrategy(s map[string]interface{}, path string) error {
 	var result *multierror.Error
 
 	// It shouldn't happen, but it's better to prevent a panic.
@@ -223,9 +268,7 @@ func validateStrategy(s map[string]interface{}) error {
 //      }
 //    }
 //  }
-func validateTarget(t map[string]interface{}) error {
-	var path = fmt.Sprintf("scaling.policy.%s", keyTarget)
-
+func validateTarget(t map[string]interface{}, path string) error {
 	var result *multierror.Error
 
 	// It shouldn't happen, but it's better to prevent a panic.
@@ -263,14 +306,16 @@ func validateTarget(t map[string]interface{}) error {
 }
 
 // validateBlock validates the kind of unusual structure we receive when the policy is parsed.
-func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}) error) error {
+func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}, path string) error) error {
 	var result *multierror.Error
+
+	path = fmt.Sprintf("%s.%s", path, key)
 
 	runValidator := func(input map[string]interface{}) {
 		if validator == nil {
 			return
 		}
-		if err := validator(input); err != nil {
+		if err := validator(input, path); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
@@ -283,16 +328,16 @@ func validateBlock(in interface{}, path, key string, validator func(in map[strin
 
 	list, ok := in.([]interface{})
 	if !ok {
-		return multierror.Append(result, fmt.Errorf("%s.%s must be []interface{}, found %T", path, key, in))
+		return multierror.Append(result, fmt.Errorf("%s must be []interface{}, found %T", path, in))
 	}
 
 	if len(list) != 1 {
-		return multierror.Append(result, fmt.Errorf("%s.%s must have length 1, found %d", path, key, len(list)))
+		return multierror.Append(result, fmt.Errorf("%s must have length 1, found %d", path, len(list)))
 	}
 
 	inMap, ok := list[0].(map[string]interface{})
 	if !ok {
-		return multierror.Append(result, fmt.Errorf("%s.%s[0] must be map[string]interface{}, found %T", path, key, list[0]))
+		return multierror.Append(result, fmt.Errorf("%s[0] must be map[string]interface{}, found %T", path, list[0]))
 	}
 
 	runValidator(inMap)

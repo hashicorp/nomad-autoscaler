@@ -29,8 +29,6 @@ func Test_parsePolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
 					keyEvaluationInterval: "5s",
 					keyTarget: []interface{}{
 						map[string]interface{}{
@@ -42,12 +40,38 @@ func Test_parsePolicy(t *testing.T) {
 							},
 						},
 					},
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
-							"config": []interface{}{
+							"check1": []interface{}{
 								map[string]interface{}{
-									"bool_config": true,
+									keySource: "source1",
+									keyQuery:  "query1",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"name": "strategy1",
+											"config": []interface{}{
+												map[string]interface{}{
+													"bool_config": true,
+												},
+											},
+										},
+									},
+								},
+							},
+							"check2": []interface{}{
+								map[string]interface{}{
+									keySource: "source2",
+									keyQuery:  "query2",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"name": "strategy2",
+											"config": []interface{}{
+												map[string]interface{}{
+													"int_config": 1,
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -59,8 +83,6 @@ func Test_parsePolicy(t *testing.T) {
 				ID:                 "id",
 				Min:                1,
 				Max:                5,
-				Source:             "source",
-				Query:              "query",
 				Enabled:            true,
 				EvaluationInterval: 5 * time.Second,
 				Target: &policy.Target{
@@ -72,10 +94,28 @@ func Test_parsePolicy(t *testing.T) {
 						"int_config": "2",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
-						"bool_config": "true",
+				Checks: []*policy.Check{
+					{
+						Name:   "check1",
+						Source: "source1",
+						Query:  "query1",
+						Strategy: &policy.Strategy{
+							Name: "strategy1",
+							Config: map[string]string{
+								"bool_config": "true",
+							},
+						},
+					},
+					{
+						Name:   "check2",
+						Source: "source2",
+						Query:  "query2",
+						Strategy: &policy.Strategy{
+							Name: "strategy2",
+							Config: map[string]string{
+								"int_config": "1",
+							},
+						},
 					},
 				},
 			},
@@ -96,12 +136,22 @@ func Test_parsePolicy(t *testing.T) {
 					keySource:             "source",
 					keyQuery:              "query",
 					keyEvaluationInterval: "5s",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
-							"config": []interface{}{
+							"check": []interface{}{
 								map[string]interface{}{
-									"bool_config": true,
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"name": "strategy",
+											"config": []interface{}{
+												map[string]interface{}{
+													"bool_config": true,
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -113,8 +163,6 @@ func Test_parsePolicy(t *testing.T) {
 				ID:                 "id",
 				Min:                1,
 				Max:                5,
-				Source:             "source",
-				Query:              "query",
 				Enabled:            true,
 				EvaluationInterval: 5 * time.Second,
 				Target: &policy.Target{
@@ -125,10 +173,17 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "cache",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
-						"bool_config": "true",
+				Checks: []*policy.Check{
+					{
+						Name:   "check",
+						Source: "source",
+						Query:  "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"bool_config": "true",
+							},
+						},
 					},
 				},
 			},
@@ -170,8 +225,8 @@ func Test_parsePolicy(t *testing.T) {
 				},
 			},
 			expected: policy.Policy{
-				Enabled: true,
-				EvaluationInterval: 7*time.Second,
+				Enabled:            true,
+				EvaluationInterval: 7 * time.Second,
 			},
 		},
 		{
@@ -182,8 +237,8 @@ func Test_parsePolicy(t *testing.T) {
 				},
 			},
 			expected: policy.Policy{
-				Enabled: true,
-				Cooldown: 7*time.Second,
+				Enabled:  true,
+				Cooldown: 7 * time.Second,
 			},
 		},
 	}

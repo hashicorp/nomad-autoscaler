@@ -55,8 +55,6 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				ID:                 "string",
 				Min:                1,
 				Max:                5,
-				Source:             "source",
-				Query:              "query",
 				Enabled:            true,
 				EvaluationInterval: time.Second,
 				Target: &policy.Target{
@@ -68,11 +66,18 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group":          "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
-						"strategy_config1": "yes",
-						"strategy_config2": "no",
+				Checks: []*policy.Check{
+					{
+						Name:   "check",
+						Source: "source",
+						Query:  "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"strategy_config1": "yes",
+								"strategy_config2": "no",
+							},
+						},
 					},
 				},
 			},
@@ -80,8 +85,6 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				ID:                 "string",
 				Min:                1,
 				Max:                5,
-				Source:             "source",
-				Query:              "query",
 				Enabled:            true,
 				EvaluationInterval: time.Second,
 				Target: &policy.Target{
@@ -93,11 +96,18 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group":          "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
-						"strategy_config1": "yes",
-						"strategy_config2": "no",
+				Checks: []*policy.Check{
+					{
+						Name:   "check",
+						Source: "source",
+						Query:  "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"strategy_config1": "yes",
+								"strategy_config2": "no",
+							},
+						},
 					},
 				},
 			},
@@ -106,13 +116,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "set all defaults",
 			input: &policy.Policy{},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name:   plugins.InternalTargetNomad,
-					Config: map[string]string{},
-				},
-				Strategy: &policy.Strategy{
 					Config: map[string]string{},
 				},
 			},
@@ -125,17 +131,19 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		{
 			name: "expand query when source is empty",
 			input: &policy.Policy{
-				Query: "avg_cpu",
 				Target: &policy.Target{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
+				Checks: []*policy.Check{
+					{
+						Query: "avg_cpu",
+					},
+				},
 			},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
-				Query:              "avg_cpu/group/job",
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
@@ -144,26 +152,34 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group": "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Config: map[string]string{},
+				Checks: []*policy.Check{
+					{
+						Source: plugins.InternalAPMNomad,
+						Query:  "avg_cpu/group/job",
+						Strategy: &policy.Strategy{
+							Config: map[string]string{},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "expand query when source is nomad apm",
 			input: &policy.Policy{
-				Source: plugins.InternalAPMNomad,
-				Query:  "avg_cpu",
 				Target: &policy.Target{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
+				Checks: []*policy.Check{
+					{
+						Source: plugins.InternalAPMNomad,
+						Query:  "avg_cpu",
+					},
+				},
 			},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
-				Query:              "avg_cpu/group/job",
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
@@ -172,25 +188,33 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group": "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Config: map[string]string{},
+				Checks: []*policy.Check{
+					{
+						Source: plugins.InternalAPMNomad,
+						Query:  "avg_cpu/group/job",
+						Strategy: &policy.Strategy{
+							Config: map[string]string{},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "expand query from user-defined values",
 			input: &policy.Policy{
-				Query: "avg_cpu",
 				Target: &policy.Target{
 					Config: map[string]string{
 						"Job":   "my_job",
 						"Group": "my_group",
 					},
 				},
+				Checks: []*policy.Check{
+					{
+						Query: "avg_cpu",
+					},
+				},
 			},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
-				Query:              "avg_cpu/my_group/my_job",
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
@@ -199,26 +223,34 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group": "my_group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Config: map[string]string{},
+				Checks: []*policy.Check{
+					{
+						Source: plugins.InternalAPMNomad,
+						Query:  "avg_cpu/my_group/my_job",
+						Strategy: &policy.Strategy{
+							Config: map[string]string{},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "don't expand query if not nomad apm",
 			input: &policy.Policy{
-				Source: "not_nomad",
-				Query:  "avg_cpu",
 				Target: &policy.Target{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
+				Checks: []*policy.Check{
+					{
+						Source: "not_nomad",
+						Query:  "avg_cpu",
+					},
+				},
 			},
 			expected: &policy.Policy{
-				Source:             "not_nomad",
-				Query:              "avg_cpu",
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
@@ -227,25 +259,33 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group": "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Config: map[string]string{},
+				Checks: []*policy.Check{
+					{
+						Source: "not_nomad",
+						Query:  "avg_cpu",
+						Strategy: &policy.Strategy{
+							Config: map[string]string{},
+						},
+					},
 				},
 			},
 		},
 		{
 			name: "don't expand query if not in short format",
 			input: &policy.Policy{
-				Query: "avg_cpu/my_group/my_job",
 				Target: &policy.Target{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
+				Checks: []*policy.Check{
+					{
+						Query: "avg_cpu/my_group/my_job",
+					},
+				},
 			},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
-				Query:              "avg_cpu/my_group/my_job",
 				EvaluationInterval: 10 * time.Second,
 				Target: &policy.Target{
 					Name: plugins.InternalTargetNomad,
@@ -254,8 +294,14 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group": "group",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Config: map[string]string{},
+				Checks: []*policy.Check{
+					{
+						Source: plugins.InternalAPMNomad,
+						Query:  "avg_cpu/my_group/my_job",
+						Strategy: &policy.Strategy{
+							Config: map[string]string{},
+						},
+					},
 				},
 			},
 		},
@@ -263,13 +309,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "sets eval interval from agent",
 			input: &policy.Policy{},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
 				EvaluationInterval: 5 * time.Second,
 				Target: &policy.Target{
 					Name:   plugins.InternalTargetNomad,
-					Config: map[string]string{},
-				},
-				Strategy: &policy.Strategy{
 					Config: map[string]string{},
 				},
 			},
@@ -281,14 +323,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "sets cooldown from agent",
 			input: &policy.Policy{},
 			expected: &policy.Policy{
-				Source:             plugins.InternalAPMNomad,
 				EvaluationInterval: 10 * time.Second,
 				Cooldown:           1 * time.Hour,
 				Target: &policy.Target{
 					Name:   plugins.InternalTargetNomad,
-					Config: map[string]string{},
-				},
-				Strategy: &policy.Strategy{
 					Config: map[string]string{},
 				},
 			},

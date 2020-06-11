@@ -82,7 +82,7 @@ Nomad Options:
     The authentication information to use when connecting to a Nomad API which
     is using HTTP authentication.
 
-  -ca-cert=<path>
+  -nomad-ca-cert=<path>
     Path to a PEM encoded CA cert file to use to verify the Nomad server SSL
     certificate.
 

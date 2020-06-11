@@ -72,6 +72,7 @@ func TestAgent_Merge(t *testing.T) {
 			SkipVerify:    true,
 		},
 		Policy: &Policy{
+			Dir:             "/etc/scaling/policies",
 			DefaultCooldown: 20 * time.Minute,
 		},
 		APMs: []*Plugin{
@@ -117,6 +118,7 @@ func TestAgent_Merge(t *testing.T) {
 			SkipVerify:    true,
 		},
 		Policy: &Policy{
+			Dir:             "/etc/scaling/policies",
 			DefaultCooldown: 20 * time.Minute,
 		},
 		APMs: []*Plugin{

@@ -18,7 +18,7 @@ A subset of the available Nomad Autoscaler agent configuration can optionally be
  * `-nomad-namespace=<namespace>`: The target namespace for queries and actions bound to a namespace.
  * `-nomad-token=<token>`: The `SecretID` of an ACL token to use to authenticate API requests with.
  * `-nomad-http-auth=<username:password>`: The authentication information to use when connecting to a Nomad API which is using HTTP authentication.
- * `-ca-cert=<path>`: Path to a PEM encoded CA cert file to use to verify the Nomad server SSL certificate.
+ * `-nomad-ca-cert=<path>`: Path to a PEM encoded CA cert file to use to verify the Nomad server SSL certificate.
  * `-nomad-ca-path=<path>`: Path to a directory of PEM encoded CA cert files to verify the Nomad server SSL certificate. If both `-nomad-ca-cert` and `-nomad-ca-path` are specified, `-nomad-ca-cert` is used.
  * `-nomad-client-cert=<path>`: Path to a PEM encoded client certificate for TLS authentication to the Nomad server. Must also specify `-nomad-client-key`.
  * `-nomad-client-key=<path>`: Path to an unencrypted PEM encoded private key matching the client certificate from `-nomad-client-cert`.

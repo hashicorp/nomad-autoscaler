@@ -29,7 +29,7 @@ func TestStrategyPlugin_PluginInfo(t *testing.T) {
 func TestStrategyPlugin_Run(t *testing.T) {
 	testCases := []struct {
 		inputReq      strategy.RunRequest
-		expectedResp  strategy.RunResponse
+		expectedResp  strategy.Action
 		expectedError error
 		name          string
 	}{
@@ -38,7 +38,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				PolicyID: "test-policy",
 				Config:   nil,
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{},
 			expectedError: fmt.Errorf("missing required field `target`"),
 			name:          "incorrect input config",
 		},
@@ -47,7 +47,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "not-the-float-you're-looking-for"},
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{},
 			expectedError: fmt.Errorf("invalid value for `target`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input config target value",
 		},
@@ -56,7 +56,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "0", "threshold": "not-the-float-you're-looking-for"},
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{},
 			expectedError: fmt.Errorf("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input config target value",
 		},
@@ -67,7 +67,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   13,
 				Count:    2,
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "factor equals 1 with non-zero count",
 		},
@@ -78,12 +78,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   26,
 				Count:    2,
 			},
-			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
-				{
-					Count:  4,
-					Reason: "scaling up because factor is 2.000000",
-				},
-			}},
+			expectedResp: strategy.Action{
+				Count:     4,
+				Direction: strategy.ScaleDirectionUp,
+				Reason:    "scaling up because factor is 2.000000",
+			},
 			expectedError: nil,
 			name:          "factor greater than 1 with non-zero count",
 		},
@@ -94,12 +93,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   20,
 				Count:    0,
 			},
-			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
-				{
-					Count:  2,
-					Reason: "scaling up because factor is 2.000000",
-				},
-			}},
+			expectedResp: strategy.Action{
+				Count:     2,
+				Direction: strategy.ScaleDirectionUp,
+				Reason:    "scaling up because factor is 2.000000",
+			},
 			expectedError: nil,
 			name:          "scale from 0 with non-zero target",
 		},
@@ -110,7 +108,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   9,
 				Count:    1,
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "no scaling based on small target/metric difference",
 		},
@@ -121,12 +119,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   1,
 				Count:    0,
 			},
-			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
-				{
-					Count:  1,
-					Reason: "scaling up because factor is 1.000000",
-				},
-			}},
+			expectedResp: strategy.Action{
+				Count:     1,
+				Direction: strategy.ScaleDirectionUp,
+				Reason:    "scaling up because factor is 1.000000",
+			},
 			expectedError: nil,
 			name:          "scale from 0 with 0 target eg. build queue with 0 running build agents",
 		},
@@ -137,12 +134,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   0,
 				Count:    5,
 			},
-			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
-				{
-					Count:  0,
-					Reason: "scaling down because factor is 0.000000",
-				},
-			}},
+			expectedResp: strategy.Action{
+				Count:     0,
+				Direction: strategy.ScaleDirectionDown,
+				Reason:    "scaling down because factor is 0.000000",
+			},
 			expectedError: nil,
 			name:          "scale to 0 with 0 target eg. idle build agents",
 		},
@@ -153,7 +149,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   5.00001,
 				Count:    8,
 			},
-			expectedResp:  strategy.RunResponse{Actions: []strategy.Action{}},
+			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "don't scale when the factor change is small",
 		},
@@ -164,12 +160,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metric:   5.00001,
 				Count:    8,
 			},
-			expectedResp: strategy.RunResponse{Actions: []strategy.Action{
-				{
-					Count:  9,
-					Reason: "scaling up because factor is 1.000002",
-				},
-			}},
+			expectedResp: strategy.Action{
+				Count:     9,
+				Direction: strategy.ScaleDirectionUp,
+				Reason:    "scaling up because factor is 1.000002",
+			},
 			expectedError: nil,
 			name:          "scale up on small changes if threshold is small",
 		},
@@ -178,9 +173,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 	s := &StrategyPlugin{logger: hclog.NewNullLogger()}
 
 	for _, tc := range testCases {
-		actualResp, actualError := s.Run(tc.inputReq)
-		assert.Equal(t, tc.expectedResp, actualResp)
-		assert.Equal(t, tc.expectedError, actualError)
+		t.Run(tc.name, func(t *testing.T) {
+			actualResp, actualError := s.Run(tc.inputReq)
+			assert.Equal(t, tc.expectedResp, actualResp, tc.name)
+			assert.Equal(t, tc.expectedError, actualError, tc.name)
+		})
 	}
 }
 
@@ -189,16 +186,16 @@ func TestStrategyPlugin_calculateDirection(t *testing.T) {
 		inputCount     int64
 		inputFactor    float64
 		threshold      float64
-		expectedOutput scaleDirection
+		expectedOutput strategy.ScaleDirection
 	}{
-		{inputCount: 0, inputFactor: 1, expectedOutput: scaleDirectionUp},
-		{inputCount: 5, inputFactor: 1, expectedOutput: scaleDirectionNone},
-		{inputCount: 4, inputFactor: 0.5, expectedOutput: scaleDirectionDown},
-		{inputCount: 5, inputFactor: 2, expectedOutput: scaleDirectionUp},
-		{inputCount: 5, inputFactor: 1.0001, threshold: 0.01, expectedOutput: scaleDirectionNone},
-		{inputCount: 5, inputFactor: 1.02, threshold: 0.01, expectedOutput: scaleDirectionUp},
-		{inputCount: 5, inputFactor: 0.99, threshold: 0.01, expectedOutput: scaleDirectionNone},
-		{inputCount: 5, inputFactor: 0.98, threshold: 0.01, expectedOutput: scaleDirectionDown},
+		{inputCount: 0, inputFactor: 1, expectedOutput: strategy.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 1, expectedOutput: strategy.ScaleDirectionNone},
+		{inputCount: 4, inputFactor: 0.5, expectedOutput: strategy.ScaleDirectionDown},
+		{inputCount: 5, inputFactor: 2, expectedOutput: strategy.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 1.0001, threshold: 0.01, expectedOutput: strategy.ScaleDirectionNone},
+		{inputCount: 5, inputFactor: 1.02, threshold: 0.01, expectedOutput: strategy.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 0.99, threshold: 0.01, expectedOutput: strategy.ScaleDirectionNone},
+		{inputCount: 5, inputFactor: 0.98, threshold: 0.01, expectedOutput: strategy.ScaleDirectionDown},
 	}
 
 	s := &StrategyPlugin{}

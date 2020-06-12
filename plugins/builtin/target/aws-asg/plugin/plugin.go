@@ -119,8 +119,9 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 	case "out":
 		err = t.scaleOut(ctx, curASG, num)
 	default:
-		return fmt.Errorf("scaling not required, ASG count %v and Autoscaler desired count %v",
-			*curASG.DesiredCapacity, action.Count)
+		t.logger.Info("scaling not required", "asg_name", asgName,
+			"current_count", *curASG.DesiredCapacity, "strategy_count", action.Count)
+		return nil
 	}
 
 	// If we received an error while scaling, format this with an outer message
@@ -159,7 +160,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) 
 	// If the ASG has scaling activities listed ensure the status takes into
 	// account the most recent activity. Most importantly if the last event has
 	// not finished, the ASG is not ready for scaling.
-	if events != nil {
+	if events != nil && len(events) > 0 {
 		resp.Ready = resp.Ready || *events[0].Progress == 100
 		resp.Meta = map[string]string{
 			target.MetaKeyLastEvent: strconv.FormatInt(events[0].EndTime.UnixNano(), 10),

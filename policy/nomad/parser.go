@@ -14,6 +14,10 @@ import (
 // the end result. To avoid missing values use validateScalingPolicy() to
 // detect errors first.
 func parsePolicy(p *api.ScalingPolicy) policy.Policy {
+	if p == nil {
+		return policy.Policy{}
+	}
+
 	to := policy.Policy{
 		ID:      p.ID,
 		Max:     p.Max,
@@ -43,38 +47,63 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 		to.Cooldown, _ = time.ParseDuration(cooldown)
 	}
 
+	// Parse target block.
+	// There shouldn't be more than one, but iterate just in case.
+	var target *policy.Target
+	for k, v := range parseBlocks(p.Policy[keyTarget]) {
+		target = parseTarget(v, p.Target)
+		if target != nil {
+			target.Name = k
+			break
+		}
+	}
+	to.Target = target
+
 	return to
 }
 
+// parseChecks parses the list of checks in a scaling policy.
+//
+// It provides best-effort parsing and will return `nil` in case of errors.
 func parseChecks(cs interface{}) []*policy.Check {
 	if cs == nil {
 		return nil
 	}
 
-	checkInterfaceList, ok := cs.([]interface{})
+	checksInterfaceList, ok := cs.([]interface{})
 	if !ok {
 		return nil
 	}
 
 	var checks []*policy.Check
-	for _, checkInterface := range checkInterfaceList {
-		checkMap, ok := checkInterface.(map[string]interface{})
-		if !ok {
-			continue
-		}
+	checksBlocks := parseBlocks(checksInterfaceList)
 
-		for k, v := range checkMap {
-			check := parseCheck(v)
-			if check != nil {
-				check.Name = k
-				checks = append(checks, check)
-			}
+	for k, v := range checksBlocks {
+		check := parseCheck(v)
+		if check != nil {
+			check.Name = k
+			checks = append(checks, check)
 		}
 	}
 
 	return checks
 }
 
+// parseCheck parses the content of a check block from a policy.
+//
+// It provides best-effort parsing and will return `nil` in case of errors.
+//
+//  scaling {
+//    policy {
+//    +--------------------------------+
+//    | check "name" {                 |
+//    |   source = "source"            |
+//    |   query = "query"              |
+//    |   strategy "strategy" { ... }  |
+//    | }                              |
+//    +--------------------------------+
+//    }
+//  }
 func parseCheck(c interface{}) *policy.Check {
 	if c == nil {
 		return nil
@@ -85,19 +114,26 @@ func parseCheck(c interface{}) *policy.Check {
 		return nil
 	}
 
-	check := &policy.Check{
-		Strategy: parseStrategy(checkMap[keyStrategy]),
+	// Parse a single strategy block.
+	// There shouldn't be more than one, but iterate just in case.
+	var strategy *policy.Strategy
+	for k, v := range parseBlocks(checkMap[keyStrategy]) {
+		strategy = parseStrategy(v)
+		if strategy != nil {
+			strategy.Name = k
+			break
+		}
 	}
 
-	if query, ok := checkMap[keyQuery].(string); ok {
-		check.Query = query
-	}
+	// Parse query and source with _ to avoid panics.
+	query, _ := checkMap[keyQuery].(string)
+	source, _ := checkMap[keySource].(string)
 
-	if source, ok := checkMap[keySource].(string); ok {
-		check.Source = source
+	return &policy.Check{
+		Query:    query,
+		Source:   source,
+		Strategy: strategy,
 	}
-
-	return check
 }
 
 // parseStrategy parses the content of the strategy block from a policy.
@@ -106,13 +142,10 @@ func parseCheck(c interface{}) *policy.Check {
 //
 //  scaling {
 //    policy {
-//      strategy = {
-//      +-------------------+
-//      | name = "strategy" |
-//      | config = {        |
-//      |   key = "value"   |
-//      | }                 |
-//      +-------------------+
+//      strategy "strategy" {
+//      +---------------+
+//      | key = "value" |
+//      +---------------+
 //      }
 //    }
 //  }
@@ -126,21 +159,12 @@ func parseStrategy(s interface{}) *policy.Strategy {
 		return nil
 	}
 
-	var configMapString map[string]string
-	configMap := parseBlock(strategyMap["config"])
-
-	if configMap != nil {
-		configMapString = make(map[string]string)
-		for k, v := range configMap {
-			configMapString[k] = fmt.Sprintf("%v", v)
-		}
+	configMapString := make(map[string]string)
+	for k, v := range strategyMap {
+		configMapString[k] = fmt.Sprintf("%v", v)
 	}
 
-	// Ignore ok, but we need _ to avoid panics.
-	name, _ := strategyMap["name"].(string)
-
 	return &policy.Strategy{
-		Name:   name,
 		Config: configMapString,
 	}
 }
@@ -153,42 +177,32 @@ func parseStrategy(s interface{}) *policy.Strategy {
 //
 //  scaling {
 //    policy {
-//      target = {
-//      +-----------------+
-//      | name = "target" |
-//      | config = {      |
-//      |   key = "value" |
-//      | }               |
-//      +-----------------+
+//      target "target"  {
+//      +---------------+
+//      | key = "value" |
+//      +---------------+
 //      }
 //    }
 //  }
 func parseTarget(targetBlock interface{}, targetAttr map[string]string) *policy.Target {
-
 	targetMap := parseBlock(targetBlock)
 	if targetMap == nil && targetAttr == nil {
 		return nil
 	}
 
+	// Copy values from api.ScalingPolicy.Target.
 	configMapString := make(map[string]string)
 	for k, v := range targetAttr {
 		configMapString[k] = v
 	}
-	if targetMap != nil {
-		configMap := parseBlock(targetMap["config"])
 
-		if configMap != nil {
-			for k, v := range configMap {
-				configMapString[k] = fmt.Sprintf("%v", v)
-			}
+	if targetMap != nil {
+		for k, v := range targetMap {
+			configMapString[k] = fmt.Sprintf("%v", v)
 		}
 	}
 
-	// Ignore ok, but we need _ to avoid panics.
-	name, _ := targetMap["name"].(string)
-
 	return &policy.Target{
-		Name:   name,
 		Config: configMapString,
 	}
 }
@@ -207,4 +221,27 @@ func parseBlock(block interface{}) map[string]interface{} {
 	}
 
 	return blockMap
+}
+
+// parseBlocks flattens a list of block into a map, with the labels as keys.
+func parseBlocks(blocks interface{}) map[string]interface{} {
+	blocksInterfaceList, ok := blocks.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	blocksMap := make(map[string]interface{})
+
+	for _, blockInterface := range blocksInterfaceList {
+		blockMap, ok := blockInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		for blockName, blockContent := range blockMap {
+			blocksMap[blockName] = blockContent
+		}
+	}
+
+	return blocksMap
 }

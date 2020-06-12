@@ -7,6 +7,12 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 )
 
+const (
+	// DefaultDrainDeadline is the drainSpec deadline used if one is not
+	// specified by an operator.
+	DefaultDrainDeadline = 15 * time.Minute
+)
+
 // ScaleInReq represents an individual cluster scaling request and encompasses
 // all the information needed to perform the pre-termination tasks.
 type ScaleInReq struct {

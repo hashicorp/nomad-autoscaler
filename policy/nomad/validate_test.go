@@ -443,7 +443,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			// Read from file if defined, otherwise use input object.
 			if tc.inputFile != "" {
 				jobPath := fmt.Sprintf("test-fixtures/%s.json.golden", tc.inputFile)
-				job := testParseJob(t, jobPath)
+				job := TestParseJob(t, jobPath)
 
 				if len(job.TaskGroups) != 1 {
 					t.Fatalf("expected 1 group, found %d", len(job.TaskGroups))

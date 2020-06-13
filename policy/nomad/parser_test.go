@@ -212,7 +212,7 @@ func Test_parsePolicy(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			jobPath := fmt.Sprintf("test-fixtures/%s.json.golden", tc.input)
-			job := testParseJob(t, jobPath)
+			job := TestParseJob(t, jobPath)
 
 			if len(job.TaskGroups) != 1 {
 				t.Fatalf("expected 1 group, found %d", len(job.TaskGroups))

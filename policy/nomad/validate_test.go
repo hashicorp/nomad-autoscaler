@@ -16,106 +16,22 @@ func Test_validateScalingPolicy(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       *api.ScalingPolicy
+		inputFile   string
 		expectError bool
 	}{
 		{
-			name: "valid policy",
-			input: &api.ScalingPolicy{
-				ID:        "id",
-				Namespace: "default",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
-					keyEvaluationInterval: "5s",
-					keyTarget: []interface{}{
-						map[string]interface{}{
-							"target": []interface{}{
-								map[string]interface{}{
-									"key": "value",
-								},
-							},
-						},
-					},
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check-1": []interface{}{
-								map[string]interface{}{
-									keySource: "source-1",
-									keyQuery:  "query-1",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy-1": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-							"check-2": []interface{}{
-								map[string]interface{}{
-									keySource: "source-2",
-									keyQuery:  "query-2",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy-2": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-				Enabled: ptr.BoolToPtr(true),
-			},
+			name:        "valid policy",
+			inputFile:   "full-scaling",
 			expectError: false,
 		},
 		{
-			name: "valid policy without optional values",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "valid min policy",
+			inputFile:   "minimum-valid-scaling",
 			expectError: false,
 		},
 		{
 			name:        "nil policy",
-			input:       nil,
+			inputFile:   "missing-scaling",
 			expectError: true,
 		},
 		{
@@ -317,170 +233,33 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy is missing",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-			},
+			name:        "policy is missing",
+			inputFile:   "missing-policy",
 			expectError: true,
 		},
 		{
-			name: "policy.check.source is not a string",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: 2,
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.source is not a string",
+			inputFile:   "invalid-source-not-string",
 			expectError: true,
 		},
 		{
-			name: "policy.check.query is missing",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.query is missing",
+			inputFile:   "invalid-missing-query",
 			expectError: true,
 		},
 		{
-			name: "policy.check.query is not a string",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  5,
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.query is not a string",
+			inputFile:   "invalid-query",
 			expectError: true,
 		},
 		{
-			name: "policy.check.query is empty",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.query is empty",
+			inputFile:   "invalid-empty-query",
 			expectError: true,
 		},
 		{
-			name: "policy.check.strategy is missing",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.strategy is missing",
+			inputFile:   "missing-strategy",
 			expectError: true,
 		},
 		{
@@ -546,109 +325,18 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "more than one policy.check.strategy",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy-1": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-											"strategy-2": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.check.strategy multiple",
+			inputFile:   "invalid-multiple-strategies",
 			expectError: true,
 		},
 		{
-			name: "policy.evaluation_interval has wrong type",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyEvaluationInterval: 5,
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.evaluation_interval has wrong type",
+			inputFile:   "invalid-evaluation-interval-type",
 			expectError: true,
 		},
 		{
-			name: "policy.evaluation_interval has wrong format",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyEvaluationInterval: "5 seconds",
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.evaluation_interval has wrong format",
+			inputFile:   "invalid-evaluation-interval",
 			expectError: true,
 		},
 		{
@@ -732,135 +420,52 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "more than one policy.target",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyTarget: []interface{}{
-						map[string]interface{}{
-							"target-1": []interface{}{
-								map[string]interface{}{
-									"key": "value",
-								},
-							},
-							"target-2": []interface{}{
-								map[string]interface{}{
-									"key": "value",
-								},
-							},
-						},
-					},
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.target multiple",
+			inputFile:   "invalid-multiple-targets",
 			expectError: true,
 		},
 		{
-			name: "policy.cooldown has wrong type",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyCooldown: 5,
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.cooldown has wrong type",
+			inputFile:   "invalid-cooldown-type",
 			expectError: true,
 		},
 		{
-			name: "policy.cooldown has wrong format",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyCooldown: "5 seconds",
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource: "source",
-									keyQuery:  "query",
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			name:        "policy.cooldown has wrong format",
+			inputFile:   "invalid-cooldown",
 			expectError: true,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateScalingPolicy(tc.input)
+			var input *api.ScalingPolicy
+
+			// Read from file if defined, otherwise use input object.
+			if tc.inputFile != "" {
+				jobPath := fmt.Sprintf("test-fixtures/%s.json.golden", tc.inputFile)
+				job := testParseJob(t, jobPath)
+
+				if len(job.TaskGroups) != 1 {
+					t.Fatalf("expected 1 group, found %d", len(job.TaskGroups))
+				}
+
+				input = job.TaskGroups[0].Scaling
+			} else {
+				input = tc.input
+			}
+
+			err := validateScalingPolicy(input)
+
+			// Print error if -show-validation-error flag is set.
 			if err != nil && *showValidationError {
 				fmt.Println(err)
 			}
 
-			assertFunc := assert.NoError
 			if tc.expectError {
-				assertFunc = assert.Error
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-
-			assertFunc(t, err)
 		})
 	}
 }

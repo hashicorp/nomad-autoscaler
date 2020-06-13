@@ -329,6 +329,10 @@ func validateBlock(in interface{}, path string, validator validatorFunc) error {
 func validateBlocks(in interface{}, path string, validator validatorFunc) error {
 	var result *multierror.Error
 
+	if in == nil {
+		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+	}
+
 	inList, ok := in.([]interface{})
 	if !ok {
 		return multierror.Append(result, fmt.Errorf("%s must be []interface{}, found %T", path, in))

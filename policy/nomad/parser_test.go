@@ -1,15 +1,12 @@
 package nomad
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -283,33 +280,4 @@ func Test_parseBlock(t *testing.T) {
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
-}
-
-func testParseJob(t *testing.T, path string) *api.Job {
-	jobJSON, err := ioutil.ReadFile(path)
-	if err != nil {
-		t.Fatalf("failed to read job file %s: %v", path, err)
-	}
-
-	// Partially read the JSON to see if we have a "Job" root.
-	var root map[string]json.RawMessage
-	err = json.Unmarshal(jobJSON, &root)
-	if err != nil {
-		t.Fatalf("failed to read job file %s: %v", path, err)
-	}
-
-	jobBytes, ok := root["Job"]
-	if !ok {
-		// Parse the input as is if there's no "Job" root.
-		jobBytes = jobJSON
-	}
-
-	// Parse job bytes.
-	var job api.Job
-	err = json.Unmarshal(jobBytes, &job)
-	if err != nil {
-		t.Fatalf("failed to unmarshal job %s: %v", path, err)
-	}
-
-	return &job
 }

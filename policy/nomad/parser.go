@@ -22,7 +22,6 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 		ID:      p.ID,
 		Max:     p.Max,
 		Enabled: true,
-		Target:  parseTarget(p.Policy[keyTarget], p.Target),
 		Checks:  parseChecks(p.Policy[keyChecks]),
 	}
 

@@ -5,16 +5,18 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 )
+
+type validatorFunc func(in map[string]interface{}, path string) error
 
 // validateScalingPolicy validates an api.ScalingPolicy object from the Nomad API
 func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
 
 	if policy == nil {
-		result = multierror.Append(result, fmt.Errorf("ScalingPolicy is nil"))
-		return result
+		return multierror.Append(result, fmt.Errorf("ScalingPolicy is nil"))
 	}
 
 	// Validate ID.
@@ -75,93 +77,104 @@ func validatePolicy(p map[string]interface{}) error {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
 
-	// Validate EvaluationInterval.
-	//   1. EvaluationInterval must have string value if defined.
-	//   2. EvaluationInterval must have time.Duration format if defined.
-	evalInterval, ok := p[keyEvaluationInterval]
-	if ok {
-		evalIntervalString, ok := evalInterval.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keyEvaluationInterval, evalInterval))
-		} else {
-			if _, err := time.ParseDuration(evalIntervalString); err != nil {
-				result = multierror.Append(result, fmt.Errorf("%s.%s must have time.Duration format", path, keyEvaluationInterval))
-			}
+	// Validate EvaluationInterval, if present.
+	//   1. EvaluationInterval should be a valid duration.
+	if evalInterval, ok := p[keyEvaluationInterval]; ok {
+		if err := validateDuration(evalInterval, path+"."+keyEvaluationInterval); err != nil {
+			result = multierror.Append(result, err)
 		}
 	}
 
-	// Validate Cooldown.
-	//   1. Cooldown must have string value if defined.
-	//   2. Cooldown must have time.Duration format if defined.
+	// Validate Cooldown, if present.
+	//   1. Cooldown should be a valid duration.
 	if cooldown, ok := p[keyCooldown]; ok {
-		cooldownString, ok := cooldown.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s->%s must be string, found %T", path, keyCooldown, evalInterval))
-		} else {
-			if _, err := time.ParseDuration(cooldownString); err != nil {
-				result = multierror.Append(result, fmt.Errorf("%s->%s must have time.Duration format", path, keyCooldown))
-			}
+		if err := validateDuration(cooldown, path+"."+keyCooldown); err != nil {
+			result = multierror.Append(result, err)
 		}
 	}
 
-	// Validate Target (optional).
-	//   1. Target must be a valid block if present.
-	targetInterface, ok := p[keyTarget]
-	if ok {
-		targetErr := validateBlock(targetInterface, path, keyTarget, validateTarget)
-		if targetErr != nil {
-			result = multierror.Append(result, targetErr)
+	// Validate Target, if present.
+	if targetInterface, ok := p[keyTarget]; ok {
+		err := validateBlocks(targetInterface, path+"."+keyTarget, validateTarget)
+		if err != nil {
+			result = multierror.Append(result, err)
 		}
 	}
 
-	checksErrs := validateChecks(p[keyChecks], path, keyChecks)
-	if checksErrs != nil {
-		result = multierror.Append(result, checksErrs)
+	// Validate Check blocks.
+	err := validateBlocks(p[keyChecks], path+"."+keyChecks, validateChecks)
+	if err != nil {
+		result = multierror.Append(result, err)
 	}
 
 	return result.ErrorOrNil()
 }
 
-func validateChecks(in interface{}, path, key string) error {
-	var result *multierror.Error
-
-	inList, ok := in.([]interface{})
-	if !ok {
-		return multierror.Append(result, fmt.Errorf("%s.%s must be []interface{}, found %T", path, key, in))
-	}
-
-	for i, checkInterface := range inList {
-		checkMap, ok := checkInterface.(map[string]interface{})
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s[%d] must be map[string]interface{}, found %T", path, key, i, checkInterface))
-			continue
-		}
-
-		for k, v := range checkMap {
-			if k == "" {
-				result = multierror.Append(result, fmt.Errorf("%s.%s[%d] must have a name", path, key, i))
-			}
-
-			checkErrs := validateBlock(v, path, fmt.Sprintf("%s.%s", key, k), validateCheck)
-			if checkErrs != nil {
-				result = multierror.Append(result, checkErrs)
-				continue
-			}
-		}
-	}
-
-	return nil
+// validateTarget validates target blocks within policy.
+//
+//  scaling {
+//    policy {
+//    +-------------------+
+//    | target "target" { |
+//    |   key = "value"   |
+//    | }                 |
+//    +-------------------+
+//      }
+//    }
+//  }
+//
+// Validation rules:
+//   1. Only one target block at maxmimum.
+//   2. Block must have a label.
+//   3. Block structure should be valid.
+func validateTarget(t map[string]interface{}, path string) error {
+	return validateLabeledBlocks(t, path, nil, ptr.IntToPtr(1), nil)
 }
 
+// validateChecks validates the set of check blocks within policy.
+//
+//  scaling {
+//    policy {
+//    +-------------------+
+//    | check "check-1" { |
+//    |   ...             |
+//    | }                 |
+//    |                   |
+//    | check "check-2" { |
+//    |   ...             |
+//    | }                 |
+//    +-------------------+
+//      }
+//    }
+//  }
+//
+// Validation rules:
+//   1. At least one check block.
+//   2. All check blocks should have labels.
+//   3. All check blocks structure should be valid.
+func validateChecks(in map[string]interface{}, path string) error {
+	return validateLabeledBlocks(in, path, ptr.IntToPtr(1), nil, validateCheck)
+}
+
+// validateCheck validates the content of a check block.
+//
+//  scaling {
+//    policy {
+//      check "check" {
+//      +---------------+
+//      | key = "value" |
+//      +---------------+
+//      }
+//    }
+//  }
 func validateCheck(c map[string]interface{}, path string) error {
 	var result *multierror.Error
 
-	// It shouldn't happen, but it's better to prevent a panic.
 	if c == nil {
 		return multierror.Append(result, fmt.Errorf("%s is nil", path))
 	}
 
-	// Validate Source (optional).
+	// Validate Source, if present.
 	//   1. Source value must be a string if defined.
 	source, ok := c[keySource]
 	if ok {
@@ -192,124 +205,67 @@ func validateCheck(c map[string]interface{}, path string) error {
 	// Validate Strategy.
 	//   1. Strategy key must exist.
 	//   2. Strategy must be a valid block.
-	strategyErrs := validateBlock(c[keyStrategy], path, keyStrategy, validateStrategy)
+	//   3. Only 1 Strategy allowed.
+	strategyErrs := validateBlocks(c[keyStrategy], path+"."+keyStrategy, validateStrategy)
 	if strategyErrs != nil {
 		result = multierror.Append(result, strategyErrs)
 	}
 
-	return result
+	return result.ErrorOrNil()
 }
 
-// validateStrategy validates the content of the strategy block inside policy.
+// validateStrategy validates strategy blocks within a policy check.
 //
 //  scaling {
 //    policy {
-//      strategy = {
-//      +-------------------+
-//      | name = "strategy" |
-//      | config = {        |
-//      |   key = "value"   |
-//      | }                 |
-//      +-------------------+
+//      check "check" {
+//      +-----------------------+
+//      | strategy "strategy" { |
+//      |   key = "value"       |
+//      | }                     |
+//      +-----------------------+
 //      }
 //    }
 //  }
+//
+// Validation rules:
+//   1. Only one strategy block.
+//   2. Block must have a label.
+//   3. Block structure should be valid.
 func validateStrategy(s map[string]interface{}, path string) error {
-	var result *multierror.Error
-
-	// It shouldn't happen, but it's better to prevent a panic.
-	if s == nil {
-		return multierror.Append(result, fmt.Errorf("%s is nil", path))
-	}
-
-	// Validate name.
-	//   1. Name key must exist.
-	//   2. Name must have string value.
-	//   3. Name must not be empty.
-	nameKey := "name"
-	nameInterface, ok := s[nameKey]
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf("%s.%s is missing", path, nameKey))
-	} else {
-		nameString, ok := nameInterface.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, nameKey, nameInterface))
-		} else {
-			if nameString == "" {
-				result = multierror.Append(result, fmt.Errorf("%s.%s can't be empty", path, nameKey))
-			}
-		}
-	}
-
-	// Validate config (optional).
-	//   1. Config must be a block if present.
-	configKey := "config"
-	if config, ok := s[configKey]; ok {
-		err := validateBlock(config, path, configKey, nil)
-		if err != nil {
-			result = multierror.Append(result, err)
-		}
-	}
-
-	return result.ErrorOrNil()
+	return validateLabeledBlocks(s, path, ptr.IntToPtr(1), ptr.IntToPtr(1), nil)
 }
 
-// validateTarget validates the content of the target block inside policy.
+// validateDuration validates if the input has a valid time.Duration format.
 //
-//  scaling {
-//    policy {
-//      target = {
-//      +-----------------+
-//      | name = "target" |
-//      | config = {      |
-//      |   key = "value" |
-//      | }               |
-//      +-----------------+
-//      }
-//    }
-//  }
-func validateTarget(t map[string]interface{}, path string) error {
-	var result *multierror.Error
-
-	// It shouldn't happen, but it's better to prevent a panic.
-	if t == nil {
-		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+// Validation rules:
+//   1. Input must be a string.
+//   2. Input must parse to a time.Duration.
+func validateDuration(d interface{}, path string) error {
+	dStr, ok := d.(string)
+	if !ok {
+		return fmt.Errorf("%s must be string, found %T", path, d)
 	}
 
-	// Validate name (optional).
-	//   1. Name must have string value if present.
-	//   2. Name must not be empty if present.
-	nameKey := "name"
-	nameInterface, ok := t[nameKey]
-	if ok {
-		nameString, ok := nameInterface.(string)
-		if !ok {
-			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, nameKey, nameInterface))
-		} else {
-			if nameString == "" {
-				result = multierror.Append(result, fmt.Errorf("%s.%s can't be empty", path, nameKey))
-			}
-		}
+	if _, err := time.ParseDuration(dStr); err != nil {
+		return fmt.Errorf(`%s must have time.Duration format, found "%s"`, path, dStr)
 	}
 
-	// Validate config (optional).
-	//   1. Config must be a block if present.
-	configKey := "config"
-	if config, ok := t[configKey]; ok {
-		err := validateBlock(config, path, configKey, nil)
-		if err != nil {
-			result = multierror.Append(result, err)
-		}
-	}
-
-	return result.ErrorOrNil()
+	return nil
 }
 
-// validateBlock validates the kind of unusual structure we receive when the policy is parsed.
-func validateBlock(in interface{}, path, key string, validator func(in map[string]interface{}, path string) error) error {
+// validateBlock validates the structure of a block parsed from HCL.
+// The content of the block can be further validated by passing a `validator`
+// function.
+//
+// Expected input format:
+//   []interface{} {
+//     map[string]interface{} {
+//       "key": interface{}
+//     }
+//   }
+func validateBlock(in interface{}, path string, validator validatorFunc) error {
 	var result *multierror.Error
-
-	path = fmt.Sprintf("%s.%s", path, key)
 
 	runValidator := func(input map[string]interface{}) {
 		if validator == nil {
@@ -341,6 +297,119 @@ func validateBlock(in interface{}, path, key string, validator func(in map[strin
 	}
 
 	runValidator(inMap)
+
+	return result.ErrorOrNil()
+}
+
+// validateBlocks validates the expected structure of a list of blocks of the
+// same type.
+// It flattens the list of blocks into a map and passes it to the validator
+// function for further validation of each blocks' content.
+//
+// Expected input format:
+//   []interface{} {
+//     map[string]interface{} {
+//       "block-type": []interface{} {
+//         map[string]interface{} {
+//           "label-1": []interface{} {
+//             map[string]interface{} {
+//               "key": interface{}
+//             }
+//           }
+//           "label-2": []interface{} {
+//             map[string]interface{} {
+//               "key-1": interface{}
+//               "key-2": interface{}
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+func validateBlocks(in interface{}, path string, validator validatorFunc) error {
+	var result *multierror.Error
+
+	inList, ok := in.([]interface{})
+	if !ok {
+		return multierror.Append(result, fmt.Errorf("%s must be []interface{}, found %T", path, in))
+	}
+
+	blocksMap := make(map[string]interface{})
+	for i, blockInterface := range inList {
+		blockMap, ok := blockInterface.(map[string]interface{})
+		if !ok {
+			result = multierror.Append(result, fmt.Errorf("%s[%d] must be map[string]interface{}, found: %T", path, i, blockInterface))
+			continue
+		}
+
+		for k, v := range blockMap {
+			blocksMap[k] = v
+		}
+	}
+
+	if validator != nil {
+		if err := validator(blocksMap, path); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	return result.ErrorOrNil()
+}
+
+// validateLabeledBlocks validates a set of labeled blocks.
+// The min and max number of expected blocks can be defined using the `min`
+// `max` parameters.
+// The content of each block is further validated by passing it to the
+// `validator` function.
+//
+// Expected input format:
+//   map[string]interface{} {
+//     "label-1": []interface{} {
+//       map[string]interface{} {
+//         "key": interface{}
+//       }
+//     }
+//     "label-2": []interface{} {
+//       map[string]interface{} {
+//         "key-1": interface{}
+//         "key-2": interface{}
+//       }
+//     }
+//   }
+func validateLabeledBlocks(b map[string]interface{}, path string, min, max *int, validator validatorFunc) error {
+	var result *multierror.Error
+
+	if b == nil {
+		return multierror.Append(result, fmt.Errorf("%s is nil", path))
+	}
+
+	if len(b) == 0 {
+		return nil
+	}
+
+	var expected *int
+	if min != nil && len(b) < *min {
+		expected = min
+	} else if max != nil && len(b) > *max {
+		expected = max
+	}
+	if expected != nil {
+		return multierror.Append(result, fmt.Errorf("expected %d %s block, found %d", *expected, path, len(b)))
+	}
+
+	for name, block := range b {
+		// Validate name.
+		//   1. Name must not be empty.
+		if name == "" {
+			result = multierror.Append(result, fmt.Errorf("block %s must have a label", path))
+		}
+
+		// Validate block content.
+		//   1. Content must be a block.
+		if err := validateBlock(block, fmt.Sprintf("%s[%s]", path, name), validator); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
 
 	return result.ErrorOrNil()
 }

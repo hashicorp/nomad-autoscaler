@@ -32,22 +32,45 @@ func Test_validateScalingPolicy(t *testing.T) {
 					keySource:             "source",
 					keyQuery:              "query",
 					keyEvaluationInterval: "5s",
-					keyStrategy: []interface{}{
+					keyTarget: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
-							"config": []interface{}{
+							"target": []interface{}{
 								map[string]interface{}{
 									"key": "value",
 								},
 							},
 						},
 					},
-					keyTarget: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "target",
-							"config": []interface{}{
+							"check-1": []interface{}{
 								map[string]interface{}{
-									"key": "value",
+									keySource: "source-1",
+									keyQuery:  "query-1",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy-1": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
+							"check-2": []interface{}{
+								map[string]interface{}{
+									keySource: "source-2",
+									keyQuery:  "query-2",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy-2": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
 								},
 							},
 						},
@@ -67,10 +90,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -96,10 +132,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -113,10 +162,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -132,10 +194,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				},
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -152,10 +227,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(-1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -172,10 +260,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: -5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -192,10 +293,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(2),
 				Max: 1,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -215,7 +329,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.source is not a string",
+			name: "policy.check.source is not a string",
 			input: &api.ScalingPolicy{
 				ID: "id",
 				Target: map[string]string{
@@ -224,11 +338,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource: 2,
-					keyQuery:  "query",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: 2,
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -236,7 +362,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.query is missing",
+			name: "policy.check.query is missing",
 			input: &api.ScalingPolicy{
 				ID: "id",
 				Target: map[string]string{
@@ -245,10 +371,22 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource: "source",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -256,7 +394,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.query is not a string",
+			name: "policy.check.query is not a string",
 			input: &api.ScalingPolicy{
 				ID: "id",
 				Target: map[string]string{
@@ -265,11 +403,23 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource: "source",
-					keyQuery:  5,
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  5,
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -277,7 +427,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.query is empty",
+			name: "policy.check.query is empty",
 			input: &api.ScalingPolicy{
 				ID: "id",
 				Target: map[string]string{
@@ -286,11 +436,147 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource: "source",
-					keyQuery:  "",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.strategy is missing",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.strategy.name is empty",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.strategy has wrong type",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": "not a block",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "more than one policy.check.strategy",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy-1": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+											"strategy-2": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -307,12 +593,24 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
 					keyEvaluationInterval: 5,
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -329,132 +627,24 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
 					keyEvaluationInterval: "5 seconds",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
-						},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.strategy is missing",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keySource: "source",
-					keyQuery:  "query",
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.strategy.name is missing",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.strategy.name is not a string",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": 2,
-						},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.strategy.name is empty",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "",
-						},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.strategy.config has wrong type",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name":   "strategy",
-							"config": "not a block",
-						},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "policy.target.name is not a string",
-			input: &api.ScalingPolicy{
-				ID: "id",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "strategy",
-						},
-					},
-					keyTarget: []interface{}{
-						map[string]interface{}{
-							"name": 2,
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -471,15 +661,32 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "strategy",
-						},
-					},
 					keyTarget: []interface{}{
 						map[string]interface{}{
-							"name": "",
+							"": []interface{}{
+								map[string]interface{}{
+									"key": "value",
+								},
+							},
+						},
+					},
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -487,7 +694,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.target.config has wrong type",
+			name: "policy.target has wrong type",
 			input: &api.ScalingPolicy{
 				ID: "id",
 				Target: map[string]string{
@@ -496,17 +703,75 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keyQuery: "query",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "strategy",
-						},
-					},
-
 					keyTarget: []interface{}{
 						map[string]interface{}{
-							"name":   "strategy",
-							"config": "not a block",
+							"target": "not block",
+						},
+					},
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "more than one policy.target",
+			input: &api.ScalingPolicy{
+				ID: "id",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Int64ToPtr(1),
+				Max: 5,
+				Policy: map[string]interface{}{
+					keyTarget: []interface{}{
+						map[string]interface{}{
+							"target-1": []interface{}{
+								map[string]interface{}{
+									"key": "value",
+								},
+							},
+							"target-2": []interface{}{
+								map[string]interface{}{
+									"key": "value",
+								},
+							},
+						},
+					},
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -523,12 +788,24 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource:   "source",
-					keyQuery:    "query",
 					keyCooldown: 5,
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -545,12 +822,24 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Min: ptr.Int64ToPtr(1),
 				Max: 5,
 				Policy: map[string]interface{}{
-					keySource:   "source",
-					keyQuery:    "query",
 					keyCooldown: "5 seconds",
-					keyStrategy: []interface{}{
+					keyChecks: []interface{}{
 						map[string]interface{}{
-							"name": "strategy",
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource: "source",
+									keyQuery:  "query",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -650,7 +939,7 @@ func Test_validateBlock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateBlock(tc.input, "path", "key", tc.validator)
+			err := validateBlock(tc.input, "path.key", tc.validator)
 			if err != nil && *showValidationError {
 				fmt.Println(err)
 			}

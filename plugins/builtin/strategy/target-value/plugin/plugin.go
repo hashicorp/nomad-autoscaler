@@ -51,27 +51,6 @@ type StrategyPlugin struct {
 	logger hclog.Logger
 }
 
-// scaleDirection is used to indicate if the resulting count should increase
-// (scale up), descrease (scale down), or stay the same (none).
-type scaleDirection int8
-
-const (
-	scaleDirectionNone scaleDirection = iota
-	scaleDirectionUp
-	scaleDirectionDown
-)
-
-func (d scaleDirection) String() string {
-	switch d {
-	case scaleDirectionUp:
-		return "up"
-	case scaleDirectionDown:
-		return "down"
-	default:
-		return ""
-	}
-}
-
 // NewTargetValuePlugin returns the TargetValue implementation of the
 // strategy.Strategy interface.
 func NewTargetValuePlugin(log hclog.Logger) strategy.Strategy {
@@ -92,8 +71,8 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 // Run satisfies the Run function on the strategy.Strategy interface.
-func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
-	resp := strategy.RunResponse{Actions: []strategy.Action{}}
+func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
+	resp := strategy.Action{}
 
 	// Read and parse target value from req.Config.
 	t := req.Config[runConfigKeyTarget]
@@ -130,8 +109,8 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	}
 
 	// Identify the direction of scaling, if any.
-	direction := s.calculateDirection(req.Count, factor, threshold)
-	if direction == scaleDirectionNone {
+	resp.Direction = s.calculateDirection(req.Count, factor, threshold)
+	if resp.Direction == strategy.ScaleDirectionNone {
 		return resp, nil
 	}
 
@@ -152,19 +131,18 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 	// all the calculations made.
 	s.logger.Trace("calculated scaling strategy results",
 		"policy_id", req.PolicyID, "current_count", req.Count, "new_count", newCount,
-		"metric_value", req.Metric, "factor", factor, "direction", direction)
+		"metric_value", req.Metric, "factor", factor, "direction", resp.Direction)
 
 	// If the calculated newCount is the same as the current count, we do not
 	// need to scale so return an empty response.
 	if newCount == req.Count {
+		resp.Direction = strategy.ScaleDirectionNone
 		return resp, nil
 	}
 
-	action := strategy.Action{
-		Count:  newCount,
-		Reason: fmt.Sprintf("scaling %s because factor is %f", direction, factor),
-	}
-	resp.Actions = append(resp.Actions, action)
+	resp.Count = newCount
+	resp.Reason = fmt.Sprintf("scaling %s because factor is %f", resp.Direction, factor)
+
 	return resp, nil
 }
 
@@ -174,20 +152,20 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.RunResponse, err
 //
 // The input factor value is padded by e, such that no action will be taken if
 // factor is within [1-e; 1+e].
-func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) scaleDirection {
+func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) strategy.ScaleDirection {
 	switch count {
 	case 0:
 		if factor > 0 {
-			return scaleDirectionUp
+			return strategy.ScaleDirectionUp
 		}
-		return scaleDirectionNone
+		return strategy.ScaleDirectionNone
 	default:
 		if factor < (1 - e) {
-			return scaleDirectionDown
+			return strategy.ScaleDirectionDown
 		} else if factor > (1 + e) {
-			return scaleDirectionUp
+			return strategy.ScaleDirectionUp
 		} else {
-			return scaleDirectionNone
+			return strategy.ScaleDirectionNone
 		}
 	}
 }

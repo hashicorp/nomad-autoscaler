@@ -71,15 +71,7 @@ func (a *Agent) Run(ctx context.Context) error {
 			a.logger.Info("context closed, shutting down")
 			return nil
 		case policyEval := <-policyEvalCh:
-			if policyEval == nil || policyEval.Policy == nil {
-				continue
-			}
-
-			actions := []strategypkg.Action{}
-			for _, c := range policyEval.Policy.Checks {
-				actions = append(actions, a.handlePolicyCheck(policyEval.Policy, c)...)
-			}
-			// TODO: reconcile actions and execute them
+			a.handlePolicy(policyEval.Policy)
 		}
 	}
 }
@@ -153,12 +145,12 @@ func (a *Agent) generateNomadClient() error {
 	return nil
 }
 
-func (a *Agent) handlePolicyCheck(p *policy.Policy, c *policy.Check) []strategypkg.Action {
+func (a *Agent) handlePolicy(p *policy.Policy) {
 	logger := a.logger.With(
 		"policy_id", p.ID,
-		"source", c.Source,
+		"source", p.Source,
 		"target", p.Target.Name,
-		"strategy", c.Strategy.Name,
+		"strategy", p.Strategy.Name,
 	)
 
 	logger.Info("received policy for evaluation")
@@ -171,21 +163,21 @@ func (a *Agent) handlePolicyCheck(p *policy.Policy, c *policy.Check) []strategyp
 	targetPlugin, err := a.pluginManager.Dispense(p.Target.Name, plugins.PluginTypeTarget)
 	if err != nil {
 		logger.Error("target plugin not initialized", "error", err, "plugin", p.Target.Name)
-		return []strategypkg.Action{}
+		return
 	}
 	targetInst = targetPlugin.Plugin().(targetpkg.Target)
 
-	apmPlugin, err := a.pluginManager.Dispense(c.Source, plugins.PluginTypeAPM)
+	apmPlugin, err := a.pluginManager.Dispense(p.Source, plugins.PluginTypeAPM)
 	if err != nil {
-		logger.Error("apm plugin not initialized", "error", err, "plugin", c.Source)
-		return []strategypkg.Action{}
+		logger.Error("apm plugin not initialized", "error", err, "plugin", p.Source)
+		return
 	}
 	apmInst = apmPlugin.Plugin().(apmpkg.APM)
 
-	strategyPlugin, err := a.pluginManager.Dispense(c.Strategy.Name, plugins.PluginTypeStrategy)
+	strategyPlugin, err := a.pluginManager.Dispense(p.Strategy.Name, plugins.PluginTypeStrategy)
 	if err != nil {
-		logger.Error("strategy plugin not initialized", "error", err, "plugin", c.Strategy.Name)
-		return []strategypkg.Action{}
+		logger.Error("strategy plugin not initialized", "error", err, "plugin", p.Strategy.Name)
+		return
 	}
 	strategyInst = strategyPlugin.Plugin().(strategypkg.Strategy)
 
@@ -194,19 +186,19 @@ func (a *Agent) handlePolicyCheck(p *policy.Policy, c *policy.Check) []strategyp
 	currentStatus, err := targetInst.Status(p.Target.Config)
 	if err != nil {
 		logger.Error("failed to fetch current count", "error", err)
-		return []strategypkg.Action{}
+		return
 	}
 	if !currentStatus.Ready {
 		logger.Info("target not ready")
-		return []strategypkg.Action{}
+		return
 	}
 
 	// query policy's APM
 	logger.Info("querying APM")
-	value, err := apmInst.Query(c.Query)
+	value, err := apmInst.Query(p.Query)
 	if err != nil {
 		logger.Error("failed to query APM", "error", err)
-		return []strategypkg.Action{}
+		return
 	}
 
 	// calculate new count using policy's Strategy
@@ -215,84 +207,81 @@ func (a *Agent) handlePolicyCheck(p *policy.Policy, c *policy.Check) []strategyp
 		PolicyID: p.ID,
 		Count:    currentStatus.Count,
 		Metric:   value,
-		Config:   c.Strategy.Config,
+		Config:   p.Strategy.Config,
 	}
-	results, err := strategyInst.Run(req)
+	result, err := strategyInst.Run(req)
 	if err != nil {
 		logger.Error("failed to calculate strategy", "error", err)
-		return []strategypkg.Action{}
+		return
 	}
 
-	if len(results.Actions) == 0 {
+	if result.Direction == strategypkg.ScaleDirectionNone {
 		// Make sure we are currently within [min, max] limits even if there's
 		// no action to execute
 		var minMaxAction *strategypkg.Action
 
 		if currentStatus.Count < p.Min {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Min,
-				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
+				Count:     p.Min,
+				Direction: strategypkg.ScaleDirectionUp,
+				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
 			}
 		} else if currentStatus.Count > p.Max {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Max,
-				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
+				Count:     p.Max,
+				Direction: strategypkg.ScaleDirectionDown,
+				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
 			}
 		}
 
 		if minMaxAction != nil {
-			results.Actions = append(results.Actions, *minMaxAction)
+			result = *minMaxAction
 		} else {
 			logger.Info("nothing to do")
-			return []strategypkg.Action{}
+			return
 		}
 	}
 
-	return results.Actions
+	// Scale the target.
+	actionLogger := logger.With("target_config", p.Target.Config)
 
-	// TODO: lazily commented out for now
-	//	// scale target
-	//	for _, action := range results.Actions {
-	//		actionLogger := logger.With("target_config", p.Target.Config)
-	//
-	//		// Make sure returned action has sane defaults instead of relying on
-	//		// plugins doing this.
-	//		action.Canonicalize()
-	//
-	//		// Make sure new count value is within [min, max] limits
-	//		action.CapCount(p.Min, p.Max)
-	//
-	//		// If the policy is configured with dry-run:true then we set the
-	//		// action count to nil so its no-nop. This allows us to still
-	//		// submit the job, but not alter its state.
-	//		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
-	//			actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
-	//			action.SetDryRun()
-	//		}
-	//
-	//		if action.Count == strategypkg.MetaValueDryRunCount {
-	//			actionLogger.Info("registering scaling event",
-	//				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
-	//		} else {
-	//			// Skip action if count doesn't change.
-	//			if currentStatus.Count == action.Count {
-	//				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
-	//				continue
-	//			}
-	//
-	//			actionLogger.Info("scaling target",
-	//				"from", currentStatus.Count, "to", action.Count,
-	//				"reason", action.Reason, "meta", action.Meta)
-	//		}
-	//
-	//		if err = targetInst.Scale(action, p.Target.Config); err != nil {
-	//			actionLogger.Error("failed to scale target", "error", err)
-	//			continue
-	//		}
-	//		actionLogger.Info("successfully submitted scaling action to target",
-	//			"desired_count", action.Count)
-	//
-	//		// Enforce the cooldown after a successful scaling event.
-	//		a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
-	//	}
+	// Make sure returned action has sane defaults instead of relying on
+	// plugins doing this.
+	result.Canonicalize()
+
+	// Make sure new count value is within [min, max] limits
+	result.CapCount(p.Min, p.Max)
+
+	// If the policy is configured with dry-run:true then we set the
+	// action count to nil so its no-nop. This allows us to still
+	// submit the job, but not alter its state.
+	if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
+		actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
+		result.SetDryRun()
+	}
+
+	if result.Count == strategypkg.MetaValueDryRunCount {
+		actionLogger.Info("registering scaling event",
+			"count", currentStatus.Count, "reason", result.Reason, "meta", result.Meta)
+	} else {
+		// Skip action if count doesn't change.
+		if currentStatus.Count == result.Count {
+			actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", result.Count)
+			return
+		}
+
+		actionLogger.Info("scaling target",
+			"from", currentStatus.Count, "to", result.Count,
+			"reason", result.Reason, "meta", result.Meta)
+	}
+
+	if err = targetInst.Scale(result, p.Target.Config); err != nil {
+		actionLogger.Error("failed to scale target", "error", err)
+		return
+	}
+	actionLogger.Info("successfully submitted scaling action to target",
+		"desired_count", result.Count)
+
+	// Enforce the cooldown after a successful scaling event.
+	a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
 }

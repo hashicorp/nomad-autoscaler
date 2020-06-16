@@ -140,7 +140,7 @@ func (a *Action) pushReason(r string) {
 // infrastructure:
 //
 //   * ScaleDirectionUp: Action with highest count
-//   * ScaleDirectionDown: Action with lowest count
+//   * ScaleDirectionDown: Action with highest count
 func PreemptAction(a *Action, b *Action) *Action {
 	if a == nil {
 		return b
@@ -156,12 +156,8 @@ func PreemptAction(a *Action, b *Action) *Action {
 
 	if a.Direction == b.Direction {
 		switch a.Direction {
-		case ScaleDirectionUp:
+		case ScaleDirectionUp, ScaleDirectionDown:
 			if b.Count > a.Count {
-				return b
-			}
-		case ScaleDirectionDown:
-			if b.Count < a.Count {
 				return b
 			}
 		}

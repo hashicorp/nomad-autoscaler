@@ -68,6 +68,38 @@ func Test_parsePolicy(t *testing.T) {
 			},
 		},
 		{
+			name:  "minimum valid scaling",
+			input: "minimum-valid-scaling",
+			expected: policy.Policy{
+				ID:      "id",
+				Min:     1,
+				Max:     10,
+				Enabled: true,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "minimum-valid-scaling",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{
+						Name:  "check",
+						Query: "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:     "missing scaling",
 			input:    "missing-scaling",
 			expected: policy.Policy{},
@@ -78,6 +110,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-policy",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
@@ -86,6 +126,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-evaluation-interval",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
@@ -94,6 +142,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-cooldown",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
@@ -126,6 +182,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-check",
+						"Group":     "test",
+					},
+				},
 				Checks: []*policy.Check{
 					{Name: "check"},
 				},
@@ -137,6 +201,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "single-check",
+						"Group":     "test",
+					},
+				},
 				Checks: []*policy.Check{
 					{
 						Name:   "check",
@@ -160,6 +232,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-check",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
@@ -168,6 +248,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "missing-strategy",
+						"Group":     "test",
+					},
+				},
 				Checks: []*policy.Check{
 					{
 						Name:   "check",
@@ -183,6 +271,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-strategy",
+						"Group":     "test",
+					},
+				},
 				Checks: []*policy.Check{
 					{
 						Name: "check",
@@ -200,6 +296,14 @@ func Test_parsePolicy(t *testing.T) {
 			expected: policy.Policy{
 				ID:  "id",
 				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-strategy",
+						"Group":     "test",
+					},
+				},
 				Checks: []*policy.Check{
 					{
 						Name: "check",

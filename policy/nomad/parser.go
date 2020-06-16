@@ -47,13 +47,20 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 	}
 
 	// Parse target block.
-	// There shouldn't be more than one, but iterate just in case.
 	var target *policy.Target
-	for k, v := range parseBlocks(p.Policy[keyTarget]) {
-		target = parseTarget(v, p.Target)
-		if target != nil {
-			target.Name = k
-			break
+
+	if p.Policy[keyTarget] == nil {
+		// Target was not specified in the policy block, but parse values from
+		// the Target field.
+		target = parseTarget(nil, p.Target)
+	} else {
+		// There shouldn't be more than one, but iterate just in case.
+		for k, v := range parseBlocks(p.Policy[keyTarget]) {
+			target = parseTarget(v, p.Target)
+			if target != nil {
+				target.Name = k
+				break
+			}
 		}
 	}
 	to.Target = target

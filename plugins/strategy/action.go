@@ -1,6 +1,8 @@
 package strategy
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	// Standarized Meta keys used by the Autoscaler.
@@ -52,6 +54,9 @@ const (
 	// ScaleDirectionUp indicates the target should increase the number of
 	// running instances of the resource.
 	ScaleDirectionUp
+
+	// ScaleDirectionDont indicates that no scaling action should happen.
+	ScaleDirectionDont
 )
 
 // String satisfies the Stringer interface and returns as string representation
@@ -122,4 +127,45 @@ func (a *Action) pushReason(r string) {
 	}
 	a.Meta[metaKeyReasonHistory] = history
 	a.Reason = r
+}
+
+// PreemptAction determines which Action should take precedence.
+//
+// The result is based on the scaling direction and count. The order of
+// precedence for the scaling directions is defined by the order in which they
+// are declared in the above enum.
+//
+// If the scaling direction is the same, the priority is given to the safest
+// option, where safest is defined as lowest impact in the underlying
+// infrastructure:
+//
+//   * ScaleDirectionUp: Action with highest count
+//   * ScaleDirectionDown: Action with lowest count
+func PreemptAction(a *Action, b *Action) *Action {
+	if a == nil {
+		return b
+	}
+
+	if b == nil {
+		return a
+	}
+
+	if b.Direction > a.Direction {
+		return b
+	}
+
+	if a.Direction == b.Direction {
+		switch a.Direction {
+		case ScaleDirectionUp:
+			if b.Count > a.Count {
+				return b
+			}
+		case ScaleDirectionDown:
+			if b.Count < a.Count {
+				return b
+			}
+		}
+	}
+
+	return a
 }

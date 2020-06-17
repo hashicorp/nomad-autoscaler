@@ -6,6 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestScaleDirection_String(t *testing.T) {
+	testCases := []struct {
+		inputDirection       ScaleDirection
+		expectedOutputString string
+	}{
+		{inputDirection: ScaleDirectionNone, expectedOutputString: "none"},
+		{inputDirection: ScaleDirectionDown, expectedOutputString: "down"},
+		{inputDirection: ScaleDirectionUp, expectedOutputString: "up"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.expectedOutputString, func(t *testing.T) {
+			actualOutput := tc.inputDirection.String()
+			assert.Equal(t, tc.expectedOutputString, actualOutput, tc.expectedOutputString)
+		})
+	}
+}
+
 func TestAction_Canonicalize(t *testing.T) {
 	testCases := []struct {
 		inputAction          *Action

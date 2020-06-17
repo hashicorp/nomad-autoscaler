@@ -209,79 +209,80 @@ func (a *Agent) handlePolicy(p *policy.Policy) {
 		Metric:   value,
 		Config:   p.Strategy.Config,
 	}
-	results, err := strategyInst.Run(req)
+	result, err := strategyInst.Run(req)
 	if err != nil {
 		logger.Error("failed to calculate strategy", "error", err)
 		return
 	}
 
-	if len(results.Actions) == 0 {
+	if result.Direction == strategypkg.ScaleDirectionNone {
 		// Make sure we are currently within [min, max] limits even if there's
 		// no action to execute
 		var minMaxAction *strategypkg.Action
 
 		if currentStatus.Count < p.Min {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Min,
-				Reason: fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
+				Count:     p.Min,
+				Direction: strategypkg.ScaleDirectionUp,
+				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, p.Min),
 			}
 		} else if currentStatus.Count > p.Max {
 			minMaxAction = &strategypkg.Action{
-				Count:  p.Max,
-				Reason: fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
+				Count:     p.Max,
+				Direction: strategypkg.ScaleDirectionDown,
+				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, p.Max),
 			}
 		}
 
 		if minMaxAction != nil {
-			results.Actions = append(results.Actions, *minMaxAction)
+			result = *minMaxAction
 		} else {
 			logger.Info("nothing to do")
 			return
 		}
 	}
 
-	// scale target
-	for _, action := range results.Actions {
-		actionLogger := logger.With("target_config", p.Target.Config)
+	// Scale the target.
+	actionLogger := logger.With("target_config", p.Target.Config)
 
-		// Make sure returned action has sane defaults instead of relying on
-		// plugins doing this.
-		action.Canonicalize()
+	// Make sure returned action has sane defaults instead of relying on
+	// plugins doing this.
+	result.Canonicalize()
 
-		// Make sure new count value is within [min, max] limits
-		action.CapCount(p.Min, p.Max)
+	// Make sure new count value is within [min, max] limits
+	result.CapCount(p.Min, p.Max)
 
-		// If the policy is configured with dry-run:true then we set the
-		// action count to nil so its no-nop. This allows us to still
-		// submit the job, but not alter its state.
-		if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
-			actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
-			action.SetDryRun()
-		}
-
-		if action.Count == strategypkg.MetaValueDryRunCount {
-			actionLogger.Info("registering scaling event",
-				"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
-		} else {
-			// Skip action if count doesn't change.
-			if currentStatus.Count == action.Count {
-				actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
-				continue
-			}
-
-			actionLogger.Info("scaling target",
-				"from", currentStatus.Count, "to", action.Count,
-				"reason", action.Reason, "meta", action.Meta)
-		}
-
-		if err = targetInst.Scale(action, p.Target.Config); err != nil {
-			actionLogger.Error("failed to scale target", "error", err)
-			continue
-		}
-		actionLogger.Info("successfully submitted scaling action to target",
-			"desired_count", action.Count)
-
-		// Enforce the cooldown after a successful scaling event.
-		a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
+	// If the policy is configured with dry-run:true then we set the
+	// action count to nil so its no-nop. This allows us to still
+	// submit the job, but not alter its state.
+	if val, ok := p.Target.Config["dry-run"]; ok && val == "true" {
+		actionLogger.Info("scaling dry-run is enabled, using no-op task group count")
+		result.SetDryRun()
 	}
+
+	if result.Count == strategypkg.MetaValueDryRunCount {
+		actionLogger.Info("registering scaling event",
+			"count", currentStatus.Count, "reason", result.Reason, "meta", result.Meta)
+	} else {
+		// Skip action if count doesn't change.
+		if currentStatus.Count == result.Count {
+			actionLogger.Info("nothing to do", "from", currentStatus.Count, "to", result.Count)
+			return
+		}
+
+		actionLogger.Info("scaling target",
+			"from", currentStatus.Count, "to", result.Count,
+			"reason", result.Reason, "meta", result.Meta)
+	}
+
+	if err = targetInst.Scale(result, p.Target.Config); err != nil {
+		actionLogger.Error("failed to scale target", "error", err)
+		return
+	}
+	actionLogger.Info("successfully submitted scaling action to target",
+		"desired_count", result.Count)
+
+	// Enforce the cooldown after a successful scaling event.
+	a.policyManager.EnforceCooldown(p.ID, p.Cooldown)
+
 }

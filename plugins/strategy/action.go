@@ -27,7 +27,44 @@ type Action struct {
 
 	Reason string
 	Error  bool
-	Meta   map[string]interface{}
+
+	// Direction is the scaling direction the strategy has decided should
+	// happen. This is particularly helpful for non-Nomad target
+	// implementations whose APIs dead with increment changes rather than
+	// absolute counts.
+	Direction ScaleDirection
+
+	Meta map[string]interface{}
+}
+
+// ScaleDirection is an identifier used by strategy plugins to identify how the
+// target should scale the named resource.
+type ScaleDirection int8
+
+const (
+	// ScaleDirectionNone indicates no scaling is required.
+	ScaleDirectionNone = iota
+
+	// ScaleDirectionDown indicates the target should lower the number of running
+	// instances of the resource.
+	ScaleDirectionDown
+
+	// ScaleDirectionUp indicates the target should increase the number of
+	// running instances of the resource.
+	ScaleDirectionUp
+)
+
+// String satisfies the Stringer interface and returns as string representation
+// of the scaling direction.
+func (d ScaleDirection) String() string {
+	switch d {
+	case ScaleDirectionDown:
+		return "down"
+	case ScaleDirectionUp:
+		return "up"
+	default:
+		return "none"
+	}
 }
 
 // Canonicalize ensures Action has proper default values.

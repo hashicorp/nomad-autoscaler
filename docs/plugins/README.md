@@ -12,7 +12,7 @@ Use Prometheus metrics to scale your Nomad job task groups. The query performed 
 ##### Sample policy
 
 ```hcl
-policy {
+check {
   source = "prometheus"
   query  = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
   ...
@@ -53,7 +53,7 @@ The metric value can be:
 ##### Sample policy
 
 ```hcl
-policy {
+check {
   source = "nomad"  # optinal, this is the default
   query  = "avg_cpu"
   ...
@@ -80,15 +80,11 @@ next_count = current_count * (metric_value / target)
 An example would be attempting to keep the number of active connections to a web server at 20 per instance of the application.
 
 ```hcl
-policy {
+check {
   ...
-  strategy = {
-    name = "target-value"
-
-    config = {
-      target    = 20
-      threshold = 0.0001
-    }
+  strategy "target-value" {
+    target    = 20
+    threshold = 0.0001
   }
   ...
 ```

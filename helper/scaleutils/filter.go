@@ -12,6 +12,24 @@ type NodeID struct {
 	NomadID, RemoteID string
 }
 
+// PoolIdentifier is the information used to identify nodes into pools of
+// resources. This then forms our scalable unit.
+type PoolIdentifier struct {
+	IdentifierKey IdentifierKey
+	Value         string
+}
+
+// IdentifyNodes filters the supplied node list based on the PoolIdentifier
+// params.
+func (p *PoolIdentifier) IdentifyNodes(n []*api.NodeListStub) ([]*api.NodeListStub, error) {
+	switch p.IdentifierKey {
+	case IdentifierKeyClass:
+		return filterByClass(n, p.Value), nil
+	default:
+		return nil, fmt.Errorf("unsupported node pool identifier: %q", p.IdentifierKey)
+	}
+}
+
 // IdentifierKey is the identifier to group nodes into a pool of resource and
 // thus forms the scalable object.
 type IdentifierKey string

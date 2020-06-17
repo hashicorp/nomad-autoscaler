@@ -17,13 +17,6 @@ type ScaleIn struct {
 	nomad *api.Client
 }
 
-// PoolIdentifier is the information used to identify nodes into pools of
-// resources. This then forms our scalable unit.
-type PoolIdentifier struct {
-	IdentifierKey IdentifierKey
-	Value         string
-}
-
 // NewScaleInUtils returns a new ScaleIn implementation which provides helper
 // functions for performing scaling in operations.
 func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
@@ -89,16 +82,14 @@ func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy Node
 	// Filter the node list depending on what pool identifier we are using.
 	si.log.Debug("filtering node list", "filter", ident.IdentifierKey, "value", ident.Value)
 
-	switch ident.IdentifierKey {
-	case IdentifierKeyClass:
-		si.log.Debug("filtering node list by class", "class", ident.Value)
-		nodes = filterByClass(nodes, ident.Value)
-	default:
-		return nil, fmt.Errorf("unsupported node pool identifier: %q", ident.IdentifierKey)
+	// Filter our nodes to select only those within our identified pool.
+	filteredNodes, err := ident.IdentifyNodes(nodes)
+	if err != nil {
+		return nil, err
 	}
 
 	// Ensure we have not filtered out all the available nodes.
-	if len(nodes) == 0 {
+	if len(filteredNodes) == 0 {
 		return nil, fmt.Errorf("no nodes unfiltered for %s with value %s", ident.IdentifierKey, ident.Value)
 	}
 
@@ -113,10 +104,10 @@ func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy Node
 	// If the caller has requested more nodes than we have available once
 	// filtered, adjust the value. This shouldn't cause the whole scaling
 	// action to fail, but we should warn.
-	if num > len(nodes) {
+	if num > len(filteredNodes) {
 		si.log.Warn("can only identify portion of requested nodes for removal",
-			"requested", num, "available", len(nodes))
-		num = len(nodes)
+			"requested", num, "available", len(filteredNodes))
+		num = len(filteredNodes)
 	}
 
 	var out []*api.NodeListStub
@@ -124,8 +115,8 @@ func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy Node
 	// Iterate through our filtered and sorted list of nodes, selecting the
 	// required number of nodes to scale in.
 	for i := 0; i <= num-1; i++ {
-		si.log.Debug("identified Nomad node for removal", "node_id", nodes[i].ID)
-		out = append(out, nodes[i])
+		si.log.Debug("identified Nomad node for removal", "node_id", filteredNodes[i].ID)
+		out = append(out, filteredNodes[i])
 	}
 
 	return out, nil

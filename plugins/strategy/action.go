@@ -54,9 +54,6 @@ const (
 	// ScaleDirectionUp indicates the target should increase the number of
 	// running instances of the resource.
 	ScaleDirectionUp
-
-	// ScaleDirectionDont indicates that no scaling action should happen.
-	ScaleDirectionDont
 )
 
 // String satisfies the Stringer interface and returns as string representation

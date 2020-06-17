@@ -246,7 +246,7 @@ func TestPreemptAction(t *testing.T) {
 				Direction: ScaleDirectionDown,
 			},
 			expected: &Action{
-				Direction: ScaleDirectionDown,
+				Direction: ScaleDirectionNone,
 			},
 		},
 		{
@@ -270,7 +270,7 @@ func TestPreemptAction(t *testing.T) {
 				Direction: ScaleDirectionNone,
 			},
 			expected: &Action{
-				Direction: ScaleDirectionDown,
+				Direction: ScaleDirectionNone,
 			},
 		},
 		{

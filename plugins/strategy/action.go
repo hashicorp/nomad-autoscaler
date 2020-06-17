@@ -43,13 +43,16 @@ type Action struct {
 // target should scale the named resource.
 type ScaleDirection int8
 
+// The following constants are used to standardize the possible scaling
+// directions for an Action. They are ordered from riskier to safest, with
+// ScaleDirectionNone as the default and zero value.
 const (
-	// ScaleDirectionNone indicates no scaling is required.
-	ScaleDirectionNone = iota
-
 	// ScaleDirectionDown indicates the target should lower the number of running
 	// instances of the resource.
-	ScaleDirectionDown
+	ScaleDirectionDown = iota - 1
+
+	// ScaleDirectionNone indicates no scaling is required.
+	ScaleDirectionNone
 
 	// ScaleDirectionUp indicates the target should increase the number of
 	// running instances of the resource.

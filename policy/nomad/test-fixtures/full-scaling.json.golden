@@ -1,0 +1,199 @@
+{
+  "Job": {
+    "Affinities": null,
+    "AllAtOnce": false,
+    "Constraints": null,
+    "ConsulToken": "",
+    "CreateIndex": 935,
+    "Datacenters": [
+      "dc1"
+    ],
+    "Dispatched": false,
+    "ID": "full-scaling",
+    "JobModifyIndex": 935,
+    "Meta": null,
+    "Migrate": null,
+    "ModifyIndex": 964,
+    "Name": "full-scaling",
+    "Namespace": "default",
+    "ParameterizedJob": null,
+    "ParentID": "",
+    "Payload": null,
+    "Periodic": null,
+    "Priority": 50,
+    "Region": "global",
+    "Reschedule": null,
+    "Spreads": null,
+    "Stable": false,
+    "Status": "dead",
+    "StatusDescription": "",
+    "Stop": false,
+    "SubmitTime": 1591924316308770000,
+    "TaskGroups": [
+      {
+        "Affinities": null,
+        "Constraints": null,
+        "Count": 2,
+        "EphemeralDisk": {
+          "Migrate": false,
+          "SizeMB": 300,
+          "Sticky": false
+        },
+        "Meta": null,
+        "Migrate": null,
+        "Name": "test",
+        "Networks": null,
+        "ReschedulePolicy": {
+          "Attempts": 1,
+          "Delay": 5000000000,
+          "DelayFunction": "constant",
+          "Interval": 86400000000000,
+          "MaxDelay": 0,
+          "Unlimited": false
+        },
+        "RestartPolicy": {
+          "Attempts": 3,
+          "Delay": 15000000000,
+          "Interval": 86400000000000,
+          "Mode": "fail"
+        },
+        "Scaling": {
+          "CreateIndex": 935,
+          "Enabled": false,
+          "ID": "id",
+          "Max": 10,
+          "Min": 2,
+          "ModifyIndex": 935,
+          "Namespace": "",
+          "Policy": {
+            "cooldown": "5m",
+            "evaluation_interval": "5s",
+            "target": [
+              {
+                "target": [
+                  {
+                    "str_config": "str",
+                    "bool_config": true,
+                    "int_config": 2
+                  }
+                ]
+              }
+            ],
+            "check": [
+              {
+                "check-1": [
+                  {
+                    "query": "query-1",
+                    "source": "source-1",
+                    "strategy": [
+                      {
+                        "strategy-1": [
+                          {
+                            "str_config": "str",
+                            "bool_config": true,
+                            "int_config": 2
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "check-2": [
+                  {
+                    "source": "source-2",
+                    "strategy": [
+                      {
+                        "strategy-2": [
+                          {
+                            "bool_config": true,
+                            "int_config": 2,
+                            "str_config": "str"
+                          }
+                        ]
+                      }
+                    ],
+                    "query": "query-2"
+                  }
+                ]
+              }
+            ]
+          },
+          "Target": {
+            "Group": "test",
+            "Namespace": "default",
+            "Job": "full-scaling"
+          }
+        },
+        "Services": null,
+        "ShutdownDelay": null,
+        "Spreads": null,
+        "StopAfterClientDisconnect": null,
+        "Tasks": [
+          {
+            "Affinities": null,
+            "Artifacts": null,
+            "Config": {
+              "command": "echo",
+              "args": [
+                "hi"
+              ]
+            },
+            "Constraints": null,
+            "DispatchPayload": null,
+            "Driver": "raw_exec",
+            "Env": null,
+            "KillSignal": "",
+            "KillTimeout": 5000000000,
+            "Kind": "",
+            "Leader": false,
+            "Lifecycle": null,
+            "LogConfig": {
+              "MaxFileSizeMB": 10,
+              "MaxFiles": 10
+            },
+            "Meta": null,
+            "Name": "echo",
+            "Resources": {
+              "CPU": 100,
+              "Devices": null,
+              "DiskMB": 0,
+              "IOPS": 0,
+              "MemoryMB": 300,
+              "Networks": null
+            },
+            "RestartPolicy": {
+              "Attempts": 3,
+              "Delay": 15000000000,
+              "Interval": 86400000000000,
+              "Mode": "fail"
+            },
+            "Services": null,
+            "ShutdownDelay": 0,
+            "Templates": null,
+            "User": "",
+            "Vault": null,
+            "VolumeMounts": null
+          }
+        ],
+        "Update": null,
+        "Volumes": null
+      }
+    ],
+    "Type": "batch",
+    "Update": {
+      "AutoPromote": false,
+      "AutoRevert": false,
+      "Canary": 0,
+      "HealthCheck": "",
+      "HealthyDeadline": 0,
+      "MaxParallel": 0,
+      "MinHealthyTime": 0,
+      "ProgressDeadline": 0,
+      "Stagger": 0
+    },
+    "VaultToken": "",
+    "Version": 0
+  }
+}

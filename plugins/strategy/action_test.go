@@ -217,3 +217,194 @@ func TestAction_pushReason(t *testing.T) {
 		})
 	}
 }
+
+func TestPreemptAction(t *testing.T) {
+	testCases := []struct {
+		name     string
+		a        *Action
+		b        *Action
+		expected *Action
+	}{
+		{
+			name: "none vs none",
+			a: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			b: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionNone,
+			},
+		},
+		{
+			name: "none vs down",
+			a: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			b: &Action{
+				Direction: ScaleDirectionDown,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionNone,
+			},
+		},
+		{
+			name: "none vs up",
+			a: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			b: &Action{
+				Direction: ScaleDirectionUp,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "down vs none",
+			a: &Action{
+				Direction: ScaleDirectionDown,
+			},
+			b: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionNone,
+			},
+		},
+		{
+			name: "down vs down",
+			a: &Action{
+				Count:     1,
+				Direction: ScaleDirectionDown,
+			},
+			b: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+		},
+		{
+			name: "down vs down reverse",
+			a: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+			b: &Action{
+				Count:     1,
+				Direction: ScaleDirectionDown,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+		},
+		{
+			name: "down vs down same count",
+			a: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+			b: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionDown,
+			},
+		},
+		{
+			name: "down vs up",
+			a: &Action{
+				Direction: ScaleDirectionDown,
+			},
+			b: &Action{
+				Direction: ScaleDirectionUp,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "up vs none",
+			a: &Action{
+				Direction: ScaleDirectionUp,
+			},
+			b: &Action{
+				Direction: ScaleDirectionNone,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "up vs down",
+			a: &Action{
+				Direction: ScaleDirectionUp,
+			},
+			b: &Action{
+				Direction: ScaleDirectionDown,
+			},
+			expected: &Action{
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "up vs up",
+			a: &Action{
+				Count:     1,
+				Direction: ScaleDirectionUp,
+			},
+			b: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "up vs up reverse",
+			a: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+			b: &Action{
+				Count:     1,
+				Direction: ScaleDirectionUp,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+		},
+		{
+			name: "up vs up same count",
+			a: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+			b: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+			expected: &Action{
+				Count:     2,
+				Direction: ScaleDirectionUp,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := PreemptAction(tc.a, tc.b)
+			assert.Equal(t, actual, tc.expected)
+		})
+	}
+}

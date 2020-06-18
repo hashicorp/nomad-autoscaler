@@ -25,7 +25,7 @@ func Test_indexHasChange(t *testing.T) {
 		{
 			newValue:       7,
 			oldValue:       13,
-			expectedReturn: false,
+			expectedReturn: true,
 		},
 	}
 

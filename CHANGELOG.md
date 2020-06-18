@@ -8,6 +8,7 @@ FEATURES:
 
 BUG FIXES:
  * cli: fix incorrect flag help detail for `nomad-ca-path` [[GH-168](https://github.com/hashicorp/nomad-autoscaler/pull/168)]
+ * policy/nomad: fix fast loop when Nomad policy syntax is incorrect [[GH-179](https://github.com/hashicorp/nomad-autoscaler/pull/179)]
 
 ## 0.0.2 (May 21, 2020)
 

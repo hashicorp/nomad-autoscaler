@@ -167,6 +167,11 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 				continue
 			}
 
+			// GH-165: update the wait index. After this point there is a
+			// possibility of continuing the loop and without setting the index
+			// we will just fast loop indefinitely.
+			q.WaitIndex = meta.LastIndex
+
 			if err := validateScalingPolicy(p); err != nil {
 				errMsg := "policy validation failed"
 				if _, ok := err.(*multierror.Error); ok {
@@ -184,7 +189,6 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 			s.canonicalizePolicy(&autoPolicy)
 
 			resultCh <- autoPolicy
-			q.WaitIndex = meta.LastIndex
 		}
 	}
 }

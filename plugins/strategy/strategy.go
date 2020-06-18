@@ -8,7 +8,7 @@ import (
 )
 
 type Strategy interface {
-	Run(req RunRequest) (RunResponse, error)
+	Run(req RunRequest) (Action, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }
@@ -41,10 +41,6 @@ type RunRequest struct {
 	Config   map[string]string
 }
 
-type RunResponse struct {
-	Actions []Action
-}
-
 func (r *RPC) SetConfig(config map[string]string) error {
 	var resp error
 	err := r.client.Call("Plugin.SetConfig", config, &resp)
@@ -54,11 +50,11 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Run(req RunRequest) (RunResponse, error) {
-	var resp RunResponse
+func (r *RPC) Run(req RunRequest) (Action, error) {
+	var resp Action
 	err := r.client.Call("Plugin.Run", req, &resp)
 	if err != nil {
-		return RunResponse{}, err
+		return Action{}, err
 	}
 
 	return resp, nil
@@ -74,7 +70,7 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Run(req RunRequest, resp *RunResponse) error {
+func (s *RPCServer) Run(req RunRequest, resp *Action) error {
 	r, err := s.Impl.Run(req)
 	if err != nil {
 		return err

@@ -1,196 +1,337 @@
 package nomad
 
 import (
+	"fmt"
+	"sort"
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_parsePolicy(t *testing.T) {
 	testCases := []struct {
 		name     string
-		input    *api.ScalingPolicy
+		input    string
 		expected policy.Policy
 	}{
 		{
-			name: "full policy",
-			input: &api.ScalingPolicy{
-				ID:        "id",
-				Namespace: "default",
-				Target: map[string]string{
-					"Namespace": "namespace",
-					"Job":       "example",
-					"Group":     "cache",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
-					keyEvaluationInterval: "5s",
-					keyTarget: []interface{}{
-						map[string]interface{}{
-							"name": "target",
-							"config": []interface{}{
-								map[string]interface{}{
-									"int_config": 2,
-								},
-							},
-						},
-					},
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "strategy",
-							"config": []interface{}{
-								map[string]interface{}{
-									"bool_config": true,
-								},
-							},
-						},
-					},
-				},
-				Enabled: ptr.BoolToPtr(true),
-			},
+			name:  "full scaling",
+			input: "full-scaling",
 			expected: policy.Policy{
 				ID:                 "id",
-				Min:                1,
-				Max:                5,
-				Source:             "source",
-				Query:              "query",
-				Enabled:            true,
+				Min:                2,
+				Max:                10,
+				Enabled:            false,
 				EvaluationInterval: 5 * time.Second,
+				Cooldown:           5 * time.Minute,
 				Target: &policy.Target{
 					Name: "target",
 					Config: map[string]string{
-						"Namespace":  "namespace",
-						"Job":        "example",
-						"Group":      "cache",
-						"int_config": "2",
-					},
-				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
+						"Namespace":   "default",
+						"Job":         "full-scaling",
+						"Group":       "test",
+						"int_config":  "2",
 						"bool_config": "true",
+						"str_config":  "str",
 					},
 				},
-			},
-		},
-		{
-			name: "policy with empty policy target",
-			input: &api.ScalingPolicy{
-				ID:        "id",
-				Namespace: "default",
-				Target: map[string]string{
-					"Namespace": "namespace",
-					"Job":       "example",
-					"Group":     "cache",
-				},
-				Min: ptr.Int64ToPtr(1),
-				Max: 5,
-				Policy: map[string]interface{}{
-					keySource:             "source",
-					keyQuery:              "query",
-					keyEvaluationInterval: "5s",
-					keyStrategy: []interface{}{
-						map[string]interface{}{
-							"name": "strategy",
-							"config": []interface{}{
-								map[string]interface{}{
-									"bool_config": true,
-								},
+				Checks: []*policy.Check{
+					{
+						Name:   "check-1",
+						Source: "source-1",
+						Query:  "query-1",
+						Strategy: &policy.Strategy{
+							Name: "strategy-1",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
+							},
+						},
+					},
+					{
+						Name:   "check-2",
+						Source: "source-2",
+						Query:  "query-2",
+						Strategy: &policy.Strategy{
+							Name: "strategy-2",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
 							},
 						},
 					},
 				},
-				Enabled: ptr.BoolToPtr(true),
 			},
+		},
+		{
+			name:  "minimum valid scaling",
+			input: "minimum-valid-scaling",
 			expected: policy.Policy{
-				ID:                 "id",
-				Min:                1,
-				Max:                5,
-				Source:             "source",
-				Query:              "query",
-				Enabled:            true,
-				EvaluationInterval: 5 * time.Second,
+				ID:      "id",
+				Min:     1,
+				Max:     10,
+				Enabled: true,
 				Target: &policy.Target{
 					Name: "",
 					Config: map[string]string{
-						"Namespace": "namespace",
-						"Job":       "example",
-						"Group":     "cache",
+						"Namespace": "default",
+						"Job":       "minimum-valid-scaling",
+						"Group":     "test",
 					},
 				},
-				Strategy: &policy.Strategy{
-					Name: "strategy",
-					Config: map[string]string{
-						"bool_config": "true",
+				Checks: []*policy.Check{
+					{
+						Name:  "check",
+						Query: "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
+							},
+						},
 					},
 				},
 			},
+		},
+		{
+			name:     "missing scaling",
+			input:    "missing-scaling",
+			expected: policy.Policy{},
 		},
 		{
 			name:  "empty policy",
-			input: &api.ScalingPolicy{},
+			input: "empty-policy",
 			expected: policy.Policy{
-				Enabled: true,
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-policy",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
-			name: "invalid strategy",
-			input: &api.ScalingPolicy{
-				Policy: map[string]interface{}{
-					keyStrategy: true,
-				},
-			},
+			name:  "invalid evaluation_interval",
+			input: "invalid-evaluation-interval",
 			expected: policy.Policy{
-				Enabled: true,
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-evaluation-interval",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
-			name: "invalid target",
-			input: &api.ScalingPolicy{
-				Policy: map[string]interface{}{
-					keyTarget: true,
-				},
-			},
+			name:  "invalid cooldown",
+			input: "invalid-cooldown",
 			expected: policy.Policy{
-				Enabled: true,
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-cooldown",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
-			name: "policy with evaluation_interval",
-			input: &api.ScalingPolicy{
-				Policy: map[string]interface{}{
-					keyEvaluationInterval: "7s",
-				},
-			},
+			name:  "empty target",
+			input: "empty-target",
 			expected: policy.Policy{
-				Enabled: true,
-				EvaluationInterval: 7*time.Second,
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "target",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-target",
+						"Group":     "test",
+					},
+				},
 			},
 		},
 		{
-			name: "policy with cooldown",
-			input: &api.ScalingPolicy{
-				Policy: map[string]interface{}{
-					keyCooldown: "7s",
+			name:  "invalid target",
+			input: "invalid-target",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+			},
+		},
+		{
+			name:  "empty check",
+			input: "empty-check",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-check",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{Name: "check"},
 				},
 			},
+		},
+		{
+			name:  "single check",
+			input: "single-check",
 			expected: policy.Policy{
-				Enabled: true,
-				Cooldown: 7*time.Second,
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "single-check",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{
+						Name:   "check",
+						Source: "source",
+						Query:  "query",
+						Strategy: &policy.Strategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "invalid check",
+			input: "invalid-check",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-check",
+						"Group":     "test",
+					},
+				},
+			},
+		},
+		{
+			name:  "missing strategy",
+			input: "missing-strategy",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "missing-strategy",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{
+						Name:   "check",
+						Source: "source",
+						Query:  "query",
+					},
+				},
+			},
+		},
+		{
+			name:  "empty strategy",
+			input: "empty-strategy",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "empty-strategy",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{
+						Name: "check",
+						Strategy: &policy.Strategy{
+							Name:   "strategy",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:  "invalid strategy",
+			input: "invalid-strategy",
+			expected: policy.Policy{
+				ID:  "id",
+				Max: 10,
+				Target: &policy.Target{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "invalid-strategy",
+						"Group":     "test",
+					},
+				},
+				Checks: []*policy.Check{
+					{
+						Name: "check",
+					},
+				},
 			},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := parsePolicy(tc.input)
+			jobPath := fmt.Sprintf("test-fixtures/%s.json.golden", tc.input)
+			job := TestParseJob(t, jobPath)
+
+			if len(job.TaskGroups) != 1 {
+				t.Fatalf("expected 1 group, found %d", len(job.TaskGroups))
+			}
+
+			actual := parsePolicy(job.TaskGroups[0].Scaling)
+
+			// We assume check order is not relevant, so sort checks to avoid
+			// flapping tests.
+			if actual.Checks != nil {
+				sort.Slice(actual.Checks, func(i, j int) bool {
+					return actual.Checks[i].Name < actual.Checks[j].Name
+				})
+			}
+
 			assert.Equal(t, tc.expected, actual)
 		})
 	}

@@ -10,13 +10,18 @@ type Policy struct {
 	ID                 string
 	Min                int64
 	Max                int64
-	Source             string
-	Query              string
 	Enabled            bool
 	Cooldown           time.Duration
 	EvaluationInterval time.Duration
 	Target             *Target
-	Strategy           *Strategy
+	Checks             []*Check
+}
+
+type Check struct {
+	Name     string
+	Source   string
+	Query    string
+	Strategy *Strategy
 }
 
 type Strategy struct {

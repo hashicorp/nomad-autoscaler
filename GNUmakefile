@@ -40,6 +40,7 @@ check-mod: ## Checks the Go mod is tidy
 .PHONY: test
 test: ## Test the source code
 	@echo "==> Testing source code..."
+	@$(MAKE) -C plugins/test
 	@go test -v -race -cover ./...
 	@echo "==> Done"
 

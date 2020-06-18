@@ -1,7 +1,13 @@
 ## UNRELEASED
 
+__BACKWARDS INCOMPATIBILITIES:__
+ * policy: allow multiple `check`s in a policy [[GH-176](https://github.com/hashicorp/nomad-autoscaler/pull/176)]
+
 FEATURES:
  * agent: only enter out-of-bounds cooldown if time greater than 1s [[GH-139](https://github.com/hashicorp/nomad-autoscaler/pull/139)]
+
+BUG FIXES:
+ * cli: fix incorrect flag help detail for `nomad-ca-path` [[GH-168](https://github.com/hashicorp/nomad-autoscaler/pull/168)]
 
 ## 0.0.2 (May 21, 2020)
 

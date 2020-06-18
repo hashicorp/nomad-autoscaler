@@ -1,0 +1,165 @@
+{
+  "Job": {
+    "Affinities": null,
+    "AllAtOnce": false,
+    "Constraints": null,
+    "ConsulToken": "",
+    "CreateIndex": 805,
+    "Datacenters": [
+      "dc1"
+    ],
+    "Dispatched": false,
+    "ID": "invalid-missing-query",
+    "JobModifyIndex": 805,
+    "Meta": null,
+    "Migrate": null,
+    "ModifyIndex": 807,
+    "Name": "invalid-missing-query",
+    "Namespace": "default",
+    "ParameterizedJob": null,
+    "ParentID": "",
+    "Payload": null,
+    "Periodic": null,
+    "Priority": 50,
+    "Region": "global",
+    "Reschedule": null,
+    "Spreads": null,
+    "Stable": false,
+    "Status": "running",
+    "StatusDescription": "",
+    "Stop": false,
+    "SubmitTime": 1592018720561322000,
+    "TaskGroups": [
+      {
+        "Affinities": null,
+        "Constraints": null,
+        "Count": 1,
+        "EphemeralDisk": {
+          "Migrate": false,
+          "SizeMB": 300,
+          "Sticky": false
+        },
+        "Meta": null,
+        "Migrate": null,
+        "Name": "test",
+        "Networks": null,
+        "ReschedulePolicy": {
+          "Attempts": 1,
+          "Delay": 5000000000,
+          "DelayFunction": "constant",
+          "Interval": 86400000000000,
+          "MaxDelay": 0,
+          "Unlimited": false
+        },
+        "RestartPolicy": {
+          "Attempts": 3,
+          "Delay": 15000000000,
+          "Interval": 86400000000000,
+          "Mode": "fail"
+        },
+        "Scaling": {
+          "CreateIndex": 805,
+          "Enabled": true,
+          "ID": "id",
+          "Max": 10,
+          "Min": 1,
+          "ModifyIndex": 805,
+          "Namespace": "",
+          "Policy": {
+            "check": [
+              {
+                "check": [
+                  {
+                    "strategy": [
+                      {
+                        "strategy": [
+                          {
+                            "bool_config": true,
+                            "int_config": 2,
+                            "str_config": "str"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "Target": {
+            "Namespace": "default",
+            "Job": "invalid-missing-query",
+            "Group": "test"
+          }
+        },
+        "Services": null,
+        "ShutdownDelay": null,
+        "Spreads": null,
+        "StopAfterClientDisconnect": null,
+        "Tasks": [
+          {
+            "Affinities": null,
+            "Artifacts": null,
+            "Config": {
+              "command": "echo",
+              "args": [
+                "hi"
+              ]
+            },
+            "Constraints": null,
+            "DispatchPayload": null,
+            "Driver": "raw_exec",
+            "Env": null,
+            "KillSignal": "",
+            "KillTimeout": 5000000000,
+            "Kind": "",
+            "Leader": false,
+            "Lifecycle": null,
+            "LogConfig": {
+              "MaxFileSizeMB": 10,
+              "MaxFiles": 10
+            },
+            "Meta": null,
+            "Name": "echo",
+            "Resources": {
+              "CPU": 100,
+              "Devices": null,
+              "DiskMB": 0,
+              "IOPS": 0,
+              "MemoryMB": 300,
+              "Networks": null
+            },
+            "RestartPolicy": {
+              "Attempts": 3,
+              "Delay": 15000000000,
+              "Interval": 86400000000000,
+              "Mode": "fail"
+            },
+            "Services": null,
+            "ShutdownDelay": 0,
+            "Templates": null,
+            "User": "",
+            "Vault": null,
+            "VolumeMounts": null
+          }
+        ],
+        "Update": null,
+        "Volumes": null
+      }
+    ],
+    "Type": "batch",
+    "Update": {
+      "AutoPromote": false,
+      "AutoRevert": false,
+      "Canary": 0,
+      "HealthCheck": "",
+      "HealthyDeadline": 0,
+      "MaxParallel": 0,
+      "MinHealthyTime": 0,
+      "ProgressDeadline": 0,
+      "Stagger": 0
+    },
+    "VaultToken": "",
+    "Version": 0
+  }
+}

@@ -21,12 +21,16 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	switch cfg.Driver {
 	case plugins.InternalAPMNomad:
 		info.factory = nomadAPM.PluginConfig.Factory
+		info.driver = "nomad-apm"
 	case plugins.InternalTargetNomad:
 		info.factory = nomadTarget.PluginConfig.Factory
+		info.driver = "nomad-target"
 	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
+		info.driver = "target-value"
 	case plugins.InternalAPMPrometheus:
 		info.factory = prometheus.PluginConfig.Factory
+		info.driver = "prometheus"
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
 		return

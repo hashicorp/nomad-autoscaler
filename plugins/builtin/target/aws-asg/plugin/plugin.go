@@ -22,7 +22,7 @@ const (
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
-	configKeyRegion        = "region"
+	configKeyRegion        = "aws_region"
 	configKeyAccessID      = "aws_access_key_id"
 	configKeySecretKey     = "aws_secret_access_key"
 	configKeySessionToken  = "session_token"
@@ -91,6 +91,11 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) error {
+
+	// AWS can't support dry-run like Nomad, so just exit.
+	if action.Count == strategy.MetaValueDryRunCount {
+		return nil
+	}
 
 	// We cannot scale an ASG without knowing the ASG name.
 	asgName, ok := config[configKeyASGName]

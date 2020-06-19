@@ -65,6 +65,11 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 // Autoscaler has deemed required.
 func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalingGroup, count int64) error {
 
+	// Create a logger for this action to pre-populate useful information we
+	// would like on all log lines.
+	log := t.logger.With("action", "scale_out", "asg_name", *asg.AutoScalingGroupName,
+		"desired_count", count)
+
 	input := autoscaling.UpdateAutoScalingGroupInput{
 		AutoScalingGroupName: asg.AutoScalingGroupName,
 		AvailabilityZones:    asg.AvailabilityZones,
@@ -76,7 +81,13 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 	if err != nil {
 		return fmt.Errorf("failed to update Autoscaling Group: %v", err)
 	}
-	return t.ensureASGInstancesCount(ctx, count, *asg.AutoScalingGroupName)
+
+	if err := t.ensureASGInstancesCount(ctx, count, *asg.AutoScalingGroupName); err != nil {
+		return fmt.Errorf("failed to confirm scale out AWS AutoScaling Group: %v", err)
+	}
+
+	log.Info("successfully performed and verified scaling out")
+	return nil
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
@@ -115,7 +126,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	if err := t.detachInstances(ctx, asg.AutoScalingGroupName, instanceIDs); err != nil {
 		return fmt.Errorf("failed to scale in AWS AutoScaling Group: %v", err)
 	}
-	log.Debug("successfully detached instances from AutoScaling Group")
+	log.Info("successfully detached instances from AutoScaling Group")
 	eWriter.write(ctx, scalingEventDetach)
 
 	// Terminate the detached instances.
@@ -124,7 +135,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	if err := t.terminateInstances(ctx, instanceIDs); err != nil {
 		return fmt.Errorf("failed to scale in AWS AutoScaling Group: %v", err)
 	}
-	log.Debug("successfully terminated EC2 instances")
+	log.Info("successfully terminated EC2 instances")
 	eWriter.write(ctx, scalingEventTerminate)
 
 	return nil

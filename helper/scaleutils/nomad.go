@@ -239,13 +239,13 @@ func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index ui
 	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, false) {
 		switch msg.Level {
 		case api.MonitorMsgLevelInfo:
-			si.log.Info("received node drain message", "node_id", nodeID, "msg", msg)
+			si.log.Info("received node drain message", "node_id", nodeID, "msg", msg.Message)
 		case api.MonitorMsgLevelWarn:
-			si.log.Warn("received node drain message", "node_id", nodeID, "msg", msg)
+			si.log.Warn("received node drain message", "node_id", nodeID, "msg", msg.Message)
 		case api.MonitorMsgLevelError:
 			return fmt.Errorf("received error while draining node: %s", msg.Message)
 		default:
-			si.log.Debug("received node drain message", "node_id", nodeID, "msg", msg)
+			si.log.Debug("received node drain message", "node_id", nodeID, "msg", msg.Message)
 		}
 	}
 	return ctx.Err()

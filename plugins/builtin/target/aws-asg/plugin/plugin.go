@@ -157,19 +157,17 @@ func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) 
 		return nil, fmt.Errorf("failed to describe AWS Autoscaling Group activities: %v", err)
 	}
 
+	// Set our initial status. The asg.Status field is only set when the ASG is
+	// being deleted.
 	resp := target.Status{
 		Ready: asg.Status == nil,
 		Count: *asg.DesiredCapacity,
+		Meta:  make(map[string]string),
 	}
 
-	// If the ASG has scaling activities listed ensure the status takes into
-	// account the most recent activity. Most importantly if the last event has
-	// not finished, the ASG is not ready for scaling.
+	// If we have previous activities then process the last.
 	if events != nil && len(events) > 0 {
-		resp.Ready = resp.Ready || *events[0].Progress == 100
-		resp.Meta = map[string]string{
-			target.MetaKeyLastEvent: strconv.FormatInt(events[0].EndTime.UnixNano(), 10),
-		}
+		processLastActivity(events[0], &resp)
 	}
 
 	return &resp, nil
@@ -184,4 +182,22 @@ func (t *TargetPlugin) calculateDirection(asgDesired, strategyDesired int64) (in
 		return strategyDesired, "out"
 	}
 	return 0, ""
+}
+
+// processLastActivity updates the status object based on the details within
+// the last scaling activity.
+func processLastActivity(activity autoscaling.Activity, status *target.Status) {
+
+	// If the last activities progress is not nil then check whether this
+	// finished or not. In the event there is a current activity in progress
+	// set ready to false so the autoscaler will not perform any actions.
+	if activity.Progress != nil && *activity.Progress != 100 {
+		status.Ready = false
+	}
+
+	// EndTime isn't always populated, especially if the activity has not yet
+	// finished :).
+	if activity.EndTime != nil {
+		status.Meta[target.MetaKeyLastEvent] = strconv.FormatInt(activity.EndTime.UnixNano(), 10)
+	}
 }

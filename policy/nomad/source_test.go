@@ -10,44 +10,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSourceConfig_canonicalize(t *testing.T) {
-	testCases := []struct {
-		name     string
-		input    *SourceConfig
-		expected *SourceConfig
-	}{
-		{
-			name:  "empty config",
-			input: &SourceConfig{},
-			expected: &SourceConfig{
-				DefaultEvaluationInterval: policy.DefaultEvaluationInterval,
-			},
-		},
-		{
-			name: "don't overwrite values",
-			input: &SourceConfig{
-				DefaultEvaluationInterval: time.Second,
-			},
-			expected: &SourceConfig{
-				DefaultEvaluationInterval: time.Second,
-			},
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.input.canonicalize()
-			assert.Equal(t, tc.expected, tc.input)
-		})
-	}
-}
-
 func TestSource_canonicalizePolicy(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    *policy.Policy
 		expected *policy.Policy
-		cb       func(*api.Config, *SourceConfig)
+		cb       func(*api.Config, *policy.ConfigDefaults)
 	}{
 		{
 			name: "full policy",
@@ -315,7 +283,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					Config: map[string]string{},
 				},
 			},
-			cb: func(_ *api.Config, sourceConfig *SourceConfig) {
+			cb: func(_ *api.Config, sourceConfig *policy.ConfigDefaults) {
 				sourceConfig.DefaultEvaluationInterval = 5 * time.Second
 			},
 		},
@@ -330,7 +298,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					Config: map[string]string{},
 				},
 			},
-			cb: func(_ *api.Config, sourceConfig *SourceConfig) {
+			cb: func(_ *api.Config, sourceConfig *policy.ConfigDefaults) {
 				sourceConfig.DefaultCooldown = 1 * time.Hour
 			},
 		},

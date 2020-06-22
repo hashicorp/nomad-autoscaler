@@ -2,14 +2,13 @@ package config
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/nomad-autoscaler/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/mitchellh/copystructure"
 )
@@ -433,50 +432,10 @@ func Load(path string) (*Agent, error) {
 // loadDir loads all the configurations in the given directory in alphabetical
 // order.
 func loadDir(dir string) (*Agent, error) {
-	f, err := os.Open(dir)
+
+	files, err := file.GetFileListFromDir(dir, ".hcl", ".json")
 	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, err
-	}
-	if !fi.IsDir() {
-		return nil, fmt.Errorf("configuration path must be a directory: %s", dir)
-	}
-
-	var files []string
-	err = nil
-	for err != io.EOF {
-		var fis []os.FileInfo
-		fis, err = f.Readdir(128)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-
-		for _, fi := range fis {
-			// Ignore directories
-			if fi.IsDir() {
-				continue
-			}
-
-			// Only care about files that are valid to load.
-			name := fi.Name()
-			skip := true
-			if strings.HasSuffix(name, ".hcl") {
-				skip = false
-			} else if strings.HasSuffix(name, ".json") {
-				skip = false
-			}
-			if skip || isTemporaryFile(name) {
-				continue
-			}
-
-			path := filepath.Join(dir, name)
-			files = append(files, path)
-		}
+		return nil, fmt.Errorf("failed to load config directory: %v", err)
 	}
 
 	// Fast-path if we have no files
@@ -503,12 +462,4 @@ func loadDir(dir string) (*Agent, error) {
 	}
 
 	return result, nil
-}
-
-// isTemporaryFile returns true or false depending on whether the provided file
-// name is a temporary file for the following editors: emacs or vim.
-func isTemporaryFile(name string) bool {
-	return strings.HasSuffix(name, "~") || // vim
-		strings.HasPrefix(name, ".#") || // emacs
-		(strings.HasPrefix(name, "#") && strings.HasSuffix(name, "#")) // emacs
 }

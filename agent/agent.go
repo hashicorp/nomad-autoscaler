@@ -9,7 +9,8 @@ import (
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	nomadpolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
+	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
+	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -51,14 +52,7 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.healthServer = healthServer
 	go a.healthServer.run()
 
-	sourceConfig := &nomadpolicy.SourceConfig{
-		DefaultCooldown:           a.config.Policy.DefaultCooldown,
-		DefaultEvaluationInterval: a.config.DefaultEvaluationInterval,
-	}
-	source := nomadpolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig)
-	a.policyManager = policy.NewManager(a.logger, source, a.pluginManager)
-
-	policyEvalCh := make(chan *policy.Evaluation, 10)
+	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
 
 	for {
@@ -71,6 +65,28 @@ func (a *Agent) Run(ctx context.Context) error {
 			go w.HandlePolicy(ctx, policyEval.Policy)
 		}
 	}
+}
+
+func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
+	sourceConfig := &policy.ConfigDefaults{
+		DefaultCooldown:           a.config.Policy.DefaultCooldown,
+		DefaultEvaluationInterval: a.config.DefaultEvaluationInterval,
+	}
+
+	// Setup our initial default policy source which is Nomad.
+	sources := map[policy.SourceName]policy.Source{
+		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig),
+	}
+
+	// If the operators has configured a scaling policy directory to read from
+	// then setup the file source.
+	if a.config.Policy.Dir != "" {
+		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, sourceConfig, a.config.Policy.Dir, make(chan bool))
+	}
+
+	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager)
+
+	return make(chan *policy.Evaluation, 10)
 }
 
 func (a *Agent) stop() {

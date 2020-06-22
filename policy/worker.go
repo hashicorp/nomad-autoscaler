@@ -101,9 +101,13 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 	logger.Trace(fmt.Sprintf("check %s selected", winningHandler.check.Name),
 		"direction", winningAction.Direction, "count", winningAction.Count)
 
-	// Unblock winning handler and cancel the others.
+	// Unblock winning handler and cancel the others. The default guards
+	// against the possibility of there being no receiver on the proceedCh.
 	for _, handler := range checks {
-		handler.proceedCh <- handler == winningHandler
+		select {
+		case handler.proceedCh <- handler == winningHandler:
+		default:
+		}
 	}
 
 	// Block until winning handler returns.
@@ -114,6 +118,9 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 	case r := <-winningHandler.results():
 		if r.err != nil {
 			logger.Error("failed to execute check", "error", r.err, "check", winningHandler.check.Name)
+			return
+		}
+		if r.action == nil {
 			return
 		}
 	}
@@ -329,13 +336,17 @@ func (h *checkHandler) start(ctx context.Context) {
 			"reason", action.Reason, "meta", action.Meta)
 	}
 
-	// Scale target.
+	// Scale the target. If we receive an error add this onto the result so the
+	// handler understand what do to.
 	if err = targetInst.Scale(action, h.policy.Target.Config); err != nil {
 		result.err = fmt.Errorf("failed to scale target: %v", err)
-		h.resultCh <- result
-		return
+		logger.Error("failed to submit scaling action to target", "error", err)
+	} else {
+		logger.Info("successfully submitted scaling action to target",
+			"desired_count", action.Count)
 	}
 
-	logger.Info("successfully submitted scaling action to target",
-		"desired_count", action.Count)
+	// Ensure we send a result otherwise the Worker.HandlePolicy routine will
+	// leak waiting endlessly for the result it will never receive, poor thing.
+	h.resultCh <- result
 }

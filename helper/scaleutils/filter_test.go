@@ -144,7 +144,6 @@ func Test_filterByClass(t *testing.T) {
 			assert.Equal(t, tc.expectedOutputList, actualOutput, tc.name)
 		})
 	}
-
 }
 
 func Test_awsNodeIDMap(t *testing.T) {

@@ -3,7 +3,6 @@ package nomad
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -190,15 +189,9 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 		return
 	}
 
-	// Default EvaluationInterval to the agent's DefaultEvaluationInterval.
-	if p.EvaluationInterval == 0 {
-		p.EvaluationInterval = s.config.DefaultEvaluationInterval
-	}
-
-	// If the operator did not set a cooldown, use the agent's DefaultCooldown.
-	if p.Cooldown == 0 {
-		p.Cooldown = s.config.DefaultCooldown
-	}
+	// Apply the cooldown and evaluation interval defaults if the operator did
+	// not pass any values.
+	p.ApplyDefaults(s.config)
 
 	// Set default values for Target.
 	if p.Target == nil {
@@ -232,18 +225,5 @@ func canonicalizeCheck(c *policy.Check, t *policy.Target) {
 	if c.Source == "" {
 		c.Source = plugins.InternalAPMNomad
 	}
-
-	// Expand short Nomad APM query from <op>_<metric> into <op>_<metric>/<group>/<job>.
-	// <job> must be the last element so we can parse the query correctly
-	// since Nomad allows "/" in job IDs.
-	if c.Source == plugins.InternalAPMNomad && isShortQuery(c.Query) {
-		c.Query = fmt.Sprintf("%s/%s/%s", c.Query, t.Config["Group"], t.Config["Job"])
-	}
-}
-
-// isShortQuery detects if a query is in the <op>_<metric> format.
-func isShortQuery(q string) bool {
-	opMetric := strings.SplitN(q, "_", 2)
-	hasSlash := strings.Contains(q, "/")
-	return len(opMetric) == 2 && !hasSlash
+	c.CanonicalizeAPMQuery(t)
 }

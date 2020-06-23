@@ -27,6 +27,14 @@ type Status struct {
 // out-of-band scaling activities have been triggered.
 const MetaKeyLastEvent = "nomad_autoscaler.last_event"
 
+const (
+	// ConfigKeys are the various target config map keys that can be used to
+	// identify a target.
+	ConfigKeyJob       = "Job"
+	ConfigKeyTaskGroup = "Group"
+	ConfigKeyClass     = "class"
+)
+
 // RPC is a plugin implementation that talks over net/rpc
 type RPC struct {
 	client *rpc.Client

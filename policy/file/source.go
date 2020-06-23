@@ -181,6 +181,10 @@ func (s *Source) handlerPolicyReload(ID policy.PolicyID) (*policy.Policy, error)
 	newPolicy.ID = ID.String()
 	newPolicy.ApplyDefaults(s.config)
 
+	for _, c := range newPolicy.Checks {
+		c.CanonicalizeAPMQuery(newPolicy.Target)
+	}
+
 	// Check the new policy against the stored. If they are the same, and
 	// therefore the policy has not changed indicate that to the caller.
 	if md5Sum(newPolicy) == md5Sum(val) {
@@ -246,6 +250,10 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 		}
 
 		scalingPolicy.ApplyDefaults(s.config)
+
+		for _, c := range scalingPolicy.Checks {
+			c.CanonicalizeAPMQuery(scalingPolicy.Target)
+		}
 
 		// We have had to decode the file, so store the information. This makes
 		// the MonitorPolicy function simpler as we have an easy mapping of the

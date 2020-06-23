@@ -7,6 +7,129 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
+	testCases := []struct {
+		inputCheck          *Check
+		inputTarget         *Target
+		expectedOutputCheck *Check
+		name                string
+	}{
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "prometheus",
+				Query:  "scalar(super-data-point)",
+			},
+			inputTarget: nil,
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "prometheus",
+				Query:  "scalar(super-data-point)",
+			},
+			name: "fully populated query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/hashistack/class",
+			},
+			inputTarget: nil,
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/hashistack/class",
+			},
+			name: "fully populated non-short node query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "taskgroup_avg_cpu/cache/example",
+			},
+			inputTarget: nil,
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "taskgroup_avg_cpu/cache/example",
+			},
+			name: "fully populated non-short taskgroup query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "avg_cpu",
+			},
+			inputTarget: &Target{
+				Config: map[string]string{"Job": "example", "Group": "cache"},
+			},
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "taskgroup_avg_cpu/cache/example",
+			},
+			name: "correctly formatted taskgroup target short query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputTarget: &Target{
+				Config: map[string]string{"class": "hashistack"},
+			},
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/hashistack/class",
+			},
+			name: "correctly formatted node target short query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "avg_cpu",
+			},
+			inputTarget: &Target{
+				Config: map[string]string{"Job": "example"},
+			},
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "avg_cpu",
+			},
+			name: "incorrectly formatted taskgroup target short query",
+		},
+		{
+			inputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputTarget: &Target{
+				Config: map[string]string{},
+			},
+			expectedOutputCheck: &Check{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			name: "incorrectly formatted node target short query",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.inputCheck.CanonicalizeAPMQuery(tc.inputTarget)
+			assert.Equal(t, tc.expectedOutputCheck, tc.inputCheck, tc.name)
+		})
+	}
+}
+
 func TestPolicy_ApplyDefaults(t *testing.T) {
 	testCases := []struct {
 		inputPolicy          *Policy

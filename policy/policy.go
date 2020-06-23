@@ -1,8 +1,12 @@
 package policy
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/nomad-autoscaler/plugins"
+	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
@@ -49,6 +53,67 @@ func (p *Policy) ApplyDefaults(d *ConfigDefaults) {
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = d.DefaultEvaluationInterval
 	}
+}
+
+// CanonicalizeAPMQuery takes a short styled Nomad APM check query and creates
+// its fully hydrated internal representation. This is required by the Nomad
+// APM if it is being used as the source. The function can be called without
+// any validation on the check.
+func (c *Check) CanonicalizeAPMQuery(t *Target) {
+
+	// Catch nils so this function is safe to call without any prior checks.
+	if c == nil || t == nil {
+		return
+	}
+
+	// If the query source is not the Nomad APM, we do not have any additional
+	// work to perform. The APM canonicalization is specific to the Nomad APM.
+	if c.Source != plugins.InternalAPMNomad {
+		return
+	}
+
+	// If the query is not formatted in the short manner we do not have any
+	// work to do. Operators can add this if they want/know the autoscaler
+	// internal model.
+	if !isShortQuery(c.Query) {
+		return
+	}
+
+	// If the target is a Nomad job task group, format the query in the
+	// expected manner.
+	if t.isJobTaskGroupTarget() {
+		c.Query = fmt.Sprintf("%s_%s/%s/%s",
+			nomadAPM.QueryTypeTaskGroup, c.Query, t.Config[target.ConfigKeyTaskGroup], t.Config[target.ConfigKeyJob])
+		return
+	}
+
+	// If the target is a Nomad client node pool, format the query in the
+	// expected manner. Once the autoscaler supports more than just class
+	// identification of pools this func and logic will need to be updated. For
+	// now keep it simple.
+	if t.isNodePoolTarget() {
+		c.Query = fmt.Sprintf("%s_%s/%s/class",
+			nomadAPM.QueryTypeNode, c.Query, t.Config[target.ConfigKeyClass])
+	}
+}
+
+func (t *Target) isJobTaskGroupTarget() bool {
+	_, jOK := t.Config[target.ConfigKeyJob]
+	_, gOK := t.Config[target.ConfigKeyTaskGroup]
+	return jOK && gOK
+}
+
+func (t *Target) isNodePoolTarget() bool {
+	_, ok := t.Config[target.ConfigKeyClass]
+	return ok
+}
+
+// isShortQuery detects if a query is in the <type>_<op>_<metric> format which
+// is required by the Nomad APM.
+func isShortQuery(q string) bool {
+	opMetric := strings.SplitN(q, "_", 2)
+	hasSlash := strings.Contains(q, "/")
+	return len(opMetric) == 2 && !hasSlash
 }
 
 // FileDecodePolicy is used as an intermediate step when decoding a policy from

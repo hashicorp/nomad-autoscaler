@@ -107,6 +107,9 @@ Nomad Options:
 
 Policy Options:
 
+  -policy-dir=<path>
+    The path to a directory used to load scaling policies.
+
   -policy-default-cooldown=<dur>
     The default cooldown that will be applied to all scaling policies which do
     not specify a cooldown period.
@@ -193,6 +196,7 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	flags.BoolVar(&cmdConfig.Nomad.SkipVerify, "nomad-skip-verify", false, "")
 
 	// Specify our Policy CLI flags.
+	flags.StringVar(&cmdConfig.Policy.Dir, "policy-dir", "", "")
 	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
 		cmdConfig.Policy.DefaultCooldown = d
 		return nil

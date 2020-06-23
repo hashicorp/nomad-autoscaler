@@ -108,8 +108,7 @@ Nomad Options:
 Policy Options:
 
   -policy-dir=<path>
-    The path to a directory used to load scaling policies. Currently only cluster
-    scaling policies can be loaded by this method.
+    The path to a directory used to load scaling policies.
 
   -policy-default-cooldown=<dur>
     The default cooldown that will be applied to all scaling policies which do

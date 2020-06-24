@@ -35,6 +35,10 @@ const (
 	// InternalStrategyTargetValue is the Target Value Strategy internal plugin
 	// name.
 	InternalStrategyTargetValue = "target-value"
+
+	// InternalTargetAWSASG is the Amazon Web Services AutoScaling Group target
+	// plugin.
+	InternalTargetAWSASG = "aws-asg"
 )
 
 var (

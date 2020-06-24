@@ -9,6 +9,7 @@ import (
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
+	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
@@ -31,6 +32,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalAPMPrometheus:
 		info.factory = prometheus.PluginConfig.Factory
 		info.driver = "prometheus"
+	case plugins.InternalTargetAWSASG:
+		info.factory = awsASG.PluginConfig.Factory
+		info.driver = "aws-asg"
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
 		return
@@ -70,7 +74,8 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 	case plugins.InternalAPMNomad,
 		plugins.InternalTargetNomad,
 		plugins.InternalAPMPrometheus,
-		plugins.InternalStrategyTargetValue:
+		plugins.InternalStrategyTargetValue,
+		plugins.InternalTargetAWSASG:
 		return true
 	default:
 		return false

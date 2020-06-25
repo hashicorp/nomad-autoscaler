@@ -54,6 +54,10 @@ type Handler struct {
 
 	// doneCh is used to signal the handler to stop.
 	doneCh chan struct{}
+
+	// reloadCh is used to communicate to the MonitorPolicy routine that it
+	// should perform a reload.
+	reloadCh chan struct{}
 }
 
 // NewHandler returns a new handler for a policy.
@@ -67,6 +71,7 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 		errCh:         make(chan error),
 		doneCh:        make(chan struct{}),
 		cooldownCh:    make(chan time.Duration),
+		reloadCh:      make(chan struct{}),
 	}
 }
 
@@ -98,13 +103,16 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	defer cancel()
 
 	// Start monitoring the policy for changes.
-	go h.policySource.MonitorPolicy(monitorCtx, h.policyID, h.ch, h.errCh)
+	req := MonitorPolicyReq{ID: h.policyID, ErrCh: h.errCh, ReloadCh: h.reloadCh, ResultCh: h.ch}
+	go h.policySource.MonitorPolicy(monitorCtx, req)
 
 	for {
 		select {
 		case <-ctx.Done():
+			h.log.Trace("stopping policy handler due to context done")
 			return
 		case <-h.doneCh:
+			h.log.Trace("stopping policy handler due to done channel")
 			return
 
 		case err := <-h.errCh:

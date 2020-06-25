@@ -3,8 +3,8 @@ package file
 import (
 	"context"
 	"crypto/md5"
-	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -27,22 +27,15 @@ type Source struct {
 	dir    string
 	log    hclog.Logger
 
-	// reloadChan is the channel that the agent sends to in order to trigger a
-	// reload of all file policies.
-	//
-	// TODO(jrasell) the reloadChan is not yet triggered by anything and needs
-	//  to be hooked up via the agent.
-	reloadChan chan bool
-
-	// policyReloadChan is used internally to trigger a reload of individual
-	// policies from disk.
-	policyReloadChan chan bool
-
 	// idMap stores a mapping between between the md5sum of the file path and
 	// the associated policyID. This allows us to keep a consistent PolicyID in
 	// the event of policy changes.
 	idMap     map[pathMD5Sum]policy.PolicyID
 	idMapLock sync.RWMutex
+
+	// reloadChannels help coordinate reloading the of the MonitorIDs routine.
+	reloadCh         chan struct{}
+	reloadCompleteCh chan struct{}
 
 	// policyMap maps our policyID to the file and policy which was decode from
 	// the file. This is required with the current policy.Source interface
@@ -59,15 +52,15 @@ type filePolicy struct {
 	policy *policy.Policy
 }
 
-func NewFileSource(log hclog.Logger, cfg *policy.ConfigDefaults, dir string, reloadCh chan bool) policy.Source {
+func NewFileSource(log hclog.Logger, cfg *policy.ConfigDefaults, dir string) policy.Source {
 	return &Source{
 		config:           cfg,
 		dir:              dir,
 		log:              log.ResetNamed("file_policy_source"),
 		idMap:            make(map[pathMD5Sum]policy.PolicyID),
 		policyMap:        make(map[policy.PolicyID]*filePolicy),
-		reloadChan:       reloadCh,
-		policyReloadChan: make(chan bool),
+		reloadCh:         make(chan struct{}),
+		reloadCompleteCh: make(chan struct{}, 1),
 	}
 }
 
@@ -77,13 +70,13 @@ func (s *Source) Name() policy.SourceName {
 }
 
 // MonitorIDs satisfies the MonitorIDs function of the policy.Source interface.
-func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessage, errCh chan<- error) {
+func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting file policy source ID monitor")
 
 	// Run the policyID identification method before entering the loop so we do
 	// a first pass on the policies. Otherwise we wouldn't load any until a
 	// reload is triggered.
-	s.identifyPolicyIDs(resultCh, errCh)
+	s.identifyPolicyIDs(req.ResultCh, req.ErrCh)
 
 	for {
 		select {
@@ -91,83 +84,101 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessag
 			s.log.Trace("stopping file policy source ID monitor")
 			return
 
-		case <-s.reloadChan:
+		case <-s.reloadCh:
 			s.log.Info("file policy source ID monitor received reload signal")
-
-			// We are reloading all files within the directory so wipe our
-			// current mapping data.
-			s.idMapLock.Lock()
-			s.idMap = make(map[pathMD5Sum]policy.PolicyID)
-			s.idMapLock.Unlock()
-
-			s.identifyPolicyIDs(resultCh, errCh)
-
-			// Tell the MonitorPolicy routines to reload their policy.
-			s.policyReloadChan <- true
+			s.identifyPolicyIDs(req.ResultCh, req.ErrCh)
+			s.reloadCompleteCh <- struct{}{}
 		}
 	}
 }
 
+// ReloadIDsMonitor satisfies the ReloadIDsMonitor function of the
+// policy.Source interface.
+func (s *Source) ReloadIDsMonitor() {
+	s.reloadCh <- struct{}{}
+	<-s.reloadCompleteCh
+}
+
 // MonitorPolicy satisfies the MonitorPolicy function of the policy.Source
 // interface.
-func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh chan<- policy.Policy, errCh chan<- error) {
+func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
-	defer close(resultCh)
-	defer close(errCh)
+	defer close(req.ResultCh)
+	defer close(req.ErrCh)
 
-	s.policyMapLock.RLock()
+	s.policyMapLock.Lock()
+
+	var file string
 
 	// There isn't a possibility that I can think of where this call wouldn't
 	// be ok. Nevertheless check it to be safe before sending the policy to the
 	// handler which starts the evaluation ticker.
-	val, ok := s.policyMap[ID]
+	val, ok := s.policyMap[req.ID]
 	if !ok {
-		errCh <- fmt.Errorf("failed to get policy %s", ID)
+		req.ErrCh <- fmt.Errorf("failed to get policy %s", req.ID)
 	} else {
-		resultCh <- *val.policy
+
+		// Assign the stored file to our local variable. This is so we can use
+		// it later without performing a lookup. The file value will stay the
+		// same for the entire duration of this function.
+		file = val.file
+
+		p, err := s.handleIndividualPolicyRead(req.ID, file)
+		if err != nil {
+			req.ErrCh <- fmt.Errorf("failed to get policy %s", req.ID)
+		}
+		if p != nil {
+			req.ResultCh <- *p
+			s.policyMap[req.ID] = &filePolicy{file: file, policy: p}
+		}
 	}
-	s.policyMapLock.RUnlock()
+	s.policyMapLock.Unlock()
 
 	// Technically the log message should come further up, but its quite
 	// helpful to have the file path logged with the policyID otherwise there
 	// is no way to understand the ID->File mapping.
-	log := s.log.With("policy_id", ID, "file", val.file)
+	log := s.log.With("policy_id", req.ID, "file", file)
 	log.Debug("starting file policy monitor")
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Debug("stopping file source ID monitor")
+			log.Debug("stopping file source ID monitor due to context done")
 			return
 
-		case <-s.policyReloadChan:
-			s.log.Info("file policy source monitor received reload signal")
+		case <-req.ReloadCh:
+			log.Info("file policy source monitor received reload signal")
 
-			newPolicy, err := s.handlerPolicyReload(ID)
+			// Grab a lock as required by the function and the call.
+			s.policyMapLock.Lock()
+			newPolicy, err := s.handleIndividualPolicyRead(req.ID, file)
+			s.policyMapLock.Unlock()
+
+			// An error indicates the policy failed to be decoded properly. It
+			// isn't a terminal error as the operator can fix the policy and
+			// trigger another reload.
 			if err != nil {
-				errCh <- fmt.Errorf("failed to get policy: %v", err)
+				req.ErrCh <- fmt.Errorf("failed to get policy: %v", err)
 				continue
 			}
 
 			// A non-nil policy indicates a change, therefore we send this to
 			// the handler.
 			if newPolicy != nil {
-				resultCh <- *newPolicy
+				s.log.Info("file policy content has changed")
+				req.ResultCh <- *newPolicy
 			}
 		}
 	}
 }
 
-// handlerPolicyReload reads the policy from disk and compares it to the stored
-// version. If there is a difference the new policy will be returned, otherwise
-// we return nil to indicate no reload is required.
-func (s *Source) handlerPolicyReload(ID policy.PolicyID) (*policy.Policy, error) {
-
-	val, ok := s.policyMap[ID]
-	if !ok {
-		return nil, errors.New("policy not found within internal store")
-	}
+// handleIndividualPolicyRead reads the policy from disk and compares it to the
+// stored version if there is one. If there is a difference the new policy will
+// be returned, otherwise we return nil to indicate no reload is required. This
+// function is not thread safe, so the caller should obtain at least a read
+// lock on policyMapLock.
+func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*policy.Policy, error) {
 
 	newPolicy := &policy.Policy{}
 
@@ -175,15 +186,20 @@ func (s *Source) handlerPolicyReload(ID policy.PolicyID) (*policy.Policy, error)
 	// policy. Make sure to add the ID string and defaults, we are responsible
 	// for managing this and if we don't add it, there will always be a
 	// difference.
-	if err := decodeFile(val.file, newPolicy); err != nil {
-		return nil, fmt.Errorf("failed to decode file %s: %v", val.file, err)
+	if err := decodeFile(path, newPolicy); err != nil {
+		return nil, fmt.Errorf("failed to decode file %s: %v", path, err)
 	}
 	newPolicy.ID = ID.String()
 	newPolicy.ApplyDefaults(s.config)
 
+	val, ok := s.policyMap[ID]
+	if !ok || val.policy == nil {
+		return newPolicy, nil
+	}
+
 	// Check the new policy against the stored. If they are the same, and
 	// therefore the policy has not changed indicate that to the caller.
-	if md5Sum(newPolicy) == md5Sum(val) {
+	if reflect.DeepEqual(newPolicy, val.policy) {
 		return nil, nil
 	}
 	return newPolicy, nil
@@ -232,9 +248,8 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			continue
 		}
 
-		// Get the policyID for the file add it to the policy.
+		// Get the policyID for the file.
 		policyID := s.getFilePolicyID(file)
-		scalingPolicy.ID = policyID.String()
 
 		// Ignore the policy if its disabled. The log line is because I
 		// (jrasell) have spent too much time figuring out why a policy doesn't
@@ -245,13 +260,20 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			continue
 		}
 
-		scalingPolicy.ApplyDefaults(s.config)
-
-		// We have had to decode the file, so store the information. This makes
-		// the MonitorPolicy function simpler as we have an easy mapping of the
+		// Store the file>id mapping if it doesn't exist. This makes the
+		// MonitorPolicy function simpler as we have an easy mapping of the
 		// policyID to the file it came from.
+		//
+		// The OK check is performed because this function gets called during
+		// the initial load and then on reloads of the monitor IDs routine.
+		// When we are asked to reload, if we overwrite what is stored, when we
+		// subsequently trigger reload of the individual policy monitor we can
+		// never tell whether the newly read policy differs from the stored
+		// policy.
 		s.policyMapLock.Lock()
-		s.policyMap[policyID] = &filePolicy{file: file, policy: &scalingPolicy}
+		if _, ok := s.policyMap[policyID]; !ok {
+			s.policyMap[policyID] = &filePolicy{file: file}
+		}
 		s.policyMapLock.Unlock()
 
 		policyIDs = append(policyIDs, policyID)

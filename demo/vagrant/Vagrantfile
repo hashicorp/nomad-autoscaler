@@ -26,8 +26,6 @@ Vagrant.configure("2") do |config|
   #   - Downloads and install Nomad, Consul and Docker
   # Only runs when the VM is created.
   config.vm.provision "deps", type: "shell", inline: <<-SHELL
-    nomad_version=0.11.2
-    consul_version=1.7.3
 
     mkdir /tmp/downloads
 
@@ -38,8 +36,12 @@ Vagrant.configure("2") do |config|
       ca-certificates \
       curl \
       gnupg-agent \
+      jq \
       software-properties-common \
       zip
+
+    nomad_version=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/nomad | jq -r '.current_version')
+    consul_version=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/consul | jq -r '.current_version')
 
     # Download and install Docker.
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -

@@ -1,11 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/hashicorp/nomad-autoscaler/command"
 	"github.com/hashicorp/nomad-autoscaler/version"
@@ -13,25 +10,16 @@ import (
 )
 
 func main() {
-	// create context to handle signals
-	ctx, cancel := context.WithCancel(context.Background())
 
-	signalCn := make(chan os.Signal, 1)
-	signal.Notify(signalCn, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-signalCn
-		cancel()
-	}()
-
-	version := fmt.Sprintf("Nomad Autoscaler %s", version.GetHumanVersion())
-	c := cli.NewCLI("nomad-autoscaler", version)
+	versionString := fmt.Sprintf("Nomad Autoscaler %s", version.GetHumanVersion())
+	c := cli.NewCLI("nomad-autoscaler", versionString)
 	c.Args = os.Args[1:]
 	c.Commands = map[string]cli.CommandFactory{
 		"agent": func() (cli.Command, error) {
-			return &command.AgentCommand{Ctx: ctx}, nil
+			return &command.AgentCommand{}, nil
 		},
 		"version": func() (cli.Command, error) {
-			return &command.VersionCommand{Version: version}, nil
+			return &command.VersionCommand{Version: versionString}, nil
 		},
 	}
 

@@ -1,7 +1,6 @@
 package command
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"strings"
@@ -14,8 +13,6 @@ import (
 )
 
 type AgentCommand struct {
-	Ctx context.Context
-
 	args []string
 }
 
@@ -148,7 +145,7 @@ func (c *AgentCommand) Run(args []string) int {
 
 	// create and run agent
 	a := agent.NewAgent(parsedConfig, logger)
-	if err := a.Run(c.Ctx); err != nil {
+	if err := a.Run(); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}

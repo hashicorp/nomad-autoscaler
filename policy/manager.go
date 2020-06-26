@@ -52,7 +52,8 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 
 	// Start the policy source and listen for changes in the list of policy IDs
 	for _, s := range m.policySource {
-		go s.MonitorIDs(monitorCtx, policyIDsCh, policyIDsErrCh)
+		req := MonitorIDsReq{ErrCh: policyIDsErrCh, ResultCh: policyIDsCh}
+		go s.MonitorIDs(monitorCtx, req)
 	}
 
 LOOP:
@@ -179,6 +180,22 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 		handler.cooldownCh <- t
 	} else {
 		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
+	}
+}
+
+// ReloadSources triggers a reload of all the policy sources.
+func (m *Manager) ReloadSources() {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	// Tell the ID monitors to reload.
+	for _, policySource := range m.policySource {
+		policySource.ReloadIDsMonitor()
+	}
+
+	// Instruct each policy handler to reload.
+	for _, h := range m.handlers {
+		h.reloadCh <- struct{}{}
 	}
 }
 

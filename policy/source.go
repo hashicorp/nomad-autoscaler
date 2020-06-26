@@ -11,15 +11,32 @@ type ConfigDefaults struct {
 	DefaultCooldown           time.Duration
 }
 
+type MonitorIDsReq struct {
+	ErrCh    chan<- error
+	ResultCh chan<- IDMessage
+}
+
+type MonitorPolicyReq struct {
+	ID       PolicyID
+	ErrCh    chan<- error
+	ReloadCh <-chan struct{}
+	ResultCh chan<- Policy
+}
+
 // Source is the interface that must be implemented by backends which provide
 // the canonical source for scaling policies.
 type Source interface {
-	MonitorIDs(ctx context.Context, resultCh chan<- IDMessage, errCh chan<- error)
-	MonitorPolicy(ctx context.Context, ID PolicyID, resultCh chan<- Policy, errCh chan<- error)
+	MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq)
+	MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
 
 	// Name returns the SourceName for the implementation. This helps handlers
 	// identify the source implementation which is responsible for policies.
 	Name() SourceName
+
+	// ReloadIDsMonitor is used to trigger a reload of the MonitorIDs routine
+	// so that config items can be reloaded gracefully without restarting the
+	// agent.
+	ReloadIDsMonitor()
 }
 
 type PolicyID string

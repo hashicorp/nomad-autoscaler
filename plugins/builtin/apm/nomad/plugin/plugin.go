@@ -45,7 +45,7 @@ func NewNomadPlugin(log hclog.Logger) apm.APM {
 
 func (a *APMPlugin) SetConfig(config map[string]string) error {
 
-	cfg := nomadHelper.ConfigFromMap(config)
+	cfg := nomadHelper.ConfigFromNamespacedMap(config)
 
 	client, err := api.NewClient(cfg)
 	if err != nil {

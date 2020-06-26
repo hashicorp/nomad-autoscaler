@@ -8,107 +8,62 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-// configKeys are the map key values used when creating a config map based off
-// an internal Nomad configuration representation.
 const (
-	configKeyAddress       = "address"
-	configKeyRegion        = "region"
-	configKeyNamespace     = "namespace"
-	configKeyToken         = "token"
-	configKeyHTTPAuth      = "http-auth"
-	configKeyCACert        = "ca-cert"
-	configKeyCAPath        = "ca-path"
-	configKeyClientCert    = "client-cert"
-	configKeyClientKey     = "client-key"
-	configKeyTLSServerName = "tls-server-name"
-	configKeySkipVerify    = "skip-verify"
+	configKeyNomadAddress       = "nomad_address"
+	configKeyNomadRegion        = "nomad_region"
+	configKeyNomadNamespace     = "nomad_namespace"
+	configKeyNomadToken         = "nomad_token"
+	configKeyNomadHTTPAuth      = "nomad_http-auth"
+	configKeyNomadCACert        = "nomad_ca-cert"
+	configKeyNomadCAPath        = "nomad_ca-path"
+	configKeyNomadClientCert    = "nomad_client-cert"
+	configKeyNomadClientKey     = "nomad_client-key"
+	configKeyNomadTLSServerName = "nomad_tls-server-name"
+	configKeyNomadSkipVerify    = "nomad_skip-verify"
 )
 
-// ConfigToMap takes the Autoscalers internal configuration for Nomad API
-// connectivity and translates this to a map. This helper is needed when
-// passing configuration to plugins via generic structures.
-func ConfigToMap(cfg *config.Nomad) map[string]string {
-	m := make(map[string]string)
-
-	if cfg.Address != "" {
-		m[configKeyAddress] = cfg.Address
-	}
-	if cfg.Region != "" {
-		m[configKeyRegion] = cfg.Region
-	}
-	if cfg.Namespace != "" {
-		m[configKeyNamespace] = cfg.Namespace
-	}
-	if cfg.Token != "" {
-		m[configKeyToken] = cfg.Token
-	}
-	if cfg.CACert != "" {
-		m[configKeyCACert] = cfg.CACert
-	}
-	if cfg.CAPath != "" {
-		m[configKeyCAPath] = cfg.CAPath
-	}
-	if cfg.ClientCert != "" {
-		m[configKeyClientCert] = cfg.ClientCert
-	}
-	if cfg.ClientKey != "" {
-		m[configKeyClientKey] = cfg.ClientKey
-	}
-	if cfg.TLSServerName != "" {
-		m[configKeyTLSServerName] = cfg.TLSServerName
-	}
-	if cfg.SkipVerify {
-		m[configKeySkipVerify] = strconv.FormatBool(cfg.SkipVerify)
-	}
-	if cfg.HTTPAuth != "" {
-		m[configKeyHTTPAuth] = cfg.HTTPAuth
-	}
-
-	return m
-}
-
-// ConfigFromMap takes a generic map and converts it to a Nomad API config
-// struct.
-func ConfigFromMap(cfg map[string]string) *api.Config {
+// ConfigFromNamespacedMap converts the map representation of a Nomad config to
+// the proper object that can be used to setup a client.
+func ConfigFromNamespacedMap(cfg map[string]string) *api.Config {
 	c := &api.Config{
 		TLSConfig: &api.TLSConfig{},
 	}
 
-	if addr, ok := cfg[configKeyAddress]; ok {
+	if addr, ok := cfg[configKeyNomadAddress]; ok {
 		c.Address = addr
 	}
-	if region, ok := cfg[configKeyRegion]; ok {
+	if region, ok := cfg[configKeyNomadRegion]; ok {
 		c.Region = region
 	}
-	if namespace, ok := cfg[configKeyNamespace]; ok {
+	if namespace, ok := cfg[configKeyNomadNamespace]; ok {
 		c.Namespace = namespace
 	}
-	if token, ok := cfg[configKeyToken]; ok {
+	if token, ok := cfg[configKeyNomadToken]; ok {
 		c.SecretID = token
 	}
-	if caCert, ok := cfg[configKeyCACert]; ok {
+	if caCert, ok := cfg[configKeyNomadCACert]; ok {
 		c.TLSConfig.CACert = caCert
 	}
-	if caPath, ok := cfg[configKeyCAPath]; ok {
+	if caPath, ok := cfg[configKeyNomadCAPath]; ok {
 		c.TLSConfig.CAPath = caPath
 	}
-	if clientCert, ok := cfg[configKeyClientCert]; ok {
+	if clientCert, ok := cfg[configKeyNomadClientCert]; ok {
 		c.TLSConfig.ClientCert = clientCert
 	}
-	if clientKey, ok := cfg[configKeyClientKey]; ok {
+	if clientKey, ok := cfg[configKeyNomadClientKey]; ok {
 		c.TLSConfig.ClientKey = clientKey
 	}
-	if serverName, ok := cfg[configKeyTLSServerName]; ok {
+	if serverName, ok := cfg[configKeyNomadTLSServerName]; ok {
 		c.TLSConfig.TLSServerName = serverName
 	}
 	// It should be safe to ignore any error when converting the string to a
 	// bool. The boolean value should only ever come from a bool-flag, and
 	// therefore we shouldn't have any risk of incorrect or malformed user
 	// input string data.
-	if skipVerify, ok := cfg[configKeySkipVerify]; ok {
+	if skipVerify, ok := cfg[configKeyNomadSkipVerify]; ok {
 		c.TLSConfig.Insecure, _ = strconv.ParseBool(skipVerify)
 	}
-	if httpAuth, ok := cfg[configKeyHTTPAuth]; ok {
+	if httpAuth, ok := cfg[configKeyNomadHTTPAuth]; ok {
 		c.HttpAuth = HTTPAuthFromString(httpAuth)
 	}
 
@@ -134,5 +89,47 @@ func HTTPAuthFromString(auth string) *api.HttpBasicAuth {
 	return &api.HttpBasicAuth{
 		Username: username,
 		Password: password,
+	}
+}
+
+// MergeMapWithAgentConfig merges a Nomad map config with an agent config. The
+// config parameters within the map take preference.
+func MergeMapWithAgentConfig(m map[string]string, agentCfg *config.Nomad) {
+	if agentCfg == nil {
+		return
+	}
+
+	if agentCfg.Address != "" && m[configKeyNomadAddress] == "" {
+		m[configKeyNomadAddress] = agentCfg.Address
+	}
+	if agentCfg.Region != "" && m[configKeyNomadRegion] == "" {
+		m[configKeyNomadRegion] = agentCfg.Region
+	}
+	if agentCfg.Namespace != "" && m[configKeyNomadNamespace] == "" {
+		m[configKeyNomadNamespace] = agentCfg.Namespace
+	}
+	if agentCfg.Token != "" && m[configKeyNomadToken] == "" {
+		m[configKeyNomadToken] = agentCfg.Token
+	}
+	if agentCfg.CACert != "" && m[configKeyNomadCACert] == "" {
+		m[configKeyNomadCACert] = agentCfg.CACert
+	}
+	if agentCfg.CAPath != "" && m[configKeyNomadCAPath] == "" {
+		m[configKeyNomadCAPath] = agentCfg.CAPath
+	}
+	if agentCfg.ClientCert != "" && m[configKeyNomadClientCert] == "" {
+		m[configKeyNomadClientCert] = agentCfg.ClientCert
+	}
+	if agentCfg.ClientKey != "" && m[configKeyNomadClientKey] == "" {
+		m[configKeyNomadClientKey] = agentCfg.ClientKey
+	}
+	if agentCfg.TLSServerName != "" && m[configKeyNomadTLSServerName] == "" {
+		m[configKeyNomadTLSServerName] = agentCfg.TLSServerName
+	}
+	if agentCfg.SkipVerify && m[configKeyNomadSkipVerify] == "" {
+		m[configKeyNomadSkipVerify] = strconv.FormatBool(agentCfg.SkipVerify)
+	}
+	if agentCfg.HTTPAuth != "" && m[configKeyNomadHTTPAuth] == "" {
+		m[configKeyNomadHTTPAuth] = agentCfg.HTTPAuth
 	}
 }

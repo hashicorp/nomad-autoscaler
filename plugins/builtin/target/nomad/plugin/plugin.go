@@ -83,7 +83,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 		go t.garbageCollectionLoop()
 	}
 
-	cfg := nomadHelper.ConfigFromMap(config)
+	cfg := nomadHelper.ConfigFromNamespacedMap(config)
 
 	client, err := api.NewClient(cfg)
 	if err != nil {

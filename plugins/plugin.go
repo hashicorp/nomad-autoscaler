@@ -41,6 +41,12 @@ const (
 	InternalTargetAWSASG = "aws-asg"
 )
 
+// ConfigKeyNomadConfigInherit is a generic plugin config map key that supports
+// a boolean value. It indicates whether or not the plugin config should be
+// merged with the agent's Nomad config. This provides an easy simple way in
+// which plugins can have their Nomad client configured without extra hassle.
+const ConfigKeyNomadConfigInherit = "nomad_config_inherit"
+
 var (
 	// Handshake is used to do a basic handshake between a plugin and host. If
 	// the handshake fails, a user friendly error is shown. This prevents users

@@ -34,11 +34,6 @@ type Agent struct {
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
-	// DefaultEvaluationInterval is the time duration interval used when
-	// `evaluation_interval` is not defined in a policy.
-	DefaultEvaluationInterval    time.Duration
-	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
-
 	// HTTP is the configuration used to setup the HTTP health server.
 	HTTP *HTTP `hcl:"http,block"`
 
@@ -127,6 +122,11 @@ type Policy struct {
 	// which do not explicitly configure the parameter.
 	DefaultCooldown    time.Duration
 	DefaultCooldownHCL string `hcl:"default_cooldown,optional"`
+
+	// DefaultEvaluationInterval is the time duration interval used when
+	// `evaluation_interval` is not defined in a policy.
+	DefaultEvaluationInterval    time.Duration
+	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
 }
 
 const (
@@ -172,9 +172,8 @@ func Default() (*Agent, error) {
 	}
 
 	return &Agent{
-		LogLevel:                  defaultLogLevel,
-		PluginDir:                 pwd + defaultPluginDirSuffix,
-		DefaultEvaluationInterval: defaultEvaluationInterval,
+		LogLevel:  defaultLogLevel,
+		PluginDir: pwd + defaultPluginDirSuffix,
 		HTTP: &HTTP{
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
@@ -184,7 +183,8 @@ func Default() (*Agent, error) {
 			Region:  defaultNomadRegion,
 		},
 		Policy: &Policy{
-			DefaultCooldown: defaultPolicyCooldown,
+			DefaultCooldown:           defaultPolicyCooldown,
+			DefaultEvaluationInterval: defaultEvaluationInterval,
 		},
 		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
@@ -205,10 +205,6 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir
 	}
-	if b.DefaultEvaluationInterval != 0 {
-		result.DefaultEvaluationInterval = b.DefaultEvaluationInterval
-	}
-
 	if b.HTTP != nil {
 		result.HTTP = result.HTTP.merge(b.HTTP)
 	}
@@ -342,6 +338,9 @@ func (p *Policy) merge(b *Policy) *Policy {
 	if b.DefaultCooldown != 0 {
 		result.DefaultCooldown = b.DefaultCooldown
 	}
+	if b.DefaultEvaluationInterval != 0 {
+		result.DefaultEvaluationInterval = b.DefaultEvaluationInterval
+	}
 	return &result
 }
 
@@ -389,20 +388,24 @@ func parseFile(file string, cfg *Agent) error {
 		return err
 	}
 
-	if cfg.DefaultEvaluationIntervalHCL != "" {
-		d, err := time.ParseDuration(cfg.DefaultEvaluationIntervalHCL)
-		if err != nil {
-			return err
-		}
-		cfg.DefaultEvaluationInterval = d
+	if cfg.Policy == nil {
+		return nil
 	}
 
-	if cfg.Policy != nil && cfg.Policy.DefaultCooldownHCL != "" {
+	if cfg.Policy.DefaultCooldownHCL != "" {
 		d, err := time.ParseDuration(cfg.Policy.DefaultCooldownHCL)
 		if err != nil {
 			return err
 		}
 		cfg.Policy.DefaultCooldown = d
+	}
+
+	if cfg.Policy.DefaultEvaluationIntervalHCL != "" {
+		d, err := time.ParseDuration(cfg.Policy.DefaultEvaluationIntervalHCL)
+		if err != nil {
+			return err
+		}
+		cfg.Policy.DefaultEvaluationInterval = d
 	}
 
 	return nil

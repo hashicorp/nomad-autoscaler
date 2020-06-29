@@ -18,7 +18,7 @@ func Test_Default(t *testing.T) {
 	assert.False(t, def.LogJson)
 	assert.Equal(t, def.LogLevel, "info")
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
-	assert.Equal(t, def.DefaultEvaluationInterval, time.Duration(10000000000))
+	assert.Equal(t, def.Policy.DefaultEvaluationInterval, time.Duration(10000000000))
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
@@ -33,8 +33,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Nil(t, err)
 
 	cfg1 := &Agent{
-		PluginDir:                 "/opt/nomad-autoscaler/plugins",
-		DefaultEvaluationInterval: 5000000000,
+		PluginDir: "/opt/nomad-autoscaler/plugins",
 		HTTP: &HTTP{
 			BindAddress: "scaler.nomad",
 		},
@@ -51,10 +50,9 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	cfg2 := &Agent{
-		LogLevel:                  "trace",
-		LogJson:                   true,
-		PluginDir:                 "/var/lib/nomad-autoscaler/plugins",
-		DefaultEvaluationInterval: 10000000000,
+		LogLevel:  "trace",
+		LogJson:   true,
+		PluginDir: "/var/lib/nomad-autoscaler/plugins",
 		HTTP: &HTTP{
 			BindPort: 4646,
 		},
@@ -72,8 +70,9 @@ func TestAgent_Merge(t *testing.T) {
 			SkipVerify:    true,
 		},
 		Policy: &Policy{
-			Dir:             "/etc/scaling/policies",
-			DefaultCooldown: 20 * time.Minute,
+			Dir:                       "/etc/scaling/policies",
+			DefaultCooldown:           20 * time.Minute,
+			DefaultEvaluationInterval: 10000000000,
 		},
 		APMs: []*Plugin{
 			{
@@ -96,10 +95,9 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	expectedResult := &Agent{
-		LogLevel:                  "trace",
-		LogJson:                   true,
-		PluginDir:                 "/var/lib/nomad-autoscaler/plugins",
-		DefaultEvaluationInterval: 10000000000,
+		LogLevel:  "trace",
+		LogJson:   true,
+		PluginDir: "/var/lib/nomad-autoscaler/plugins",
 		HTTP: &HTTP{
 			BindAddress: "scaler.nomad",
 			BindPort:    4646,
@@ -118,8 +116,9 @@ func TestAgent_Merge(t *testing.T) {
 			SkipVerify:    true,
 		},
 		Policy: &Policy{
-			Dir:             "/etc/scaling/policies",
-			DefaultCooldown: 20 * time.Minute,
+			Dir:                       "/etc/scaling/policies",
+			DefaultCooldown:           20 * time.Minute,
+			DefaultEvaluationInterval: 10000000000,
 		},
 		APMs: []*Plugin{
 			{
@@ -163,7 +162,6 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.LogLevel, actualResult.LogLevel)
 	assert.Equal(t, expectedResult.Nomad, actualResult.Nomad)
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
-	assert.Equal(t, expectedResult.DefaultEvaluationInterval, actualResult.DefaultEvaluationInterval)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
@@ -196,11 +194,10 @@ func TestAgent_parseFile(t *testing.T) {
 	// Write some valid content, and ensure this is read and parsed.
 	cfg := &Agent{}
 
-	if _, err := fh.WriteString("default_evaluation_interval = \"10s\"\nplugin_dir = \"/opt/nomad-autoscaler/plugins\""); err != nil {
+	if _, err := fh.WriteString("plugin_dir = \"/opt/nomad-autoscaler/plugins\""); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 	assert.Nil(t, parseFile(fh.Name(), cfg))
-	assert.Equal(t, time.Duration(10000000000), cfg.DefaultEvaluationInterval)
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
 }
 
@@ -213,13 +210,13 @@ func TestConfig_Load(t *testing.T) {
 	assert.Nil(t, err)
 	defer os.Remove(fh.Name())
 
-	_, err = fh.WriteString("default_evaluation_interval = \"10s\"")
+	_, err = fh.WriteString("log_level = \"trace\"")
 	assert.Nil(t, err)
 
 	// Works on a config file
 	cfg, err := Load(fh.Name())
 	assert.Nil(t, err)
-	assert.Equal(t, time.Duration(10000000000), cfg.DefaultEvaluationInterval)
+	assert.Equal(t, "trace", cfg.LogLevel)
 
 	dir, err := ioutil.TempDir("", "nomad-autoscaler")
 	assert.Nil(t, err)
@@ -249,7 +246,7 @@ func TestAgent_loadDir(t *testing.T) {
 	assert.Equal(t, config, &Agent{})
 
 	file1 := filepath.Join(dir, "config1.hcl")
-	assert.Nil(t, ioutil.WriteFile(file1, []byte("default_evaluation_interval = \"10s\""), 0600))
+	assert.Nil(t, ioutil.WriteFile(file1, []byte("log_level = \"trace\""), 0600))
 
 	file2 := filepath.Join(dir, "config2.hcl")
 	assert.Nil(t, ioutil.WriteFile(file2, []byte("plugin_dir = \"/opt/nomad-autoscaler/plugins\""), 0600))
@@ -267,6 +264,6 @@ func TestAgent_loadDir(t *testing.T) {
 	// We should now be able to load as all the configs are valid.
 	cfg, err := loadDir(dir)
 	assert.Nil(t, err)
-	assert.Equal(t, time.Duration(10000000000), cfg.DefaultEvaluationInterval)
+	assert.Equal(t, "trace", cfg.LogLevel)
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
 }

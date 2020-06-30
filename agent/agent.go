@@ -86,7 +86,7 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *policy.Evaluati
 func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
 	sourceConfig := &policy.ConfigDefaults{
 		DefaultCooldown:           a.config.Policy.DefaultCooldown,
-		DefaultEvaluationInterval: a.config.DefaultEvaluationInterval,
+		DefaultEvaluationInterval: a.config.Policy.DefaultEvaluationInterval,
 	}
 
 	// Setup our initial default policy source which is Nomad.

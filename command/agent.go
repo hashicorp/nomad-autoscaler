@@ -110,6 +110,10 @@ Policy Options:
   -policy-default-cooldown=<dur>
     The default cooldown that will be applied to all scaling policies which do
     not specify a cooldown period.
+
+  -policy-default-evaluation-interval=<dur>
+    The default evaluation interval that will be applied to all scaling policies
+    which do not specify an evaluation interval.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -170,10 +174,6 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	flags.StringVar(&cmdConfig.LogLevel, "log-level", "", "")
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
-	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
-		cmdConfig.DefaultEvaluationInterval = d
-		return nil
-	}), "scan-interval", "")
 
 	// Specify our HTTP bind flags.
 	flags.StringVar(&cmdConfig.HTTP.BindAddress, "http-bind-address", "", "")
@@ -198,6 +198,10 @@ func (c *AgentCommand) readConfig() *config.Agent {
 		cmdConfig.Policy.DefaultCooldown = d
 		return nil
 	}), "policy-default-cooldown", "")
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.Policy.DefaultEvaluationInterval = d
+		return nil
+	}), "policy-default-evaluation-interval", "")
 
 	if err := flags.Parse(c.args); err != nil {
 		return nil

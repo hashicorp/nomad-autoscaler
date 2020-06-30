@@ -75,7 +75,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 		return err
 	}
 
-	utils, err := scaleutils.NewScaleInUtils(nomad.ConfigFromMap(config), t.logger)
+	utils, err := scaleutils.NewScaleInUtils(nomad.ConfigFromNamespacedMap(config), t.logger)
 	if err != nil {
 		return err
 	}

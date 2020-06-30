@@ -3,6 +3,9 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -30,8 +33,12 @@ func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	}
 }
 
-func (a *Agent) Run(ctx context.Context) error {
+func (a *Agent) Run() error {
 	defer a.stop()
+
+	// Create context to handle propagation to downstream routines.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// Generate the Nomad client.
 	if err := a.generateNomadClient(); err != nil {
@@ -55,12 +62,21 @@ func (a *Agent) Run(ctx context.Context) error {
 	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
 
+	// Launch the eval handler.
+	go a.runEvalHandler(ctx, policyEvalCh)
+
+	// Wait for our exit.
+	a.handleSignals()
+	return nil
+}
+
+func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *policy.Evaluation) {
 	for {
 		select {
 		case <-ctx.Done():
-			a.logger.Info("context closed, shutting down")
-			return nil
-		case policyEval := <-policyEvalCh:
+			a.logger.Info("context closed, shutting down eval handler")
+			return
+		case policyEval := <-evalCh:
 			w := policy.NewWorker(a.logger, a.pluginManager, a.policyManager)
 			go w.HandlePolicy(ctx, policyEval.Policy)
 		}
@@ -81,7 +97,7 @@ func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
 	// If the operators has configured a scaling policy directory to read from
 	// then setup the file source.
 	if a.config.Policy.Dir != "" {
-		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, sourceConfig, a.config.Policy.Dir, make(chan bool))
+		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, sourceConfig, a.config.Policy.Dir)
 	}
 
 	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager)
@@ -156,4 +172,34 @@ func (a *Agent) generateNomadClient() error {
 	a.nomadClient = client
 
 	return nil
+}
+
+// reload triggers the reload of sub-routines based on the operator sending a
+// SIGHUP signal to the agent.
+func (a Agent) reload() {
+	a.policyManager.ReloadSources()
+}
+
+// handleSignals blocks until the agent receives an exit signal.
+func (a *Agent) handleSignals() {
+
+	signalCh := make(chan os.Signal, 3)
+	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+
+	// Wait to receive a signal. This blocks until we are notified.
+WAIT:
+	sig := <-signalCh
+
+	a.logger.Info("caught signal", "signal", sig.String())
+
+	// Check the signal we received. If it was a SIGHUP perform the reload
+	// tasks and then continue to wait for another signal. Everything else
+	// means exit.
+	switch sig {
+	case syscall.SIGHUP:
+		a.reload()
+		goto WAIT
+	default:
+		return
+	}
 }

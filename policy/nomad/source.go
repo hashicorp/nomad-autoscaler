@@ -50,12 +50,20 @@ func (s *Source) Name() policy.SourceName {
 	return policy.SourceNameNomad
 }
 
+// ReloadIDsMonitor satisfies the ReloadIDsMonitor function of the
+// policy.Source interface.
+//
+// This currently does nothing but in the future will be useful to allow
+// reloading configuration options such as the Nomad client params or the log
+// level.
+func (s *Source) ReloadIDsMonitor() {}
+
 // MonitorIDs retrieves a list of policy IDs from a Nomad cluster and sends it
 // in the resultCh channel when change is detected. Errors are sent through the
 // errCh channel.
 //
 // This function blocks until the context is closed.
-func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessage, errCh chan<- error) {
+func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
 	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
@@ -80,7 +88,7 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessag
 			}
 
 			if err != nil {
-				errCh <- fmt.Errorf("failed to call the Nomad list policies API: %v", err)
+				req.ErrCh <- fmt.Errorf("failed to call the Nomad list policies API: %v", err)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -107,7 +115,7 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessag
 			q.WaitIndex = meta.LastIndex
 
 			// Send new policy IDs in the channel.
-			resultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
+			req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
 		}
 	}
 }
@@ -116,12 +124,12 @@ func (s *Source) MonitorIDs(ctx context.Context, resultCh chan<- policy.IDMessag
 // when a change is detect. Errors are sent through the errCh channel.
 //
 // This function blocks until the context is closed.
-func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh chan<- policy.Policy, errCh chan<- error) {
-	log := s.log.With("policy_id", ID)
+func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+	log := s.log.With("policy_id", req.ID)
 
 	// Close channels when done with the monitoring loop.
-	defer close(resultCh)
-	defer close(errCh)
+	defer close(req.ResultCh)
+	defer close(req.ErrCh)
 
 	log.Trace("starting policy blocking query watcher")
 
@@ -137,7 +145,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 			// sleep and try again.
 			//
 			// TODO(jrasell) in the future maybe use a better method than sleep.
-			p, meta, err := s.nomad.Scaling().GetPolicy(string(ID), q)
+			p, meta, err := s.nomad.Scaling().GetPolicy(string(req.ID), q)
 
 			// Return immediately if context is closed.
 			if ctx.Err() != nil {
@@ -146,7 +154,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 			}
 
 			if err != nil {
-				errCh <- fmt.Errorf("failed to get policy: %v", err)
+				req.ErrCh <- fmt.Errorf("failed to get policy: %v", err)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -171,14 +179,14 @@ func (s *Source) MonitorPolicy(ctx context.Context, ID policy.PolicyID, resultCh
 					err = fmt.Errorf("%s: %v", errMsg, err)
 				}
 
-				errCh <- err
+				req.ErrCh <- err
 				continue
 			}
 
 			autoPolicy := parsePolicy(p)
 			s.canonicalizePolicy(&autoPolicy)
 
-			resultCh <- autoPolicy
+			req.ResultCh <- autoPolicy
 		}
 	}
 }

@@ -80,5 +80,11 @@ bin/plugins/target-value:
 	@cd ./plugins/builtin/strategy/target-value && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/aws-asg:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/aws-asg && go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
-plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value
+plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg

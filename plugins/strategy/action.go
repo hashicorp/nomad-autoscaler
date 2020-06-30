@@ -131,16 +131,8 @@ func (a *Action) pushReason(r string) {
 
 // PreemptAction determines which Action should take precedence.
 //
-// The result is based on the scaling direction and count. The order of
-// precedence for the scaling directions is defined by the order in which they
-// are declared in the above enum.
-//
-// If the scaling direction is the same, the priority is given to the safest
-// option, where safest is defined as lowest impact in the underlying
-// infrastructure:
-//
-//   * ScaleDirectionUp: Action with highest count
-//   * ScaleDirectionDown: Action with highest count
+// The priority is given to the safest option, where safest is defined as
+// requesting the largest amount of underlying infrastructure.
 func PreemptAction(a *Action, b *Action) *Action {
 	if a == nil {
 		return b
@@ -150,17 +142,8 @@ func PreemptAction(a *Action, b *Action) *Action {
 		return a
 	}
 
-	if b.Direction > a.Direction {
+	if b.Count > a.Count {
 		return b
-	}
-
-	if a.Direction == b.Direction {
-		switch a.Direction {
-		case ScaleDirectionUp, ScaleDirectionDown:
-			if b.Count > a.Count {
-				return b
-			}
-		}
 	}
 
 	return a

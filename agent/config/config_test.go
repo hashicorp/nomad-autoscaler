@@ -72,7 +72,7 @@ func TestAgent_Merge(t *testing.T) {
 		Policy: &Policy{
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
-			DefaultEvaluationInterval: 10000000000,
+			DefaultEvaluationInterval: 10 * time.Second,
 		},
 		APMs: []*Plugin{
 			{

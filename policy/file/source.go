@@ -194,7 +194,7 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*p
 
 	for _, c := range newPolicy.Checks {
 		c.CanonicalizeAPMQuery(newPolicy.Target)
-  }
+	}
 
 	val, ok := s.policyMap[ID]
 	if !ok || val.policy == nil {

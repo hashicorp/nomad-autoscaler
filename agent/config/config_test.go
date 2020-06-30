@@ -18,7 +18,7 @@ func Test_Default(t *testing.T) {
 	assert.False(t, def.LogJson)
 	assert.Equal(t, def.LogLevel, "info")
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
-	assert.Equal(t, def.Policy.DefaultEvaluationInterval, time.Duration(10000000000))
+	assert.Equal(t, def.Policy.DefaultEvaluationInterval, 10 * time.Second)
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)

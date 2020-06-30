@@ -192,6 +192,10 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*p
 	newPolicy.ID = ID.String()
 	newPolicy.ApplyDefaults(s.config)
 
+	for _, c := range newPolicy.Checks {
+		c.CanonicalizeAPMQuery(newPolicy.Target)
+	}
+
 	val, ok := s.policyMap[ID]
 	if !ok || val.policy == nil {
 		return newPolicy, nil
@@ -258,6 +262,12 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			s.log.Trace("policy is disabled therefore ignoring",
 				"policy_id", scalingPolicy.ID, "file", file)
 			continue
+		}
+
+		scalingPolicy.ApplyDefaults(s.config)
+
+		for _, c := range scalingPolicy.Checks {
+			c.CanonicalizeAPMQuery(scalingPolicy.Target)
 		}
 
 		// Store the file>id mapping if it doesn't exist. This makes the

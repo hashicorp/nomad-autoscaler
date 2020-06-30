@@ -123,7 +123,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Checks: []*policy.Check{
 					{
 						Source: plugins.InternalAPMNomad,
-						Query:  "avg_cpu/group/job",
+						Query:  "taskgroup_avg_cpu/group/job",
 						Strategy: &policy.Strategy{
 							Config: map[string]string{},
 						},
@@ -159,7 +159,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Checks: []*policy.Check{
 					{
 						Source: plugins.InternalAPMNomad,
-						Query:  "avg_cpu/group/job",
+						Query:  "taskgroup_avg_cpu/group/job",
 						Strategy: &policy.Strategy{
 							Config: map[string]string{},
 						},
@@ -194,7 +194,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Checks: []*policy.Check{
 					{
 						Source: plugins.InternalAPMNomad,
-						Query:  "avg_cpu/my_group/my_job",
+						Query:  "taskgroup_avg_cpu/my_group/my_job",
 						Strategy: &policy.Strategy{
 							Config: map[string]string{},
 						},

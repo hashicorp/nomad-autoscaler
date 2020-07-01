@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -15,6 +16,13 @@ import (
 type ScaleIn struct {
 	log   hclog.Logger
 	nomad *api.Client
+
+	// curNodeID is the ID of the node that the Nomad autoscaler is curently
+	// running on.
+	//
+	// TODO(jrasell) this should be removed once the cluster targets and core
+	//  autoscaler components are updated to handle reconciliation.
+	curNodeID string
 }
 
 // NewScaleInUtils returns a new ScaleIn implementation which provides helper
@@ -26,9 +34,17 @@ func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
 		return nil, fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
 
+	// Identifying the node is best-effort and should not result in a terminal
+	// error when setting up the utils.
+	id, err := identifyAutoscalerNodeID(client)
+	if err != nil {
+		log.Error("failed to identify Nomad Autoscaler nodeID", "error", err)
+	}
+
 	return &ScaleIn{
-		log:   log,
-		nomad: client,
+		log:       log,
+		nomad:     client,
+		curNodeID: id,
 	}, nil
 }
 
@@ -87,6 +103,10 @@ func (si *ScaleIn) identifyTargets(num int, ident *PoolIdentifier, strategy Node
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO(jrasell) this should be removed once the cluster targets and core
+	//  autoscaler components are updated to handle reconciliation.
+	filteredNodes = filterOutNodeID(filteredNodes, si.curNodeID)
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
@@ -249,4 +269,43 @@ func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index ui
 		}
 	}
 	return ctx.Err()
+}
+
+// identifyAutoscalerNodeID identifies the NodeID which the autoscaler is
+// running on.
+//
+// TODO(jrasell) this should be removed once the cluster targets and core
+//  autoscaler components are updated to handle reconciliation.
+func identifyAutoscalerNodeID(client *api.Client) (string, error) {
+
+	envVar := os.Getenv("NOMAD_ALLOC_ID")
+	if envVar == "" {
+		return "", nil
+	}
+
+	allocInfo, _, err := client.Allocations().Info(envVar, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to call Nomad allocations info: %v", err)
+	}
+
+	return allocInfo.NodeID, nil
+}
+
+// TODO(jrasell) this should be removed once the cluster targets and core
+//  autoscaler components are updated to handle reconciliation.
+func filterOutNodeID(n []*api.NodeListStub, id string) []*api.NodeListStub {
+
+	if id == "" {
+		return n
+	}
+
+	var out []*api.NodeListStub
+
+	for _, node := range n {
+		if node.ID == id {
+			continue
+		}
+		out = append(out, node)
+	}
+	return out
 }

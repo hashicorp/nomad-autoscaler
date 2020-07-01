@@ -229,9 +229,6 @@ func canonicalizeCheck(c *policy.Check, t *policy.Target) {
 		c.Strategy.Config = make(map[string]string)
 	}
 
-	// Default source to the Nomad APM.
-	if c.Source == "" {
-		c.Source = plugins.InternalAPMNomad
-	}
-	c.CanonicalizeAPMQuery(t)
+	// Canonicalize the check.
+	c.Canonicalize(t)
 }

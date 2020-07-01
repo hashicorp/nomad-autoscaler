@@ -192,8 +192,12 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*p
 	newPolicy.ID = ID.String()
 	newPolicy.ApplyDefaults(s.config)
 
+	if err := newPolicy.Validate(); err != nil {
+		return nil, fmt.Errorf("failed to validate file %s: %v", path, err)
+	}
+
 	for _, c := range newPolicy.Checks {
-		c.CanonicalizeAPMQuery(newPolicy.Target)
+		c.Canonicalize(newPolicy.Target)
 	}
 
 	val, ok := s.policyMap[ID]
@@ -266,8 +270,13 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 
 		scalingPolicy.ApplyDefaults(s.config)
 
+		if err := scalingPolicy.Validate(); err != nil {
+			mErr = multierror.Append(fmt.Errorf("failed to validate file %s: %v", file, err), mErr)
+			continue
+		}
+
 		for _, c := range scalingPolicy.Checks {
-			c.CanonicalizeAPMQuery(scalingPolicy.Target)
+			c.Canonicalize(scalingPolicy.Target)
 		}
 
 		// Store the file>id mapping if it doesn't exist. This makes the

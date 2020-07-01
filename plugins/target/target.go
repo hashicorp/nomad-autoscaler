@@ -30,9 +30,10 @@ const MetaKeyLastEvent = "nomad_autoscaler.last_event"
 const (
 	// ConfigKeys are the various target config map keys that can be used to
 	// identify a target.
-	ConfigKeyJob       = "Job"
-	ConfigKeyTaskGroup = "Group"
-	ConfigKeyClass     = "class"
+	ConfigKeyJob           = "Job"
+	ConfigKeyTaskGroup     = "Group"
+	ConfigKeyClass         = "node_class"
+	ConfigKeyDrainDeadline = "node_drain_deadline"
 )
 
 // RPC is a plugin implementation that talks over net/rpc

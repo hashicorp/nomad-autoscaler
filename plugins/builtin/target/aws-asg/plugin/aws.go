@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 )
 
 const (
@@ -145,16 +146,16 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 
 	// Pull the class key from the config mapping. This is a required value and
 	// we cannot scale without this.
-	class, ok := config[configKeyClass]
+	class, ok := config[target.ConfigKeyClass]
 	if !ok {
-		return nil, fmt.Errorf("required config param %q not found", configKeyClass)
+		return nil, fmt.Errorf("required config param %q not found", target.ConfigKeyClass)
 	}
 
 	// The drain_deadline is an optional parameter so define out default and
 	// then attempt to find an operator specified value.
 	drain := scaleutils.DefaultDrainDeadline
 
-	if drainString, ok := config[configKeyDrainDeadline]; ok {
+	if drainString, ok := config[target.ConfigKeyDrainDeadline]; ok {
 		d, err := time.ParseDuration(drainString)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %q as time duration", drainString)

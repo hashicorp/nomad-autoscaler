@@ -79,7 +79,7 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Query:  "percentage-allocated_memory",
 			},
 			inputTarget: &Target{
-				Config: map[string]string{"class": "hashistack"},
+				Config: map[string]string{"node_class": "hashistack"},
 			},
 			expectedOutputCheck: &Check{
 				Name:   "random-check",

@@ -53,9 +53,9 @@ func Test_decodeFile(t *testing.T) {
 				Target: &policy.Target{
 					Name: "aws-asg",
 					Config: map[string]string{
-						"asg_name":       "my-target-asg",
-						"class":          "high-memory",
-						"drain_deadline": "15m",
+						"aws_asg_name":        "my-target-asg",
+						"node_class":          "high-memory",
+						"node_drain_deadline": "15m",
 					},
 				},
 			},

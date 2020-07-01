@@ -22,13 +22,11 @@ const (
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
-	configKeyRegion        = "aws_region"
-	configKeyAccessID      = "aws_access_key_id"
-	configKeySecretKey     = "aws_secret_access_key"
-	configKeySessionToken  = "session_token"
-	configKeyASGName       = "asg_name"
-	configKeyClass         = "class"
-	configKeyDrainDeadline = "drain_deadline"
+	configKeyRegion       = "aws_region"
+	configKeyAccessID     = "aws_access_key_id"
+	configKeySecretKey    = "aws_secret_access_key"
+	configKeySessionToken = "aws_session_token"
+	configKeyASGName      = "aws_asg_name"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.

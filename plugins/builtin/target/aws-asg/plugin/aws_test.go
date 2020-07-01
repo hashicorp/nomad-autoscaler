@@ -20,8 +20,8 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 		{
 			inputNum: 2,
 			inputConfig: map[string]string{
-				"class":          "high-memory",
-				"drain_deadline": "5m",
+				"node_class":          "high-memory",
+				"node_drain_deadline": "5m",
 			},
 			expectedOutputReq: &scaleutils.ScaleInReq{
 				Num:           2,
@@ -40,13 +40,13 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 			inputNum:            2,
 			inputConfig:         map[string]string{},
 			expectedOutputReq:   nil,
-			expectedOutputError: errors.New("required config param \"class\" not found"),
+			expectedOutputError: errors.New("required config param \"node_class\" not found"),
 			name:                "no class key found in config",
 		},
 		{
 			inputNum: 2,
 			inputConfig: map[string]string{
-				"class": "high-memory",
+				"node_class": "high-memory",
 			},
 			expectedOutputReq: &scaleutils.ScaleInReq{
 				Num:           2,
@@ -64,8 +64,8 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 		{
 			inputNum: 2,
 			inputConfig: map[string]string{
-				"class":          "high-memory",
-				"drain_deadline": "time to make a cuppa",
+				"node_class":          "high-memory",
+				"node_drain_deadline": "time to make a cuppa",
 			},
 			expectedOutputReq:   nil,
 			expectedOutputError: errors.New("failed to parse \"time to make a cuppa\" as time duration"),

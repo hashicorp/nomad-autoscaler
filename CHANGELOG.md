@@ -2,6 +2,7 @@
 
 __BACKWARDS INCOMPATIBILITIES:__
  * policy: allow multiple `check`s in a policy [[GH-176](https://github.com/hashicorp/nomad-autoscaler/pull/176)]
+ * agent: the `scan-interval` CLI flag and top-level `default_evaluation_interval` config option have been removed and replaced by `policy-default-evaluation-interval` and `policy.default_evaluation_interval` options respectively [[GH-197](https://github.com/hashicorp/nomad-autoscaler/pull/197)]
 
 FEATURES:
  * agent: only enter out-of-bounds cooldown if time greater than 1s [[GH-139](https://github.com/hashicorp/nomad-autoscaler/pull/139)]

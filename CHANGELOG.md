@@ -4,7 +4,11 @@ __BACKWARDS INCOMPATIBILITIES:__
  * policy: allow multiple `check`s in a policy [[GH-176](https://github.com/hashicorp/nomad-autoscaler/pull/176)]
 
 FEATURES:
+ * __AWS ASG Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling groups [[GH-185](https://github.com/hashicorp/nomad-autoscaler/pull/185)]
+
+IMPROVEMENTS:
  * agent: only enter out-of-bounds cooldown if time greater than 1s [[GH-139](https://github.com/hashicorp/nomad-autoscaler/pull/139)]
+ * agent: scaling policies can now be loaded from a directory on local disk [[GH-178](https://github.com/hashicorp/nomad-autoscaler/pull/178)]
 
 BUG FIXES:
  * cli: fix incorrect flag help detail for `nomad-ca-path` [[GH-168](https://github.com/hashicorp/nomad-autoscaler/pull/168)]

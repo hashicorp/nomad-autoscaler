@@ -94,6 +94,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pm := NewPluginManager(logger, tc.pluginDir, tc.cfg)
 			err := pm.Load()
+			defer pm.KillPlugins()
 
 			if tc.expectError {
 				assert.Error(t, err)

@@ -10,14 +10,15 @@ job "webapp" {
       max     = 20
 
       policy {
-        source   = "prometheus"
-        query    = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
+
         cooldown = "20s"
 
-        strategy = {
-          name = "target-value"
+        check "avg_instance_sessions" {
+          source   = "prometheus"
+          query    = "scalar(avg((haproxy_server_current_sessions{backend=\"http_back\"}) and (haproxy_server_up{backend=\"http_back\"} == 1)))"
 
-          config = {
+
+          strategy "target-value" {
             target = 5
           }
         }

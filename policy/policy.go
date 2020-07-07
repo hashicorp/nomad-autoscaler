@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
@@ -23,7 +24,7 @@ type Policy struct {
 
 type Check struct {
 	Name     string    `hcl:"name,label"`
-	Source   string    `hcl:"source"`
+	Source   string    `hcl:"source,optional"`
 	Query    string    `hcl:"query"`
 	Strategy *Strategy `hcl:"strategy,block"`
 }
@@ -53,6 +54,40 @@ func (p *Policy) ApplyDefaults(d *ConfigDefaults) {
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = d.DefaultEvaluationInterval
 	}
+}
+
+// Validate performs validation of the policy document returning a list of
+// errors found, if any.
+func (p *Policy) Validate() error {
+
+	var mErr *multierror.Error
+
+	if p.ID == "" {
+		mErr = multierror.Append(mErr, fmt.Errorf("policy ID is empty"))
+	}
+	if p.Min < 0 {
+		mErr = multierror.Append(mErr, fmt.Errorf("policy Min can't be negative"))
+	}
+	if p.Max < 0 {
+		mErr = multierror.Append(mErr, fmt.Errorf("policy Max can't be negative"))
+	}
+	if p.Min > p.Max {
+		mErr = multierror.Append(mErr, fmt.Errorf("policy Min must not be greater Max"))
+	}
+
+	return mErr.ErrorOrNil()
+}
+
+// Canonicalize sets standardised values on fields.
+func (c *Check) Canonicalize(t *Target) {
+
+	// Operators can omit the check query source which defaults to the Nomad
+	// APM.
+	if c.Source == "" {
+		c.Source = plugins.InternalAPMNomad
+	}
+
+	c.CanonicalizeAPMQuery(t)
 }
 
 // CanonicalizeAPMQuery takes a short styled Nomad APM check query and creates

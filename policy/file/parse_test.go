@@ -62,6 +62,51 @@ func Test_decodeFile(t *testing.T) {
 			expectedOutputError: nil,
 			name:                "full parsable cluster scaling policy",
 		},
+		{
+			inputFile:   "./test-fixtures/full-task-group-policy.hcl",
+			inputPolicy: &policy.Policy{},
+			expectedOutputPolicy: &policy.Policy{
+				ID:                 "",
+				Enabled:            true,
+				Min:                1,
+				Max:                10,
+				Cooldown:           1 * time.Minute,
+				EvaluationInterval: 30 * time.Second,
+				Checks: []*policy.Check{
+					{
+						Name:   "cpu_nomad",
+						Source: "nomad_apm",
+						Query:  "avg_cpu",
+						Strategy: &policy.Strategy{
+							Name: "target-value",
+							Config: map[string]string{
+								"target": "80",
+							},
+						},
+					},
+					{
+						Name:   "memory_nomad",
+						Source: "nomad_apm",
+						Query:  "avg_memory",
+						Strategy: &policy.Strategy{
+							Name: "target-value",
+							Config: map[string]string{
+								"target": "80",
+							},
+						},
+					},
+				},
+				Target: &policy.Target{
+					Name: "nomad",
+					Config: map[string]string{
+						"Group": "cache",
+						"Job":   "example",
+					},
+				},
+			},
+			expectedOutputError: nil,
+			name:                "full parsable task group scaling policy",
+		},
 	}
 
 	for _, tc := range testCases {

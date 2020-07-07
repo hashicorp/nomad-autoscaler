@@ -1,11 +1,91 @@
 package policy
 
 import (
+	"errors"
 	"testing"
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestPolicy_Validate(t *testing.T) {
+	testCases := []struct {
+		inputPolicy    *Policy
+		expectedOutput error
+		name           string
+	}{
+		{
+			inputPolicy: &Policy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+			},
+			expectedOutput: nil,
+			name:           "valid input policy",
+		},
+		{
+			inputPolicy: &Policy{
+				ID:  "",
+				Min: 1,
+				Max: 10,
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("policy ID is empty"),
+				},
+			},
+			name: "empty policy ID",
+		},
+		{
+			inputPolicy: &Policy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: -1,
+				Max: 10,
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("policy Min can't be negative"),
+				},
+			},
+			name: "negative minimum value",
+		},
+		{
+			inputPolicy: &Policy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 100,
+				Max: 10,
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("policy Min must not be greater Max"),
+				},
+			},
+			name: "policy minimum greater than maximum",
+		},
+		{
+			inputPolicy: &Policy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: -10,
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("policy Max can't be negative"),
+					errors.New("policy Min must not be greater Max"),
+				},
+			},
+			name: "negative maximum value which is lower than minimum",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualOutput := tc.inputPolicy.Validate()
+			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+		})
+	}
+}
 
 func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 	testCases := []struct {

@@ -20,7 +20,7 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 
 	to := policy.Policy{
 		ID:      p.ID,
-		Max:     p.Max,
+		Max:     *p.Max, // Nomad always ensures Max is populated.
 		Enabled: true,
 		Checks:  parseChecks(p.Policy[keyChecks]),
 	}

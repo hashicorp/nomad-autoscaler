@@ -28,22 +28,25 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	//   1. Min must not be nil.
 	//   2. Min must be positive.
 	//   3. Max must be positive.
-	//   4. Min must be smaller than Max.
+	//   4. Max must not be nil.
+	//   5. Min must be smaller than Max.
 	if policy.Min == nil {
 		result = multierror.Append(result, fmt.Errorf("scaling.min is missing"))
+	} else if policy.Max == nil {
+		result = multierror.Append(result, fmt.Errorf("scaling.max is missing"))
 	} else {
 		min := *policy.Min
 		if min < 0 {
 			result = multierror.Append(result, fmt.Errorf("scaling.min can't be negative"))
 		}
 
-		if min > policy.Max {
+		if min > *policy.Max {
 			result = multierror.Append(result, fmt.Errorf("scaling.min must be smaller than scaling.max"))
 		}
-	}
 
-	if policy.Max < 0 {
-		result = multierror.Append(result, fmt.Errorf("scaling.max can't be negative"))
+		if *policy.Max < 0 {
+			result = multierror.Append(result, fmt.Errorf("scaling.max can't be negative"))
+		}
 	}
 
 	// Validate Target.

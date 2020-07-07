@@ -46,7 +46,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -76,7 +76,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			input: &api.ScalingPolicy{
 				ID:  "id",
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -108,7 +108,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 				Target: map[string]string{
 					"key": "value",
 				},
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -141,7 +141,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(-1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -174,7 +174,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: -5,
+				Max: ptr.Int64ToPtr(-5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -207,7 +207,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(2),
-				Max: 1,
+				Max: ptr.Int64ToPtr(1),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -270,7 +270,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -303,7 +303,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -347,7 +347,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyTarget: []interface{}{
 						map[string]interface{}{
@@ -389,7 +389,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 					"key": "value",
 				},
 				Min: ptr.Int64ToPtr(1),
-				Max: 5,
+				Max: ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyTarget: []interface{}{
 						map[string]interface{}{

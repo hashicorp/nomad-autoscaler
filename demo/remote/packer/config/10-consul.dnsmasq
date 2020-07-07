@@ -1,0 +1,2 @@
+# Enable forward lookup of the 'consul' domain:
+server=/consul/127.0.0.1#8600

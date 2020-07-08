@@ -5,7 +5,7 @@ the average number of connections per instance of our application. The cluster w
 the total allocated resources across our pool of Nomad client nodes.
 
 ***The infrastructure built as part of the demo has billable costs and is not suitable for
-production use**
+production use***
 
 ### Requirements
 In order to build and run the demo, the following applications are required locally:
@@ -22,7 +22,7 @@ Please navigate to the appropriate section below.
 The steps below this point are generic across providers and form the main part of this demo. Enjoy.
 
 ## Generate Application Load
-In order to generate some initial load we will call the hey application. This will cause the
+In order to generate some initial load we will call the `hey` application. This will cause the
 application to scale up slightly.
 ```
 hey -z 10m -c 20 -q 40 $NOMAD_CLIENT_DNS:80 &

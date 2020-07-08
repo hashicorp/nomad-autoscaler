@@ -69,7 +69,7 @@ policy {
 
   check "cpu_allocated_percentage" {
     source = "prometheus"
-    query  = "scalar(sum(nomad_client_allocated_cpu{node_class=\"hashistack\"}*100/(nomad_client_unallocated_cpu{node_class=\"hashistack\"}+nomad_client_allocated_cpu{node_class=\"hashistack\"}))/count(nomad_client_allocated_cpu))"
+    query  = "scalar(sum(nomad_client_allocated_cpu{node_class=\"hashistack\"}*100/(nomad_client_unallocated_cpu{node_class=\"hashistack\"}+nomad_client_allocated_cpu{node_class=\"hashistack\"}))/count(nomad_client_allocated_cpu{node_class=\"hashistack\"}))"
 
     strategy "target-value" {
       target = 70
@@ -78,7 +78,7 @@ policy {
 
   check "mem_allocated_percentage" {
     source = "prometheus"
-    query  = "scalar(sum(nomad_client_allocated_memory{node_class=\"hashistack\"}*100/(nomad_client_unallocated_memory{node_class=\"hashistack\"}+nomad_client_allocated_memory{node_class=\"hashistack\"}))/count(nomad_client_allocated_memory))"
+    query  = "scalar(sum(nomad_client_allocated_memory{node_class=\"hashistack\"}*100/(nomad_client_unallocated_memory{node_class=\"hashistack\"}+nomad_client_allocated_memory{node_class=\"hashistack\"}))/count(nomad_client_allocated_memory{node_class=\"hashistack\"}))"
 
     strategy "target-value" {
       target = 70
@@ -93,6 +93,7 @@ policy {
   }
 }
 EOF
+
         destination = "${NOMAD_TASK_DIR}/policies/hashistack.hcl"
       }
 

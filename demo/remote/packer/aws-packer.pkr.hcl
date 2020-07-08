@@ -1,6 +1,6 @@
 variable "created_email" {}
 variable "created_name" {}
-variable "region" { default ="us-east-1" }
+variable "region" { default = "us-east-1" }
 
 source "amazon-ebs" "hashistack" {
   ami_name      = "Hashistack {{timestamp}}"
@@ -8,7 +8,7 @@ source "amazon-ebs" "hashistack" {
   instance_type = "t2.medium"
 
   source_ami_filter {
-    filters {
+    filters = {
       virtualization-type = "hvm"
       name                = "ubuntu/images/*ubuntu-focal-20.04-amd64-server-*"
       root-device-type    = "ebs"
@@ -21,7 +21,7 @@ source "amazon-ebs" "hashistack" {
   ssh_username = "ubuntu"
   ami_groups   = ["all"]
 
-  tags {
+  tags = {
     OS_Version    = "Ubuntu"
     Release       = "20.04"
     Architecture  = "amd64"

@@ -20,7 +20,7 @@ The compability requirements are as follows:
 | [0.0.1-techpreview1](https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview1/) | 0.11.0-beta1  |
 | [0.0.1-techpreview2](https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview2/) |    0.11.0     |
 | [0.0.2](https://releases.hashicorp.com/nomad-autoscaler/0.0.2/)                           |    0.11.2     |
-| [nightly](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly)             |    0.11.2     |
+| [nightly](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly)             |  0.12.0-rc1   |
 
 ## Documentation
 Documentation is available within this repository [here](./docs/README.md).

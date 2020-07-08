@@ -1,0 +1,2 @@
+# 99-default.dnsmasq
+server=169.254.169.253

@@ -1,0 +1,6 @@
+region             = "us-east-1"
+availability_zones = ["us-east-1a"]
+ami                = "ami-0bd21458ecf89f85e"
+key_name           = "my-dev-ec2-keypair"
+owner_name         = "alovelace"
+owner_email        = "alovelace@example.com"

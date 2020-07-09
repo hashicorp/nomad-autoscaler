@@ -29,6 +29,9 @@ Documentation is available within this repository [here](./docs/README.md).
 ## Demo
 The [Vagrant based demo](./demo/vagrant/README.md) provides a guided example of running and autoscaling an application based on Prometheus metrics using the Nomad Autoscaler.
 
+The [remote provider based demo](./demo/remote/README.md) provides guided examples of running horizontal
+application and cluster scaling.
+
 ## Building
 The Nomad Autoscaler can be easily built for local testing or development using the `make build` command. This will output the compiled binary to `./bin/nomad-autoscaler`.
 

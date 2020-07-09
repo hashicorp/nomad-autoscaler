@@ -11,3 +11,14 @@ pkg/
 
 # ignore GoLand IDE
 .idea
+
+# Terraform state files.
+*.tfstate
+*.tfstate.backup
+.terraform.tfstate.lock.info
+
+# Terraform module and provider directory.
+.terraform
+
+# Terraform vars file
+terraform.tfvars

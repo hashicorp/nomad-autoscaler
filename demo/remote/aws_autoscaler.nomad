@@ -8,8 +8,8 @@ job "autoscaler" {
       driver = "docker"
 
       config {
-        image   = "jrasell/test-test-test:latest"
-//        command = "nomad-autoscaler"
+        image   = "hashicorp/nomad-autoscaler:0.1.0"
+        command = "nomad-autoscaler"
 
         args = [
           "agent",

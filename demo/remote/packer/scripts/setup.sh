@@ -19,7 +19,7 @@ CONSULDOWNLOAD=https://releases.hashicorp.com/consul/${CONSULVERSION}/consul_${C
 CONSULCONFIGDIR=/etc/consul.d
 CONSULDIR=/opt/consul
 
-NOMADVERSION=0.12.0-rc1
+NOMADVERSION=0.12.0
 NOMADDOWNLOAD=https://releases.hashicorp.com/nomad/${NOMADVERSION}/nomad_${NOMADVERSION}_linux_amd64.zip
 NOMADCONFIGDIR=/etc/nomad.d
 NOMADDIR=/opt/nomad

@@ -10,6 +10,7 @@ FEATURES:
 IMPROVEMENTS:
  * agent: only enter out-of-bounds cooldown if time greater than 1s [[GH-139](https://github.com/hashicorp/nomad-autoscaler/pull/139)]
  * agent: scaling policies can now be loaded from a directory on local disk [[GH-178](https://github.com/hashicorp/nomad-autoscaler/pull/178)]
+ * core: update Nomad API dependency to 0.12.0 [[GH-210](https://github.com/hashicorp/nomad-autoscaler/pull/210)]
 
 BUG FIXES:
  * cli: fix incorrect flag help detail for `nomad-ca-path` [[GH-168](https://github.com/hashicorp/nomad-autoscaler/pull/168)]

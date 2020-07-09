@@ -258,6 +258,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 
 		// Get the policyID for the file.
 		policyID := s.getFilePolicyID(file)
+		scalingPolicy.ID = string(policyID)
 
 		// Ignore the policy if its disabled. The log line is because I
 		// (jrasell) have spent too much time figuring out why a policy doesn't

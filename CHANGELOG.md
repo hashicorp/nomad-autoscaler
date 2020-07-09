@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.1.0 (July 09, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__
  * policy: allow multiple `check`s in a policy [[GH-176](https://github.com/hashicorp/nomad-autoscaler/pull/176)]

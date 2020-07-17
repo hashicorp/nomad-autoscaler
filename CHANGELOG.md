@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+ * policy: fix an issue where the Nomad Autoscaler would fail to canonicalize Nomad APM queries with non-default plugin name [[GH-216](https://github.com/hashicorp/nomad-autoscaler/issues/216)]
+
 ## 0.1.0 (July 09, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__

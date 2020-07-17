@@ -84,20 +84,24 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *policy.Evaluati
 }
 
 func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
-	sourceConfig := &policy.ConfigDefaults{
-		DefaultCooldown:           a.config.Policy.DefaultCooldown,
+
+	// Create our processor, a shared method for performing basic policy
+	// actions.
+	cfgDefaults := policy.ConfigDefaults{
 		DefaultEvaluationInterval: a.config.Policy.DefaultEvaluationInterval,
+		DefaultCooldown:           a.config.Policy.DefaultCooldown,
 	}
+	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
 	// Setup our initial default policy source which is Nomad.
 	sources := map[policy.SourceName]policy.Source{
-		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, sourceConfig),
+		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor),
 	}
 
 	// If the operators has configured a scaling policy directory to read from
 	// then setup the file source.
 	if a.config.Policy.Dir != "" {
-		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, sourceConfig, a.config.Policy.Dir)
+		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
 	}
 
 	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager)

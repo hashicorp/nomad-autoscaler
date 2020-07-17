@@ -31,17 +31,17 @@ var _ policy.Source = (*Source)(nil)
 // Source is an implementation of the Source interface that retrieves
 // policies from a Nomad cluster.
 type Source struct {
-	log    hclog.Logger
-	nomad  *api.Client
-	config *policy.ConfigDefaults
+	log             hclog.Logger
+	nomad           *api.Client
+	policyProcessor *policy.Processor
 }
 
 // NewNomadSource returns a new Nomad policy source.
-func NewNomadSource(log hclog.Logger, nomad *api.Client, config *policy.ConfigDefaults) *Source {
+func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
 	return &Source{
-		log:    log.ResetNamed("nomad_policy_source"),
-		nomad:  nomad,
-		config: config,
+		log:             log.ResetNamed("nomad_policy_source"),
+		nomad:           nomad,
+		policyProcessor: policyProcessor,
 	}
 }
 
@@ -199,7 +199,7 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 
 	// Apply the cooldown and evaluation interval defaults if the operator did
 	// not pass any values.
-	p.ApplyDefaults(s.config)
+	s.policyProcessor.ApplyPolicyDefaults(p)
 
 	// Set default values for Target.
 	if p.Target == nil {
@@ -215,11 +215,11 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 	}
 
 	for _, c := range p.Checks {
-		canonicalizeCheck(c, p.Target)
+		s.canonicalizeCheck(c, p.Target)
 	}
 }
 
-func canonicalizeCheck(c *policy.Check, t *policy.Target) {
+func (s *Source) canonicalizeCheck(c *policy.Check, t *policy.Target) {
 	// Set default values for Strategy.
 	if c.Strategy == nil {
 		c.Strategy = &policy.Strategy{}
@@ -230,5 +230,5 @@ func canonicalizeCheck(c *policy.Check, t *policy.Target) {
 	}
 
 	// Canonicalize the check.
-	c.Canonicalize(t)
+	s.policyProcessor.CanonicalizeCheck(c, t)
 }

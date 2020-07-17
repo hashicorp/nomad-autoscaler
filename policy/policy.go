@@ -44,21 +44,36 @@ type Evaluation struct {
 	TargetStatus *target.Status
 }
 
-// Apply applies the config defaults to the policy where the operator does not
-// supply the parameter. This can be used for both cluster and task group
-// policies.
-func (p *Policy) ApplyDefaults(d *ConfigDefaults) {
-	if p.Cooldown == 0 {
-		p.Cooldown = d.DefaultCooldown
-	}
-	if p.EvaluationInterval == 0 {
-		p.EvaluationInterval = d.DefaultEvaluationInterval
+// Processor helps process policies and perform common actions on them when
+// they are discovered from their source.
+type Processor struct {
+	defaults  *ConfigDefaults
+	nomadAPMs []string
+}
+
+// NewProcessor returns a pointer to a new Processor for use.
+func NewProcessor(defaults *ConfigDefaults, apms []string) *Processor {
+	return &Processor{
+		defaults:  defaults,
+		nomadAPMs: apms,
 	}
 }
 
-// Validate performs validation of the policy document returning a list of
-// errors found, if any.
-func (p *Policy) Validate() error {
+// ApplyPolicyDefaults applies the config defaults to the policy where the
+// operator does not supply the parameter. This can be used for both cluster
+// and task group policies.
+func (pr *Processor) ApplyPolicyDefaults(p *Policy) {
+	if p.Cooldown == 0 {
+		p.Cooldown = pr.defaults.DefaultCooldown
+	}
+	if p.EvaluationInterval == 0 {
+		p.EvaluationInterval = pr.defaults.DefaultEvaluationInterval
+	}
+}
+
+// ValidatePolicy performs validation of the policy document returning a list
+// of errors found, if any.
+func (pr *Processor) ValidatePolicy(p *Policy) error {
 
 	var mErr *multierror.Error
 
@@ -78,32 +93,31 @@ func (p *Policy) Validate() error {
 	return mErr.ErrorOrNil()
 }
 
-// Canonicalize sets standardised values on fields.
-func (c *Check) Canonicalize(t *Target) {
+// CanonicalizeCheck sets standardised values on fields.
+func (pr *Processor) CanonicalizeCheck(c *Check, t *Target) {
 
 	// Operators can omit the check query source which defaults to the Nomad
 	// APM.
 	if c.Source == "" {
 		c.Source = plugins.InternalAPMNomad
 	}
-
-	c.CanonicalizeAPMQuery(t)
+	pr.CanonicalizeAPMQuery(c, t)
 }
 
 // CanonicalizeAPMQuery takes a short styled Nomad APM check query and creates
 // its fully hydrated internal representation. This is required by the Nomad
 // APM if it is being used as the source. The function can be called without
 // any validation on the check.
-func (c *Check) CanonicalizeAPMQuery(t *Target) {
+func (pr *Processor) CanonicalizeAPMQuery(c *Check, t *Target) {
 
 	// Catch nils so this function is safe to call without any prior checks.
 	if c == nil || t == nil {
 		return
 	}
 
-	// If the query source is not the Nomad APM, we do not have any additional
+	// If the query source is not a Nomad APM, we do not have any additional
 	// work to perform. The APM canonicalization is specific to the Nomad APM.
-	if c.Source != plugins.InternalAPMNomad {
+	if !pr.isNomadAPMQuery(c.Source) {
 		return
 	}
 
@@ -130,6 +144,17 @@ func (c *Check) CanonicalizeAPMQuery(t *Target) {
 		c.Query = fmt.Sprintf("%s_%s/%s/class",
 			nomadAPM.QueryTypeNode, c.Query, t.Config[target.ConfigKeyClass])
 	}
+}
+
+// isNomadAPMQuery helps identify whether the policy query is aligned with a
+// configured Nomad APM source.
+func (pr *Processor) isNomadAPMQuery(source string) bool {
+	for _, name := range pr.nomadAPMs {
+		if source == name {
+			return true
+		}
+	}
+	return false
 }
 
 func (t *Target) isJobTaskGroupTarget() bool {

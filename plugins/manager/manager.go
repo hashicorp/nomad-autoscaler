@@ -18,10 +18,8 @@ import (
 // interfaces.
 type PluginManager struct {
 
-	// cfg is our stored configuration of plugins to dispense. The format is
-	// not ideal, but it works well and is easy to understand. The maps are
-	// keyed by plugin type and plugin driver respectively.
-	cfg map[string]map[string]*config.Plugin
+	// cfg is our stored configuration of plugins to dispense.
+	cfg map[string][]*config.Plugin
 
 	logger    hclog.Logger
 	pluginDir string
@@ -56,7 +54,7 @@ type pluginInfo struct {
 // NewPluginManager sets up a new PluginManager for use.
 func NewPluginManager(log hclog.Logger, dir string, cfg map[string][]*config.Plugin) *PluginManager {
 	return &PluginManager{
-		cfg:             generateConfigMap(cfg),
+		cfg:             cfg,
 		logger:          log.Named("plugin_manager"),
 		pluginDir:       dir,
 		pluginInstances: make(map[plugins.PluginID]PluginInstance),

@@ -23,9 +23,9 @@ type pathMD5Sum [16]byte
 
 // Source is the File implementation of the policy.Source interface.
 type Source struct {
-	config *policy.ConfigDefaults
-	dir    string
-	log    hclog.Logger
+	dir             string
+	log             hclog.Logger
+	policyProcessor *policy.Processor
 
 	// idMap stores a mapping between between the md5sum of the file path and
 	// the associated policyID. This allows us to keep a consistent PolicyID in
@@ -52,15 +52,15 @@ type filePolicy struct {
 	policy *policy.Policy
 }
 
-func NewFileSource(log hclog.Logger, cfg *policy.ConfigDefaults, dir string) policy.Source {
+func NewFileSource(log hclog.Logger, dir string, policyProcessor *policy.Processor) policy.Source {
 	return &Source{
-		config:           cfg,
 		dir:              dir,
 		log:              log.ResetNamed("file_policy_source"),
 		idMap:            make(map[pathMD5Sum]policy.PolicyID),
 		policyMap:        make(map[policy.PolicyID]*filePolicy),
 		reloadCh:         make(chan struct{}),
 		reloadCompleteCh: make(chan struct{}, 1),
+		policyProcessor:  policyProcessor,
 	}
 }
 
@@ -190,14 +190,14 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*p
 		return nil, fmt.Errorf("failed to decode file %s: %v", path, err)
 	}
 	newPolicy.ID = ID.String()
-	newPolicy.ApplyDefaults(s.config)
+	s.policyProcessor.ApplyPolicyDefaults(newPolicy)
 
-	if err := newPolicy.Validate(); err != nil {
+	if err := s.policyProcessor.ValidatePolicy(newPolicy); err != nil {
 		return nil, fmt.Errorf("failed to validate file %s: %v", path, err)
 	}
 
 	for _, c := range newPolicy.Checks {
-		c.Canonicalize(newPolicy.Target)
+		s.policyProcessor.CanonicalizeCheck(c, newPolicy.Target)
 	}
 
 	val, ok := s.policyMap[ID]
@@ -269,15 +269,15 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			continue
 		}
 
-		scalingPolicy.ApplyDefaults(s.config)
+		s.policyProcessor.ApplyPolicyDefaults(&scalingPolicy)
 
-		if err := scalingPolicy.Validate(); err != nil {
+		if err := s.policyProcessor.ValidatePolicy(&scalingPolicy); err != nil {
 			mErr = multierror.Append(fmt.Errorf("failed to validate file %s: %v", file, err), mErr)
 			continue
 		}
 
 		for _, c := range scalingPolicy.Checks {
-			c.Canonicalize(scalingPolicy.Target)
+			s.policyProcessor.CanonicalizeCheck(c, scalingPolicy.Target)
 		}
 
 		// Store the file>id mapping if it doesn't exist. This makes the

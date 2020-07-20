@@ -78,3 +78,13 @@ func (a *Agent) setupPluginConfig(cfg map[string]string) {
 		nomadHelper.MergeMapWithAgentConfig(cfg, a.config.Nomad)
 	}
 }
+
+func (a *Agent) getNomadAPMNames() []string {
+	var names []string
+	for _, apm := range a.config.APMs {
+		if apm.Driver == plugins.InternalAPMNomad {
+			names = append(names, apm.Name)
+		}
+	}
+	return names
+}

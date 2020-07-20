@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPolicy_Validate(t *testing.T) {
+func TestProcessor_ValidatePolicy(t *testing.T) {
 	testCases := []struct {
 		inputPolicy    *Policy
 		expectedOutput error
@@ -79,17 +79,20 @@ func TestPolicy_Validate(t *testing.T) {
 		},
 	}
 
+	pr := Processor{}
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := tc.inputPolicy.Validate()
+			actualOutput := pr.ValidatePolicy(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
 }
 
-func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
+func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 	testCases := []struct {
 		inputCheck          *Check
+		inputAPMNames       []string
 		inputTarget         *Target
 		expectedOutputCheck *Check
 		name                string
@@ -100,7 +103,8 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "prometheus",
 				Query:  "scalar(super-data-point)",
 			},
-			inputTarget: nil,
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
 			expectedOutputCheck: &Check{
 				Name:   "random-check",
 				Source: "prometheus",
@@ -114,7 +118,8 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "node_percentage-allocated_memory/hashistack/class",
 			},
-			inputTarget: nil,
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
 			expectedOutputCheck: &Check{
 				Name:   "random-check",
 				Source: "nomad-apm",
@@ -128,7 +133,8 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "taskgroup_avg_cpu/cache/example",
 			},
-			inputTarget: nil,
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
 			expectedOutputCheck: &Check{
 				Name:   "random-check",
 				Source: "nomad-apm",
@@ -142,6 +148,7 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "avg_cpu",
 			},
+			inputAPMNames: []string{"nomad-apm"},
 			inputTarget: &Target{
 				Config: map[string]string{"Job": "example", "Group": "cache"},
 			},
@@ -158,6 +165,7 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "percentage-allocated_memory",
 			},
+			inputAPMNames: []string{"nomad-apm"},
 			inputTarget: &Target{
 				Config: map[string]string{"node_class": "hashistack"},
 			},
@@ -174,6 +182,7 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "avg_cpu",
 			},
+			inputAPMNames: []string{"nomad-apm"},
 			inputTarget: &Target{
 				Config: map[string]string{"Job": "example"},
 			},
@@ -190,6 +199,7 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 				Source: "nomad-apm",
 				Query:  "percentage-allocated_memory",
 			},
+			inputAPMNames: []string{"nomad-apm"},
 			inputTarget: &Target{
 				Config: map[string]string{},
 			},
@@ -204,13 +214,14 @@ func TestCheck_CanonicalizeAPMQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.inputCheck.CanonicalizeAPMQuery(tc.inputTarget)
+			pr := Processor{nomadAPMs: tc.inputAPMNames}
+			pr.CanonicalizeAPMQuery(tc.inputCheck, tc.inputTarget)
 			assert.Equal(t, tc.expectedOutputCheck, tc.inputCheck, tc.name)
 		})
 	}
 }
 
-func TestPolicy_ApplyDefaults(t *testing.T) {
+func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 	testCases := []struct {
 		inputPolicy          *Policy
 		inputDefaults        *ConfigDefaults
@@ -276,8 +287,66 @@ func TestPolicy_ApplyDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.inputPolicy.ApplyDefaults(tc.inputDefaults)
+			pr := Processor{defaults: tc.inputDefaults}
+			pr.ApplyPolicyDefaults(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
+		})
+	}
+}
+
+func TestProcessor_isNomadAPMQuery(t *testing.T) {
+	testCases := []struct {
+		inputProcessor *Processor
+		inputSource    string
+		expectedOutput bool
+		name           string
+	}{
+		{
+			inputProcessor: &Processor{
+				nomadAPMs: nil,
+			},
+			inputSource:    "nagios",
+			expectedOutput: false,
+			name:           "no nomad APMs configured",
+		},
+		{
+			inputProcessor: &Processor{
+				nomadAPMs: []string{"nomad-apm"},
+			},
+			inputSource:    "nagios",
+			expectedOutput: false,
+			name:           "source doesn't match Nomad APM name",
+		},
+		{
+			inputProcessor: &Processor{
+				nomadAPMs: []string{"nomad-apm"},
+			},
+			inputSource:    "nomad-apm",
+			expectedOutput: true,
+			name:           "source does match default Nomad APM name",
+		},
+		{
+			inputProcessor: &Processor{
+				nomadAPMs: []string{"nomad-platform-apm"},
+			},
+			inputSource:    "nomad-platform-apm",
+			expectedOutput: true,
+			name:           "source does match non-default Nomad APM name",
+		},
+		{
+			inputProcessor: &Processor{
+				nomadAPMs: []string{"nomad-qa-apm", "nomad-platform-apm", "nomad-support-apm"},
+			},
+			inputSource:    "nomad-platform-apm",
+			expectedOutput: true,
+			name:           "source does match non-default Nomad APM name in list of APM name",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualOutput := tc.inputProcessor.isNomadAPMQuery(tc.inputSource)
+			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
 }

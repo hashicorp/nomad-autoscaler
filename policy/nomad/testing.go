@@ -34,7 +34,10 @@ func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults))
 	log := hclog.New(&hclog.LoggerOptions{
 		Level: hclog.Trace,
 	})
-	return NewNomadSource(log, nomad, sourceConfig)
+
+	pr := policy.NewProcessor(sourceConfig, []string{"nomad-apm"})
+
+	return NewNomadSource(log, nomad, pr)
 }
 
 // TestParseJob parses a file into an *api.Job object.

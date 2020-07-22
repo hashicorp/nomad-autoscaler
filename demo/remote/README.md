@@ -9,6 +9,7 @@ production use***
 
 ### Requirements
 In order to build and run the demo, the following applications are required locally:
+ * HashiCorp Nomad [0.12.0](https://releases.hashicorp.com/nomad/0.12.0/)
  * HashiCorp Packer [1.5.6](https://releases.hashicorp.com/packer/1.5.6/)
  * HashiCorp Terraform [0.12.23](https://releases.hashicorp.com/terraform/0.12.23/)
  * rakyll/hey [latest](https://github.com/rakyll/hey#installation)

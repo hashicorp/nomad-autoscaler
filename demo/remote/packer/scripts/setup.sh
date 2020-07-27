@@ -12,14 +12,19 @@ echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selecti
 
 cd /ops
 
+# Dependencies
+sudo apt-get update
+
+sudo apt-get install -y software-properties-common unzip tree redis-tools jq curl tmux dnsmasq
+
 CONFIGDIR=/ops/config
 
-CONSULVERSION=1.8.0
+CONSULVERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/consul | jq -r '.current_version')
 CONSULDOWNLOAD=https://releases.hashicorp.com/consul/${CONSULVERSION}/consul_${CONSULVERSION}_linux_amd64.zip
 CONSULCONFIGDIR=/etc/consul.d
 CONSULDIR=/opt/consul
 
-NOMADVERSION=0.12.0
+NOMADVERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/nomad | jq -r '.current_version')
 NOMADDOWNLOAD=https://releases.hashicorp.com/nomad/${NOMADVERSION}/nomad_${NOMADVERSION}_linux_amd64.zip
 NOMADCONFIGDIR=/etc/nomad.d
 NOMADDIR=/opt/nomad
@@ -27,11 +32,6 @@ NOMADDIR=/opt/nomad
 CNIVERSION=0.8.5
 CNIDOWNLOAD=https://github.com/containernetworking/plugins/releases/download/v${CNIVERSION}/cni-plugins-linux-amd64-v${CNIVERSION}.tgz
 CNIDIR=/opt/cni
-
-# Dependencies
-sudo apt-get update
-
-sudo apt-get install -y software-properties-common unzip tree redis-tools jq curl tmux dnsmasq
 
 # Disable the firewall
 sudo ufw disable || echo "ufw not installed"

@@ -18,6 +18,6 @@ data "template_file" "user_data_client" {
     retry_join    = var.retry_join
     consul_binary = var.consul_binary
     nomad_binary  = var.nomad_binary
-    node_class    = var.client_node_class
+    node_class    = "hashistack"
   }
 }

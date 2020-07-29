@@ -65,12 +65,6 @@ variable "client_count" {
   default     = 1
 }
 
-variable "client_node_class" {
-  description = "The Nomad client class to configure."
-  type        = string
-  default     = "hashistack"
-}
-
 variable "root_block_device_size" {
   description = "The number of GB to assign as a block device on instances."
   type        = number

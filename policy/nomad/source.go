@@ -88,7 +88,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			}
 
 			if err != nil {
-				req.ErrCh <- fmt.Errorf("failed to call the Nomad list policies API: %v", err)
+				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -154,7 +154,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			}
 
 			if err != nil {
-				req.ErrCh <- fmt.Errorf("failed to get policy: %v", err)
+				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
 				time.Sleep(10 * time.Second)
 				continue
 			}
@@ -179,7 +179,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 					err = fmt.Errorf("%s: %v", errMsg, err)
 				}
 
-				req.ErrCh <- err
+				policy.HandleSourceError(s.Name(), err, req.ErrCh)
 				continue
 			}
 

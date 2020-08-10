@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 )
@@ -39,8 +40,11 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 
 // Run starts the manager and blocks until the context is canceled.
 // Policies that need to be evaluated are sent in the evalCh.
-func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
+func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation, mInt time.Duration) {
 	defer m.stopHandlers()
+
+	// Start the metrics reporter.
+	go m.periodicMetricsReporter(ctx, mInt)
 
 	policyIDsCh := make(chan IDMessage, 2)
 	policyIDsErrCh := make(chan error, 2)
@@ -136,7 +140,7 @@ LOOP:
 
 	// Delay the next iteration of m.Run to avoid re-runs to start too often.
 	time.Sleep(10 * time.Second)
-	go m.Run(ctx, evalCh)
+	go m.Run(ctx, evalCh, mInt)
 }
 
 func (m *Manager) stopHandlers() {
@@ -196,6 +200,25 @@ func (m *Manager) ReloadSources() {
 	// Instruct each policy handler to reload.
 	for _, h := range m.handlers {
 		h.reloadCh <- struct{}{}
+	}
+}
+
+// periodicMetricsReporter periodically emits metrics for the policy manager
+// which cannot be performed during inline function calls.
+func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Duration) {
+
+	t := time.NewTicker(interval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			m.lock.RLock()
+			num := len(m.handlers)
+			m.lock.RUnlock()
+			metrics.SetGauge([]string{"policy", "total_num"}, float32(num))
+		}
 	}
 }
 

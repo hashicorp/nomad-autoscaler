@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/armon/go-metrics"
+
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
@@ -36,6 +38,12 @@ func NewWorker(l hclog.Logger, pm *manager.PluginManager, m *Manager) *Worker {
 
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
 func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
+
+	// Record the start time of the eval portion of this function. The labels
+	// are also used across multiple metrics, so define them.
+	evalStartTime := time.Now()
+	labels := []metrics.Label{{Name: "policy_id", Value: p.ID}, {Name: "target_name", Value: p.Target.Name}}
+
 	logger := w.logger.With("policy_id", p.ID, "target", p.Target.Name)
 	checks := make(map[string]*checkHandler)
 
@@ -93,6 +101,10 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 		<-resultsTimeout.C
 	}
 
+	// At this point the checks have finished. Therefore emit of metric data
+	// tracking how long it takes to run all the checks within a policy.
+	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ns"}, evalStartTime, labels)
+
 	if winningHandler == nil || winningAction.Direction == strategy.ScaleDirectionNone {
 		logger.Info("no checks need to be executed")
 		return
@@ -109,6 +121,11 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 		default:
 		}
 	}
+
+	// Measure how long it takes to invoke the scaling actions. This helps
+	// understand the time taken to interact with the remote target and action
+	// the scaling action.
+	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ns"}, time.Now(), labels)
 
 	// Block until winning handler returns.
 	select {
@@ -149,7 +166,11 @@ type checkHandlerResult struct {
 // newCheckHandler returns a new checkHandler instance.
 func newCheckHandler(l hclog.Logger, p *Policy, c *Check, pm *manager.PluginManager) *checkHandler {
 	return &checkHandler{
-		logger:        l.Named("check_handler"),
+		logger: l.Named("check_handler").With(
+			"check", c.Name,
+			"source", c.Source,
+			"strategy", c.Strategy.Name,
+		),
 		policy:        p,
 		check:         c,
 		pluginManager: pm,
@@ -183,13 +204,7 @@ func (h *checkHandler) results() <-chan checkHandlerResult {
 func (h *checkHandler) start(ctx context.Context) {
 	defer close(h.resultCh)
 
-	logger := h.logger.With(
-		"check", h.check.Name,
-		"source", h.check.Source,
-		"strategy", h.check.Strategy.Name,
-	)
-
-	logger.Info("received policy check for evaluation")
+	h.logger.Info("received policy check for evaluation")
 
 	result := checkHandlerResult{}
 
@@ -223,8 +238,7 @@ func (h *checkHandler) start(ctx context.Context) {
 	strategyInst = strategyPlugin.Plugin().(strategy.Strategy)
 
 	// Fetch target status.
-	logger.Info("fetching current count")
-	currentStatus, err := targetInst.Status(h.policy.Target.Config)
+	currentStatus, err := h.runTargetStatus(targetInst)
 	if err != nil {
 		result.err = fmt.Errorf("failed to fetch current count: %v", err)
 		h.resultCh <- result
@@ -236,24 +250,23 @@ func (h *checkHandler) start(ctx context.Context) {
 		return
 	}
 
-	// Query check's APM
-	logger.Info("querying source", "query", h.check.Query)
-	value, err := apmInst.Query(h.check.Query)
+	// Query check's APM.
+	value, err := h.runAPMQuery(apmInst)
 	if err != nil {
 		result.err = fmt.Errorf("failed to query source: %v", err)
 		h.resultCh <- result
 		return
 	}
 
-	// Calculate new count using check's Strategy
-	logger.Info("calculating new count", "count", currentStatus.Count, "metric", value)
+	// Calculate new count using check's Strategy.
+	h.logger.Info("calculating new count", "count", currentStatus.Count, "metric", value)
 	req := strategy.RunRequest{
 		PolicyID: h.policy.ID,
 		Count:    currentStatus.Count,
 		Metric:   value,
 		Config:   h.check.Strategy.Config,
 	}
-	action, err := strategyInst.Run(req)
+	action, err := h.runStrategyRun(strategyInst, req)
 	if err != nil {
 		result.err = fmt.Errorf("failed to execute strategy: %v", err)
 		h.resultCh <- result
@@ -282,7 +295,7 @@ func (h *checkHandler) start(ctx context.Context) {
 		if minMaxAction != nil {
 			action = *minMaxAction
 		} else {
-			logger.Info("nothing to do")
+			h.logger.Info("nothing to do")
 			result.action = &strategy.Action{Direction: strategy.ScaleDirectionNone}
 			h.resultCh <- result
 			return
@@ -298,7 +311,7 @@ func (h *checkHandler) start(ctx context.Context) {
 
 	// Skip action if count doesn't change.
 	if currentStatus.Count == action.Count {
-		logger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
+		h.logger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
 
 		result.action = &strategy.Action{Direction: strategy.ScaleDirectionNone}
 		h.resultCh <- result
@@ -314,7 +327,7 @@ func (h *checkHandler) start(ctx context.Context) {
 		return
 	case proceed := <-h.proceedCh:
 		if !proceed {
-			logger.Debug("check not selected")
+			h.logger.Debug("check not selected")
 			return
 		}
 	}
@@ -323,30 +336,78 @@ func (h *checkHandler) start(ctx context.Context) {
 	// action count to nil so its no-nop. This allows us to still
 	// submit the job, but not alter its state.
 	if val, ok := h.policy.Target.Config["dry-run"]; ok && val == "true" {
-		logger.Info("scaling dry-run is enabled, using no-op task group count")
+		h.logger.Info("scaling dry-run is enabled, using no-op task group count")
 		action.SetDryRun()
 	}
 
 	if action.Count == strategy.MetaValueDryRunCount {
-		logger.Info("registering scaling event",
+		h.logger.Info("registering scaling event",
 			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 	} else {
-		logger.Info("scaling target",
+		h.logger.Info("scaling target",
 			"from", currentStatus.Count, "to", action.Count,
 			"reason", action.Reason, "meta", action.Meta)
 	}
 
 	// Scale the target. If we receive an error add this onto the result so the
 	// handler understand what do to.
-	if err = targetInst.Scale(action, h.policy.Target.Config); err != nil {
+	if err = h.runTargetScale(targetInst, action); err != nil {
 		result.err = fmt.Errorf("failed to scale target: %v", err)
-		logger.Error("failed to submit scaling action to target", "error", err)
+		h.logger.Error("failed to submit scaling action to target", "error", err)
+		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
 	} else {
-		logger.Info("successfully submitted scaling action to target",
+		h.logger.Info("successfully submitted scaling action to target",
 			"desired_count", action.Count)
+		metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 	}
 
 	// Ensure we send a result otherwise the Worker.HandlePolicy routine will
 	// leak waiting endlessly for the result it will never receive, poor thing.
 	h.resultCh <- result
+}
+
+// runTargetStatus wraps the target.Status call to provide operational
+// functionality.
+func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*target.Status, error) {
+
+	h.logger.Info("fetching current count")
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ns"}, time.Now(), labels)
+
+	return targetImpl.Status(h.policy.Target.Config)
+}
+
+// runTargetScale wraps the target.Scale call to provide operational
+// functionality.
+func (h *checkHandler) runTargetScale(targetImpl target.Target, action strategy.Action) error {
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ns"}, time.Now(), labels)
+
+	return targetImpl.Scale(action, h.policy.Target.Config)
+}
+
+// runAPMQuery wraps the apm.Query call to provide operational functionality.
+func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
+
+	h.logger.Info("querying source", "query", h.check.Query, "source", h.check.Source)
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Source}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ns"}, time.Now(), labels)
+
+	return apmImpl.Query(h.check.Query)
+}
+
+// runStrategyRun wraps the strategy.Run call to provide operational functionality.
+func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, req strategy.RunRequest) (strategy.Action, error) {
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Strategy.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ns"}, time.Now(), labels)
+
+	return strategyImpl.Run(req)
 }

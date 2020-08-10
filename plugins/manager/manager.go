@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os/exec"
 	"sync"
+	"time"
 
+	metrics "github.com/armon/go-metrics"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/go-plugin"
@@ -93,6 +95,12 @@ func (pm *PluginManager) KillPlugins() {
 // Dispense returns a PluginInstance for use by safely obtaining the
 // PluginInstance from storage if we have it.
 func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, error) {
+
+	// Measure the time taken to dispense a plugin. This helps identify
+	// contention and pressure obtaining plugin client handles.
+	labels := []metrics.Label{{Name: "plugin_name", Value: name}, {Name: "plugin_type", Value: pluginType}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "manager", "access_ns"}, time.Now(), labels)
+
 	pm.pluginInstancesLock.RLock()
 	defer pm.pluginInstancesLock.RUnlock()
 

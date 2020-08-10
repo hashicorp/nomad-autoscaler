@@ -114,6 +114,87 @@ Policy Options:
   -policy-default-evaluation-interval=<dur>
     The default evaluation interval that will be applied to all scaling policies
     which do not specify an evaluation interval.
+
+Telemetry Options:
+
+  -telemetry-disable-hostname
+    Specifies whether gauge values should be prefixed with the local hostname.
+
+  -telemetry-enable-hostname-label
+    Enable adding hostname to metric labels.
+
+  -telemetry-collection-interval=<dur>
+    Specifies the time interval at which the agent collects telemetry data. The
+    default is 1s.
+
+  -telemetry-statsite-address=<addr>
+    The address of the statsite aggregation server.
+
+  -telemetry-statsd-address=<addr>
+    The address of the statsd aggregation.
+
+  -telemetry-dogstatsd-address=<addr>
+    The address of the Datadog statsd server.
+
+  -telemetry-dogstatsd-tag=<tag_list>
+    A list of global tags that will be added to all telemetry packets sent to
+    DogStatsD.
+
+  -telemetry-prometheus-metrics
+    Indicates whether the agent should make Prometheus formatted metrics available.
+    Defaults to false.
+
+  -telemetry-prometheus-retention-time=<dur>
+    The time to retain Prometheus metrics before they are expired and untracked.
+
+  -telemetry-circonus-api-token
+    A valid API Token used to create/manage check. If provided, metric management
+    is enabled.
+
+  -telemetry-circonus-api-app
+    The app name associated with API token. Defaults to nomad_autoscaler.
+
+  -telemetry-circonus-api-url
+    The base URL to use for contacting the Circonus API. Defaults to
+    https://api.circonus.com/v2.
+
+  -telemetry-circonus-submission-interval
+    The interval at which metrics are submitted to Circonus. Defaults to 10s.
+
+  -telemetry-circonus-submission-url
+    The check.config.submission_url field from a previously created HTTPTRAP
+    check.
+
+  -telemetry-circonus-check-id
+    The check id from a previously created HTTPTRAP check. The numeric portion
+    of the check._cid field.
+
+  -telemetry-circonus-check-force-metric-activation
+    Force enabling metrics, as they are encountered, if the metric already exists
+    and is NOT active. If check management is enabled, the default behavior is
+    to add new metrics as they are encountered
+
+  -telemetry-circonus-check-instance-id
+	Uniquely identify the metrics coming from this agent. Defaults to hostname:app.
+
+  -telemetry-circonus-check-search-tag
+    A special tag that helps to narrow down the search results when neither a
+    submission URL or check ID are provided. Defaults to service:app.
+
+  -telemetry-circonus-check-tags
+    A comma separated list of tags to apply to the check. The value of
+    -telemetry-circonus-check-search-tag will always be added to the check.
+
+  -telemetry-circonus-check-display-name
+    The name used for the Circonus check that will be displayed in the UI. This
+    defaults to the value of telemetry-circonus-check-instance-id.
+
+  -telemetry-circonus-broker-id
+    The Circonus broker to use when creating a new check.
+  
+  -telemetry-circonus-broker-select-tag
+    A tag which is used to select a broker ID when an explicit broker ID is not
+    provided.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -161,9 +242,10 @@ func (c *AgentCommand) readConfig() *config.Agent {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
-		HTTP:   &config.HTTP{},
-		Nomad:  &config.Nomad{},
-		Policy: &config.Policy{},
+		HTTP:      &config.HTTP{},
+		Nomad:     &config.Nomad{},
+		Policy:    &config.Policy{},
+		Telemetry: &config.Telemetry{},
 	}
 
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
@@ -202,6 +284,36 @@ func (c *AgentCommand) readConfig() *config.Agent {
 		cmdConfig.Policy.DefaultEvaluationInterval = d
 		return nil
 	}), "policy-default-evaluation-interval", "")
+
+	// Specify our Telemetry CLI flags.
+	flags.BoolVar(&cmdConfig.Telemetry.DisableHostname, "telemetry-disable-hostname", false, "")
+	flags.BoolVar(&cmdConfig.Telemetry.EnableHostnameLabel, "telemetry-enable-hostname-label", false, "")
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.Telemetry.CollectionInterval = d
+		return nil
+	}), "telemetry-collection-interval", "")
+	flags.StringVar(&cmdConfig.Telemetry.StatsiteAddr, "telemetry-statsite-address", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.StatsdAddr, "telemetry-statsd-address", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.DogStatsDAddr, "telemetry-dogstatsd-address", "", "")
+	flags.Var((*flaghelper.StringFlag)(&cmdConfig.Telemetry.DogStatsDTags), "telemetry-dogstatsd-tags", "")
+	flags.BoolVar(&cmdConfig.Telemetry.PrometheusMetrics, "telemetry-prometheus-metrics", false, "")
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.Telemetry.PrometheusRetentionTime = d
+		return nil
+	}), "telemetry-prometheus-retention-time", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusAPIToken, "telemetry-circonus-api-token", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusAPIApp, "telemetry-circonus-api-app", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusAPIURL, "telemetry-circonus-api-url", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusSubmissionInterval, "telemetry-circonus-submission-interval", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckSubmissionURL, "telemetry-circonus-submission-url", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckID, "telemetry-circonus-check-id", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckForceMetricActivation, "telemetry-circonus-check-force-metric-activation", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckInstanceID, "telemetry-circonus-check-instance-id", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckSearchTag, "telemetry-circonus-check-search-tag", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckTags, "telemetry-circonus-check-tags", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckDisplayName, "telemetry-circonus-check-display-name", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerID, "telemetry-circonus-broker-id", "", "")
+	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
 	if err := flags.Parse(c.args); err != nil {
 		return nil

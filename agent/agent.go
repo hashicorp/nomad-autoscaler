@@ -67,7 +67,7 @@ func (a *Agent) Run() error {
 	go a.httpServer.Start()
 
 	policyEvalCh := a.setupPolicyManager()
-	go a.policyManager.Run(ctx, policyEvalCh, a.config.Telemetry.CollectionInterval)
+	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch the eval handler.
 	go a.runEvalHandler(ctx, policyEvalCh)
@@ -111,7 +111,7 @@ func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
 		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
 	}
 
-	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager)
+	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
 	return make(chan *policy.Evaluation, 10)
 }

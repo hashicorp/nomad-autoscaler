@@ -138,7 +138,7 @@ func (s *Server) wrap(handler func(w http.ResponseWriter, r *http.Request) (inte
 		// error from the endpoint.
 		obj, err := handler(w, r)
 		if err != nil {
-			s.handlerHTTPError(w, r, err)
+			s.handleHTTPError(w, r, err)
 			return
 		}
 
@@ -152,7 +152,7 @@ func (s *Server) wrap(handler func(w http.ResponseWriter, r *http.Request) (inte
 			// that this can be passed to the operator.
 			err := enc.Encode(obj)
 			if err != nil {
-				s.handlerHTTPError(w, r, err)
+				s.handleHTTPError(w, r, err)
 				return
 			}
 
@@ -166,10 +166,10 @@ func (s *Server) wrap(handler func(w http.ResponseWriter, r *http.Request) (inte
 	return f
 }
 
-// handlerHTTPError is used to handle HTTP handler errors within the wrap func.
+// handleHTTPError is used to handle HTTP handler errors within the wrap func.
 // It sets response headers where required and ensure appropriate errors are
 // logged.
-func (s *Server) handlerHTTPError(w http.ResponseWriter, r *http.Request, err error) {
+func (s *Server) handleHTTPError(w http.ResponseWriter, r *http.Request, err error) {
 
 	// Start with a default internal server error and the error message
 	// that was returned.

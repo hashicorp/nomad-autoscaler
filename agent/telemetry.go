@@ -29,7 +29,7 @@ func (a *Agent) setupTelemetry(cfg *config.Telemetry) (*metrics.InmemSink, error
 
 	metricsConf := metrics.DefaultConfig("nomad-autoscaler")
 	metricsConf.EnableHostname = !telConfig.DisableHostname
-	metricsConf.EnableHostnameLabel = !telConfig.DisableHostname
+	metricsConf.EnableHostnameLabel = telConfig.EnableHostnameLabel
 
 	// Configure the statsite sink.
 	var fanout metrics.FanoutSink

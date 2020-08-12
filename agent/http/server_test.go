@@ -41,7 +41,7 @@ func TestServer_handlerHTTPError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			srv.handlerHTTPError(tc.inputWriter, tc.inputReq, tc.inputError)
+			srv.handleHTTPError(tc.inputWriter, tc.inputReq, tc.inputError)
 			assert.Equal(t, tc.expectedRespCode, tc.inputWriter.Code, tc.name)
 			assert.Equal(t, tc.expectedRespBody, tc.inputWriter.Body.String(), tc.name)
 		})

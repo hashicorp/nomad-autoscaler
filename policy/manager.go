@@ -25,26 +25,31 @@ type Manager struct {
 
 	// keep is used to mark active policies during reconciliation.
 	keep map[PolicyID]bool
+
+	// metricsInterval is the interval at which the agent is configured to emit
+	// metrics. This is used when creating the periodicMetricsReporter.
+	metricsInterval time.Duration
 }
 
 // NewManager returns a new Manager.
-func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager) *Manager {
+func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
 	return &Manager{
-		log:           log.ResetNamed("policy_manager"),
-		policySource:  ps,
-		pluginManager: pm,
-		handlers:      make(map[PolicyID]*Handler),
-		keep:          make(map[PolicyID]bool),
+		log:             log.ResetNamed("policy_manager"),
+		policySource:    ps,
+		pluginManager:   pm,
+		handlers:        make(map[PolicyID]*Handler),
+		keep:            make(map[PolicyID]bool),
+		metricsInterval: mInt,
 	}
 }
 
 // Run starts the manager and blocks until the context is canceled.
 // Policies that need to be evaluated are sent in the evalCh.
-func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation, mInt time.Duration) {
+func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	defer m.stopHandlers()
 
 	// Start the metrics reporter.
-	go m.periodicMetricsReporter(ctx, mInt)
+	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
 	policyIDsCh := make(chan IDMessage, 2)
 	policyIDsErrCh := make(chan error, 2)
@@ -140,7 +145,7 @@ LOOP:
 
 	// Delay the next iteration of m.Run to avoid re-runs to start too often.
 	time.Sleep(10 * time.Second)
-	go m.Run(ctx, evalCh, mInt)
+	go m.Run(ctx, evalCh)
 }
 
 func (m *Manager) stopHandlers() {

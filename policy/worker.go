@@ -6,8 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/armon/go-metrics"
-
+	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"

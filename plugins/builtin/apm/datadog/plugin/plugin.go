@@ -3,22 +3,20 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"math"
+	"strings"
 	"time"
 
+	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
-	"github.com/datadog/common/model"
 )
 
 const (
 	// pluginName is the name of the plugin
 	pluginName = "datadog"
 
-	
 	configKeyClientAPIKey = "dd_client_api_key"
 	configKeyClientAPPKey = "dd_client_app_key"
 )
@@ -40,10 +38,10 @@ var (
 )
 
 type APMPlugin struct {
-	client *datadog.APIClient
+	client    *datadog.APIClient
 	clientCtx context.Context
-	config map[string]string
-	logger hclog.Logger
+	config    map[string]string
+	logger    hclog.Logger
 }
 
 func NewDatadogPlugin(log hclog.Logger) apm.APM {
@@ -65,16 +63,16 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	}
 
 	ctx := context.WithValue(
-        context.Background(),
-        datadog.ContextAPIKeys,
-        map[string]datadog.APIKey{
-            "apiKeyAuth": {
-                Key: a.config[configKeyClientAPIKey],
-            },
-            "appKeyAuth": {
-                Key: a.config[configKeyClientAPPKey],
-            },
-        },
+		context.Background(),
+		datadog.ContextAPIKeys,
+		map[string]datadog.APIKey{
+			"apiKeyAuth": {
+				Key: a.config[configKeyClientAPIKey],
+			},
+			"appKeyAuth": {
+				Key: a.config[configKeyClientAPPKey],
+			},
+		},
 	)
 	a.clientCtx = ctx
 	configuration := datadog.NewConfiguration()
@@ -96,26 +94,26 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	querySplit := strings.Split(q, ";")
 
 	now := time.Now()
-	from := 0
+	from := int64(0)
 	to := now.Unix()
 	query := ""
 
-	for part := range querySplit {
+	for _, part := range querySplit {
 		switch true {
-		case strings.StartsWith("FROM=", part):
+		case strings.HasPrefix(part, "FROM="):
 			fromDur, err := time.ParseDuration(strings.TrimPrefix(part, "FROM="))
 			if err != nil {
 				return 0, fmt.Errorf("malformed from window: (%s) %v", part, err)
 			}
-			from := now.Sub(fromDur).Unix()
-		case strings.StartsWith("TO=", part):
+			from = now.Add(-fromDur).Unix()
+		case strings.HasPrefix(part, "TO="):
 			//override to
 			toDur, err := time.ParseDuration(strings.TrimPrefix(part, "TO="))
 			if err != nil {
 				return 0, fmt.Errorf("malformed to window: (%s) %v", part, err)
 			}
-			to := now.Sub(toDur).Unix()
-		case strings.StartsWith("QUERY=", part):
+			to = now.Add(-toDur).Unix()
+		case strings.HasPrefix(part, "QUERY="):
 			query = strings.TrimPrefix(part, "QUERY=")
 		default:
 			return 0, fmt.Errorf("unrecognized field in query string %s", part)
@@ -129,20 +127,20 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
-	queryResult, _, err := api_client.MetricsApi.QueryMetrics(ctx).From(from).To(to).Query(query).Execute()
-    if err != nil {
-        return 0, fmt.Errorf("error querying metrics from datadog: %v", err)
-    }
+	queryResult, _, err := a.client.MetricsApi.QueryMetrics(ctx).From(from).To(to).Query(query).Execute()
+	if err != nil {
+		return 0, fmt.Errorf("error querying metrics from datadog: %v", err)
+	}
 
 	// only support scalar types for now
 	series := queryResult.GetSeries()
-	if series.Length == 0 {
+	if len(series) == 0 {
 		return 0, fmt.Errorf("error querying metrics from datadog. empty data response. try a wider query window")
 	}
-	pl := series.PointList()
-
-	// pl is [[timestamp, value]...] array
-	dataPoint := pl[len(pl)-1][1]
-
-	return dataPoint, nil
+	if pl, ok := series[0].GetPointlistOk(); ok {
+		// pl is [[timestamp, value]...] array
+		dataPoint := (*pl)[len(*pl)-1][1]
+		return dataPoint, nil
+	}
+	return 0, fmt.Errorf("error querying metrics from datadog. empty data response. try a wider query window")
 }

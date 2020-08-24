@@ -43,6 +43,9 @@ type Agent struct {
 	// Policy is the configuration used to setup the policy manager.
 	Policy *Policy `hcl:"policy,block"`
 
+	// Telemetry is the configuration used to setup metrics collection.
+	Telemetry *Telemetry `hcl:"telemetry,block"`
+
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
@@ -99,6 +102,121 @@ type Nomad struct {
 
 	// SkipVerify enables or disables SSL verification.
 	SkipVerify bool `hcl:"skip_verify,optional"`
+}
+
+// Telemetry holds the user specified configuration for metrics collection.
+type Telemetry struct {
+
+	// PrometheusRetentionTime is the retention time for prometheus metrics if
+	// greater than 0.
+	PrometheusRetentionTime    time.Duration
+	PrometheusRetentionTimeHCL string `hcl:"prometheus_retention_time,optional" json:"-"`
+
+	// PrometheusMetrics specifies whether the agent should make Prometheus
+	// formatted metrics available.
+	PrometheusMetrics bool `hcl:"prometheus_metrics,optional"`
+
+	// DisableHostname specifies if gauge values should be prefixed with the
+	// local hostname.
+	DisableHostname bool `hcl:"disable_hostname,optional"`
+
+	// EnableHostnameLabel adds the hostname as a label on all metrics.
+	EnableHostnameLabel bool `hcl:"enable_hostname_label,optional"`
+
+	// CollectionInterval specifies the time interval at which the agent
+	// collects telemetry data.
+	CollectionInterval    time.Duration
+	CollectionIntervalHCL string `hcl:"collection_interval,optional" json:"-"`
+
+	// StatsiteAddr specifies the address of a statsite server to forward
+	// metrics data to.
+	StatsiteAddr string `hcl:"statsite_address,optional"`
+
+	// StatsdAddr specifies the address of a statsd server to forward metrics
+	// to.
+	StatsdAddr string `hcl:"statsd_address,optional"`
+
+	// DogStatsDAddr specifies the address of a DataDog statsd server to
+	// forward metrics to.
+	DogStatsDAddr string `hcl:"dogstatsd_address,optional"`
+
+	// DogStatsDTags specifies a list of global tags that will be added to all
+	// telemetry packets sent to DogStatsD.
+	DogStatsDTags []string `hcl:"dogstatsd_tags,optional"`
+
+	// Circonus: see https://github.com/circonus-labs/circonus-gometrics
+	// for more details on the various configuration options.
+
+	// CirconusAPIToken is a valid API Token used to create/manage check. If
+	// provided, metric management is enabled. Defaults to none.
+	CirconusAPIToken string `hcl:"circonus_api_token,optional"`
+
+	// CirconusAPIApp is an app name associated with API token. Defaults to
+	// "nomad_autoscaler".
+	CirconusAPIApp string `hcl:"circonus_api_app,optional"`
+
+	// CirconusAPIURL is the base URL to use for contacting the Circonus API.
+	// Defaults to "https://api.circonus.com/v2".
+	CirconusAPIURL string `hcl:"circonus_api_url,optional"`
+
+	// CirconusSubmissionInterval is the interval at which metrics are
+	// submitted to Circonus. Defaults to 10s.
+	CirconusSubmissionInterval string `hcl:"circonus_submission_interval,optional"`
+
+	// CirconusCheckSubmissionURL is the check.config.submission_url field from
+	// a previously created HTTPTRAP check. Defaults to none.
+	CirconusCheckSubmissionURL string `hcl:"circonus_submission_url,optional"`
+
+	// CirconusCheckID is the check id (not check bundle id) from a previously
+	// created HTTPTRAP check. The numeric portion of the check._cid field.
+	// Defaults to none.
+	CirconusCheckID string `hcl:"circonus_check_id,optional"`
+
+	// CirconusCheckForceMetricActivation will force enabling metrics, as they
+	// are encountered, if the metric already exists and is NOT active. If
+	// check management is enabled, the default behavior is to add new metrics
+	// as they are encountered. If the metric already exists in the check, it
+	// will *NOT* be activated. This setting overrides that behavior. Defaults
+	// to "false".
+	CirconusCheckForceMetricActivation string `hcl:"circonus_check_force_metric_activation,optional"`
+
+	// CirconusCheckInstanceID serves to uniquely identify the metrics coming
+	// from this "instance". It can be used to maintain metric continuity with
+	// transient or ephemeral instances as they move around within an
+	// infrastructure. Defaults to hostname:app.
+	CirconusCheckInstanceID string `hcl:"circonus_check_instance_id,optional"`
+
+	// CirconusCheckSearchTag is a special tag which, when coupled with the
+	// instance id, helps to narrow down the search results when neither a
+	// Submission URL or Check ID is provided. Defaults to service:app.
+	CirconusCheckSearchTag string `hcl:"circonus_check_search_tag,optional"`
+
+	// CirconusCheckTags is a comma separated list of tags to apply to the
+	// check. Note that the value of CirconusCheckSearchTag will always be
+	// added to the check. Defaults to none.
+	CirconusCheckTags string `hcl:"circonus_check_tags,optional"`
+
+	// CirconusCheckDisplayName is the name for the check which will be
+	// displayed in the Circonus UI. Defaults to the value of
+	// CirconusCheckInstanceID.
+	CirconusCheckDisplayName string `hcl:"circonus_check_display_name,optional"`
+
+	// CirconusBrokerID is an explicit broker to use when creating a new check.
+	// The numeric portion of broker._cid. If metric management is enabled and
+	// neither a Submission URL nor Check ID is provided, an attempt will be
+	// made to search for an existing check using Instance ID and Search Tag.
+	// If one is not found, a new HTTPTRAP check will be created. Default: use
+	// Select Tag if provided, otherwise, a random Enterprise Broker associated
+	// with the specified API token or the default Circonus Broker. Defaults to
+	// none.
+	CirconusBrokerID string `hcl:"circonus_broker_id,optional"`
+
+	// CirconusBrokerSelectTag is a special tag which will be used to select a
+	// broker when a Broker ID is not provided. The best use of this is to as a
+	// hint for which broker should be used based on *where* this particular
+	// instance is running. (e.g. a specific geo location or datacenter, dc:sfo)
+	// Defaults to none.
+	CirconusBrokerSelectTag string `hcl:"circonus_broker_select_tag,optional"`
 }
 
 // Plugin is an individual configured plugin and holds all the required params
@@ -159,6 +277,10 @@ const (
 	// defaultPolicyCooldown is the default time duration applied to policies
 	// which do not explicitly configure a cooldown.
 	defaultPolicyCooldown = 5 * time.Minute
+
+	// defaultTelemetryCollectionInterval is the default telemetry metrics
+	// collection interval.
+	defaultTelemetryCollectionInterval = 1 * time.Second
 )
 
 // Default is used to generate a new default agent configuration.
@@ -181,6 +303,9 @@ func Default() (*Agent, error) {
 		Nomad: &Nomad{
 			Address: defaultNomadAddress,
 			Region:  defaultNomadRegion,
+		},
+		Telemetry: &Telemetry{
+			CollectionInterval: defaultTelemetryCollectionInterval,
 		},
 		Policy: &Policy{
 			DefaultCooldown:           defaultPolicyCooldown,
@@ -211,6 +336,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.Nomad != nil {
 		result.Nomad = result.Nomad.merge(b.Nomad)
+	}
+
+	if b.Telemetry != nil {
+		result.Telemetry = result.Telemetry.merge(b.Telemetry)
 	}
 
 	if b.Policy != nil {
@@ -303,6 +432,76 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	return &result
 }
 
+func (t *Telemetry) merge(b *Telemetry) *Telemetry {
+	result := *t
+
+	if b.StatsiteAddr != "" {
+		result.StatsiteAddr = b.StatsiteAddr
+	}
+	if b.StatsdAddr != "" {
+		result.StatsdAddr = b.StatsdAddr
+	}
+	if b.DogStatsDAddr != "" {
+		result.DogStatsDAddr = b.DogStatsDAddr
+	}
+	if b.DogStatsDTags != nil {
+		result.DogStatsDTags = b.DogStatsDTags
+	}
+	if b.PrometheusMetrics {
+		result.PrometheusMetrics = b.PrometheusMetrics
+	}
+	if b.PrometheusRetentionTime != 0 {
+		result.PrometheusRetentionTime = b.PrometheusRetentionTime
+	}
+	if b.DisableHostname {
+		result.DisableHostname = true
+	}
+	if b.CollectionInterval != 0 {
+		result.CollectionInterval = b.CollectionInterval
+	}
+	if b.CirconusAPIToken != "" {
+		result.CirconusAPIToken = b.CirconusAPIToken
+	}
+	if b.CirconusAPIApp != "" {
+		result.CirconusAPIApp = b.CirconusAPIApp
+	}
+	if b.CirconusAPIURL != "" {
+		result.CirconusAPIURL = b.CirconusAPIURL
+	}
+	if b.CirconusCheckSubmissionURL != "" {
+		result.CirconusCheckSubmissionURL = b.CirconusCheckSubmissionURL
+	}
+	if b.CirconusSubmissionInterval != "" {
+		result.CirconusSubmissionInterval = b.CirconusSubmissionInterval
+	}
+	if b.CirconusCheckID != "" {
+		result.CirconusCheckID = b.CirconusCheckID
+	}
+	if b.CirconusCheckForceMetricActivation != "" {
+		result.CirconusCheckForceMetricActivation = b.CirconusCheckForceMetricActivation
+	}
+	if b.CirconusCheckInstanceID != "" {
+		result.CirconusCheckInstanceID = b.CirconusCheckInstanceID
+	}
+	if b.CirconusCheckSearchTag != "" {
+		result.CirconusCheckSearchTag = b.CirconusCheckSearchTag
+	}
+	if b.CirconusCheckTags != "" {
+		result.CirconusCheckTags = b.CirconusCheckTags
+	}
+	if b.CirconusCheckDisplayName != "" {
+		result.CirconusCheckDisplayName = b.CirconusCheckDisplayName
+	}
+	if b.CirconusBrokerID != "" {
+		result.CirconusBrokerID = b.CirconusBrokerID
+	}
+	if b.CirconusBrokerSelectTag != "" {
+		result.CirconusBrokerSelectTag = b.CirconusBrokerSelectTag
+	}
+
+	return &result
+}
+
 func (p *Plugin) merge(o *Plugin) *Plugin {
 	m := *p
 
@@ -388,24 +587,39 @@ func parseFile(file string, cfg *Agent) error {
 		return err
 	}
 
-	if cfg.Policy == nil {
-		return nil
+	if cfg.Policy != nil {
+		if cfg.Policy.DefaultCooldownHCL != "" {
+			d, err := time.ParseDuration(cfg.Policy.DefaultCooldownHCL)
+			if err != nil {
+				return err
+			}
+			cfg.Policy.DefaultCooldown = d
+		}
+
+		if cfg.Policy.DefaultEvaluationIntervalHCL != "" {
+			d, err := time.ParseDuration(cfg.Policy.DefaultEvaluationIntervalHCL)
+			if err != nil {
+				return err
+			}
+			cfg.Policy.DefaultEvaluationInterval = d
+		}
 	}
 
-	if cfg.Policy.DefaultCooldownHCL != "" {
-		d, err := time.ParseDuration(cfg.Policy.DefaultCooldownHCL)
-		if err != nil {
-			return err
+	if cfg.Telemetry != nil {
+		if cfg.Telemetry.CollectionIntervalHCL != "" {
+			d, err := time.ParseDuration(cfg.Telemetry.CollectionIntervalHCL)
+			if err != nil {
+				return err
+			}
+			cfg.Telemetry.CollectionInterval = d
 		}
-		cfg.Policy.DefaultCooldown = d
-	}
-
-	if cfg.Policy.DefaultEvaluationIntervalHCL != "" {
-		d, err := time.ParseDuration(cfg.Policy.DefaultEvaluationIntervalHCL)
-		if err != nil {
-			return err
+		if cfg.Telemetry.PrometheusRetentionTimeHCL != "" {
+			d, err := time.ParseDuration(cfg.Telemetry.PrometheusRetentionTimeHCL)
+			if err != nil {
+				return err
+			}
+			cfg.Telemetry.PrometheusRetentionTime = d
 		}
-		cfg.Policy.DefaultEvaluationInterval = d
 	}
 
 	return nil

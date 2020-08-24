@@ -9,6 +9,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	agentServer "github.com/hashicorp/nomad-autoscaler/agent/http"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
@@ -23,7 +24,7 @@ type Agent struct {
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
-	healthServer  *healthServer
+	httpServer    *agentServer.Server
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
@@ -50,14 +51,20 @@ func (a *Agent) Run() error {
 		return fmt.Errorf("failed to setup plugins: %v", err)
 	}
 
-	// Setup and start the HTTP health server.
-	healthServer, err := newHealthServer(a.config.HTTP, a.logger)
+	// Setup the telemetry sinks.
+	inMem, err := a.setupTelemetry(a.config.Telemetry)
+	if err != nil {
+		return fmt.Errorf("failed to setup telemetry: %v", err)
+	}
+
+	// Setup and start the HTTP server.
+	httpServer, err := agentServer.NewHTTPServer(a.config.HTTP, a.logger, inMem)
 	if err != nil {
 		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
 	}
 
-	a.healthServer = healthServer
-	go a.healthServer.run()
+	a.httpServer = httpServer
+	go a.httpServer.Start()
 
 	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
@@ -104,15 +111,15 @@ func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
 		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
 	}
 
-	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager)
+	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
 	return make(chan *policy.Evaluation, 10)
 }
 
 func (a *Agent) stop() {
 	// Stop the health server.
-	if a.healthServer != nil {
-		a.healthServer.stop()
+	if a.httpServer != nil {
+		a.httpServer.Stop()
 	}
 
 	// Kill all the plugins.

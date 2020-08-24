@@ -3,6 +3,8 @@ package policy
 import (
 	"context"
 	"time"
+
+	"github.com/armon/go-metrics"
 )
 
 // ConfigDefaults holds default configuration for unspecified values.
@@ -59,6 +61,23 @@ const (
 	// SourceNameFile is the source for policies that are loaded from disk.
 	SourceNameFile SourceName = "file"
 )
+
+// HandleSourceError provides common functionality when a policy source
+// encounters an ephemeral or non-critical error.
+func HandleSourceError(name SourceName, err error, errCha chan<- error) {
+
+	// Emit our metric so errors can be visualised and alerted on from APM
+	// tools. This helps operators identify potential issues in communicating
+	// with a policy source.
+	metrics.IncrCounterWithLabels(
+		[]string{"policy", "source", "error_count"},
+		1,
+		[]metrics.Label{{Name: "policy_source", Value: string(name)}})
+
+	// Send the error to the channel for the handler/manager can perform the
+	// work it needs to.
+	errCha <- err
+}
 
 // IDMessage encapsulates the required information that allows the policy
 // manager to launch the correct MonitorPolicy interface function where it

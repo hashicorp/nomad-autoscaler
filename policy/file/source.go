@@ -116,7 +116,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 	// handler which starts the evaluation ticker.
 	val, ok := s.policyMap[req.ID]
 	if !ok {
-		req.ErrCh <- fmt.Errorf("failed to get policy %s", req.ID)
+		policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
 	} else {
 
 		// Assign the stored file to our local variable. This is so we can use
@@ -126,7 +126,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		p, err := s.handleIndividualPolicyRead(req.ID, file)
 		if err != nil {
-			req.ErrCh <- fmt.Errorf("failed to get policy %s", req.ID)
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
 		}
 		if p != nil {
 			req.ResultCh <- *p
@@ -159,7 +159,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			// isn't a terminal error as the operator can fix the policy and
 			// trigger another reload.
 			if err != nil {
-				req.ErrCh <- fmt.Errorf("failed to get policy: %v", err)
+				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
 				continue
 			}
 
@@ -219,7 +219,7 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*p
 func (s *Source) identifyPolicyIDs(resultCh chan<- policy.IDMessage, errCh chan<- error) {
 	ids, err := s.handleDir()
 	if err != nil {
-		errCh <- err
+		policy.HandleSourceError(s.Name(), err, errCh)
 	}
 
 	// Even if we receive an error we may have IDs to send. Otherwise it may be

@@ -4,12 +4,14 @@ go 1.13
 
 require (
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/armon/go-metrics v0.3.3
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/go-hclog v0.12.0
+	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0

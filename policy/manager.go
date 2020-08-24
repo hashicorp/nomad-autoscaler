@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 )
@@ -24,16 +25,21 @@ type Manager struct {
 
 	// keep is used to mark active policies during reconciliation.
 	keep map[PolicyID]bool
+
+	// metricsInterval is the interval at which the agent is configured to emit
+	// metrics. This is used when creating the periodicMetricsReporter.
+	metricsInterval time.Duration
 }
 
 // NewManager returns a new Manager.
-func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager) *Manager {
+func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
 	return &Manager{
-		log:           log.ResetNamed("policy_manager"),
-		policySource:  ps,
-		pluginManager: pm,
-		handlers:      make(map[PolicyID]*Handler),
-		keep:          make(map[PolicyID]bool),
+		log:             log.ResetNamed("policy_manager"),
+		policySource:    ps,
+		pluginManager:   pm,
+		handlers:        make(map[PolicyID]*Handler),
+		keep:            make(map[PolicyID]bool),
+		metricsInterval: mInt,
 	}
 }
 
@@ -41,6 +47,9 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 // Policies that need to be evaluated are sent in the evalCh.
 func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	defer m.stopHandlers()
+
+	// Start the metrics reporter.
+	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
 	policyIDsCh := make(chan IDMessage, 2)
 	policyIDsErrCh := make(chan error, 2)
@@ -196,6 +205,25 @@ func (m *Manager) ReloadSources() {
 	// Instruct each policy handler to reload.
 	for _, h := range m.handlers {
 		h.reloadCh <- struct{}{}
+	}
+}
+
+// periodicMetricsReporter periodically emits metrics for the policy manager
+// which cannot be performed during inline function calls.
+func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Duration) {
+
+	t := time.NewTicker(interval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			m.lock.RLock()
+			num := len(m.handlers)
+			m.lock.RUnlock()
+			metrics.SetGauge([]string{"policy", "total_num"}, float32(num))
+		}
 	}
 }
 

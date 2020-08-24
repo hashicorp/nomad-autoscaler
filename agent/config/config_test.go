@@ -18,7 +18,7 @@ func Test_Default(t *testing.T) {
 	assert.False(t, def.LogJson)
 	assert.Equal(t, def.LogLevel, "info")
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
-	assert.Equal(t, def.Policy.DefaultEvaluationInterval, 10 * time.Second)
+	assert.Equal(t, def.Policy.DefaultEvaluationInterval, 10*time.Second)
 	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
@@ -26,6 +26,7 @@ func Test_Default(t *testing.T) {
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 	assert.Len(t, def.Strategies, 1)
+	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -74,6 +75,29 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
 		},
+		Telemetry: &Telemetry{
+			StatsiteAddr:                       "some-address",
+			StatsdAddr:                         "some-other-address",
+			DogStatsDAddr:                      "some-other-other-address",
+			DogStatsDTags:                      []string{"most-important-metric"},
+			PrometheusMetrics:                  true,
+			PrometheusRetentionTime:            48 * time.Hour,
+			DisableHostname:                    true,
+			CollectionInterval:                 3 * time.Second,
+			CirconusAPIToken:                   "super-secret",
+			CirconusAPIApp:                     "secret-app",
+			CirconusAPIURL:                     "some-url",
+			CirconusSubmissionInterval:         "30s",
+			CirconusCheckSubmissionURL:         "some-other-url",
+			CirconusCheckID:                    "who-knows",
+			CirconusCheckForceMetricActivation: "true",
+			CirconusCheckInstanceID:            "some-id",
+			CirconusCheckSearchTag:             "some-tag",
+			CirconusCheckTags:                  "some-tags",
+			CirconusCheckDisplayName:           "some-name",
+			CirconusBrokerID:                   "some-id",
+			CirconusBrokerSelectTag:            "some-other-tag",
+		},
 		APMs: []*Plugin{
 			{
 				Name:   "influx-db",
@@ -119,6 +143,30 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+		},
+		Telemetry: &Telemetry{
+			StatsiteAddr:                       "some-address",
+			StatsdAddr:                         "some-other-address",
+			DogStatsDAddr:                      "some-other-other-address",
+			DogStatsDTags:                      []string{"most-important-metric"},
+			PrometheusMetrics:                  true,
+			PrometheusRetentionTime:            48 * time.Hour,
+			EnableHostnameLabel:                true,
+			DisableHostname:                    true,
+			CollectionInterval:                 3 * time.Second,
+			CirconusAPIToken:                   "super-secret",
+			CirconusAPIApp:                     "secret-app",
+			CirconusAPIURL:                     "some-url",
+			CirconusSubmissionInterval:         "30s",
+			CirconusCheckSubmissionURL:         "some-other-url",
+			CirconusCheckID:                    "who-knows",
+			CirconusCheckForceMetricActivation: "true",
+			CirconusCheckInstanceID:            "some-id",
+			CirconusCheckSearchTag:             "some-tag",
+			CirconusCheckTags:                  "some-tags",
+			CirconusCheckDisplayName:           "some-name",
+			CirconusBrokerID:                   "some-id",
+			CirconusBrokerSelectTag:            "some-other-tag",
 		},
 		APMs: []*Plugin{
 			{

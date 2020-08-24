@@ -17,8 +17,8 @@ const (
 	// pluginName is the name of the plugin
 	pluginName = "datadog"
 
-	configKeyClientAPIKey = "dd_client_api_key"
-	configKeyClientAPPKey = "dd_client_app_key"
+	configKeyClientAPIKey = "dd_api_key"
+	configKeyClientAPPKey = "dd_app_key"
 )
 
 var (
@@ -135,12 +135,12 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	// only support scalar types for now
 	series := queryResult.GetSeries()
 	if len(series) == 0 {
-		return 0, fmt.Errorf("error querying metrics from datadog. empty data response. try a wider query window")
+		return 0, fmt.Errorf("empty time series response from datadog, try a wider query window")
 	}
 	if pl, ok := series[0].GetPointlistOk(); ok {
 		// pl is [[timestamp, value]...] array
 		dataPoint := (*pl)[len(*pl)-1][1]
 		return dataPoint, nil
 	}
-	return 0, fmt.Errorf("error querying metrics from datadog. empty data response. try a wider query window")
+	return 0, fmt.Errorf("no data points found in time series response from datadog, try a wider query window")
 }

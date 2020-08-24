@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+ * __Telemetry__: Initial telemetry implementation to emit key stats for monitoring [[GH-238](https://github.com/hashicorp/nomad-autoscaler/pull/238)]
+
 BUG FIXES:
  * plugins: fix an issue which caused a failure to launch multiple plugins using the same driver [[GH-222](https://github.com/hashicorp/nomad-autoscaler/issues/222)]
  * policy: fix an issue where the Nomad Autoscaler would fail to canonicalize Nomad APM queries with non-default plugin name [[GH-216](https://github.com/hashicorp/nomad-autoscaler/issues/216)]

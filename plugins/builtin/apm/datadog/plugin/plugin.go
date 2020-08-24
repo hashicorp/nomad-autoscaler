@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -33,6 +34,8 @@ const (
 
 	datadogAuthAPIKey = "apiKeyAuth"
 	datadogAuthAPPKey = "appKeyAuth"
+
+	ratelimitResetHdr = "X-Ratelimit-Reset"
 )
 
 type datadogQuery struct {
@@ -120,13 +123,19 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
-	queryResult, _, err := a.client.MetricsApi.QueryMetrics(ctx).
+	queryResult, res, err := a.client.MetricsApi.QueryMetrics(ctx).
 		From(ddQuery.from.Unix()).
 		To(ddQuery.to.Unix()).
 		Query(ddQuery.query).
 		Execute()
 	if err != nil {
 		return 0, fmt.Errorf("error querying metrics from datadog: %v", err)
+	}
+
+	if res.StatusCode == http.StatusTooManyRequests {
+		return 0,
+			fmt.Errorf("metric queries are ratelimited in current time period by datadog, resets in %s sec",
+				res.Header.Get(ratelimitResetHdr))
 	}
 
 	// only support scalar types for now

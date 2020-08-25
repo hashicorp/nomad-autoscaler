@@ -102,7 +102,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 
 	// At this point the checks have finished. Therefore emit of metric data
 	// tracking how long it takes to run all the checks within a policy.
-	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ns"}, evalStartTime, labels)
+	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
 
 	if winningHandler == nil || winningAction.Direction == strategy.ScaleDirectionNone {
 		logger.Info("no checks need to be executed")
@@ -124,7 +124,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 	// Measure how long it takes to invoke the scaling actions. This helps
 	// understand the time taken to interact with the remote target and action
 	// the scaling action.
-	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
 
 	// Block until winning handler returns.
 	select {
@@ -373,7 +373,7 @@ func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*target.Status
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
 
 	return targetImpl.Status(h.policy.Target.Config)
 }
@@ -384,7 +384,7 @@ func (h *checkHandler) runTargetScale(targetImpl target.Target, action strategy.
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)
 
 	return targetImpl.Scale(action, h.policy.Target.Config)
 }
@@ -396,7 +396,7 @@ func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Source}, {Name: "policy_id", Value: h.policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
 
 	return apmImpl.Query(h.check.Query)
 }
@@ -406,7 +406,7 @@ func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, req strate
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Strategy.Name}, {Name: "policy_id", Value: h.policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
 	return strategyImpl.Run(req)
 }

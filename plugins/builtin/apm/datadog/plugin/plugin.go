@@ -23,8 +23,8 @@ const (
 	configKeyClientAPPKey = "dd_app_key"
 
 	// naming convention according to datadog api
-	envKeyClientAPIKey = "DD_CLIENT_API_KEY"
-	envKeyClientAPPKey = "DD_CLIENT_APP_KEY"
+	envKeyClientAPIKey = "DD_API_KEY"
+	envKeyClientAPPKey = "DD_APP_KEY"
 
 	// Example string: FROM=1m;TO=0m;QUERY=<datadog_query>
 	queryFromToken = "FROM="

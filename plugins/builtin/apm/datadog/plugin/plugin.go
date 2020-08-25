@@ -162,14 +162,16 @@ func parseRawQuery(raw string) (datadogQuery, error) {
 		case strings.HasPrefix(part, queryFromToken):
 			fromDur, err := time.ParseDuration(strings.TrimPrefix(part, queryFromToken))
 			if err != nil {
-				return ddQuery, fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryFromToken, part, err)
+				return ddQuery,
+					fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryFromToken, part, err)
 			}
 			ddQuery.from = now.Add(-fromDur)
 		case strings.HasPrefix(part, queryToToken):
 			//override to
 			toDur, err := time.ParseDuration(strings.TrimPrefix(part, queryToToken))
 			if err != nil {
-				return ddQuery, fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryToToken, part, err)
+				return ddQuery,
+					fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryToToken, part, err)
 			}
 			ddQuery.to = now.Add(-toDur)
 		case strings.HasPrefix(part, queryToken):
@@ -180,7 +182,7 @@ func parseRawQuery(raw string) (datadogQuery, error) {
 	}
 
 	// validations
-	if len(ddQuery.query) == 0 {
+	if ddQuery.query == "" {
 		return ddQuery, fmt.Errorf("field %s cannot be empty. Supplied query: (%s)",
 			queryToken, raw)
 	}

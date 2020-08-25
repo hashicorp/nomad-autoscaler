@@ -99,7 +99,7 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 	// Measure the time taken to dispense a plugin. This helps identify
 	// contention and pressure obtaining plugin client handles.
 	labels := []metrics.Label{{Name: "plugin_name", Value: name}, {Name: "plugin_type", Value: pluginType}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "manager", "access_ns"}, time.Now(), labels)
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "manager", "access_ms"}, time.Now(), labels)
 
 	pm.pluginInstancesLock.RLock()
 	defer pm.pluginInstancesLock.RUnlock()

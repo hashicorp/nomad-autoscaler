@@ -5,7 +5,8 @@
 version: 2
 jobs:
   lint-go:
-    machine: true
+    docker:
+    - image: golang:1.14.7
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -14,8 +15,8 @@ jobs:
           [ -n "$GO_VERSION" ] || { echo "You must set GO_VERSION"; exit 1; }
           # Install Go
           curl -sSLO "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
-          sudo rm -rf /usr/local/go
-          sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
+          rm -rf /usr/local/go
+          tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
           rm -f "go${GO_VERSION}.linux-amd64.tar.gz"
           GOPATH="/go"
           mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }
@@ -30,7 +31,7 @@ jobs:
           # Install golangci-lint
           curl -sSLO "https://github.com/golangci/golangci-lint/releases/download/v1.24.0/golangci-lint-1.24.0-linux-amd64.tar.gz"
           tar -xzf "golangci-lint-1.24.0-linux-amd64.tar.gz"
-          sudo mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
+          mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
           rm -f golangci-lint-1.24.0-linux-amd64.tar.gz
           rm -rf golangci-lint-1.24.0-linux-amd64/
           chmod +x /usr/local/bin/golangci-lint
@@ -47,7 +48,8 @@ jobs:
     - GO_VERSION: 1.14.7
     - GO111MODULE: 'on'
   check-deps-go:
-    machine: true
+    docker:
+    - image: golang:1.14.7
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -56,8 +58,8 @@ jobs:
           [ -n "$GO_VERSION" ] || { echo "You must set GO_VERSION"; exit 1; }
           # Install Go
           curl -sSLO "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
-          sudo rm -rf /usr/local/go
-          sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
+          rm -rf /usr/local/go
+          tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
           rm -f "go${GO_VERSION}.linux-amd64.tar.gz"
           GOPATH="/go"
           mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }
@@ -76,7 +78,8 @@ jobs:
     - GO_VERSION: 1.14.7
     - GO111MODULE: 'on'
   test-go:
-    machine: true
+    docker:
+    - image: golang:1.14.7
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -85,8 +88,8 @@ jobs:
           [ -n "$GO_VERSION" ] || { echo "You must set GO_VERSION"; exit 1; }
           # Install Go
           curl -sSLO "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
-          sudo rm -rf /usr/local/go
-          sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
+          rm -rf /usr/local/go
+          tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
           rm -f "go${GO_VERSION}.linux-amd64.tar.gz"
           GOPATH="/go"
           mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }
@@ -105,7 +108,8 @@ jobs:
     - GO_VERSION: 1.14.7
     - GO111MODULE: 'on'
   build-go:
-    machine: true
+    docker:
+    - image: golang:1.14.7
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -114,8 +118,8 @@ jobs:
           [ -n "$GO_VERSION" ] || { echo "You must set GO_VERSION"; exit 1; }
           # Install Go
           curl -sSLO "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
-          sudo rm -rf /usr/local/go
-          sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
+          rm -rf /usr/local/go
+          tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
           rm -f "go${GO_VERSION}.linux-amd64.tar.gz"
           GOPATH="/go"
           mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }
@@ -153,8 +157,8 @@ workflows:
 #                     [ -n \"$GO_VERSION\" ] || { echo \"You must set GO_VERSION\"; exit 1; }
 #                     # Install Go
 #                     curl -sSLO \"https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz\"
-#                     sudo rm -rf /usr/local/go
-#                     sudo tar -C /usr/local -xzf \"go${GO_VERSION}.linux-amd64.tar.gz\"
+#                     rm -rf /usr/local/go
+#                     tar -C /usr/local -xzf \"go${GO_VERSION}.linux-amd64.tar.gz\"
 #                     rm -f \"go${GO_VERSION}.linux-amd64.tar.gz\"
 #                     GOPATH=\"/go\"
 #                     mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }
@@ -173,7 +177,7 @@ workflows:
 #                     # Install golangci-lint
 #                     curl -sSLO \"https://github.com/golangci/golangci-lint/releases/download/v1.24.0/golangci-lint-1.24.0-linux-amd64.tar.gz\"
 #                     tar -xzf \"golangci-lint-1.24.0-linux-amd64.tar.gz\"
-#                     sudo mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
+#                     mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
 #                     rm -f golangci-lint-1.24.0-linux-amd64.tar.gz
 #                     rm -rf golangci-lint-1.24.0-linux-amd64/
 #                     chmod +x /usr/local/bin/golangci-lint
@@ -183,12 +187,13 @@ workflows:
 #                 working_directory: ~/
 # executors:
 #     go:
+#         docker:
+#             - image: golang:1.14.7
 #         environment:
 #             CIRCLECI_CLI_VERSION: 0.1.6772
 #             GO_TAGS: \"\"
 #             GO_VERSION: 1.14.7
 #             GO111MODULE: \"on\"
-#         machine: true
 #         shell: /usr/bin/env bash -euo pipefail -c
 #         working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
 # jobs:

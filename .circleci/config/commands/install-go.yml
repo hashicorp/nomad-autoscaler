@@ -9,8 +9,8 @@ steps:
         [ -n "$GO_VERSION" ] || { echo "You must set GO_VERSION"; exit 1; }
         # Install Go
         curl -sSLO "https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz"
-        sudo rm -rf /usr/local/go
-        sudo tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
+        rm -rf /usr/local/go
+        tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
         rm -f "go${GO_VERSION}.linux-amd64.tar.gz"
         GOPATH="/go"
         mkdir $GOPATH 2>/dev/null || { sudo mkdir $GOPATH && sudo chmod 777 $GOPATH; }

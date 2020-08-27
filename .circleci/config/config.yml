@@ -3,7 +3,8 @@ version: 2.1
 
 executors:
   go:
-    machine: true
+    docker:
+      - image: golang:1.14.7
     shell: /usr/bin/env bash -euo pipefail -c
     environment:
       GO111MODULE: "on"

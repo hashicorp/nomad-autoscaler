@@ -6,9 +6,6 @@ scaling targets and scaling algorithms.
 
 ***This project is in the early stages of development and is supplied without guarantees and subject to change without warning***
 
-Known issues and limitations:
- * there is currently a limited number of supported APMs, this will be addressed but limits the usability
-
 The Nomad Autoscaler currently supports:
 * **Horizontal Application Autoscaling**: The process of automatically controlling the number of
 instances of an application to have sufficient work throughput to meet service-level agreements (SLA).

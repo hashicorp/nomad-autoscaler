@@ -175,7 +175,7 @@ Telemetry Options:
     to add new metrics as they are encountered
 
   -telemetry-circonus-check-instance-id
-	Uniquely identify the metrics coming from this agent. Defaults to hostname:app.
+    Uniquely identify the metrics coming from this agent. Defaults to hostname:app.
 
   -telemetry-circonus-check-search-tag
     A special tag that helps to narrow down the search results when neither a
@@ -187,7 +187,7 @@ Telemetry Options:
 
   -telemetry-circonus-check-display-name
     The name used for the Circonus check that will be displayed in the UI. This
-    defaults to the value of telemetry-circonus-check-instance-id.
+    defaults to the value of -telemetry-circonus-check-instance-id.
 
   -telemetry-circonus-broker-id
     The Circonus broker to use when creating a new check.

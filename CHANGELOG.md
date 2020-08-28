@@ -1,6 +1,7 @@
 ## UNRELEASED
 
 FEATURES:
+ * __Datadog APM__: Datadog can be used as an APM source [[GH-241](https://github.com/hashicorp/nomad-autoscaler/pull/241)]
  * __Telemetry__: Initial telemetry implementation to emit key stats for monitoring [[GH-238](https://github.com/hashicorp/nomad-autoscaler/pull/238)]
 
 BUG FIXES:

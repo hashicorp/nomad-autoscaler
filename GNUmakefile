@@ -31,9 +31,10 @@ lint: ## Lint the source code
 check-mod: ## Checks the Go mod is tidy
 	@echo "==> Checking Go mod.."
 	@GO111MODULE=on go mod tidy
-	@if (git status --porcelain | grep -q go.mod); then \
-		echo go.mod needs updating; \
+	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
+		echo go.mod or go.sum needs updating; \
 		git --no-pager diff go.mod; \
+		git --no-pager diff go.sum; \
 		exit 1; fi
 	@echo "==> Done"
 

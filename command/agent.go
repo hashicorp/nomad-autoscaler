@@ -48,9 +48,6 @@ Options:
     specified, the plugin directory defaults to be that of
     <current-dir>/plugins/.
 
-  -scan-interval=<dur>
-    The time to wait between Nomad Autoscaler evaluations.
-
 HTTP Options:
 
   -http-bind-address=<addr>

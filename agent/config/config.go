@@ -258,9 +258,8 @@ const (
 	// defaultHTTPBindPort is the default port used for the HTTP health server.
 	defaultHTTPBindPort = 8080
 
-	// defaultEvaluationInterval is the default value for the
-	// DefaultEvaluationInterval in nano seconds.
-	defaultEvaluationInterval = time.Duration(10000000000)
+	// defaultEvaluationInterval is the default value for the interval between evaluations
+	defaultEvaluationInterval = time.Second*10
 
 	// defaultPluginDirSuffix is the suffix appended to the PWD when building
 	// the PluginDir default value.

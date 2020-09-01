@@ -87,5 +87,11 @@ bin/plugins/aws-asg:
 	@cd ./plugins/builtin/target/aws-asg && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/datadog:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/apm/datadog && go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
-plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg
+plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog

@@ -259,7 +259,7 @@ const (
 	defaultHTTPBindPort = 8080
 
 	// defaultEvaluationInterval is the default value for the interval between evaluations
-	defaultEvaluationInterval = time.Second*10
+	defaultEvaluationInterval = time.Second * 10
 
 	// defaultPluginDirSuffix is the suffix appended to the PWD when building
 	// the PluginDir default value.

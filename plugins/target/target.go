@@ -34,6 +34,7 @@ const (
 	ConfigKeyTaskGroup     = "Group"
 	ConfigKeyClass         = "node_class"
 	ConfigKeyDrainDeadline = "node_drain_deadline"
+	ConfigKeyNodePurge     = "node_purge"
 )
 
 // RPC is a plugin implementation that talks over net/rpc

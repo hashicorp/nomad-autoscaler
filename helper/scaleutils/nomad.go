@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -81,6 +83,53 @@ func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]N
 	}
 
 	return nodeIDMap, nil
+}
+
+// RunPostScaleInTasks runs any tasks that need to occur after a remote node
+// provider has completed its work. It handles any users configuration so that
+// the plugin does not need to perform this work.
+func (si *ScaleIn) RunPostScaleInTasks(cfg map[string]string, nodes []NodeID) error {
+
+	// Attempt to read of the node purge config parameter. If it has been set
+	// then check its value, otherwise the default stance is that node purging
+	// is disabled.
+	if val, ok := cfg[target.ConfigKeyNodePurge]; ok {
+
+		// Parse the string as a bool. If we get an error return this as the
+		// operator has attempted to configure this value, but it's not worth
+		// breaking the whole pipeline for. Therefore log the error and return
+		// as Nomad will eventually perform this work.
+		boolVal, err := strconv.ParseBool(val)
+		if err != nil {
+			si.log.Error("failed to parse node_purge config param", "error", err)
+			return nil
+		}
+
+		// If the operator has disabled node purging, exit.
+		if !boolVal {
+			return nil
+		}
+	} else {
+		return nil
+	}
+
+	// Use a multierror to collect errors from any and all node purge calls
+	// that fail.
+	var mErr *multierror.Error
+
+	// Iterate the node list and perform a purge on each node. In the event of
+	// an error, add this to the list. Otherwise log useful information.
+	for _, node := range nodes {
+		resp, _, err := si.nomad.Nodes().Purge(node.NomadID, nil)
+		if err != nil {
+			mErr = multierror.Append(mErr, err)
+		} else {
+			si.log.Info("successfully purged Nomad node",
+				"node_id", node.NomadID, "nomad_evals", resp.EvalIDs)
+		}
+	}
+
+	return mErr.ErrorOrNil()
 }
 
 // identifyTargets filters the current Nomad cluster node list and then sorts

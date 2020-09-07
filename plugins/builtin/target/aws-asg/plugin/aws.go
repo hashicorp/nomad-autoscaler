@@ -100,7 +100,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 
 	ids, err := t.scaleInUtils.RunPreScaleInTasks(ctx, scaleReq)
 	if err != nil {
-		return fmt.Errorf("failed to perform Nomad scale in tasks: %v", err)
+		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
 
 	// Grab the instanceIDs once as it is used multiple times throughout the
@@ -138,6 +138,11 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	}
 	log.Info("successfully terminated EC2 instances")
 	eWriter.write(ctx, scalingEventTerminate)
+
+	// Run any post scale in tasks that are desired.
+	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
+		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
+	}
 
 	return nil
 }

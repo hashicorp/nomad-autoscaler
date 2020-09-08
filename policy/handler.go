@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -47,7 +48,7 @@ type Handler struct {
 	runningLock sync.RWMutex
 
 	// ch is used to listen for policy updates.
-	ch chan Policy
+	ch chan sdk.ScalingPolicy
 
 	// errCh is used to listen for errors from the policy source.
 	errCh chan error
@@ -67,7 +68,7 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 		log:           log.Named("policy_handler").With("policy_id", ID),
 		pluginManager: pm,
 		policySource:  ps,
-		ch:            make(chan Policy),
+		ch:            make(chan sdk.ScalingPolicy),
 		errCh:         make(chan error),
 		doneCh:        make(chan struct{}),
 		cooldownCh:    make(chan time.Duration),
@@ -79,7 +80,7 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 //
 // This function blocks until the context provided is canceled or the handler
 // is stopped with the Stop() method.
-func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
+func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
 	h.log.Trace("starting policy handler")
 
 	defer h.Stop()
@@ -90,7 +91,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *Evaluation) {
 	h.runningLock.Unlock()
 
 	// Store a local copy of the policy so we can compare it for changes.
-	var currentPolicy *Policy
+	var currentPolicy *sdk.ScalingPolicy
 
 	// Start with a long ticker until we receive the right interval.
 	// TODO(luiz): make this a config param
@@ -179,7 +180,7 @@ func (h *Handler) Stop() {
 	h.running = false
 }
 
-func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, error) {
+func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
 
 	// Timestamp the invocation of this evaluation run. This can be
 	// used when checking cooldown or emitting metrics to ensure some
@@ -200,7 +201,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, 
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.
-	ts, ok := eval.TargetStatus.Meta[targetpkg.MetaKeyLastEvent]
+	ts, ok := eval.TargetStatus.Meta[sdk.TargetStatusMetaKeyLastEvent]
 	if !ok {
 		return eval, nil
 	}
@@ -236,7 +237,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *Policy) (*Evaluation, 
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.
 // Returning an error will stop the handler.
-func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
+func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
 	h.log.Trace("tick")
 
 	if policy == nil {
@@ -288,7 +289,7 @@ func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
 
 	// Send policy for evaluation.
 	h.log.Trace("sending policy for evaluation")
-	return &Evaluation{
+	return &sdk.ScalingEvaluation{
 		Policy:       policy,
 		TargetStatus: status,
 	}, nil
@@ -296,7 +297,7 @@ func (h *Handler) generateEvaluation(policy *Policy) (*Evaluation, error) {
 
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
-func (h *Handler) updateHandler(current, next *Policy) {
+func (h *Handler) updateHandler(current, next *sdk.ScalingPolicy) {
 	if current == nil {
 		h.log.Trace("received policy")
 	} else {

@@ -8,7 +8,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -59,7 +59,7 @@ func newJobScaleStatusHandler(client *api.Client, jobID string, logger hclog.Log
 }
 
 // status returns the cached scaling status of the passed group.
-func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
+func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error) {
 
 	// If the last status response included an error, just return this to the
 	// caller.
@@ -94,7 +94,7 @@ func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
 
 	// Hydrate the response object with the information we have collected that
 	// is nil safe.
-	resp := target.Status{
+	resp := sdk.TargetStatus{
 		Ready: !jsh.scaleStatus.JobStopped,
 		Count: int64(status.Running),
 		Meta: map[string]string{
@@ -109,7 +109,7 @@ func (jsh *jobScaleStatusHandler) status(group string) (*target.Status, error) {
 	// effect. If we use the scale endpoint in the future to register events
 	// such as policy parsing errors, we should filter those out.
 	if len(status.Events) > 0 {
-		resp.Meta[target.MetaKeyLastEvent] = strconv.FormatUint(status.Events[0].Time, 10)
+		resp.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatUint(status.Events[0].Time, 10)
 	}
 
 	return &resp, nil

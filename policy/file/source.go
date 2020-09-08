@@ -12,6 +12,7 @@ import (
 	fileHelper "github.com/hashicorp/nomad-autoscaler/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/helper/uuid"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // Ensure NomadSource satisfies the Source interface.
@@ -49,7 +50,7 @@ type Source struct {
 // that it came from.
 type filePolicy struct {
 	file   string
-	policy *policy.Policy
+	policy *sdk.ScalingPolicy
 }
 
 func NewFileSource(log hclog.Logger, dir string, policyProcessor *policy.Processor) policy.Source {
@@ -178,9 +179,9 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 // be returned, otherwise we return nil to indicate no reload is required. This
 // function is not thread safe, so the caller should obtain at least a read
 // lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*policy.Policy, error) {
+func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*sdk.ScalingPolicy, error) {
 
-	newPolicy := &policy.Policy{}
+	newPolicy := &sdk.ScalingPolicy{}
 
 	// Decode the file into a new policy to allow comparison to our stored
 	// policy. Make sure to add the ID string and defaults, we are responsible
@@ -245,7 +246,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 
 	for _, file := range files {
 
-		var scalingPolicy policy.Policy
+		var scalingPolicy sdk.ScalingPolicy
 
 		// We have to decode the file to check whether the policy is enabled or
 		// not. If we cannot decode the file, append an error but do not bail

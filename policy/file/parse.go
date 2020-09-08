@@ -4,12 +4,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-func decodeFile(file string, p *policy.Policy) error {
+func decodeFile(file string, p *sdk.ScalingPolicy) error {
 
-	decodePolicy := &policy.FileDecodePolicy{}
+	decodePolicy := &sdk.FileDecodeScalingPolicy{}
 
 	if err := hclsimple.DecodeFile(file, nil, decodePolicy); err != nil {
 		return err

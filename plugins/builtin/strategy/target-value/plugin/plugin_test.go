@@ -6,7 +6,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,141 +28,141 @@ func TestStrategyPlugin_PluginInfo(t *testing.T) {
 
 func TestStrategyPlugin_Run(t *testing.T) {
 	testCases := []struct {
-		inputReq      strategy.RunRequest
-		expectedResp  strategy.Action
+		inputReq      sdk.StrategyRunReq
+		expectedResp  sdk.ScalingAction
 		expectedError error
 		name          string
 	}{
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   nil,
 			},
-			expectedResp:  strategy.Action{},
+			expectedResp:  sdk.ScalingAction{},
 			expectedError: fmt.Errorf("missing required field `target`"),
 			name:          "incorrect input config",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "not-the-float-you're-looking-for"},
 			},
-			expectedResp:  strategy.Action{},
+			expectedResp:  sdk.ScalingAction{},
 			expectedError: fmt.Errorf("invalid value for `target`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input config target value",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "0", "threshold": "not-the-float-you're-looking-for"},
 			},
-			expectedResp:  strategy.Action{},
+			expectedResp:  sdk.ScalingAction{},
 			expectedError: fmt.Errorf("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input config target value",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "13"},
 				Metric:   13,
 				Count:    2,
 			},
-			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
+			expectedResp:  sdk.ScalingAction{Direction: sdk.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "factor equals 1 with non-zero count",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "13"},
 				Metric:   26,
 				Count:    2,
 			},
-			expectedResp: strategy.Action{
+			expectedResp: sdk.ScalingAction{
 				Count:     4,
-				Direction: strategy.ScaleDirectionUp,
+				Direction: sdk.ScaleDirectionUp,
 				Reason:    "scaling up because factor is 2.000000",
 			},
 			expectedError: nil,
 			name:          "factor greater than 1 with non-zero count",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "10"},
 				Metric:   20,
 				Count:    0,
 			},
-			expectedResp: strategy.Action{
+			expectedResp: sdk.ScalingAction{
 				Count:     2,
-				Direction: strategy.ScaleDirectionUp,
+				Direction: sdk.ScaleDirectionUp,
 				Reason:    "scaling up because factor is 2.000000",
 			},
 			expectedError: nil,
 			name:          "scale from 0 with non-zero target",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "10"},
 				Metric:   9,
 				Count:    1,
 			},
-			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
+			expectedResp:  sdk.ScalingAction{Direction: sdk.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "no scaling based on small target/metric difference",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "0"},
 				Metric:   1,
 				Count:    0,
 			},
-			expectedResp: strategy.Action{
+			expectedResp: sdk.ScalingAction{
 				Count:     1,
-				Direction: strategy.ScaleDirectionUp,
+				Direction: sdk.ScaleDirectionUp,
 				Reason:    "scaling up because factor is 1.000000",
 			},
 			expectedError: nil,
 			name:          "scale from 0 with 0 target eg. build queue with 0 running build agents",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "0"},
 				Metric:   0,
 				Count:    5,
 			},
-			expectedResp: strategy.Action{
+			expectedResp: sdk.ScalingAction{
 				Count:     0,
-				Direction: strategy.ScaleDirectionDown,
+				Direction: sdk.ScaleDirectionDown,
 				Reason:    "scaling down because factor is 0.000000",
 			},
 			expectedError: nil,
 			name:          "scale to 0 with 0 target eg. idle build agents",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "5"},
 				Metric:   5.00001,
 				Count:    8,
 			},
-			expectedResp:  strategy.Action{Direction: strategy.ScaleDirectionNone},
+			expectedResp:  sdk.ScalingAction{Direction: sdk.ScaleDirectionNone},
 			expectedError: nil,
 			name:          "don't scale when the factor change is small",
 		},
 		{
-			inputReq: strategy.RunRequest{
+			inputReq: sdk.StrategyRunReq{
 				PolicyID: "test-policy",
 				Config:   map[string]string{"target": "5", "threshold": "0.000001"},
 				Metric:   5.00001,
 				Count:    8,
 			},
-			expectedResp: strategy.Action{
+			expectedResp: sdk.ScalingAction{
 				Count:     9,
-				Direction: strategy.ScaleDirectionUp,
+				Direction: sdk.ScaleDirectionUp,
 				Reason:    "scaling up because factor is 1.000002",
 			},
 			expectedError: nil,
@@ -186,16 +186,16 @@ func TestStrategyPlugin_calculateDirection(t *testing.T) {
 		inputCount     int64
 		inputFactor    float64
 		threshold      float64
-		expectedOutput strategy.ScaleDirection
+		expectedOutput sdk.ScaleDirection
 	}{
-		{inputCount: 0, inputFactor: 1, expectedOutput: strategy.ScaleDirectionUp},
-		{inputCount: 5, inputFactor: 1, expectedOutput: strategy.ScaleDirectionNone},
-		{inputCount: 4, inputFactor: 0.5, expectedOutput: strategy.ScaleDirectionDown},
-		{inputCount: 5, inputFactor: 2, expectedOutput: strategy.ScaleDirectionUp},
-		{inputCount: 5, inputFactor: 1.0001, threshold: 0.01, expectedOutput: strategy.ScaleDirectionNone},
-		{inputCount: 5, inputFactor: 1.02, threshold: 0.01, expectedOutput: strategy.ScaleDirectionUp},
-		{inputCount: 5, inputFactor: 0.99, threshold: 0.01, expectedOutput: strategy.ScaleDirectionNone},
-		{inputCount: 5, inputFactor: 0.98, threshold: 0.01, expectedOutput: strategy.ScaleDirectionDown},
+		{inputCount: 0, inputFactor: 1, expectedOutput: sdk.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 1, expectedOutput: sdk.ScaleDirectionNone},
+		{inputCount: 4, inputFactor: 0.5, expectedOutput: sdk.ScaleDirectionDown},
+		{inputCount: 5, inputFactor: 2, expectedOutput: sdk.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 1.0001, threshold: 0.01, expectedOutput: sdk.ScaleDirectionNone},
+		{inputCount: 5, inputFactor: 1.02, threshold: 0.01, expectedOutput: sdk.ScaleDirectionUp},
+		{inputCount: 5, inputFactor: 0.99, threshold: 0.01, expectedOutput: sdk.ScaleDirectionNone},
+		{inputCount: 5, inputFactor: 0.98, threshold: 0.01, expectedOutput: sdk.ScaleDirectionDown},
 	}
 
 	s := &StrategyPlugin{}

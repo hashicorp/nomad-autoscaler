@@ -12,8 +12,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -88,10 +88,10 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 // Scale satisfies the Scale function on the target.Target interface.
-func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) error {
+func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
 
 	// AWS can't support dry-run like Nomad, so just exit.
-	if action.Count == strategy.MetaValueDryRunCount {
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		return nil
 	}
 
@@ -136,7 +136,7 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 }
 
 // Status satisfies the Status function on the target.Target interface.
-func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) {
+func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
 	// We cannot get the status of an ASG if we don't know its name.
 	asgName, ok := config[configKeyASGName]
@@ -157,7 +157,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) 
 
 	// Set our initial status. The asg.Status field is only set when the ASG is
 	// being deleted.
-	resp := target.Status{
+	resp := sdk.TargetStatus{
 		Ready: asg.Status == nil,
 		Count: *asg.DesiredCapacity,
 		Meta:  make(map[string]string),
@@ -184,7 +184,7 @@ func (t *TargetPlugin) calculateDirection(asgDesired, strategyDesired int64) (in
 
 // processLastActivity updates the status object based on the details within
 // the last scaling activity.
-func processLastActivity(activity autoscaling.Activity, status *target.Status) {
+func processLastActivity(activity autoscaling.Activity, status *sdk.TargetStatus) {
 
 	// If the last activities progress is not nil then check whether this
 	// finished or not. In the event there is a current activity in progress
@@ -196,6 +196,6 @@ func processLastActivity(activity autoscaling.Activity, status *target.Status) {
 	// EndTime isn't always populated, especially if the activity has not yet
 	// finished :).
 	if activity.EndTime != nil {
-		status.Meta[target.MetaKeyLastEvent] = strconv.FormatInt(activity.EndTime.UnixNano(), 10)
+		status.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatInt(activity.EndTime.UnixNano(), 10)
 	}
 }

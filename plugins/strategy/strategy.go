@@ -5,10 +5,11 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 type Strategy interface {
-	Run(req RunRequest) (Action, error)
+	Run(req sdk.StrategyRunReq) (sdk.ScalingAction, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }
@@ -34,13 +35,6 @@ type RPC struct {
 	client *rpc.Client
 }
 
-type RunRequest struct {
-	PolicyID string
-	Count    int64
-	Metric   float64
-	Config   map[string]string
-}
-
 func (r *RPC) SetConfig(config map[string]string) error {
 	var resp error
 	err := r.client.Call("Plugin.SetConfig", config, &resp)
@@ -50,11 +44,11 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Run(req RunRequest) (Action, error) {
-	var resp Action
+func (r *RPC) Run(req sdk.StrategyRunReq) (sdk.ScalingAction, error) {
+	var resp sdk.ScalingAction
 	err := r.client.Call("Plugin.Run", req, &resp)
 	if err != nil {
-		return Action{}, err
+		return sdk.ScalingAction{}, err
 	}
 
 	return resp, nil
@@ -70,7 +64,7 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Run(req RunRequest, resp *Action) error {
+func (s *RPCServer) Run(req sdk.StrategyRunReq, resp *sdk.ScalingAction) error {
 	r, err := s.Impl.Run(req)
 	if err != nil {
 		return err

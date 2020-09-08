@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -77,7 +78,7 @@ func (a *Agent) Run() error {
 	return nil
 }
 
-func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *policy.Evaluation) {
+func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEvaluation) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -90,7 +91,7 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *policy.Evaluati
 	}
 }
 
-func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
+func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
@@ -113,7 +114,7 @@ func (a *Agent) setupPolicyManager() chan *policy.Evaluation {
 
 	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
-	return make(chan *policy.Evaluation, 10)
+	return make(chan *sdk.ScalingEvaluation, 10)
 }
 
 func (a *Agent) stop() {

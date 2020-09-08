@@ -1,11 +1,11 @@
 package plugin
 
 import (
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,20 +57,20 @@ func Test_processLastActivity(t *testing.T) {
 
 	testCases := []struct {
 		inputActivity  autoscaling.Activity
-		inputStatus    *target.Status
-		expectedStatus *target.Status
+		inputStatus    *sdk.TargetStatus
+		expectedStatus *sdk.TargetStatus
 		name           string
 	}{
 		{
 			inputActivity: autoscaling.Activity{
 				Progress: int64ToPtr(75),
 			},
-			inputStatus: &target.Status{
+			inputStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,
 				Meta:  map[string]string{},
 			},
-			expectedStatus: &target.Status{
+			expectedStatus: &sdk.TargetStatus{
 				Ready: false,
 				Count: 1,
 				Meta:  map[string]string{},
@@ -82,12 +82,12 @@ func Test_processLastActivity(t *testing.T) {
 				Progress: int64ToPtr(100),
 				EndTime:  &testTime,
 			},
-			inputStatus: &target.Status{
+			inputStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,
 				Meta:  map[string]string{},
 			},
-			expectedStatus: &target.Status{
+			expectedStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,
 				Meta: map[string]string{
@@ -98,12 +98,12 @@ func Test_processLastActivity(t *testing.T) {
 		},
 		{
 			inputActivity: autoscaling.Activity{},
-			inputStatus: &target.Status{
+			inputStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,
 				Meta:  map[string]string{},
 			},
-			expectedStatus: &target.Status{
+			expectedStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,
 				Meta:  map[string]string{},

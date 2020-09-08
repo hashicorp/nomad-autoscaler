@@ -5,37 +5,15 @@ import (
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 type Target interface {
-	Scale(action strategy.Action, config map[string]string) error
-	Status(config map[string]string) (*Status, error)
+	Scale(action sdk.ScalingAction, config map[string]string) error
+	Status(config map[string]string) (*sdk.TargetStatus, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }
-
-type Status struct {
-	Ready bool
-	Count int64
-	Meta  map[string]string
-}
-
-// MetaKeyLastEvent is an optional meta key that can be added to the status
-// return. The value represents the last scaling event of the target as seen by
-// the remote providers view point. This helps enforce cooldown where
-// out-of-band scaling activities have been triggered.
-const MetaKeyLastEvent = "nomad_autoscaler.last_event"
-
-const (
-	// ConfigKeys are the various target config map keys that can be used to
-	// identify a target.
-	ConfigKeyJob           = "Job"
-	ConfigKeyTaskGroup     = "Group"
-	ConfigKeyClass         = "node_class"
-	ConfigKeyDrainDeadline = "node_drain_deadline"
-	ConfigKeyNodePurge     = "node_purge"
-)
 
 // RPC is a plugin implementation that talks over net/rpc
 type RPC struct {
@@ -43,7 +21,7 @@ type RPC struct {
 }
 
 type RPCScaleRequest struct {
-	Action strategy.Action
+	Action sdk.ScalingAction
 	Config map[string]string
 }
 
@@ -62,13 +40,13 @@ func (r *RPC) PluginInfo() (*base.PluginInfo, error) {
 	return &resp, err
 }
 
-func (r *RPC) Status(config map[string]string) (*Status, error) {
-	var resp Status
+func (r *RPC) Status(config map[string]string) (*sdk.TargetStatus, error) {
+	var resp sdk.TargetStatus
 	err := r.client.Call("Plugin.Status", config, &resp)
 	return &resp, err
 }
 
-func (r *RPC) Scale(action strategy.Action, config map[string]string) error {
+func (r *RPC) Scale(action sdk.ScalingAction, config map[string]string) error {
 	var resp error
 	req := RPCScaleRequest{
 		Action: action,
@@ -100,7 +78,7 @@ func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
 	return err
 }
 
-func (s *RPCServer) Status(config map[string]string, resp *Status) error {
+func (s *RPCServer) Status(config map[string]string, resp *sdk.TargetStatus) error {
 	status, err := s.Impl.Status(config)
 	if status != nil {
 		*resp = *status

@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -71,8 +72,8 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 // Run satisfies the Run function on the strategy.Strategy interface.
-func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
-	resp := strategy.Action{}
+func (s *StrategyPlugin) Run(req sdk.StrategyRunReq) (sdk.ScalingAction, error) {
+	resp := sdk.ScalingAction{}
 
 	// Read and parse target value from req.Config.
 	t := req.Config[runConfigKeyTarget]
@@ -110,7 +111,7 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 
 	// Identify the direction of scaling, if any.
 	resp.Direction = s.calculateDirection(req.Count, factor, threshold)
-	if resp.Direction == strategy.ScaleDirectionNone {
+	if resp.Direction == sdk.ScaleDirectionNone {
 		return resp, nil
 	}
 
@@ -136,7 +137,7 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 	// If the calculated newCount is the same as the current count, we do not
 	// need to scale so return an empty response.
 	if newCount == req.Count {
-		resp.Direction = strategy.ScaleDirectionNone
+		resp.Direction = sdk.ScaleDirectionNone
 		return resp, nil
 	}
 
@@ -152,20 +153,20 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 //
 // The input factor value is padded by e, such that no action will be taken if
 // factor is within [1-e; 1+e].
-func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) strategy.ScaleDirection {
+func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) sdk.ScaleDirection {
 	switch count {
 	case 0:
 		if factor > 0 {
-			return strategy.ScaleDirectionUp
+			return sdk.ScaleDirectionUp
 		}
-		return strategy.ScaleDirectionNone
+		return sdk.ScaleDirectionNone
 	default:
 		if factor < (1 - e) {
-			return strategy.ScaleDirectionDown
+			return sdk.ScaleDirectionDown
 		} else if factor > (1 + e) {
-			return strategy.ScaleDirectionUp
+			return sdk.ScaleDirectionUp
 		} else {
-			return strategy.ScaleDirectionNone
+			return sdk.ScaleDirectionNone
 		}
 	}
 }

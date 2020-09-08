@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // errTargetNotReady is used by a check handler to indicate the policy target
@@ -36,7 +37,7 @@ func NewWorker(l hclog.Logger, pm *manager.PluginManager, m *Manager) *Worker {
 }
 
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
-func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
+func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 
 	// Record the start time of the eval portion of this function. The labels
 	// are also used across multiple metrics, so define them.
@@ -60,7 +61,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 
 	// winningAction is the action to be executed after all checks' results are
 	// reconciled.
-	var winningAction *strategy.Action
+	var winningAction *sdk.ScalingAction
 	var winningHandler *checkHandler
 
 	// Initial results should return fairly quickly.
@@ -88,7 +89,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 				continue
 			}
 
-			winningAction = strategy.PreemptAction(winningAction, r.action)
+			winningAction = sdk.PreemptScalingAction(winningAction, r.action)
 			if winningAction == r.action {
 				winningHandler = handler
 			}
@@ -104,7 +105,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 	// tracking how long it takes to run all the checks within a policy.
 	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
 
-	if winningHandler == nil || winningAction.Direction == strategy.ScaleDirectionNone {
+	if winningHandler == nil || winningAction.Direction == sdk.ScaleDirectionNone {
 		logger.Info("no checks need to be executed")
 		return
 	}
@@ -150,20 +151,20 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *Policy) {
 // checkHandler evaluates one of the checks of a policy.
 type checkHandler struct {
 	logger        hclog.Logger
-	policy        *Policy
-	check         *Check
+	policy        *sdk.ScalingPolicy
+	check         *sdk.ScalingPolicyCheck
 	pluginManager *manager.PluginManager
 	resultCh      chan checkHandlerResult
 	proceedCh     chan bool
 }
 
 type checkHandlerResult struct {
-	action *strategy.Action
+	action *sdk.ScalingAction
 	err    error
 }
 
 // newCheckHandler returns a new checkHandler instance.
-func newCheckHandler(l hclog.Logger, p *Policy, c *Check, pm *manager.PluginManager) *checkHandler {
+func newCheckHandler(l hclog.Logger, p *sdk.ScalingPolicy, c *sdk.ScalingPolicyCheck, pm *manager.PluginManager) *checkHandler {
 	return &checkHandler{
 		logger: l.Named("check_handler").With(
 			"check", c.Name,
@@ -259,7 +260,7 @@ func (h *checkHandler) start(ctx context.Context) {
 
 	// Calculate new count using check's Strategy.
 	h.logger.Info("calculating new count", "count", currentStatus.Count, "metric", value)
-	req := strategy.RunRequest{
+	req := sdk.StrategyRunReq{
 		PolicyID: h.policy.ID,
 		Count:    currentStatus.Count,
 		Metric:   value,
@@ -272,21 +273,21 @@ func (h *checkHandler) start(ctx context.Context) {
 		return
 	}
 
-	if action.Direction == strategy.ScaleDirectionNone {
+	if action.Direction == sdk.ScaleDirectionNone {
 		// Make sure we are currently within [min, max] limits even if there's
 		// no action to execute
-		var minMaxAction *strategy.Action
+		var minMaxAction *sdk.ScalingAction
 
 		if currentStatus.Count < h.policy.Min {
-			minMaxAction = &strategy.Action{
+			minMaxAction = &sdk.ScalingAction{
 				Count:     h.policy.Min,
-				Direction: strategy.ScaleDirectionUp,
+				Direction: sdk.ScaleDirectionUp,
 				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentStatus.Count, h.policy.Min),
 			}
 		} else if currentStatus.Count > h.policy.Max {
-			minMaxAction = &strategy.Action{
+			minMaxAction = &sdk.ScalingAction{
 				Count:     h.policy.Max,
-				Direction: strategy.ScaleDirectionDown,
+				Direction: sdk.ScaleDirectionDown,
 				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentStatus.Count, h.policy.Max),
 			}
 		}
@@ -295,7 +296,7 @@ func (h *checkHandler) start(ctx context.Context) {
 			action = *minMaxAction
 		} else {
 			h.logger.Info("nothing to do")
-			result.action = &strategy.Action{Direction: strategy.ScaleDirectionNone}
+			result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
 			h.resultCh <- result
 			return
 		}
@@ -312,7 +313,7 @@ func (h *checkHandler) start(ctx context.Context) {
 	if currentStatus.Count == action.Count {
 		h.logger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
 
-		result.action = &strategy.Action{Direction: strategy.ScaleDirectionNone}
+		result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
 		h.resultCh <- result
 		return
 	}
@@ -339,7 +340,7 @@ func (h *checkHandler) start(ctx context.Context) {
 		action.SetDryRun()
 	}
 
-	if action.Count == strategy.MetaValueDryRunCount {
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		h.logger.Info("registering scaling event",
 			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 	} else {
@@ -367,7 +368,7 @@ func (h *checkHandler) start(ctx context.Context) {
 
 // runTargetStatus wraps the target.Status call to provide operational
 // functionality.
-func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*target.Status, error) {
+func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*sdk.TargetStatus, error) {
 
 	h.logger.Info("fetching current count")
 
@@ -380,7 +381,7 @@ func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*target.Status
 
 // runTargetScale wraps the target.Scale call to provide operational
 // functionality.
-func (h *checkHandler) runTargetScale(targetImpl target.Target, action strategy.Action) error {
+func (h *checkHandler) runTargetScale(targetImpl target.Target, action sdk.ScalingAction) error {
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
@@ -402,7 +403,7 @@ func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
 }
 
 // runStrategyRun wraps the strategy.Run call to provide operational functionality.
-func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, req strategy.RunRequest) (strategy.Action, error) {
+func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, req sdk.StrategyRunReq) (sdk.ScalingAction, error) {
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Strategy.Name}, {Name: "policy_id", Value: h.policy.ID}}

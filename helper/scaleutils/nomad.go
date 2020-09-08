@@ -11,7 +11,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -93,7 +93,7 @@ func (si *ScaleIn) RunPostScaleInTasks(cfg map[string]string, nodes []NodeID) er
 	// Attempt to read of the node purge config parameter. If it has been set
 	// then check its value, otherwise the default stance is that node purging
 	// is disabled.
-	if val, ok := cfg[target.ConfigKeyNodePurge]; ok {
+	if val, ok := cfg[sdk.TargetConfigKeyNodePurge]; ok {
 
 		// Parse the string as a bool. If we get an error return this as the
 		// operator has attempted to configure this value, but it's not worth

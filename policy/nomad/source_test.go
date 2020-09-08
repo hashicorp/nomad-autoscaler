@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,19 +14,19 @@ import (
 func TestSource_canonicalizePolicy(t *testing.T) {
 	testCases := []struct {
 		name     string
-		input    *policy.Policy
-		expected *policy.Policy
+		input    *sdk.ScalingPolicy
+		expected *sdk.ScalingPolicy
 		cb       func(*api.Config, *policy.ConfigDefaults)
 	}{
 		{
 			name: "full policy",
-			input: &policy.Policy{
+			input: &sdk.ScalingPolicy{
 				ID:                 "string",
 				Min:                1,
 				Max:                5,
 				Enabled:            true,
 				EvaluationInterval: time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
 						"target_config":  "yes",
@@ -34,12 +35,12 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group":          "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "check",
 						Source: "source",
 						Query:  "query",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
 								"strategy_config1": "yes",
@@ -49,13 +50,13 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				ID:                 "string",
 				Min:                1,
 				Max:                5,
 				Enabled:            true,
 				EvaluationInterval: time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
 						"target_config":  "yes",
@@ -64,12 +65,12 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 						"Group":          "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "check",
 						Source: "source",
 						Query:  "query",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
 								"strategy_config1": "yes",
@@ -82,10 +83,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name:  "set all defaults",
-			input: &policy.Policy{},
-			expected: &policy.Policy{
+			input: &sdk.ScalingPolicy{},
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
 					Config: map[string]string{},
 				},
@@ -98,33 +99,33 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name: "expand query when source is empty",
-			input: &policy.Policy{
-				Target: &policy.Target{
+			input: &sdk.ScalingPolicy{
+				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Query: "avg_cpu",
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: plugins.InternalAPMNomad,
 						Query:  "taskgroup_avg_cpu/group/job",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
 					},
@@ -133,34 +134,34 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name: "expand query when source is nomad apm",
-			input: &policy.Policy{
-				Target: &policy.Target{
+			input: &sdk.ScalingPolicy{
+				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: plugins.InternalAPMNomad,
 						Query:  "avg_cpu",
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: plugins.InternalAPMNomad,
 						Query:  "taskgroup_avg_cpu/group/job",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
 					},
@@ -169,33 +170,33 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name: "expand query from user-defined values",
-			input: &policy.Policy{
-				Target: &policy.Target{
+			input: &sdk.ScalingPolicy{
+				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
 						"Job":   "my_job",
 						"Group": "my_group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Query: "avg_cpu",
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
 						"Job":   "my_job",
 						"Group": "my_group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: plugins.InternalAPMNomad,
 						Query:  "taskgroup_avg_cpu/my_group/my_job",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
 					},
@@ -204,34 +205,34 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name: "don't expand query if not nomad apm",
-			input: &policy.Policy{
-				Target: &policy.Target{
+			input: &sdk.ScalingPolicy{
+				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: "not_nomad",
 						Query:  "avg_cpu",
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: "not_nomad",
 						Query:  "avg_cpu",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
 					},
@@ -240,33 +241,33 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name: "don't expand query if not in short format",
-			input: &policy.Policy{
-				Target: &policy.Target{
+			input: &sdk.ScalingPolicy{
+				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Query: "avg_cpu/my_group/my_job",
 					},
 				},
 			},
-			expected: &policy.Policy{
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
 						"Job":   "job",
 						"Group": "group",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source: plugins.InternalAPMNomad,
 						Query:  "avg_cpu/my_group/my_job",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
 					},
@@ -275,10 +276,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name:  "sets eval interval from agent",
-			input: &policy.Policy{},
-			expected: &policy.Policy{
+			input: &sdk.ScalingPolicy{},
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 5 * time.Second,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
 					Config: map[string]string{},
 				},
@@ -289,11 +290,11 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		},
 		{
 			name:  "sets cooldown from agent",
-			input: &policy.Policy{},
-			expected: &policy.Policy{
+			input: &sdk.ScalingPolicy{},
+			expected: &sdk.ScalingPolicy{
 				EvaluationInterval: 10 * time.Second,
 				Cooldown:           1 * time.Hour,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
 					Config: map[string]string{},
 				},

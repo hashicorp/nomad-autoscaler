@@ -37,14 +37,17 @@ func NewWorker(l hclog.Logger, pm *manager.PluginManager, m *Manager) *Worker {
 }
 
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
-func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
+func (w *Worker) HandlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) {
 
 	// Record the start time of the eval portion of this function. The labels
 	// are also used across multiple metrics, so define them.
 	evalStartTime := time.Now()
-	labels := []metrics.Label{{Name: "policy_id", Value: p.ID}, {Name: "target_name", Value: p.Target.Name}}
+	labels := []metrics.Label{
+		{Name: "policy_id", Value: eval.Policy.ID},
+		{Name: "target_name", Value: eval.Policy.Target.Name},
+	}
 
-	logger := w.logger.With("policy_id", p.ID, "target", p.Target.Name)
+	logger := w.logger.With("policy_id", eval.Policy.ID, "target", eval.Policy.Target.Name)
 	checks := make(map[string]*checkHandler)
 
 	logger.Info("received policy for evaluation")
@@ -53,9 +56,9 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 	defer cancel()
 
 	// Start check handlers.
-	for _, c := range p.Checks {
-		checkHandler := newCheckHandler(logger, p, c, w.pluginManager)
-		checks[c.Name] = checkHandler
+	for _, checkEval := range eval.CheckEvaluations {
+		checkHandler := newCheckHandler(logger, eval.Policy, checkEval, w.pluginManager)
+		checks[checkEval.Check.Name] = checkHandler
 		go checkHandler.start(handlersCtx)
 	}
 
@@ -110,7 +113,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 		return
 	}
 
-	logger.Trace(fmt.Sprintf("check %s selected", winningHandler.check.Name),
+	logger.Trace(fmt.Sprintf("check %s selected", winningHandler.checkEval.Check.Name),
 		"direction", winningAction.Direction, "count", winningAction.Count)
 
 	// Unblock winning handler and cancel the others. The default guards
@@ -134,7 +137,8 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 		return
 	case r := <-winningHandler.results():
 		if r.err != nil {
-			logger.Error("failed to execute check", "error", r.err, "check", winningHandler.check.Name)
+			logger.Error("failed to execute check",
+				"error", r.err, "check", winningHandler.checkEval.Check.Name)
 			return
 		}
 		if r.action == nil {
@@ -143,7 +147,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 	}
 
 	// Enforce the cooldown after a successful scaling event.
-	w.policyManager.EnforceCooldown(p.ID, p.Cooldown)
+	w.policyManager.EnforceCooldown(eval.Policy.ID, eval.Policy.Cooldown)
 
 	logger.Info("policy evaluation complete")
 }
@@ -152,7 +156,7 @@ func (w *Worker) HandlePolicy(ctx context.Context, p *sdk.ScalingPolicy) {
 type checkHandler struct {
 	logger        hclog.Logger
 	policy        *sdk.ScalingPolicy
-	check         *sdk.ScalingPolicyCheck
+	checkEval     *sdk.ScalingCheckEvaluation
 	pluginManager *manager.PluginManager
 	resultCh      chan checkHandlerResult
 	proceedCh     chan bool
@@ -164,15 +168,15 @@ type checkHandlerResult struct {
 }
 
 // newCheckHandler returns a new checkHandler instance.
-func newCheckHandler(l hclog.Logger, p *sdk.ScalingPolicy, c *sdk.ScalingPolicyCheck, pm *manager.PluginManager) *checkHandler {
+func newCheckHandler(l hclog.Logger, p *sdk.ScalingPolicy, c *sdk.ScalingCheckEvaluation, pm *manager.PluginManager) *checkHandler {
 	return &checkHandler{
 		logger: l.Named("check_handler").With(
-			"check", c.Name,
-			"source", c.Source,
-			"strategy", c.Strategy.Name,
+			"check", c.Check.Name,
+			"source", c.Check.Source,
+			"strategy", c.Check.Strategy.Name,
 		),
 		policy:        p,
-		check:         c,
+		checkEval:     c,
 		pluginManager: pm,
 		resultCh:      make(chan checkHandlerResult),
 		proceedCh:     make(chan bool),
@@ -221,17 +225,17 @@ func (h *checkHandler) start(ctx context.Context) {
 	}
 	targetInst = targetPlugin.Plugin().(target.Target)
 
-	apmPlugin, err := h.pluginManager.Dispense(h.check.Source, plugins.PluginTypeAPM)
+	apmPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Source, plugins.PluginTypeAPM)
 	if err != nil {
-		result.err = fmt.Errorf(`apm plugin "%s" not initialized: %v`, h.check.Source, err)
+		result.err = fmt.Errorf(`apm plugin "%s" not initialized: %v`, h.checkEval.Check.Source, err)
 		h.resultCh <- result
 		return
 	}
 	apmInst = apmPlugin.Plugin().(apm.APM)
 
-	strategyPlugin, err := h.pluginManager.Dispense(h.check.Strategy.Name, plugins.PluginTypeStrategy)
+	strategyPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Strategy.Name, plugins.PluginTypeStrategy)
 	if err != nil {
-		result.err = fmt.Errorf(`strategy plugin "%s" not initialized: %v`, h.check.Strategy.Name, err)
+		result.err = fmt.Errorf(`strategy plugin "%s" not initialized: %v`, h.checkEval.Check.Strategy.Name, err)
 		h.resultCh <- result
 		return
 	}
@@ -251,7 +255,7 @@ func (h *checkHandler) start(ctx context.Context) {
 	}
 
 	// Query check's APM.
-	value, err := h.runAPMQuery(apmInst)
+	h.checkEval.Metric, err = h.runAPMQuery(apmInst)
 	if err != nil {
 		result.err = fmt.Errorf("failed to query source: %v", err)
 		h.resultCh <- result
@@ -259,21 +263,16 @@ func (h *checkHandler) start(ctx context.Context) {
 	}
 
 	// Calculate new count using check's Strategy.
-	h.logger.Info("calculating new count", "count", currentStatus.Count, "metric", value)
-	req := sdk.StrategyRunReq{
-		PolicyID: h.policy.ID,
-		Count:    currentStatus.Count,
-		Metric:   value,
-		Config:   h.check.Strategy.Config,
-	}
-	action, err := h.runStrategyRun(strategyInst, req)
+	h.logger.Info("calculating new count", "count", currentStatus.Count, "metric", h.checkEval.Metric)
+	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)
 	if err != nil {
 		result.err = fmt.Errorf("failed to execute strategy: %v", err)
 		h.resultCh <- result
 		return
 	}
+	h.checkEval = runResp
 
-	if action.Direction == sdk.ScaleDirectionNone {
+	if h.checkEval.Action.Direction == sdk.ScaleDirectionNone {
 		// Make sure we are currently within [min, max] limits even if there's
 		// no action to execute
 		var minMaxAction *sdk.ScalingAction
@@ -293,7 +292,7 @@ func (h *checkHandler) start(ctx context.Context) {
 		}
 
 		if minMaxAction != nil {
-			action = *minMaxAction
+			h.checkEval.Action = minMaxAction
 		} else {
 			h.logger.Info("nothing to do")
 			result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
@@ -302,23 +301,19 @@ func (h *checkHandler) start(ctx context.Context) {
 		}
 	}
 
-	// Make sure returned action has sane defaults instead of relying on
-	// plugins doing this.
-	action.Canonicalize()
-
 	// Make sure new count value is within [min, max] limits
-	action.CapCount(h.policy.Min, h.policy.Max)
+	h.checkEval.Action.CapCount(h.policy.Min, h.policy.Max)
 
 	// Skip action if count doesn't change.
-	if currentStatus.Count == action.Count {
-		h.logger.Info("nothing to do", "from", currentStatus.Count, "to", action.Count)
+	if currentStatus.Count == h.checkEval.Action.Count {
+		h.logger.Info("nothing to do", "from", currentStatus.Count, "to", h.checkEval.Action.Count)
 
 		result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
 		h.resultCh <- result
 		return
 	}
 
-	result.action = &action
+	result.action = h.checkEval.Action
 
 	// Send result back and wait to see if we should proceed.
 	h.resultCh <- result
@@ -337,27 +332,27 @@ func (h *checkHandler) start(ctx context.Context) {
 	// submit the job, but not alter its state.
 	if val, ok := h.policy.Target.Config["dry-run"]; ok && val == "true" {
 		h.logger.Info("scaling dry-run is enabled, using no-op task group count")
-		action.SetDryRun()
+		h.checkEval.Action.SetDryRun()
 	}
 
-	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+	if h.checkEval.Action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		h.logger.Info("registering scaling event",
-			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
+			"count", currentStatus.Count, "reason", h.checkEval.Action.Reason, "meta", h.checkEval.Action.Meta)
 	} else {
 		h.logger.Info("scaling target",
-			"from", currentStatus.Count, "to", action.Count,
-			"reason", action.Reason, "meta", action.Meta)
+			"from", currentStatus.Count, "to", h.checkEval.Action.Count,
+			"reason", h.checkEval.Action.Reason, "meta", h.checkEval.Action.Meta)
 	}
 
 	// Scale the target. If we receive an error add this onto the result so the
 	// handler understand what do to.
-	if err = h.runTargetScale(targetInst, action); err != nil {
+	if err = h.runTargetScale(targetInst, *h.checkEval.Action); err != nil {
 		result.err = fmt.Errorf("failed to scale target: %v", err)
 		h.logger.Error("failed to submit scaling action to target", "error", err)
 		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
 	} else {
 		h.logger.Info("successfully submitted scaling action to target",
-			"desired_count", action.Count)
+			"desired_count", h.checkEval.Action.Count)
 		metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 	}
 
@@ -393,21 +388,24 @@ func (h *checkHandler) runTargetScale(targetImpl target.Target, action sdk.Scali
 // runAPMQuery wraps the apm.Query call to provide operational functionality.
 func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
 
-	h.logger.Info("querying source", "query", h.check.Query, "source", h.check.Source)
+	h.logger.Info("querying source", "query", h.checkEval.Check.Query, "source", h.checkEval.Check.Source)
 
 	// Trigger a metric measure to track latency of the call.
-	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Source}, {Name: "policy_id", Value: h.policy.ID}}
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.checkEval.Check.Source}, {Name: "policy_id", Value: h.policy.ID}}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
 
-	return apmImpl.Query(h.check.Query)
+	return apmImpl.Query(h.checkEval.Check.Query)
 }
 
 // runStrategyRun wraps the strategy.Run call to provide operational functionality.
-func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, req sdk.StrategyRunReq) (sdk.ScalingAction, error) {
+func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, count int64) (*sdk.ScalingCheckEvaluation, error) {
 
 	// Trigger a metric measure to track latency of the call.
-	labels := []metrics.Label{{Name: "plugin_name", Value: h.check.Strategy.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	labels := []metrics.Label{
+		{Name: "plugin_name", Value: h.checkEval.Check.Strategy.Name},
+		{Name: "policy_id", Value: h.policy.ID},
+	}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
-	return strategyImpl.Run(req)
+	return strategyImpl.Run(h.checkEval, count)
 }

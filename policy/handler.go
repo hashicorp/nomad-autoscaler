@@ -289,10 +289,7 @@ func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEva
 
 	// Send policy for evaluation.
 	h.log.Trace("sending policy for evaluation")
-	return &sdk.ScalingEvaluation{
-		Policy:       policy,
-		TargetStatus: status,
-	}, nil
+	return sdk.NewScalingEvaluation(policy, status), nil
 }
 
 // updateHandler updates the handler's internal state based on the changes in

@@ -19,13 +19,6 @@ const (
 	StrategyActionMetaValueDryRunCount = -1
 )
 
-type StrategyRunReq struct {
-	PolicyID string
-	Count    int64
-	Metric   float64
-	Config   map[string]string
-}
-
 // ScalingAction represents a strategy plugins intention to change the current
 // target state. It includes all the required information to enact the change,
 // along with useful meta information for operators and admins.

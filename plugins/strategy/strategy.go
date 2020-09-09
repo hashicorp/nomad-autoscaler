@@ -9,9 +9,23 @@ import (
 )
 
 type Strategy interface {
-	Run(req sdk.StrategyRunReq) (sdk.ScalingAction, error)
+
+	// Run triggers a run of the strategy calculation. It is responsible for
+	// populating the sdk.ScalingAction object within the passed eval and
+	// returning the eval to the caller. The count input variable represents
+	// the current state of the scaling target.
+	Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error)
+
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
+}
+
+// RunRPCReq is an internal request object used by the Run function that ties
+// together the two input variables as a single object as needed when calling
+// the RPCServer.
+type RunRPCReq struct {
+	Eval  *sdk.ScalingCheckEvaluation
+	Count int64
 }
 
 func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
@@ -44,14 +58,17 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Run(req sdk.StrategyRunReq) (sdk.ScalingAction, error) {
-	var resp sdk.ScalingAction
+func (r *RPC) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	var resp sdk.ScalingCheckEvaluation
+	req := RunRPCReq{
+		Eval:  eval,
+		Count: count,
+	}
 	err := r.client.Call("Plugin.Run", req, &resp)
 	if err != nil {
-		return sdk.ScalingAction{}, err
+		return nil, err
 	}
-
-	return resp, nil
+	return &resp, nil
 }
 
 type RPCServer struct {
@@ -64,12 +81,12 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Run(req sdk.StrategyRunReq, resp *sdk.ScalingAction) error {
-	r, err := s.Impl.Run(req)
+func (s *RPCServer) Run(req RunRPCReq, resp *sdk.ScalingCheckEvaluation) error {
+	r, err := s.Impl.Run(req.Eval, req.Count)
 	if err != nil {
 		return err
 	}
-	*resp = r
+	*resp = *r
 	return nil
 }
 

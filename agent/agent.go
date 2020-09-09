@@ -86,7 +86,7 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEval
 			return
 		case policyEval := <-evalCh:
 			w := policy.NewWorker(a.logger, a.pluginManager, a.policyManager)
-			go w.HandlePolicy(ctx, policyEval.Policy)
+			go w.HandlePolicy(ctx, policyEval)
 		}
 	}
 }

@@ -16,7 +16,7 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0
-	github.com/hashicorp/nomad/api v0.0.0-20200904210342-cfe4f8314ff7
+	github.com/hashicorp/nomad/api v0.0.0-20200909222706-48e6706e689b
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mitchellh/cli v1.0.0

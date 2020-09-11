@@ -29,7 +29,8 @@ The compatibility requirements are as follows:
 | [0.0.1-techpreview2](https://releases.hashicorp.com/nomad-autoscaler/0.0.1-techpreview2/) |    0.11.0     |
 | [0.0.2](https://releases.hashicorp.com/nomad-autoscaler/0.0.2/)                           |    0.11.2     |
 | [0.1.0](https://releases.hashicorp.com/nomad-autoscaler/0.1.0/)                           |    0.12.0     |
-| [nightly](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly)             |    0.12.0     |
+| [0.1.1](https://releases.hashicorp.com/nomad-autoscaler/0.1.1/)                           |    0.12.4     |
+| [nightly](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly)             |    0.12.4     |
 
 ## Documentation
 

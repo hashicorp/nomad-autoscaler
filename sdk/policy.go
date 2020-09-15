@@ -153,7 +153,7 @@ func (fpd *FileDecodeScalingPolicy) Translate(p *ScalingPolicy) {
 func (fpd *FileDecodeScalingPolicy) translateChecks(p *ScalingPolicy) {
 	var checks []*ScalingPolicyCheck
 	for _, c := range fpd.Doc.Checks {
-		var check *ScalingPolicyCheck
+		check := &ScalingPolicyCheck{}
 		c.Translate(check)
 		checks = append(checks, check)
 	}

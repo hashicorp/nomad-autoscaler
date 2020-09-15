@@ -3,6 +3,8 @@ package plugin
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 )
 
 // Query satisfies the Query function on the apm.APM interface.
-func (a *APMPlugin) Query(q string) (float64, error) {
+func (a *APMPlugin) Query(q string, _ sdk.TimeRange) (sdk.TimestampedMetrics, error) {
 
 	// Split the input query so we can understand which query type we are
 	// dealing with.
@@ -39,7 +41,7 @@ func (a *APMPlugin) Query(q string) (float64, error) {
 	case QueryTypeNode:
 		return a.queryNodePool(q)
 	default:
-		return 0, fmt.Errorf("unsupported query type %q", querySplit[0])
+		return nil, fmt.Errorf("unsupported query type %q", querySplit[0])
 	}
 }
 

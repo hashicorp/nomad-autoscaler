@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
@@ -13,6 +12,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -114,86 +114,47 @@ func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }
 
-func (a *APMPlugin) Query(q string) (float64, error) {
-	ddQuery, err := parseRawQuery(q)
-	if err != nil {
-		return 0, err
-	}
-
+func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
 	queryResult, res, err := a.client.MetricsApi.QueryMetrics(ctx).
-		From(ddQuery.from.Unix()).
-		To(ddQuery.to.Unix()).
-		Query(ddQuery.query).
+		From(r.From.Unix()).
+		To(r.To.Unix()).
+		Query(q).
 		Execute()
 	if err != nil {
-		return 0, fmt.Errorf("error querying metrics from datadog: %v", err)
+		return nil, fmt.Errorf("error querying metrics from datadog: %v", err)
 	}
 
 	if res.StatusCode == http.StatusTooManyRequests {
-		return 0,
+		return nil,
 			fmt.Errorf("metric queries are ratelimited in current time period by datadog, resets in %s sec",
 				res.Header.Get(ratelimitResetHdr))
 	}
 
-	// only support scalar types for now
 	series := queryResult.GetSeries()
 	if len(series) == 0 {
-		return 0, fmt.Errorf("empty time series response from datadog, try a wider query window")
+		a.logger.Warn("empty time series response from datadog, try a wider query window")
+		return nil, nil
 	}
-	if pl, ok := series[0].GetPointlistOk(); ok {
-		// pl is [[timestamp, value]...] array
-		dataPoint := (*pl)[len(*pl)-1][1]
-		return dataPoint, nil
+
+	pl, ok := series[0].GetPointlistOk()
+	if !ok {
+		a.logger.Warn("no data points found in time series response from datadog, try a wider query window")
+		return nil, nil
 	}
-	return 0, fmt.Errorf("no data points found in time series response from datadog, try a wider query window")
-}
 
-func parseRawQuery(raw string) (datadogQuery, error) {
-	// Split the input ddQuery to extract the window period
-	querySplit := strings.Split(raw, ";")
+	var result sdk.TimestampedMetrics
 
-	ddQuery := datadogQuery{}
-	now := time.Now()
-	for _, part := range querySplit {
-		switch true {
-		case strings.HasPrefix(part, queryFromToken):
-			fromDur, err := time.ParseDuration(strings.TrimPrefix(part, queryFromToken))
-			if err != nil {
-				return ddQuery,
-					fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryFromToken, part, err)
-			}
-			ddQuery.from = now.Add(-fromDur)
-		case strings.HasPrefix(part, queryToToken):
-			//override to
-			toDur, err := time.ParseDuration(strings.TrimPrefix(part, queryToToken))
-			if err != nil {
-				return ddQuery,
-					fmt.Errorf("malformed %s window (Use go duration format): (%s) %v", queryToToken, part, err)
-			}
-			ddQuery.to = now.Add(-toDur)
-		case strings.HasPrefix(part, queryToken):
-			ddQuery.query = strings.TrimPrefix(part, queryToken)
-		default:
-			return ddQuery, fmt.Errorf("unrecognized field in check query string '%s'", part)
+	// pl is [[timestamp, value]...] array
+	for _, p := range *pl {
+		tm := sdk.TimestampedMetric{
+			Timestamp: time.Unix(int64(p[0]), 0),
+			Value:     p[1],
 		}
+		result = append(result, tm)
 	}
 
-	// validations
-	if ddQuery.query == "" {
-		return ddQuery, fmt.Errorf("field %s cannot be empty. Supplied query: (%s)",
-			queryToken, raw)
-	}
-	if ddQuery.to.IsZero() || ddQuery.from.IsZero() {
-		return ddQuery, fmt.Errorf("fields %s, %s are required. Supplied query: %s",
-			queryFromToken, queryToToken, raw)
-	}
-	if ddQuery.to.Sub(ddQuery.from) < 0 {
-		return ddQuery, fmt.Errorf("field %s cannot have a time value before %s. Supplied query: %s",
-			queryToToken, queryFromToken, raw)
-	}
-
-	return ddQuery, nil
+	return result, nil
 }

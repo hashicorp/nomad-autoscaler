@@ -1,34 +1,41 @@
-package strategy
+package sdk
 
-import (
-	"fmt"
-)
+import "fmt"
 
 const (
-	// Standarized Meta keys used by the Autoscaler.
-	metaKeyDryRun        = "nomad_autoscaler.dry_run"
-	metaKeyDryRunCount   = "nomad_autoscaler.dry_run.count"
-	metaKeyCountCapped   = "nomad_autoscaler.count.capped"
-	metaKeyCountOriginal = "nomad_autoscaler.count.original"
-	metaKeyReasonHistory = "nomad_autoscaler.reason_history"
+	// strategyActionMetaKey are standardised keys used by the autoscaler to
+	// populate the ScalingAction Meta mapping with useful information for
+	// operators.
+	strategyActionMetaKeyDryRun        = "nomad_autoscaler.dry_run"
+	strategyActionMetaKeyDryRunCount   = "nomad_autoscaler.dry_run.count"
+	strategyActionMetaKeyCountCapped   = "nomad_autoscaler.count.capped"
+	strategyActionMetaKeyCountOriginal = "nomad_autoscaler.count.original"
+	strategyActionMetaKeyReasonHistory = "nomad_autoscaler.reason_history"
 
-	// MetaValueDryRunCount is a special count value used when performing
-	// dry-run scaling activities. The Autoscaler will never set a count to a
-	// negative value during normal operation, so the agent is safe to assume a
-	// count set to this value implies dry-run.
-	MetaValueDryRunCount = -1
+	// StrategyActionMetaValueDryRunCount is a special count value used when
+	// performing dry-run scaling activities. The Autoscaler will never set a
+	// count to a negative value during normal operation, so the agent is safe
+	// to assume a count set to this value implies dry-run.
+	StrategyActionMetaValueDryRunCount = -1
 )
 
-// Action represents a Strategy's intention to modify.
-type Action struct {
+// ScalingAction represents a strategy plugins intention to change the current
+// target state. It includes all the required information to enact the change,
+// along with useful meta information for operators and admins.
+type ScalingAction struct {
 
 	// Count represents the desired count of the target resource. It should
 	// always be zero or above, expect in the event of dry-run where it can use
-	// the MetaValueDryRunCount value.
+	// the StrategyActionMetaValueDryRunCount value.
 	Count int64
 
+	// Reason is the top level string that provides a user friendly description
+	// of why the strategy decided the action was required.
 	Reason string
-	Error  bool
+
+	// Error indicates whether the Reason string is an error condition. This
+	// allows the Reason to be flexible in its use.
+	Error bool
 
 	// Direction is the scaling direction the strategy has decided should
 	// happen. This is particularly helpful for non-Nomad target
@@ -36,6 +43,7 @@ type Action struct {
 	// absolute counts.
 	Direction ScaleDirection
 
+	// Meta
 	Meta map[string]interface{}
 }
 
@@ -73,7 +81,7 @@ func (d ScaleDirection) String() string {
 }
 
 // Canonicalize ensures Action has proper default values.
-func (a *Action) Canonicalize() {
+func (a *ScalingAction) Canonicalize() {
 	if a.Meta == nil {
 		a.Meta = make(map[string]interface{})
 	}
@@ -82,16 +90,16 @@ func (a *Action) Canonicalize() {
 // SetDryRun marks the Action to be executed in dry-run mode. Dry-run mode is
 // indicated using Meta tags. A dry-run action doesn't modify the Target's
 // count value.
-func (a *Action) SetDryRun() {
-	a.Meta[metaKeyDryRun] = true
-	a.Meta[metaKeyDryRunCount] = a.Count
-	a.Count = MetaValueDryRunCount
+func (a *ScalingAction) SetDryRun() {
+	a.Meta[strategyActionMetaKeyDryRun] = true
+	a.Meta[strategyActionMetaKeyDryRunCount] = a.Count
+	a.Count = StrategyActionMetaValueDryRunCount
 }
 
 // CapCount caps the value of Count so it remains within the specified limits.
-// If Count is MetaValueDryRunCount this method has no effect.
-func (a *Action) CapCount(min, max int64) {
-	if a.Count == MetaValueDryRunCount {
+// If Count is StrategyActionMetaValueDryRunCount this method has no effect.
+func (a *ScalingAction) CapCount(min, max int64) {
+	if a.Count == StrategyActionMetaValueDryRunCount {
 		return
 	}
 
@@ -103,19 +111,19 @@ func (a *Action) CapCount(min, max int64) {
 	}
 
 	if newCount != oldCount {
-		a.Meta[metaKeyCountCapped] = true
-		a.Meta[metaKeyCountOriginal] = oldCount
+		a.Meta[strategyActionMetaKeyCountCapped] = true
+		a.Meta[strategyActionMetaKeyCountOriginal] = oldCount
 		a.pushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
 		a.Count = newCount
 	}
 }
 
 // PushReason updates the Reason value and stores previous Reason into Meta.
-func (a *Action) pushReason(r string) {
+func (a *ScalingAction) pushReason(r string) {
 	history := []string{}
 
 	// Check if we already have a reason stack in Meta
-	if historyInterface, ok := a.Meta[metaKeyReasonHistory]; ok {
+	if historyInterface, ok := a.Meta[strategyActionMetaKeyReasonHistory]; ok {
 		if historySlice, ok := historyInterface.([]string); ok {
 			history = historySlice
 		}
@@ -125,11 +133,11 @@ func (a *Action) pushReason(r string) {
 	if a.Reason != "" {
 		history = append(history, a.Reason)
 	}
-	a.Meta[metaKeyReasonHistory] = history
+	a.Meta[strategyActionMetaKeyReasonHistory] = history
 	a.Reason = r
 }
 
-// PreemptAction determines which Action should take precedence.
+// PreemptScalingAction determines which ScalingAction should take precedence.
 //
 // The result is based on the scaling direction and count. The order of
 // precedence for the scaling directions is defined by the order in which they
@@ -141,7 +149,7 @@ func (a *Action) pushReason(r string) {
 //
 //   * ScaleDirectionUp: Action with highest count
 //   * ScaleDirectionDown: Action with highest count
-func PreemptAction(a *Action, b *Action) *Action {
+func PreemptScalingAction(a *ScalingAction, b *ScalingAction) *ScalingAction {
 	if a == nil {
 		return b
 	}

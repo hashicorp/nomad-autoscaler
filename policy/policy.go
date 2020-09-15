@@ -3,46 +3,12 @@ package policy
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
-
-type Policy struct {
-	ID                 string
-	Min                int64
-	Max                int64
-	Enabled            bool
-	Cooldown           time.Duration
-	EvaluationInterval time.Duration
-	Checks             []*Check
-	Target             *Target
-}
-
-type Check struct {
-	Name     string    `hcl:"name,label"`
-	Source   string    `hcl:"source,optional"`
-	Query    string    `hcl:"query"`
-	Strategy *Strategy `hcl:"strategy,block"`
-}
-
-type Strategy struct {
-	Name   string            `hcl:"name,label"`
-	Config map[string]string `hcl:",remain"`
-}
-
-type Target struct {
-	Name   string            `hcl:"name,label"`
-	Config map[string]string `hcl:",remain"`
-}
-
-type Evaluation struct {
-	Policy       *Policy
-	TargetStatus *target.Status
-}
 
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
@@ -62,7 +28,7 @@ func NewProcessor(defaults *ConfigDefaults, apms []string) *Processor {
 // ApplyPolicyDefaults applies the config defaults to the policy where the
 // operator does not supply the parameter. This can be used for both cluster
 // and task group policies.
-func (pr *Processor) ApplyPolicyDefaults(p *Policy) {
+func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 	if p.Cooldown == 0 {
 		p.Cooldown = pr.defaults.DefaultCooldown
 	}
@@ -73,7 +39,7 @@ func (pr *Processor) ApplyPolicyDefaults(p *Policy) {
 
 // ValidatePolicy performs validation of the policy document returning a list
 // of errors found, if any.
-func (pr *Processor) ValidatePolicy(p *Policy) error {
+func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 
 	var mErr *multierror.Error
 
@@ -94,7 +60,7 @@ func (pr *Processor) ValidatePolicy(p *Policy) error {
 }
 
 // CanonicalizeCheck sets standardised values on fields.
-func (pr *Processor) CanonicalizeCheck(c *Check, t *Target) {
+func (pr *Processor) CanonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 
 	// Operators can omit the check query source which defaults to the Nomad
 	// APM.
@@ -108,7 +74,7 @@ func (pr *Processor) CanonicalizeCheck(c *Check, t *Target) {
 // its fully hydrated internal representation. This is required by the Nomad
 // APM if it is being used as the source. The function can be called without
 // any validation on the check.
-func (pr *Processor) CanonicalizeAPMQuery(c *Check, t *Target) {
+func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 
 	// Catch nils so this function is safe to call without any prior checks.
 	if c == nil || t == nil {
@@ -130,9 +96,9 @@ func (pr *Processor) CanonicalizeAPMQuery(c *Check, t *Target) {
 
 	// If the target is a Nomad job task group, format the query in the
 	// expected manner.
-	if t.isJobTaskGroupTarget() {
+	if t.IsJobTaskGroupTarget() {
 		c.Query = fmt.Sprintf("%s_%s/%s/%s",
-			nomadAPM.QueryTypeTaskGroup, c.Query, t.Config[target.ConfigKeyTaskGroup], t.Config[target.ConfigKeyJob])
+			nomadAPM.QueryTypeTaskGroup, c.Query, t.Config[sdk.TargetConfigKeyTaskGroup], t.Config[sdk.TargetConfigKeyJob])
 		return
 	}
 
@@ -140,9 +106,9 @@ func (pr *Processor) CanonicalizeAPMQuery(c *Check, t *Target) {
 	// expected manner. Once the autoscaler supports more than just class
 	// identification of pools this func and logic will need to be updated. For
 	// now keep it simple.
-	if t.isNodePoolTarget() {
+	if t.IsNodePoolTarget() {
 		c.Query = fmt.Sprintf("%s_%s/%s/class",
-			nomadAPM.QueryTypeNode, c.Query, t.Config[target.ConfigKeyClass])
+			nomadAPM.QueryTypeNode, c.Query, t.Config[sdk.TargetConfigKeyClass])
 	}
 }
 
@@ -157,53 +123,10 @@ func (pr *Processor) isNomadAPMQuery(source string) bool {
 	return false
 }
 
-func (t *Target) isJobTaskGroupTarget() bool {
-	_, jOK := t.Config[target.ConfigKeyJob]
-	_, gOK := t.Config[target.ConfigKeyTaskGroup]
-	return jOK && gOK
-}
-
-func (t *Target) isNodePoolTarget() bool {
-	_, ok := t.Config[target.ConfigKeyClass]
-	return ok
-}
-
 // isShortQuery detects if a query is in the <type>_<op>_<metric> format which
 // is required by the Nomad APM.
 func isShortQuery(q string) bool {
 	opMetric := strings.SplitN(q, "_", 2)
 	hasSlash := strings.Contains(q, "/")
 	return len(opMetric) == 2 && !hasSlash
-}
-
-// FileDecodePolicy is used as an intermediate step when decoding a policy from
-// a file. It is needed because the internal Policy object is flattened when
-// compared to the literal HCL version. Therefore we cannot translate into the
-// internal struct but use this.
-type FileDecodePolicy struct {
-	Enabled bool                 `hcl:"enabled,optional"`
-	Min     int64                `hcl:"min,optional"`
-	Max     int64                `hcl:"max"`
-	Doc     *FileDecodePolicyDoc `hcl:"policy,block"`
-}
-
-type FileDecodePolicyDoc struct {
-	Cooldown              time.Duration
-	CooldownHCL           string `hcl:"cooldown,optional"`
-	EvaluationInterval    time.Duration
-	EvaluationIntervalHCL string   `hcl:"evaluation_interval,optional"`
-	Checks                []*Check `hcl:"check,block"`
-	Target                *Target  `hcl:"target,block"`
-}
-
-// Translate all values from the decoded policy file into our internal policy
-// object.
-func (fpd *FileDecodePolicy) Translate(p *Policy) {
-	p.Min = fpd.Min
-	p.Max = fpd.Max
-	p.Enabled = fpd.Enabled
-	p.Cooldown = fpd.Doc.Cooldown
-	p.EvaluationInterval = fpd.Doc.EvaluationInterval
-	p.Checks = fpd.Doc.Checks
-	p.Target = fpd.Doc.Target
 }

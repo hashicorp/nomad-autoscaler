@@ -6,17 +6,18 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestProcessor_ValidatePolicy(t *testing.T) {
 	testCases := []struct {
-		inputPolicy    *Policy
+		inputPolicy    *sdk.ScalingPolicy
 		expectedOutput error
 		name           string
 	}{
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
 				Min: 1,
 				Max: 10,
@@ -25,7 +26,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			name:           "valid input policy",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				ID:  "",
 				Min: 1,
 				Max: 10,
@@ -38,7 +39,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			name: "empty policy ID",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
 				Min: -1,
 				Max: 10,
@@ -51,7 +52,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			name: "negative minimum value",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
 				Min: 100,
 				Max: 10,
@@ -64,7 +65,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			name: "policy minimum greater than maximum",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
 				Min: 1,
 				Max: -10,
@@ -91,21 +92,21 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 
 func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 	testCases := []struct {
-		inputCheck          *Check
+		inputCheck          *sdk.ScalingPolicyCheck
 		inputAPMNames       []string
-		inputTarget         *Target
-		expectedOutputCheck *Check
+		inputTarget         *sdk.ScalingPolicyTarget
+		expectedOutputCheck *sdk.ScalingPolicyCheck
 		name                string
 	}{
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "prometheus",
 				Query:  "scalar(super-data-point)",
 			},
 			inputAPMNames: []string{"nomad-apm"},
 			inputTarget:   nil,
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "prometheus",
 				Query:  "scalar(super-data-point)",
@@ -113,14 +114,14 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "fully populated query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "node_percentage-allocated_memory/hashistack/class",
 			},
 			inputAPMNames: []string{"nomad-apm"},
 			inputTarget:   nil,
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "node_percentage-allocated_memory/hashistack/class",
@@ -128,14 +129,14 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "fully populated non-short node query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "taskgroup_avg_cpu/cache/example",
 			},
 			inputAPMNames: []string{"nomad-apm"},
 			inputTarget:   nil,
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "taskgroup_avg_cpu/cache/example",
@@ -143,16 +144,16 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "fully populated non-short taskgroup query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "avg_cpu",
 			},
 			inputAPMNames: []string{"nomad-apm"},
-			inputTarget: &Target{
+			inputTarget: &sdk.ScalingPolicyTarget{
 				Config: map[string]string{"Job": "example", "Group": "cache"},
 			},
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "taskgroup_avg_cpu/cache/example",
@@ -160,16 +161,16 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "correctly formatted taskgroup target short query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "percentage-allocated_memory",
 			},
 			inputAPMNames: []string{"nomad-apm"},
-			inputTarget: &Target{
+			inputTarget: &sdk.ScalingPolicyTarget{
 				Config: map[string]string{"node_class": "hashistack"},
 			},
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "node_percentage-allocated_memory/hashistack/class",
@@ -177,16 +178,16 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "correctly formatted node target short query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "avg_cpu",
 			},
 			inputAPMNames: []string{"nomad-apm"},
-			inputTarget: &Target{
+			inputTarget: &sdk.ScalingPolicyTarget{
 				Config: map[string]string{"Job": "example"},
 			},
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "avg_cpu",
@@ -194,16 +195,16 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			name: "incorrectly formatted taskgroup target short query",
 		},
 		{
-			inputCheck: &Check{
+			inputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "percentage-allocated_memory",
 			},
 			inputAPMNames: []string{"nomad-apm"},
-			inputTarget: &Target{
+			inputTarget: &sdk.ScalingPolicyTarget{
 				Config: map[string]string{},
 			},
-			expectedOutputCheck: &Check{
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
 				Query:  "percentage-allocated_memory",
@@ -223,53 +224,53 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 
 func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 	testCases := []struct {
-		inputPolicy          *Policy
+		inputPolicy          *sdk.ScalingPolicy
 		inputDefaults        *ConfigDefaults
-		expectedOutputPolicy *Policy
+		expectedOutputPolicy *sdk.ScalingPolicy
 		name                 string
 	}{
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				Cooldown: 20 * time.Second,
 			},
 			inputDefaults: &ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},
-			expectedOutputPolicy: &Policy{
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           20 * time.Second,
 				EvaluationInterval: 5 * time.Second,
 			},
 			name: "evaluation interval set to default",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				EvaluationInterval: 15 * time.Second,
 			},
 			inputDefaults: &ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           11 * time.Second,
 			},
-			expectedOutputPolicy: &Policy{
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           11 * time.Second,
 				EvaluationInterval: 15 * time.Second,
 			},
 			name: "cooldown set to default",
 		},
 		{
-			inputPolicy: &Policy{},
+			inputPolicy: &sdk.ScalingPolicy{},
 			inputDefaults: &ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},
-			expectedOutputPolicy: &Policy{
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           10 * time.Second,
 				EvaluationInterval: 5 * time.Second,
 			},
 			name: "evaluation interval and cooldown set to default",
 		},
 		{
-			inputPolicy: &Policy{
+			inputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           10 * time.Minute,
 				EvaluationInterval: 5 * time.Minute,
 			},
@@ -277,7 +278,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},
-			expectedOutputPolicy: &Policy{
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           10 * time.Minute,
 				EvaluationInterval: 5 * time.Minute,
 			},
@@ -347,84 +348,6 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := tc.inputProcessor.isNomadAPMQuery(tc.inputSource)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
-		})
-	}
-}
-
-func TestFileDecodePolicy_Translate(t *testing.T) {
-	testCases := []struct {
-		inputFileDecodePolicy *FileDecodePolicy
-		inputPolicy           *Policy
-		expectedOutputPolicy  *Policy
-		name                  string
-	}{
-		{
-			inputFileDecodePolicy: &FileDecodePolicy{
-				Enabled: true,
-				Min:     1,
-				Max:     3,
-				Doc: &FileDecodePolicyDoc{
-					Cooldown:              10 * time.Millisecond,
-					CooldownHCL:           "10ms",
-					EvaluationInterval:    10 * time.Nanosecond,
-					EvaluationIntervalHCL: "10ns",
-					Checks: []*Check{
-						{
-							Name:   "approach-speed",
-							Source: "front-sensor",
-							Query:  "how-fast-am-i-going",
-							Strategy: &Strategy{
-								Name: "approach-velocity",
-								Config: map[string]string{
-									"target": "0.01ms",
-								},
-							},
-						},
-					},
-					Target: &Target{
-						Name: "iss",
-						Config: map[string]string{
-							"docking-object": "forward-bulkhead",
-						},
-					},
-				},
-			},
-			inputPolicy: &Policy{},
-			expectedOutputPolicy: &Policy{
-				ID:                 "",
-				Min:                1,
-				Max:                3,
-				Enabled:            true,
-				Cooldown:           10 * time.Millisecond,
-				EvaluationInterval: 10 * time.Nanosecond,
-				Checks: []*Check{
-					{
-						Name:   "approach-speed",
-						Source: "front-sensor",
-						Query:  "how-fast-am-i-going",
-						Strategy: &Strategy{
-							Name: "approach-velocity",
-							Config: map[string]string{
-								"target": "0.01ms",
-							},
-						},
-					},
-				},
-				Target: &Target{
-					Name: "iss",
-					Config: map[string]string{
-						"docking-object": "forward-bulkhead",
-					},
-				},
-			},
-			name: "fully hydrated decoded policy",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.inputFileDecodePolicy.Translate(tc.inputPolicy)
-			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
 		})
 	}
 }

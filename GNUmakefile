@@ -1,5 +1,5 @@
 SHELL = bash
-default: lint test build check-mod
+default: lint check test build
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
@@ -27,9 +27,20 @@ lint: ## Lint the source code
 	@golangci-lint run -j 1
 	@echo "==> Done"
 
+.PHONY: check
+check: check-sdk check-mod
+
+.PHONY: check-sdk
+check-sdk: ## Checks the SDK pkg is isolated
+	@echo "==> Checking SDK package is isolated..."
+	@if go list --test -f '{{ join .Deps "\n" }}' ./sdk | grep github.com/hashicorp/nomad-autoscaler/ | grep -v -e /nomad-autoscaler/sdk/ -e nomad-autoscaler/sdk.test; \
+		then echo " /sdk package depends the ^^ above internal packages. Remove such dependency"; \
+		exit 1; fi
+	@echo "==> Done"
+
 .PHONEY: check-mod
 check-mod: ## Checks the Go mod is tidy
-	@echo "==> Checking Go mod.."
+	@echo "==> Checking Go mod and Go sum..."
 	@GO111MODULE=on go mod tidy
 	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
 		echo go.mod or go.sum needs updating; \

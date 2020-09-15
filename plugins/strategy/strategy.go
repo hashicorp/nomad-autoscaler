@@ -5,12 +5,27 @@ import (
 
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 type Strategy interface {
-	Run(req RunRequest) (Action, error)
+
+	// Run triggers a run of the strategy calculation. It is responsible for
+	// populating the sdk.ScalingAction object within the passed eval and
+	// returning the eval to the caller. The count input variable represents
+	// the current state of the scaling target.
+	Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error)
+
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
+}
+
+// RunRPCReq is an internal request object used by the Run function that ties
+// together the two input variables as a single object as needed when calling
+// the RPCServer.
+type RunRPCReq struct {
+	Eval  *sdk.ScalingCheckEvaluation
+	Count int64
 }
 
 func (s *RPCServer) PluginInfo(_ interface{}, r *base.PluginInfo) error {
@@ -34,13 +49,6 @@ type RPC struct {
 	client *rpc.Client
 }
 
-type RunRequest struct {
-	PolicyID string
-	Count    int64
-	Metric   float64
-	Config   map[string]string
-}
-
 func (r *RPC) SetConfig(config map[string]string) error {
 	var resp error
 	err := r.client.Call("Plugin.SetConfig", config, &resp)
@@ -50,14 +58,17 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Run(req RunRequest) (Action, error) {
-	var resp Action
+func (r *RPC) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	var resp sdk.ScalingCheckEvaluation
+	req := RunRPCReq{
+		Eval:  eval,
+		Count: count,
+	}
 	err := r.client.Call("Plugin.Run", req, &resp)
 	if err != nil {
-		return Action{}, err
+		return nil, err
 	}
-
-	return resp, nil
+	return &resp, nil
 }
 
 type RPCServer struct {
@@ -70,12 +81,12 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Run(req RunRequest, resp *Action) error {
-	r, err := s.Impl.Run(req)
+func (s *RPCServer) Run(req RunRPCReq, resp *sdk.ScalingCheckEvaluation) error {
+	r, err := s.Impl.Run(req.Eval, req.Count)
 	if err != nil {
 		return err
 	}
-	*resp = r
+	*resp = *r
 	return nil
 }
 

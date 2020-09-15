@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,19 +14,19 @@ func Test_parsePolicy(t *testing.T) {
 	testCases := []struct {
 		name     string
 		input    string
-		expected policy.Policy
+		expected sdk.ScalingPolicy
 	}{
 		{
 			name:  "full scaling",
 			input: "full-scaling",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:                 "id",
 				Min:                2,
 				Max:                10,
 				Enabled:            false,
 				EvaluationInterval: 5 * time.Second,
 				Cooldown:           5 * time.Minute,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
 						"Namespace":   "default",
@@ -37,12 +37,12 @@ func Test_parsePolicy(t *testing.T) {
 						"str_config":  "str",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "check-1",
 						Source: "source-1",
 						Query:  "query-1",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy-1",
 							Config: map[string]string{
 								"int_config":  "2",
@@ -55,7 +55,7 @@ func Test_parsePolicy(t *testing.T) {
 						Name:   "check-2",
 						Source: "source-2",
 						Query:  "query-2",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy-2",
 							Config: map[string]string{
 								"int_config":  "2",
@@ -70,12 +70,12 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "minimum valid scaling",
 			input: "minimum-valid-scaling",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:      "id",
 				Min:     1,
 				Max:     10,
 				Enabled: true,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -83,11 +83,11 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:  "check",
 						Query: "query",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
 								"int_config":  "2",
@@ -102,15 +102,15 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:     "missing scaling",
 			input:    "missing-scaling",
-			expected: policy.Policy{},
+			expected: sdk.ScalingPolicy{},
 		},
 		{
 			name:  "empty policy",
 			input: "empty-policy",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -123,10 +123,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "invalid evaluation_interval",
 			input: "invalid-evaluation-interval",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -139,10 +139,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "invalid cooldown",
 			input: "invalid-cooldown",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -155,10 +155,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "empty target",
 			input: "empty-target",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -171,7 +171,7 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "invalid target",
 			input: "invalid-target",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
 			},
@@ -179,10 +179,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "empty check",
 			input: "empty-check",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -190,7 +190,7 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{Name: "check"},
 				},
 			},
@@ -198,10 +198,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "single check",
 			input: "single-check",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -209,12 +209,12 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "check",
 						Source: "source",
 						Query:  "query",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
 								"int_config":  "2",
@@ -229,10 +229,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "invalid check",
 			input: "invalid-check",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -245,10 +245,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "missing strategy",
 			input: "missing-strategy",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -256,7 +256,7 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "check",
 						Source: "source",
@@ -268,10 +268,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "empty strategy",
 			input: "empty-strategy",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -279,10 +279,10 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name: "check",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name:   "strategy",
 							Config: map[string]string{},
 						},
@@ -293,10 +293,10 @@ func Test_parsePolicy(t *testing.T) {
 		{
 			name:  "invalid strategy",
 			input: "invalid-strategy",
-			expected: policy.Policy{
+			expected: sdk.ScalingPolicy{
 				ID:  "id",
 				Max: 10,
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
 						"Namespace": "default",
@@ -304,7 +304,7 @@ func Test_parsePolicy(t *testing.T) {
 						"Group":     "test",
 					},
 				},
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name: "check",
 					},

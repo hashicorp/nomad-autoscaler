@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/armon/go-metrics"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // ConfigDefaults holds default configuration for unspecified values.
@@ -22,7 +23,7 @@ type MonitorPolicyReq struct {
 	ID       PolicyID
 	ErrCh    chan<- error
 	ReloadCh <-chan struct{}
-	ResultCh chan<- Policy
+	ResultCh chan<- sdk.ScalingPolicy
 }
 
 // Source is the interface that must be implemented by backends which provide

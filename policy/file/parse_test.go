@@ -4,34 +4,34 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_decodeFile(t *testing.T) {
 	testCases := []struct {
 		inputFile            string
-		inputPolicy          *policy.Policy
-		expectedOutputPolicy *policy.Policy
+		inputPolicy          *sdk.ScalingPolicy
+		expectedOutputPolicy *sdk.ScalingPolicy
 		expectedOutputError  error
 		name                 string
 	}{
 		{
 			inputFile:   "./test-fixtures/full-cluster-policy.hcl",
-			inputPolicy: &policy.Policy{},
-			expectedOutputPolicy: &policy.Policy{
+			inputPolicy: &sdk.ScalingPolicy{},
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				ID:                 "",
 				Enabled:            true,
 				Min:                10,
 				Max:                100,
 				Cooldown:           10 * time.Minute,
 				EvaluationInterval: 1 * time.Minute,
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "cpu_nomad",
 						Source: "nomad_apm",
 						Query:  "cpu_high-memory",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "target-value",
 							Config: map[string]string{
 								"target": "80",
@@ -42,7 +42,7 @@ func Test_decodeFile(t *testing.T) {
 						Name:   "memory_prom",
 						Source: "prometheus",
 						Query:  "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "target-value",
 							Config: map[string]string{
 								"target": "80",
@@ -50,7 +50,7 @@ func Test_decodeFile(t *testing.T) {
 						},
 					},
 				},
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "aws-asg",
 					Config: map[string]string{
 						"aws_asg_name":        "my-target-asg",
@@ -64,20 +64,20 @@ func Test_decodeFile(t *testing.T) {
 		},
 		{
 			inputFile:   "./test-fixtures/full-task-group-policy.hcl",
-			inputPolicy: &policy.Policy{},
-			expectedOutputPolicy: &policy.Policy{
+			inputPolicy: &sdk.ScalingPolicy{},
+			expectedOutputPolicy: &sdk.ScalingPolicy{
 				ID:                 "",
 				Enabled:            true,
 				Min:                1,
 				Max:                10,
 				Cooldown:           1 * time.Minute,
 				EvaluationInterval: 30 * time.Second,
-				Checks: []*policy.Check{
+				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Name:   "cpu_nomad",
 						Source: "nomad_apm",
 						Query:  "avg_cpu",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "target-value",
 							Config: map[string]string{
 								"target": "80",
@@ -88,7 +88,7 @@ func Test_decodeFile(t *testing.T) {
 						Name:   "memory_nomad",
 						Source: "nomad_apm",
 						Query:  "avg_memory",
-						Strategy: &policy.Strategy{
+						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "target-value",
 							Config: map[string]string{
 								"target": "80",
@@ -96,7 +96,7 @@ func Test_decodeFile(t *testing.T) {
 						},
 					},
 				},
-				Target: &policy.Target{
+				Target: &sdk.ScalingPolicyTarget{
 					Name: "nomad",
 					Config: map[string]string{
 						"Group": "cache",

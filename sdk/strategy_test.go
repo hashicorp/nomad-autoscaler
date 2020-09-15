@@ -1,4 +1,4 @@
-package strategy
+package sdk
 
 import (
 	"testing"
@@ -26,18 +26,18 @@ func TestScaleDirection_String(t *testing.T) {
 
 func TestAction_Canonicalize(t *testing.T) {
 	testCases := []struct {
-		inputAction          *Action
-		expectedOutputAction *Action
+		inputAction          *ScalingAction
+		expectedOutputAction *ScalingAction
 		name                 string
 	}{
 		{
-			inputAction:          &Action{},
-			expectedOutputAction: &Action{Meta: map[string]interface{}{}},
+			inputAction:          &ScalingAction{},
+			expectedOutputAction: &ScalingAction{Meta: map[string]interface{}{}},
 			name:                 "empty input action",
 		},
 		{
-			inputAction:          &Action{Meta: map[string]interface{}{"foo": "bar"}},
-			expectedOutputAction: &Action{Meta: map[string]interface{}{"foo": "bar"}},
+			inputAction:          &ScalingAction{Meta: map[string]interface{}{"foo": "bar"}},
+			expectedOutputAction: &ScalingAction{Meta: map[string]interface{}{"foo": "bar"}},
 			name:                 "populated input action meta",
 		},
 	}
@@ -52,16 +52,16 @@ func TestAction_Canonicalize(t *testing.T) {
 
 func TestAction_SetDryRun(t *testing.T) {
 	testCases := []struct {
-		inputAction          *Action
-		expectedOutputAction *Action
+		inputAction          *ScalingAction
+		expectedOutputAction *ScalingAction
 		name                 string
 	}{
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Count: 3,
 				Meta:  map[string]interface{}{},
 			},
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Count: -1,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.dry_run":       true,
@@ -82,27 +82,27 @@ func TestAction_SetDryRun(t *testing.T) {
 
 func TestAction_CapCount(t *testing.T) {
 	testCases := []struct {
-		inputAction          *Action
+		inputAction          *ScalingAction
 		inputMin             int64
 		inputMax             int64
-		expectedOutputAction *Action
+		expectedOutputAction *ScalingAction
 		name                 string
 	}{
 		{
-			inputAction:          &Action{},
+			inputAction:          &ScalingAction{},
 			inputMin:             0,
 			inputMax:             0,
-			expectedOutputAction: &Action{},
+			expectedOutputAction: &ScalingAction{},
 			name:                 "empty input action",
 		},
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Count: 4,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Count: 5,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
@@ -114,13 +114,13 @@ func TestAction_CapCount(t *testing.T) {
 			name: "desired count lower than min threshold",
 		},
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Count: 15,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Count: 10,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
@@ -132,14 +132,14 @@ func TestAction_CapCount(t *testing.T) {
 			name: "desired count higher than max threshold",
 		},
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Count:  0,
 				Meta:   map[string]interface{}{},
 				Reason: "scaled to 0",
 			},
 			inputMin: 5,
 			inputMax: 10,
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Count: 5,
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.count.capped":   true,
@@ -151,13 +151,13 @@ func TestAction_CapCount(t *testing.T) {
 			name: "store previous reason",
 		},
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Count: 7,
 				Meta:  map[string]interface{}{},
 			},
 			inputMin: 5,
 			inputMax: 10,
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Count: 7,
 				Meta:  map[string]interface{}{},
 			},
@@ -175,15 +175,15 @@ func TestAction_CapCount(t *testing.T) {
 
 func TestAction_pushReason(t *testing.T) {
 	testCases := []struct {
-		inputAction          *Action
+		inputAction          *ScalingAction
 		inputReason          string
-		expectedOutputAction *Action
+		expectedOutputAction *ScalingAction
 		name                 string
 	}{
 		{
-			inputAction: &Action{Meta: map[string]interface{}{}},
+			inputAction: &ScalingAction{Meta: map[string]interface{}{}},
 			inputReason: "capped count from 0 to 1 to stay within limits",
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Reason: "capped count from 0 to 1 to stay within limits",
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.reason_history": []string{},
@@ -193,12 +193,12 @@ func TestAction_pushReason(t *testing.T) {
 		},
 
 		{
-			inputAction: &Action{
+			inputAction: &ScalingAction{
 				Reason: "capped count from 0 to 1 to stay within limits",
 				Meta:   map[string]interface{}{},
 			},
 			inputReason: "capped count from 10 to 20 to stay within limits",
-			expectedOutputAction: &Action{
+			expectedOutputAction: &ScalingAction{
 				Meta: map[string]interface{}{
 					"nomad_autoscaler.reason_history": []string{
 						"capped count from 0 to 1 to stay within limits",
@@ -221,180 +221,180 @@ func TestAction_pushReason(t *testing.T) {
 func TestPreemptAction(t *testing.T) {
 	testCases := []struct {
 		name     string
-		a        *Action
-		b        *Action
-		expected *Action
+		a        *ScalingAction
+		b        *ScalingAction
+		expected *ScalingAction
 	}{
 		{
 			name: "none vs none",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
 		},
 		{
 			name: "none vs down",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionDown,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
 		},
 		{
 			name: "none vs up",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "down vs none",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionDown,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
 		},
 		{
 			name: "down vs down",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     1,
 				Direction: ScaleDirectionDown,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
 		},
 		{
 			name: "down vs down reverse",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     1,
 				Direction: ScaleDirectionDown,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
 		},
 		{
 			name: "down vs down same count",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionDown,
 			},
 		},
 		{
 			name: "down vs up",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionDown,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "up vs none",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionNone,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "up vs down",
-			a: &Action{
+			a: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Direction: ScaleDirectionDown,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "up vs up",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     1,
 				Direction: ScaleDirectionUp,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "up vs up reverse",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     1,
 				Direction: ScaleDirectionUp,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
 		},
 		{
 			name: "up vs up same count",
-			a: &Action{
+			a: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
-			b: &Action{
+			b: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
-			expected: &Action{
+			expected: &ScalingAction{
 				Count:     2,
 				Direction: ScaleDirectionUp,
 			},
@@ -403,7 +403,7 @@ func TestPreemptAction(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actual := PreemptAction(tc.a, tc.b)
+			actual := PreemptScalingAction(tc.a, tc.b)
 			assert.Equal(t, actual, tc.expected)
 		})
 	}

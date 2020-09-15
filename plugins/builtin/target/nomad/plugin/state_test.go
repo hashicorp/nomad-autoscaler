@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -28,7 +28,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 	testCases := []struct {
 		inputJSH       *jobScaleStatusHandler
 		inputGroup     string
-		expectedReturn *target.Status
+		expectedReturn *sdk.TargetStatus
 		expectedError  error
 		name           string
 	}{
@@ -68,7 +68,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 				},
 			},
 			inputGroup: "this-does-exist",
-			expectedReturn: &target.Status{
+			expectedReturn: &sdk.TargetStatus{
 				Ready: true,
 				Count: 7,
 				Meta: map[string]string{
@@ -89,7 +89,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 				},
 			},
 			inputGroup: "this-does-exist",
-			expectedReturn: &target.Status{
+			expectedReturn: &sdk.TargetStatus{
 				Ready: false,
 				Count: 7,
 				Meta: map[string]string{

@@ -4,21 +4,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
-// parsePolicy parses the values on an api.ScalingPolicy into a policy.Policy.
+// parsePolicy parses the values on an api.ScalingPolicy into a
+// sdk.ScalingPolicy.
 //
 // It provides best-effort parsing, with any invalid values being skipped from
 // the end result. To avoid missing values use validateScalingPolicy() to
 // detect errors first.
-func parsePolicy(p *api.ScalingPolicy) policy.Policy {
+func parsePolicy(p *api.ScalingPolicy) sdk.ScalingPolicy {
 	if p == nil {
-		return policy.Policy{}
+		return sdk.ScalingPolicy{}
 	}
 
-	to := policy.Policy{
+	to := sdk.ScalingPolicy{
 		ID:      p.ID,
 		Max:     *p.Max, // Nomad always ensures Max is populated.
 		Enabled: true,
@@ -47,7 +48,7 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 	}
 
 	// Parse target block.
-	var target *policy.Target
+	var target *sdk.ScalingPolicyTarget
 
 	if p.Policy[keyTarget] == nil {
 		// Target was not specified in the policy block, but parse values from
@@ -71,7 +72,7 @@ func parsePolicy(p *api.ScalingPolicy) policy.Policy {
 // parseChecks parses the list of checks in a scaling policy.
 //
 // It provides best-effort parsing and will return `nil` in case of errors.
-func parseChecks(cs interface{}) []*policy.Check {
+func parseChecks(cs interface{}) []*sdk.ScalingPolicyCheck {
 	if cs == nil {
 		return nil
 	}
@@ -81,7 +82,7 @@ func parseChecks(cs interface{}) []*policy.Check {
 		return nil
 	}
 
-	var checks []*policy.Check
+	var checks []*sdk.ScalingPolicyCheck
 	checksBlocks := parseBlocks(checksInterfaceList)
 
 	for k, v := range checksBlocks {
@@ -110,7 +111,7 @@ func parseChecks(cs interface{}) []*policy.Check {
 //    +--------------------------------+
 //    }
 //  }
-func parseCheck(c interface{}) *policy.Check {
+func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	if c == nil {
 		return nil
 	}
@@ -122,7 +123,7 @@ func parseCheck(c interface{}) *policy.Check {
 
 	// Parse a single strategy block.
 	// There shouldn't be more than one, but iterate just in case.
-	var strategy *policy.Strategy
+	var strategy *sdk.ScalingPolicyStrategy
 	for k, v := range parseBlocks(checkMap[keyStrategy]) {
 		strategy = parseStrategy(v)
 		if strategy != nil {
@@ -135,7 +136,7 @@ func parseCheck(c interface{}) *policy.Check {
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
 
-	return &policy.Check{
+	return &sdk.ScalingPolicyCheck{
 		Query:    query,
 		Source:   source,
 		Strategy: strategy,
@@ -155,7 +156,7 @@ func parseCheck(c interface{}) *policy.Check {
 //      }
 //    }
 //  }
-func parseStrategy(s interface{}) *policy.Strategy {
+func parseStrategy(s interface{}) *sdk.ScalingPolicyStrategy {
 	if s == nil {
 		return nil
 	}
@@ -170,7 +171,7 @@ func parseStrategy(s interface{}) *policy.Strategy {
 		configMapString[k] = fmt.Sprintf("%v", v)
 	}
 
-	return &policy.Strategy{
+	return &sdk.ScalingPolicyStrategy{
 		Config: configMapString,
 	}
 }
@@ -190,7 +191,7 @@ func parseStrategy(s interface{}) *policy.Strategy {
 //      }
 //    }
 //  }
-func parseTarget(targetBlock interface{}, targetAttr map[string]string) *policy.Target {
+func parseTarget(targetBlock interface{}, targetAttr map[string]string) *sdk.ScalingPolicyTarget {
 	targetMap := parseBlock(targetBlock)
 	if targetMap == nil && targetAttr == nil {
 		return nil
@@ -208,7 +209,7 @@ func parseTarget(targetBlock interface{}, targetAttr map[string]string) *policy.
 		}
 	}
 
-	return &policy.Target{
+	return &sdk.ScalingPolicyTarget{
 		Config: configMapString,
 	}
 }

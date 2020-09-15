@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -192,7 +193,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 }
 
 // canonicalizePolicy sets standarized values for missing fields.
-func (s *Source) canonicalizePolicy(p *policy.Policy) {
+func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 	if p == nil {
 		return
 	}
@@ -203,7 +204,7 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 
 	// Set default values for Target.
 	if p.Target == nil {
-		p.Target = &policy.Target{}
+		p.Target = &sdk.ScalingPolicyTarget{}
 	}
 
 	if p.Target.Name == "" {
@@ -219,10 +220,10 @@ func (s *Source) canonicalizePolicy(p *policy.Policy) {
 	}
 }
 
-func (s *Source) canonicalizeCheck(c *policy.Check, t *policy.Target) {
+func (s *Source) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 	// Set default values for Strategy.
 	if c.Strategy == nil {
-		c.Strategy = &policy.Strategy{}
+		c.Strategy = &sdk.ScalingPolicyStrategy{}
 	}
 
 	if c.Strategy.Config == nil {

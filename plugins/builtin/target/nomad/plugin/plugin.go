@@ -9,8 +9,8 @@ import (
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -100,9 +100,9 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 // Scale satisfies the Scale function on the target.Target interface.
-func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) error {
+func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
 	var countIntPtr *int
-	if action.Count != strategy.MetaValueDryRunCount {
+	if action.Count != sdk.StrategyActionMetaValueDryRunCount {
 		countInt := int(action.Count)
 		countIntPtr = &countInt
 	}
@@ -122,7 +122,7 @@ func (t *TargetPlugin) Scale(action strategy.Action, config map[string]string) e
 }
 
 // Status satisfies the Status function on the target.Target interface.
-func (t *TargetPlugin) Status(config map[string]string) (*target.Status, error) {
+func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
 	// Get the JobID from the config map. This is a required param and results
 	// in an error if not found or is an empty string.

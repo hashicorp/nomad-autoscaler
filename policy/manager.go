@@ -9,6 +9,7 @@ import (
 	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // Manager tracks policies and controls the lifecycle of each policy handler.
@@ -45,7 +46,7 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 
 // Run starts the manager and blocks until the context is canceled.
 // Policies that need to be evaluated are sent in the evalCh.
-func (m *Manager) Run(ctx context.Context, evalCh chan<- *Evaluation) {
+func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
 	defer m.stopHandlers()
 
 	// Start the metrics reporter.

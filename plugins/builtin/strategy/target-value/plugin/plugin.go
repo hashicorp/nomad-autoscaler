@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -71,29 +72,28 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 // Run satisfies the Run function on the strategy.Strategy interface.
-func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
-	resp := strategy.Action{}
+func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 
 	// Read and parse target value from req.Config.
-	t := req.Config[runConfigKeyTarget]
+	t := eval.Check.Strategy.Config[runConfigKeyTarget]
 	if t == "" {
-		return resp, fmt.Errorf("missing required field `target`")
+		return nil, fmt.Errorf("missing required field `target`")
 	}
 
 	target, err := strconv.ParseFloat(t, 64)
 	if err != nil {
-		return resp, fmt.Errorf("invalid value for `target`: %v (%T)", t, t)
+		return nil, fmt.Errorf("invalid value for `target`: %v (%T)", t, t)
 	}
 
 	// Read and parse threshold value from req.Config.
-	th := req.Config[runConfigKeyThreshold]
+	th := eval.Check.Strategy.Config[runConfigKeyThreshold]
 	if th == "" {
 		th = defaultThreshold
 	}
 
 	threshold, err := strconv.ParseFloat(th, 64)
 	if err != nil {
-		return resp, fmt.Errorf("invalid value for `threshold`: %v (%T)", th, th)
+		return nil, fmt.Errorf("invalid value for `threshold`: %v (%T)", th, th)
 	}
 
 	var factor float64
@@ -103,15 +103,15 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 	// queue has greater than 0 items in it.
 	switch target {
 	case 0:
-		factor = req.Metric
+		factor = eval.Metric
 	default:
-		factor = req.Metric / target
+		factor = eval.Metric / target
 	}
 
 	// Identify the direction of scaling, if any.
-	resp.Direction = s.calculateDirection(req.Count, factor, threshold)
-	if resp.Direction == strategy.ScaleDirectionNone {
-		return resp, nil
+	eval.Action.Direction = s.calculateDirection(count, factor, threshold)
+	if eval.Action.Direction == sdk.ScaleDirectionNone {
+		return eval, nil
 	}
 
 	var newCount int64
@@ -119,31 +119,31 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 	// Handle cases were users wish to scale from 0. If the current count is 0,
 	// then just use the factor as the new count to target. Otherwise use our
 	// standard calculation.
-	switch req.Count {
+	switch count {
 	case 0:
 		newCount = int64(math.Ceil(factor))
 	default:
-		newCount = int64(math.Ceil(float64(req.Count) * factor))
+		newCount = int64(math.Ceil(float64(count) * factor))
 	}
 
 	// Log at trace level the details of the strategy calculation. This is
 	// helpful in ultra-debugging situations when there is a need to understand
 	// all the calculations made.
 	s.logger.Trace("calculated scaling strategy results",
-		"policy_id", req.PolicyID, "current_count", req.Count, "new_count", newCount,
-		"metric_value", req.Metric, "factor", factor, "direction", resp.Direction)
+		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
+		"metric_value", eval.Metric, "factor", factor, "direction", eval.Action.Direction)
 
 	// If the calculated newCount is the same as the current count, we do not
 	// need to scale so return an empty response.
-	if newCount == req.Count {
-		resp.Direction = strategy.ScaleDirectionNone
-		return resp, nil
+	if newCount == count {
+		eval.Action.Direction = sdk.ScaleDirectionNone
+		return eval, nil
 	}
 
-	resp.Count = newCount
-	resp.Reason = fmt.Sprintf("scaling %s because factor is %f", resp.Direction, factor)
+	eval.Action.Count = newCount
+	eval.Action.Reason = fmt.Sprintf("scaling %s because factor is %f", eval.Action.Direction, factor)
 
-	return resp, nil
+	return eval, nil
 }
 
 // calculateDirection is used to calculate the direction of scaling that should
@@ -152,20 +152,20 @@ func (s *StrategyPlugin) Run(req strategy.RunRequest) (strategy.Action, error) {
 //
 // The input factor value is padded by e, such that no action will be taken if
 // factor is within [1-e; 1+e].
-func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) strategy.ScaleDirection {
+func (s *StrategyPlugin) calculateDirection(count int64, factor, e float64) sdk.ScaleDirection {
 	switch count {
 	case 0:
 		if factor > 0 {
-			return strategy.ScaleDirectionUp
+			return sdk.ScaleDirectionUp
 		}
-		return strategy.ScaleDirectionNone
+		return sdk.ScaleDirectionNone
 	default:
 		if factor < (1 - e) {
-			return strategy.ScaleDirectionDown
+			return sdk.ScaleDirectionDown
 		} else if factor > (1 + e) {
-			return strategy.ScaleDirectionUp
+			return sdk.ScaleDirectionUp
 		} else {
-			return strategy.ScaleDirectionNone
+			return sdk.ScaleDirectionNone
 		}
 	}
 }

@@ -133,7 +133,7 @@ type FileDecodePolicyCheckDoc struct {
 	Source         string `hcl:"source,optional"`
 	Query          string `hcl:"query"`
 	QueryWindow    time.Duration
-	QueryWindowHCL string                 `hcl:"query_window"`
+	QueryWindowHCL string                 `hcl:"query_window,optional"`
 	Strategy       *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
 

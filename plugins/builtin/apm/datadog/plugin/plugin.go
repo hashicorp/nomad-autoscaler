@@ -26,12 +26,6 @@ const (
 	envKeyClientAPIKey = "DD_API_KEY"
 	envKeyClientAPPKey = "DD_APP_KEY"
 
-	// Example string: FROM=1m;TO=0m;QUERY=<datadog_query>
-	queryFromToken = "FROM="
-	queryToToken   = "TO="
-	queryToken     = "QUERY="
-	queryDelim     = ";"
-
 	datadogAuthAPIKey = "apiKeyAuth"
 	datadogAuthAPPKey = "appKeyAuth"
 

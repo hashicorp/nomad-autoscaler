@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 935,
+    "CreateIndex": 10,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 935,
+    "JobModifyIndex": 10,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 964,
+    "ModifyIndex": 13,
+    "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316308770000,
+    "SubmitTime": 1600298684068791000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,12 +60,12 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 935,
+          "CreateIndex": 10,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 935,
+          "ModifyIndex": 10,
           "Namespace": "",
           "Policy": {
             "cooldown": "5m",
@@ -72,9 +74,9 @@
               {
                 "target": [
                   {
-                    "str_config": "str",
                     "bool_config": true,
-                    "int_config": 2
+                    "int_config": 2,
+                    "str_config": "str"
                   }
                 ]
               }
@@ -83,19 +85,20 @@
               {
                 "check-1": [
                   {
-                    "query": "query-1",
+                    "query_window": "1m",
                     "source": "source-1",
                     "strategy": [
                       {
                         "strategy-1": [
                           {
+                            "int_config": 2,
                             "str_config": "str",
-                            "bool_config": true,
-                            "int_config": 2
+                            "bool_config": true
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": "query-1"
                   }
                 ]
               },
@@ -121,9 +124,9 @@
             ]
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "full-scaling"
+            "Job": "full-scaling",
+            "Group": "test"
           }
         },
         "Services": null,

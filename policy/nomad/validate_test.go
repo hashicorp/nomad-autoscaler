@@ -253,6 +253,16 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name:        "policy.check.query_window is not a string",
+			inputFile:   "invalid-query-window1",
+			expectError: true,
+		},
+		{
+			name:        "policy.check.query_window is not a duration",
+			inputFile:   "invalid-query-window2",
+			expectError: true,
+		},
+		{
 			name:        "policy.check.query is empty",
 			inputFile:   "invalid-empty-query",
 			expectError: true,

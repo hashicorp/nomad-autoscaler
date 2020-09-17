@@ -29,10 +29,9 @@ const (
 )
 
 // Query satisfies the Query function on the apm.APM interface.
+// The Nomad Metrics API doesn't provide historical data, so time range
+// for the query is not used.
 func (a *APMPlugin) Query(q string, _ sdk.TimeRange) (sdk.TimestampedMetrics, error) {
-	// The Nomad Metrics API doesn't provide historical data, so time range
-	// for the query is not used.
-
 	// Split the input query so we can understand which query type we are
 	// dealing with.
 	querySplit := strings.Split(q, "_")

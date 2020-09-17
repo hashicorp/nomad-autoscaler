@@ -143,9 +143,15 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 
 	// pl is [[timestamp, value]...] array
 	for _, p := range *pl {
+		if len(p) != 2 {
+			continue
+		}
+
+		ts := int64(p[0]) / 1e3
+		value := p[1]
 		tm := sdk.TimestampedMetric{
-			Timestamp: time.Unix(int64(p[0]), 0),
-			Value:     p[1],
+			Timestamp: time.Unix(ts, 0),
+			Value:     value,
 		}
 		result = append(result, tm)
 	}

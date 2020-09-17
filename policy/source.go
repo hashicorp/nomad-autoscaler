@@ -8,6 +8,10 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+// DefaultQueryWindow is the value used if `query_window` is not specified in
+// a policy check.
+const DefaultQueryWindow = time.Minute
+
 // ConfigDefaults holds default configuration for unspecified values.
 type ConfigDefaults struct {
 	DefaultEvaluationInterval time.Duration

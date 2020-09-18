@@ -18,7 +18,7 @@ type ScalingCheckEvaluation struct {
 	Check *ScalingPolicyCheck
 
 	// Metric is the metric resulting from querying the APM.
-	Metric float64
+	Metrics TimestampedMetrics
 
 	// Action is the calculated desired state and is populated by strategy.Run.
 	Action *ScalingAction

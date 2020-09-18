@@ -205,6 +205,15 @@ func validateCheck(c map[string]interface{}, path string) error {
 		}
 	}
 
+	// Validate QueryWindow, if present.
+	//   1. QueryWindow should be a valid time duration.
+	queryWindow, ok := c[keyQueryWindow]
+	if ok {
+		if err := validateDuration(queryWindow, path+"."+keyQueryWindow); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
 	// Validate Strategy.
 	//   1. Strategy key must exist.
 	//   2. Strategy must be a valid block.

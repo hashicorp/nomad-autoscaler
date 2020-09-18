@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -29,20 +31,20 @@ type poolResources struct {
 
 // queryNodePool is the main entry point when performing a Nomad node pool APM
 // query.
-func (a *APMPlugin) queryNodePool(q string) (float64, error) {
+func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 
 	// Parse our query to ensure we have all the information required to
 	// continue.
 	query, err := parseNodePoolQuery(q)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse query: %v", err)
+		return nil, fmt.Errorf("failed to parse query: %v", err)
 	}
 	a.logger.Debug("performing node pool APM query", "query", q)
 
 	// Identify the resource available and consumed within the target pool.
 	resources, err := a.getPoolResources(query.poolIdentifier)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	a.logger.Debug("collected node pool resource data",
 		"allocated_cpu", resources.allocated.cpu, "allocated_memory", resources.allocated.mem,
@@ -55,17 +57,21 @@ func (a *APMPlugin) queryNodePool(q string) (float64, error) {
 	switch query.metric {
 	case queryMetricMem:
 		if resources.allocatable.mem == 0 {
-			return 0, errors.New("zero allocatable memory found in pool")
+			return nil, errors.New("zero allocatable memory found in pool")
 		}
 		result = calculateNodePoolResult(float64(resources.allocated.mem), float64(resources.allocatable.mem))
 	case queryMetricCPU:
 		if resources.allocatable.cpu == 0 {
-			return 0, errors.New("zero allocatable cpu found in pool")
+			return nil, errors.New("zero allocatable cpu found in pool")
 		}
 		result = calculateNodePoolResult(float64(resources.allocated.cpu), float64(resources.allocatable.cpu))
 	}
 
-	return result, nil
+	tm := sdk.TimestampedMetric{
+		Timestamp: time.Now(),
+		Value:     result,
+	}
+	return sdk.TimestampedMetrics{tm}, nil
 }
 
 // getPoolResources gathers the allocatable and allocated resources for the

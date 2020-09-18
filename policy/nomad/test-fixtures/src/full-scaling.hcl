@@ -19,8 +19,9 @@ job "full-scaling" {
         }
 
         check "check-1" {
-          source = "source-1"
-          query  = "query-1"
+          source       = "source-1"
+          query        = "query-1"
+          query_window = "1m"
 
           strategy "strategy-1" {
             int_config  = 2

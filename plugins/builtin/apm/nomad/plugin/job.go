@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -18,23 +20,23 @@ type taskGroupQuery struct {
 	operation string
 }
 
-func (a *APMPlugin) queryTaskGroup(q string) (float64, error) {
+func (a *APMPlugin) queryTaskGroup(q string) (sdk.TimestampedMetrics, error) {
 
 	// Parse the query ensuring we have all information available to make all
 	// subsequent calls.
 	query, err := parseTaskGroupQuery(q)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse query: %v", err)
+		return nil, fmt.Errorf("failed to parse query: %v", err)
 	}
 	a.logger.Debug("expanded query", "from", q, "to", fmt.Sprintf("%# v", query))
 
 	metrics, err := a.getTaskGroupResourceUsage(query)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	if len(metrics) == 0 {
-		return 0, fmt.Errorf("metric not found: %s", q)
+		return nil, fmt.Errorf("metric not found: %s", q)
 	}
 	a.logger.Debug("metrics found", "num_data_points", len(metrics), "query", q)
 
@@ -107,7 +109,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 
 // calculateTaskGroupResult determines the query result based on the metrics
 // and operation to perform.
-func calculateTaskGroupResult(op string, metrics []float64) float64 {
+func calculateTaskGroupResult(op string, metrics []float64) sdk.TimestampedMetrics {
 
 	var result float64
 
@@ -136,7 +138,12 @@ func calculateTaskGroupResult(op string, metrics []float64) float64 {
 			}
 		}
 	}
-	return result
+
+	tm := sdk.TimestampedMetric{
+		Timestamp: time.Now(),
+		Value:     result,
+	}
+	return sdk.TimestampedMetrics{tm}
 }
 
 // parseTaskGroupQuery takes the query string and transforms it into our

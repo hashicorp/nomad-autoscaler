@@ -28,9 +28,10 @@ func Test_decodeFile(t *testing.T) {
 				EvaluationInterval: 1 * time.Minute,
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:   "cpu_nomad",
-						Source: "nomad_apm",
-						Query:  "cpu_high-memory",
+						Name:        "cpu_nomad",
+						Source:      "nomad_apm",
+						Query:       "cpu_high-memory",
+						QueryWindow: time.Minute,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "target-value",
 							Config: map[string]string{
@@ -114,6 +115,11 @@ func Test_decodeFile(t *testing.T) {
 			actualError := decodeFile(tc.inputFile, tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
 			assert.Equal(t, tc.expectedOutputError, actualError, tc.name)
+
+			// Print unexpected errors.
+			if actualError != nil && tc.expectedOutputError == nil {
+				t.Logf("%s", actualError)
+			}
 		})
 	}
 }

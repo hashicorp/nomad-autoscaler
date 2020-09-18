@@ -31,6 +31,22 @@ func decodeFile(file string, p *sdk.ScalingPolicy) error {
 		decodePolicy.Doc.EvaluationInterval = d
 	}
 
+	// Parse query window for each check.
+	for i := 0; i < len(decodePolicy.Doc.Checks); i++ {
+		check := decodePolicy.Doc.Checks[i]
+
+		// Skip parsing if query_window not set.
+		if check.QueryWindowHCL == "" {
+			continue
+		}
+
+		w, err := time.ParseDuration(check.QueryWindowHCL)
+		if err != nil {
+			return err
+		}
+		decodePolicy.Doc.Checks[i].QueryWindow = w
+	}
+
 	// Translate from our intermediate struct, to our internal flattened
 	// policy.
 	decodePolicy.Translate(p)

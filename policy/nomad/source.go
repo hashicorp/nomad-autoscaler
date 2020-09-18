@@ -19,6 +19,7 @@ import (
 const (
 	keySource             = "source"
 	keyQuery              = "query"
+	keyQueryWindow        = "query_window"
 	keyEvaluationInterval = "evaluation_interval"
 	keyTarget             = "target"
 	keyChecks             = "check"

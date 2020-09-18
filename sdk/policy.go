@@ -49,18 +49,22 @@ type ScalingPolicyCheck struct {
 
 	// Name is a human readable name for this check and allows operators to
 	// create clearly identified policy checks.
-	Name string `hcl:"name,label"`
+	Name string
 
 	// Source is the APM plugin that should be used to perform the query and
 	// obtain the metric that will be used to perform a calculation.
-	Source string `hcl:"source,optional"`
+	Source string
 
 	// Query is run against the Source in order to receive a metric response.
-	Query string `hcl:"query"`
+	Query string
+
+	// QueryWindow is used to define how further back in time to query for
+	// metrics.
+	QueryWindow time.Duration
 
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
-	Strategy *ScalingPolicyStrategy `hcl:"strategy,block"`
+	Strategy *ScalingPolicyStrategy
 }
 
 // ScalingPolicyStrategy contains the plugin and configuration details for
@@ -119,9 +123,18 @@ type FileDecodePolicyDoc struct {
 	Cooldown              time.Duration
 	CooldownHCL           string `hcl:"cooldown,optional"`
 	EvaluationInterval    time.Duration
-	EvaluationIntervalHCL string                `hcl:"evaluation_interval,optional"`
-	Checks                []*ScalingPolicyCheck `hcl:"check,block"`
-	Target                *ScalingPolicyTarget  `hcl:"target,block"`
+	EvaluationIntervalHCL string                      `hcl:"evaluation_interval,optional"`
+	Checks                []*FileDecodePolicyCheckDoc `hcl:"check,block"`
+	Target                *ScalingPolicyTarget        `hcl:"target,block"`
+}
+
+type FileDecodePolicyCheckDoc struct {
+	Name           string `hcl:"name,label"`
+	Source         string `hcl:"source,optional"`
+	Query          string `hcl:"query"`
+	QueryWindow    time.Duration
+	QueryWindowHCL string                 `hcl:"query_window,optional"`
+	Strategy       *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
 
 // Translate all values from the decoded policy file into our internal policy
@@ -132,6 +145,28 @@ func (fpd *FileDecodeScalingPolicy) Translate(p *ScalingPolicy) {
 	p.Enabled = fpd.Enabled
 	p.Cooldown = fpd.Doc.Cooldown
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
-	p.Checks = fpd.Doc.Checks
 	p.Target = fpd.Doc.Target
+
+	fpd.translateChecks(p)
+}
+
+func (fpd *FileDecodeScalingPolicy) translateChecks(p *ScalingPolicy) {
+	var checks []*ScalingPolicyCheck
+	for _, c := range fpd.Doc.Checks {
+		check := &ScalingPolicyCheck{}
+		c.Translate(check)
+		checks = append(checks, check)
+	}
+
+	p.Checks = checks
+}
+
+// Translate all values from the decoded policy check into our internal policy
+// check object.
+func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
+	c.Name = fdc.Name
+	c.Source = fdc.Source
+	c.Query = fdc.Query
+	c.QueryWindow = fdc.QueryWindow
+	c.Strategy = fdc.Strategy
 }

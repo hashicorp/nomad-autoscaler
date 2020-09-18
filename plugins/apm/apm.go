@@ -5,12 +5,18 @@ import (
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 type APM interface {
-	Query(q string) (float64, error)
+	Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
+}
+
+type QueryRPCReq struct {
+	Query string
+	Range sdk.TimeRange
 }
 
 // RPC is a plugin implementation that talks over net/rpc
@@ -27,11 +33,13 @@ func (r *RPC) SetConfig(config map[string]string) error {
 	return resp
 }
 
-func (r *RPC) Query(q string) (float64, error) {
-	var resp float64
-	err := r.client.Call("Plugin.Query", q, &resp)
+func (r *RPC) Query(q string, rng sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+	req := QueryRPCReq{Query: q, Range: rng}
+	var resp sdk.TimestampedMetrics
+
+	err := r.client.Call("Plugin.Query", req, &resp)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	return resp, nil
 }
@@ -56,8 +64,8 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 	return err
 }
 
-func (s *RPCServer) Query(q string, resp *float64) error {
-	r, err := s.Impl.Query(q)
+func (s *RPCServer) Query(req QueryRPCReq, resp *sdk.TimestampedMetrics) error {
+	r, err := s.Impl.Query(req.Query, req.Range)
 	if err != nil {
 		return err
 	}

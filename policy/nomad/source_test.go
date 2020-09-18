@@ -37,9 +37,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:   "check",
-						Source: "source",
-						Query:  "query",
+						Name:        "check",
+						Source:      "source",
+						Query:       "query",
+						QueryWindow: 5 * time.Minute,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
@@ -67,9 +68,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:   "check",
-						Source: "source",
-						Query:  "query",
+						Name:        "check",
+						Source:      "source",
+						Query:       "query",
+						QueryWindow: 5 * time.Minute,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
@@ -123,8 +125,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Source: plugins.InternalAPMNomad,
-						Query:  "taskgroup_avg_cpu/group/job",
+						Source:      plugins.InternalAPMNomad,
+						Query:       "taskgroup_avg_cpu/group/job",
+						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -159,8 +162,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Source: plugins.InternalAPMNomad,
-						Query:  "taskgroup_avg_cpu/group/job",
+						Source:      plugins.InternalAPMNomad,
+						Query:       "taskgroup_avg_cpu/group/job",
+						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -194,8 +198,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Source: plugins.InternalAPMNomad,
-						Query:  "taskgroup_avg_cpu/my_group/my_job",
+						Source:      plugins.InternalAPMNomad,
+						Query:       "taskgroup_avg_cpu/my_group/my_job",
+						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -230,8 +235,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Source: "not_nomad",
-						Query:  "avg_cpu",
+						Source:      "not_nomad",
+						Query:       "avg_cpu",
+						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -265,8 +271,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Source: plugins.InternalAPMNomad,
-						Query:  "avg_cpu/my_group/my_job",
+						Source:      plugins.InternalAPMNomad,
+						Query:       "avg_cpu/my_group/my_job",
+						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},

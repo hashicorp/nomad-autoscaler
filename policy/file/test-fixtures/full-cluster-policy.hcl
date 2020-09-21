@@ -8,8 +8,9 @@ policy {
   evaluation_interval = "1m"
 
   check "cpu_nomad" {
-    source    = "nomad_apm"
-    query     = "cpu_high-memory"
+    source       = "nomad_apm"
+    query        = "cpu_high-memory"
+    query_window = "1m"
 
     strategy "target-value" {
       target = "80"

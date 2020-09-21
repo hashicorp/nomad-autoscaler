@@ -35,6 +35,13 @@ func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = pr.defaults.DefaultEvaluationInterval
 	}
+
+	for i := 0; i < len(p.Checks); i++ {
+		c := p.Checks[i]
+		if c.QueryWindow == 0 {
+			c.QueryWindow = DefaultQueryWindow
+		}
+	}
 }
 
 // ValidatePolicy performs validation of the policy document returning a list

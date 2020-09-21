@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	metrics "github.com/armon/go-metrics"
@@ -255,15 +256,23 @@ func (h *checkHandler) start(ctx context.Context) {
 	}
 
 	// Query check's APM.
-	h.checkEval.Metric, err = h.runAPMQuery(apmInst)
+	h.checkEval.Metrics, err = h.runAPMQuery(apmInst)
 	if err != nil {
 		result.err = fmt.Errorf("failed to query source: %v", err)
 		h.resultCh <- result
 		return
 	}
 
+	// Make sure metrics are sorted consistently.
+	sort.Sort(h.checkEval.Metrics)
+
+	if len(h.checkEval.Metrics) == 0 {
+		h.logger.Info("no metrics available")
+		return
+	}
+
 	// Calculate new count using check's Strategy.
-	h.logger.Info("calculating new count", "count", currentStatus.Count, "metric", h.checkEval.Metric)
+	h.logger.Info("calculating new count", "count", currentStatus.Count)
 	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)
 	if err != nil {
 		result.err = fmt.Errorf("failed to execute strategy: %v", err)
@@ -386,7 +395,7 @@ func (h *checkHandler) runTargetScale(targetImpl target.Target, action sdk.Scali
 }
 
 // runAPMQuery wraps the apm.Query call to provide operational functionality.
-func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
+func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (sdk.TimestampedMetrics, error) {
 
 	h.logger.Info("querying source", "query", h.checkEval.Check.Query, "source", h.checkEval.Check.Source)
 
@@ -394,7 +403,12 @@ func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (float64, error) {
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.checkEval.Check.Source}, {Name: "policy_id", Value: h.policy.ID}}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
 
-	return apmImpl.Query(h.checkEval.Check.Query)
+	// Calculate query range from the query window defined in the check.
+	to := time.Now()
+	from := to.Add(-h.checkEval.Check.QueryWindow)
+	r := sdk.TimeRange{From: from, To: to}
+
+	return apmImpl.Query(h.checkEval.Check.Query, r)
 }
 
 // runStrategyRun wraps the strategy.Run call to provide operational functionality.

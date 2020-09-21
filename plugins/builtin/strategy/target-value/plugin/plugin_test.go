@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -37,8 +38,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
 				Check: &sdk.ScalingPolicyCheck{
-					Strategy: &sdk.ScalingPolicyStrategy{
-					},
+					Strategy: &sdk.ScalingPolicyStrategy{},
 				},
 			},
 			expectedResp:  nil,
@@ -71,7 +71,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 13,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "13"},
@@ -81,7 +81,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 2,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 13,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "13"},
@@ -96,7 +96,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 26,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 26}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "13"},
@@ -106,7 +106,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 2,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 26,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 26}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "13"},
@@ -123,7 +123,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 20,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 20}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -133,7 +133,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 0,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 20,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 20}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -150,7 +150,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 9,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 9}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -160,7 +160,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 1,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 9,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 9}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -175,7 +175,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 1,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 1}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -185,7 +185,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 0,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 1,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 1}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "10"},
@@ -202,7 +202,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 0,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 0}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "0"},
@@ -212,7 +212,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 5,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 0,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 0}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "0"},
@@ -229,7 +229,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 5.00001,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 5.00001}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "5"},
@@ -239,7 +239,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 8,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 5.00001,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 5.00001}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "5"},
@@ -254,7 +254,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
-				Metric: 5.00001,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 5.00001}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "5", "threshold": "0.000001"},
@@ -264,7 +264,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			inputCount: 8,
 			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metric: 5.00001,
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 5.00001}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "5", "threshold": "0.000001"},
@@ -278,6 +278,41 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedError: nil,
 			name:          "scale up on small changes if threshold is small",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{
+					sdk.TimestampedMetric{Value: 13, Timestamp: time.Unix(1600000000, 0)},
+					sdk.TimestampedMetric{Value: 14, Timestamp: time.Unix(1600000001, 0)},
+					sdk.TimestampedMetric{Value: 15, Timestamp: time.Unix(1600000002, 0)},
+					sdk.TimestampedMetric{Value: 16, Timestamp: time.Unix(1600000003, 0)},
+				},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "16"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 2,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{
+					sdk.TimestampedMetric{Value: 13, Timestamp: time.Unix(1600000000, 0)},
+					sdk.TimestampedMetric{Value: 14, Timestamp: time.Unix(1600000001, 0)},
+					sdk.TimestampedMetric{Value: 15, Timestamp: time.Unix(1600000002, 0)},
+					sdk.TimestampedMetric{Value: 16, Timestamp: time.Unix(1600000003, 0)},
+				},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "16"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Direction: sdk.ScaleDirectionNone,
+				},
+			},
+			expectedError: nil,
+			name:          "properly handle multiple input",
 		},
 	}
 

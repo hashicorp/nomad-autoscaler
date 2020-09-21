@@ -106,6 +106,7 @@ func parseChecks(cs interface{}) []*sdk.ScalingPolicyCheck {
 //    | check "name" {                 |
 //    |   source = "source"            |
 //    |   query = "query"              |
+//    |   query_window = "5m"          |
 //    |   strategy "strategy" { ... }  |
 //    | }                              |
 //    +--------------------------------+
@@ -136,10 +137,17 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
 
+	// Parse query_window ignoring errors since we assume policy has been validated.
+	var queryWindow time.Duration
+	if queryWindowStr, ok := checkMap[keyQueryWindow].(string); ok {
+		queryWindow, _ = time.ParseDuration(queryWindowStr)
+	}
+
 	return &sdk.ScalingPolicyCheck{
-		Query:    query,
-		Source:   source,
-		Strategy: strategy,
+		Query:       query,
+		QueryWindow: queryWindow,
+		Source:      source,
+		Strategy:    strategy,
 	}
 }
 

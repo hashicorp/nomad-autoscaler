@@ -4,18 +4,18 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 10,
+    "CreateIndex": 36,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
-    "ID": "full-scaling",
-    "JobModifyIndex": 10,
+    "ID": "invalid-query-window1",
+    "JobModifyIndex": 36,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 13,
+    "ModifyIndex": 39,
     "Multiregion": null,
-    "Name": "full-scaling",
+    "Name": "invalid-query-window1",
     "Namespace": "default",
     "NomadTokenID": "",
     "ParameterizedJob": null,
@@ -30,12 +30,12 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1600298684068791000,
+    "SubmitTime": 1600299182059182000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
-        "Count": 2,
+        "Count": 1,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
@@ -60,73 +60,40 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 10,
-          "Enabled": false,
+          "CreateIndex": 36,
+          "Enabled": true,
           "ID": "id",
           "Max": 10,
-          "Min": 2,
-          "ModifyIndex": 10,
+          "Min": 1,
+          "ModifyIndex": 36,
           "Namespace": "",
           "Policy": {
-            "cooldown": "5m",
-            "evaluation_interval": "5s",
-            "target": [
-              {
-                "target": [
-                  {
-                    "bool_config": true,
-                    "int_config": 2,
-                    "str_config": "str"
-                  }
-                ]
-              }
-            ],
             "check": [
               {
-                "check-1": [
+                "check": [
                   {
-                    "query_window": "1m",
-                    "source": "source-1",
+                    "query_window": 5,
                     "strategy": [
                       {
-                        "strategy-1": [
+                        "strategy": [
                           {
-                            "int_config": 2,
                             "str_config": "str",
-                            "bool_config": true
-                          }
-                        ]
-                      }
-                    ],
-                    "query": "query-1"
-                  }
-                ]
-              },
-              {
-                "check-2": [
-                  {
-                    "source": "source-2",
-                    "strategy": [
-                      {
-                        "strategy-2": [
-                          {
                             "bool_config": true,
-                            "int_config": 2,
-                            "str_config": "str"
+                            "int_config": 2
                           }
                         ]
                       }
                     ],
-                    "query": "query-2"
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Group": "test",
             "Namespace": "default",
-            "Job": "full-scaling",
-            "Group": "test"
+            "Job": "invalid-query-window1"
           }
         },
         "Services": null,

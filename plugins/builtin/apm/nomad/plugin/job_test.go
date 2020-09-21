@@ -42,7 +42,7 @@ func Test_calculateTaskGroupResult(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := calculateTaskGroupResult(tc.inputOp, tc.inputMetrics)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+			assert.Equal(t, tc.expectedOutput, actualOutput[0].Value, tc.name)
 		})
 	}
 }

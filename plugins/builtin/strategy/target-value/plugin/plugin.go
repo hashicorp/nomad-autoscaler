@@ -98,14 +98,22 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 
 	var factor float64
 
+	// This shouldn't happen, but check it just in case.
+	if len(eval.Metrics) == 0 {
+		return nil, nil
+	}
+
+	// Use only the latest value for now.
+	metric := eval.Metrics[len(eval.Metrics)-1]
+
 	// Handle cases where the specified target is 0. A potential use case here
 	// is targeting a CI build queue to be 0. Adding in build agents when the
 	// queue has greater than 0 items in it.
 	switch target {
 	case 0:
-		factor = eval.Metric
+		factor = metric.Value
 	default:
-		factor = eval.Metric / target
+		factor = metric.Value / target
 	}
 
 	// Identify the direction of scaling, if any.
@@ -131,7 +139,8 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	// all the calculations made.
 	s.logger.Trace("calculated scaling strategy results",
 		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
-		"metric_value", eval.Metric, "factor", factor, "direction", eval.Action.Direction)
+		"metric_value", metric.Value, "metric_time", metric.Timestamp, "factor", factor,
+		"direction", eval.Action.Direction)
 
 	// If the calculated newCount is the same as the current count, we do not
 	// need to scale so return an empty response.

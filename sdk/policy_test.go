@@ -24,11 +24,13 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 					CooldownHCL:           "10ms",
 					EvaluationInterval:    10 * time.Nanosecond,
 					EvaluationIntervalHCL: "10ns",
-					Checks: []*ScalingPolicyCheck{
+					Checks: []*FileDecodePolicyCheckDoc{
 						{
-							Name:   "approach-speed",
-							Source: "front-sensor",
-							Query:  "how-fast-am-i-going",
+							Name:           "approach-speed",
+							Source:         "front-sensor",
+							Query:          "how-fast-am-i-going",
+							QueryWindow:    time.Minute,
+							QueryWindowHCL: "1m",
 							Strategy: &ScalingPolicyStrategy{
 								Name: "approach-velocity",
 								Config: map[string]string{
@@ -55,9 +57,10 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 				EvaluationInterval: 10 * time.Nanosecond,
 				Checks: []*ScalingPolicyCheck{
 					{
-						Name:   "approach-speed",
-						Source: "front-sensor",
-						Query:  "how-fast-am-i-going",
+						Name:        "approach-speed",
+						Source:      "front-sensor",
+						Query:       "how-fast-am-i-going",
+						QueryWindow: time.Minute,
 						Strategy: &ScalingPolicyStrategy{
 							Name: "approach-velocity",
 							Config: map[string]string{

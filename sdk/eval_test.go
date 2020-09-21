@@ -101,7 +101,7 @@ func TestNewScalingEvaluation(t *testing.T) {
 								Config: map[string]string{"target": "10"},
 							},
 						},
-						Metric: 0,
+						Metrics: nil,
 						Action: &ScalingAction{
 							Meta: make(map[string]interface{}),
 						},
@@ -116,7 +116,7 @@ func TestNewScalingEvaluation(t *testing.T) {
 								Config: map[string]string{"target": "100"},
 							},
 						},
-						Metric: 0,
+						Metrics: nil,
 						Action: &ScalingAction{
 							Meta: make(map[string]interface{}),
 						},

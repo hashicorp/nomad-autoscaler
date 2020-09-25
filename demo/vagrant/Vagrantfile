@@ -2,7 +2,7 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.box = "ubuntu/bionic64"
+  config.vm.box = "ubuntu/focal64"
 
   # Expose ports to the host.
   config.vm.network "forwarded_port", guest: 4646, host: 4646, host_ip: "127.0.0.1"    # Nomad
@@ -18,6 +18,7 @@ Vagrant.configure("2") do |config|
 
   # VM configuration.
   config.vm.provider "virtualbox" do |vb|
+    vb.customize [ "modifyvm", :id, "--uartmode1", "file", File::NULL ] # https://bugs.launchpad.net/cloud-images/+bug/1874453
     vb.memory = "4096"
     vb.cpus = 2
   end
@@ -57,13 +58,8 @@ Vagrant.configure("2") do |config|
     docker run hello-world
     usermod -aG docker vagrant
 
-    # Download and install Hey.
-    pushd /tmp/downloads
-    curl --silent --show-error --remote-name-all \
-      https://storage.googleapis.com/hey-release/hey_linux_amd64
-    mv hey_linux_amd64 /usr/local/bin/hey
-    chmod +x /usr/local/bin/hey
-    popd
+    # Install Hey.
+    apt-get install -y hey
 
     # Download and install Nomad and Consul.
     pushd /tmp/downloads

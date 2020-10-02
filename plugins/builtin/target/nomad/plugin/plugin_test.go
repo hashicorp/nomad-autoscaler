@@ -11,24 +11,31 @@ import (
 func TestTargetPlugin_garbageCollect(t *testing.T) {
 
 	curTime := time.Now().UTC().UnixNano()
+	testName := "generic GC test"
 
 	// Build the plugin with some populated handlers and data to test.
 	targetPlugin := TargetPlugin{
 		logger: hclog.NewNullLogger(),
-		statusHandlers: map[string]*jobScaleStatusHandler{
-			"running":               {isRunning: true, lastUpdated: curTime},
-			"recently-stopped":      {isRunning: false, lastUpdated: curTime - 1800000000000},
-			"stopped-long-time-ago": {isRunning: false, lastUpdated: curTime - 18000000000000},
+		statusHandlers: map[namespacedJobID]*jobScaleStatusHandler{
+			namespacedJobID{"default", "running"}:               {isRunning: true, lastUpdated: curTime},
+			namespacedJobID{"default", "recently-stopped"}:      {isRunning: false, lastUpdated: curTime - 1800000000000},
+			namespacedJobID{"default", "stopped-long-time-ago"}: {isRunning: false, lastUpdated: curTime - 18000000000000},
+			namespacedJobID{"special", "running"}:               {isRunning: true, lastUpdated: curTime},
+			namespacedJobID{"special", "recently-stopped"}:      {isRunning: false, lastUpdated: curTime - 1800000000000},
+			namespacedJobID{"special", "stopped-long-time-ago"}: {isRunning: false, lastUpdated: curTime - 18000000000000},
 		},
 	}
 
 	// Trigger the GC.
 	targetPlugin.garbageCollect()
 
-	// Perform our assertions to confirm the statusHandlers mapping has the
-	// entries expected after running the GC.
-	assert.Nil(t, targetPlugin.statusHandlers["stopped-long-time-ago"])
-	assert.NotNil(t, targetPlugin.statusHandlers["running"])
-	assert.NotNil(t, targetPlugin.statusHandlers["recently-stopped"])
-	assert.Len(t, targetPlugin.statusHandlers, 2)
+	t.Run(testName, func(t *testing.T) {
+		assert.Nil(t, targetPlugin.statusHandlers[namespacedJobID{"default", "stopped-long-time-ago"}], testName)
+		assert.NotNil(t, targetPlugin.statusHandlers[namespacedJobID{"default", "running"}], testName)
+		assert.NotNil(t, targetPlugin.statusHandlers[namespacedJobID{"default", "recently-stopped"}], testName)
+		assert.Nil(t, targetPlugin.statusHandlers[namespacedJobID{"special", "stopped-long-time-ago"}], testName)
+		assert.NotNil(t, targetPlugin.statusHandlers[namespacedJobID{"special", "running"}], testName)
+		assert.NotNil(t, targetPlugin.statusHandlers[namespacedJobID{"special", "recently-stopped"}], testName)
+		assert.Len(t, targetPlugin.statusHandlers, 4, testName)
+	})
 }

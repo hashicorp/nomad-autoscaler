@@ -21,8 +21,9 @@ const (
 
 	// configKeys are the accepted configuration map keys which can be
 	// processed when performing SetConfig().
-	configKeyJobID = "Job"
-	configKeyGroup = "Group"
+	configKeyJobID     = "Job"
+	configKeyGroup     = "Group"
+	configKeyNamespace = "Namespace"
 
 	// garbageCollectionNanoSecondThreshold is the nanosecond threshold used
 	// when performing garbage collection of job status handlers.
@@ -57,14 +58,20 @@ type TargetPlugin struct {
 	client *api.Client
 	logger hclog.Logger
 
-	// statusHandlers is a mapping of jobScaleStatusHandlers keyed by the jobID
-	// that the handler represents. The lock should be used when accessing the
-	// map.
-	statusHandlers     map[string]*jobScaleStatusHandler
+	// statusHandlers is a mapping of jobScaleStatusHandlers keyed by the
+	// namespacedJobID that the handler represents. The lock should be used
+	// when accessing the map.
+	statusHandlers     map[namespacedJobID]*jobScaleStatusHandler
 	statusHandlersLock sync.RWMutex
 
 	// gcRunning indicates whether the GC loop is running or not.
 	gcRunning bool
+}
+
+// namespacedJobID encapsulates the namespace and jobID, which together make a
+// unique job reference within a Nomad region.
+type namespacedJobID struct {
+	namespace, job string
 }
 
 // NewNomadPlugin returns the Nomad implementation of the target.Target
@@ -72,7 +79,7 @@ type TargetPlugin struct {
 func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
 		logger:         log,
-		statusHandlers: make(map[string]*jobScaleStatusHandler),
+		statusHandlers: make(map[namespacedJobID]*jobScaleStatusHandler),
 	}
 }
 
@@ -107,13 +114,22 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		countIntPtr = &countInt
 	}
 
+	// Setup the Nomad write options.
+	q := api.WriteOptions{}
+
+	// If namespace is included within the config, add this to write opts. If
+	// this is omitted, we fallback to Nomad standard practice.
+	if namespace, ok := config[configKeyNamespace]; ok {
+		q.Namespace = namespace
+	}
+
 	_, _, err := t.client.Jobs().Scale(config[configKeyJobID],
 		config[configKeyGroup],
 		countIntPtr,
 		action.Reason,
 		action.Error,
 		action.Meta,
-		nil)
+		&q)
 
 	if err != nil {
 		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
@@ -138,24 +154,33 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 		return nil, fmt.Errorf("required config key %q not found", configKeyGroup)
 	}
 
+	// Attempt to find the namespace config parameter. If this is not included
+	// use the Nomad default namespace "default".
+	namespace, ok := config[configKeyNamespace]
+	if !ok || namespace == "" {
+		namespace = "default"
+	}
+
+	nsID := namespacedJobID{namespace: namespace, job: jobID}
+
 	// Create a read/write lock on the handlers so we can safely interact.
 	t.statusHandlersLock.Lock()
 	defer t.statusHandlersLock.Unlock()
 
 	// Create a handler for the job if one does not currently exist.
-	if _, ok := t.statusHandlers[jobID]; !ok {
-		t.statusHandlers[jobID] = newJobScaleStatusHandler(t.client, jobID, t.logger)
+	if _, ok := t.statusHandlers[nsID]; !ok {
+		t.statusHandlers[nsID] = newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
 	}
 
 	// If the handler is not in a running state, start it and wait for the
 	// first run to finish.
-	if !t.statusHandlers[jobID].isRunning {
-		go t.statusHandlers[jobID].start()
-		<-t.statusHandlers[jobID].initialDone
+	if !t.statusHandlers[nsID].isRunning {
+		go t.statusHandlers[nsID].start()
+		<-t.statusHandlers[nsID].initialDone
 	}
 
 	// Return the status data from the handler to the caller.
-	return t.statusHandlers[jobID].status(group)
+	return t.statusHandlers[nsID].status(group)
 }
 
 // garbageCollectionLoop runs a long lived loop, triggering the garbage

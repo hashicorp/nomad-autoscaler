@@ -11,7 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
@@ -69,7 +69,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 
 	future, err := t.vmss.Update(ctx, resourceGroup, vmScaleSet, compute.VirtualMachineScaleSetUpdate{
 		Sku: &compute.Sku{
-			Capacity: to.Int64Ptr(count),
+			Capacity: ptr.Int64ToPtr(count),
 		},
 	})
 
@@ -119,7 +119,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	log.Debug("deleting Azure ScaleSet instances")
 
 	future, err := t.vmss.DeleteInstances(ctx, resourceGroup, vmScaleSet, compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
-		InstanceIds: to.StringSlicePtr(instanceIDs),
+		InstanceIds: ptr.StringArrToPtr(instanceIDs),
 	})
 
 	if err != nil {

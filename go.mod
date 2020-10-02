@@ -7,7 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.0
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.0
 	github.com/Azure/go-autorest/autorest/date v0.3.0
-	github.com/Azure/go-autorest/autorest/to v0.4.0
+	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
 	github.com/DataDog/datadog-api-client-go v1.0.0-beta.7
 	github.com/agext/levenshtein v1.2.3 // indirect

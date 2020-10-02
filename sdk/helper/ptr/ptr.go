@@ -15,3 +15,11 @@ func Int64ToPtr(i int64) *int64 {
 func StringToPtr(s string) *string {
 	return &s
 }
+
+func StringArrToPtr(s []string) *[]string {
+	return &s
+}
+
+func PtrToInt64(i *int64) int64 {
+	return *i
+}

@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -107,7 +107,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		return fmt.Errorf("failed to get Azure vmss: %v", err)
 	}
 
-	capacity := to.Int64(currVMSS.Sku.Capacity)
+	capacity := ptr.PtrToInt64(currVMSS.Sku.Capacity)
 
 	// The Azure VMSS target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
@@ -161,7 +161,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// Set our initial status.
 	resp := sdk.TargetStatus{
 		Ready: true,
-		Count: to.Int64(vmss.Sku.Capacity),
+		Count: ptr.PtrToInt64(vmss.Sku.Capacity),
 		Meta:  make(map[string]string),
 	}
 

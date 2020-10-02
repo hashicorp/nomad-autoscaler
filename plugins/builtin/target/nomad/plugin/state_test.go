@@ -17,7 +17,7 @@ func Test_newJobStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Create the new handler and perform assertions.
-	jsh := newJobScaleStatusHandler(c, "test", hclog.NewNullLogger())
+	jsh := newJobScaleStatusHandler(c, "default", "test", hclog.NewNullLogger())
 	assert.NotNil(t, jsh.client)
 	assert.Equal(t, "test", jsh.jobID)
 	assert.NotNil(t, jsh.initialDone)

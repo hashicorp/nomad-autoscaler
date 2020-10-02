@@ -27,8 +27,10 @@ const (
 // a job and task group.
 type jobScaleStatusHandler struct {
 	client *api.Client
-	jobID  string
 	logger hclog.Logger
+
+	namespace string
+	jobID     string
 
 	// scaleStatus is the internal reflection of the response objects from the
 	// job scale status API.
@@ -49,11 +51,12 @@ type jobScaleStatusHandler struct {
 	lastUpdated int64
 }
 
-func newJobScaleStatusHandler(client *api.Client, jobID string, logger hclog.Logger) *jobScaleStatusHandler {
+func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog.Logger) *jobScaleStatusHandler {
 	return &jobScaleStatusHandler{
 		client:      client,
 		initialDone: make(chan bool),
 		jobID:       jobID,
+		namespace:   ns,
 		logger:      logger.With(configKeyJobID, jobID),
 	}
 }
@@ -123,7 +126,11 @@ func (jsh *jobScaleStatusHandler) start() {
 	jsh.logger.Debug("starting job status handler")
 	jsh.isRunning = true
 
-	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
+	q := &api.QueryOptions{
+		Namespace: jsh.namespace,
+		WaitTime:  5 * time.Minute,
+		WaitIndex: 1,
+	}
 
 	for {
 		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)

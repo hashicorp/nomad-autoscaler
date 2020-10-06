@@ -11,6 +11,10 @@ type ScalingPolicy struct {
 	// the policy source this will be sourced in different manners.
 	ID string
 
+	Type string
+
+	Priority int
+
 	// Min forms a lower bound at which the target should never be asked to
 	// break. The autoscaler will actively adjust recommendations to ensure
 	// this value is not violated.

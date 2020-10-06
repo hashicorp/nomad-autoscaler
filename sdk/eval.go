@@ -1,11 +1,19 @@
 package sdk
 
+import (
+	"time"
+
+	"github.com/hashicorp/nomad-autoscaler/helper/uuid"
+)
+
 // ScalingEvaluation forms an individual analysis undertaken by the autoscaler
 // in order to determine the desired state of a target.
 type ScalingEvaluation struct {
+	ID               string
 	Policy           *ScalingPolicy
 	TargetStatus     *TargetStatus
 	CheckEvaluations []*ScalingCheckEvaluation
+	CreateTime       time.Time
 }
 
 // NewScalingEvaluation creates a new ScalingEvaluation based off the passed
@@ -14,7 +22,12 @@ type ScalingEvaluation struct {
 func NewScalingEvaluation(p *ScalingPolicy, status *TargetStatus) *ScalingEvaluation {
 
 	// Create the base eval.
-	eval := ScalingEvaluation{Policy: p, TargetStatus: status}
+	eval := ScalingEvaluation{
+		ID:           uuid.Generate(),
+		Policy:       p,
+		TargetStatus: status,
+		CreateTime:   time.Now().UTC(),
+	}
 
 	// Iterate the policy checks and add then to the eval.
 	for _, check := range p.Checks {

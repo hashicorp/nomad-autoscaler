@@ -104,18 +104,26 @@ func TestBroker(t *testing.T) {
 	assert.NoError(err)
 
 	// Wait for work that will arrive after 1s.
+	eval4 := &sdk.ScalingEvaluation{
+		ID: uuid.Generate(),
+		Policy: &sdk.ScalingPolicy{
+			ID:   uuid.Generate(),
+			Type: "horizontal",
+		},
+	}
 	go func() {
 		time.Sleep(time.Second)
-		b.Enqueue(eval1)
+		b.Enqueue(eval4)
 	}()
+	// Dequeue will block until eval4 is enqueued.
 	e, token, err = b.Dequeue(ctx, "horizontal")
 	assert.NoError(err)
-	assert.Equal(eval1, e)
+	assert.Equal(eval4, e)
 	assert.NotEmpty(token)
-
+	// Ack eval.
 	b.Ack(e.ID, token)
 
-	// Wait for work with 1 second timeout
+	// Wait for work, but timeout afer 1s.
 	ctxTO, cancelTO := context.WithTimeout(context.Background(), time.Second)
 	defer cancelTO()
 	e, token, err = b.Dequeue(ctxTO, "horizontal")

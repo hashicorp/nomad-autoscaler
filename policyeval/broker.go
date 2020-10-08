@@ -23,12 +23,15 @@ type Broker struct {
 	// h is a heap that holds evaluations that are ready to be evaluated.
 	pendingEvals map[string]PendingEvaluations
 
+	// enqueuedEvals and enqueuedPolicies are indexes to quick find if an eval
+	// or a policy is waiting be evaluated.
 	enqueuedEvals    map[string]int
 	enqueuedPolicies map[string]string
 
-	// unack is a map of evalID to an un-acknowledged evaluation
+	// unack tracks evaluations that have not been ack'd yet.
 	unack map[string]*unackEval
 
+	// waiting tracks Dequeue requests that are blocked waiting for work.
 	waiting map[string]chan struct{}
 }
 
@@ -55,40 +58,48 @@ func NewBroker(l hclog.Logger, timeout time.Duration, deliveryLimit int) *Broker
 func (b *Broker) Enqueue(eval *sdk.ScalingEvaluation) {
 	b.l.Lock()
 	defer b.l.Unlock()
+	b.enqueueLocked(eval, "")
+}
 
-	b.logger.Info("enqueue", "eval_id", eval.ID, "policy_id", eval.Policy.ID)
+func (b *Broker) enqueueLocked(eval *sdk.ScalingEvaluation, token string) {
+	b.logger.Debug("enqueue", "eval_id", eval.ID, "policy_id", eval.Policy.ID, "token", token)
 
 	// Check if eval is already enqueued.
 	if _, ok := b.enqueuedEvals[eval.ID]; ok {
-		return
+		if token == "" {
+			b.logger.Debug("already enqueued")
+			return
+		}
+	} else {
+		b.enqueuedEvals[eval.ID] = 0
 	}
-
-	b.enqueuedEvals[eval.ID] = 0
 
 	// Get pending heap for the policy type.
 	queue := eval.Policy.Type
 	pending, ok := b.pendingEvals[eval.Policy.Type]
 	if !ok {
+		// Initialize pending heap and waiting channel.
 		pending = PendingEvaluations{}
 		if _, ok := b.waiting[queue]; !ok {
 			b.waiting[queue] = make(chan struct{}, 1)
 		}
 	}
 
-	// Check if an eval for the same is already enqueued.
-	pendingEvalID := b.enqueuedPolicies[eval.Policy.ID]
-
-	if pendingEvalID == "" {
+	// Check if an eval for the same policy is already enqueued.
+	pendingEvalID, ok := b.enqueuedPolicies[eval.Policy.ID]
+	if !ok {
 		b.enqueuedPolicies[eval.Policy.ID] = eval.ID
-	} else if pendingEvalID != eval.ID {
-		// Policy is already in an eval waiting to be evaluated, but this is a
-		// new eval, and the policy may have changed. So update the eval in the
-		// pending heap.
-		i := pending.IndexOfPolicyID(eval.Policy.ID)
-		if i >= 0 {
-			pending[i] = eval
-			heap.Fix(&pending, i)
-			return
+	} else {
+		if pendingEvalID != eval.ID {
+			// Policy is waiting to be evaluated, but this could be a newer
+			// evaluation request and the policy could have changed.
+			// So update the pending heap with the new eval.
+			i, pendingEval := pending.GetEvaluation(pendingEvalID)
+			if pendingEval != nil && eval.CreateTime.After(pendingEval.CreateTime) {
+				pending[i] = eval
+				heap.Fix(&pending, i)
+				return
+			}
 		}
 	}
 
@@ -100,53 +111,84 @@ func (b *Broker) Enqueue(eval *sdk.ScalingEvaluation) {
 	case b.waiting[queue] <- struct{}{}:
 	default:
 	}
+
+	b.logger.Debug("enqueued", "eval_id", eval.ID, "policy_id", eval.Policy.ID)
 }
 
 func (b *Broker) Dequeue(ctx context.Context, queue string) (*sdk.ScalingEvaluation, string, error) {
-	for {
-		pending, ok := b.pendingEvals[queue]
-		if !ok {
+	b.logger.Debug("dequeue", "queue", queue)
+
+	eval := b.findWork(queue)
+	for eval == nil {
+		b.logger.Debug("eval is nil")
+		proceed := b.waitForWork(ctx, queue)
+		if !proceed {
 			return nil, "", nil
 		}
 
-		// Pop heap and update reference.
-		raw := heap.Pop(&pending)
-		b.pendingEvals[queue] = pending
-		eval := raw.(*sdk.ScalingEvaluation)
+		eval = b.findWork(queue)
+	}
 
-		// Generate a UUID for the token.
-		token := uuid.Generate()
+	b.l.Lock()
+	defer b.l.Unlock()
 
-		// Setup Nack timer.
-		nackTimer := time.AfterFunc(b.nackTimeout, func() {
-			b.Nack(eval.ID, token)
-		})
+	// Generate an UUID for the token.
+	token := uuid.Generate()
 
-		// Add to the unack queue.
-		b.unack[eval.ID] = &unackEval{
-			Eval:      eval,
-			Token:     token,
-			NackTimer: nackTimer,
-		}
+	// Setup Nack timer.
+	// Eval needs to be Ack'd before this timer finishes.
+	nackTimer := time.AfterFunc(b.nackTimeout, func() {
+		b.Nack(eval.ID, token)
+	})
 
-		if eval != nil {
-			return eval, token, nil
-		}
+	// Mark eval as not Ack'd yet.
+	b.unack[eval.ID] = &unackEval{
+		Eval:      eval,
+		Token:     token,
+		NackTimer: nackTimer,
+	}
 
-		// Otherwise block until there's work or ctx is canceled.
-		b.l.Lock()
-		waitCh, ok := b.waiting[queue]
-		if !ok {
-			waitCh = make(chan struct{}, 1)
-			b.waiting[queue] = waitCh
-		}
-		b.l.Unlock()
+	// Increment dequeue counter.
+	b.enqueuedEvals[eval.ID] += 1
 
-		select {
-		case <-ctx.Done():
-			return nil, "", nil
-		case <-waitCh:
-		}
+	b.logger.Debug("dequeued", "eval_id", eval.ID, "queue", queue, "token", token)
+	return eval, token, nil
+}
+
+func (b *Broker) findWork(queue string) *sdk.ScalingEvaluation {
+	b.l.Lock()
+	defer b.l.Unlock()
+
+	pending, ok := b.pendingEvals[queue]
+	if !ok {
+		return nil
+	}
+
+	if pending.Len() == 0 {
+		return nil
+	}
+
+	// Pop heap and update reference.
+	raw := heap.Pop(&pending)
+	b.pendingEvals[queue] = pending
+
+	return raw.(*sdk.ScalingEvaluation)
+}
+
+func (b *Broker) waitForWork(ctx context.Context, queue string) bool {
+	b.l.Lock()
+	waitCh, ok := b.waiting[queue]
+	if !ok {
+		waitCh = make(chan struct{}, 1)
+		b.waiting[queue] = waitCh
+	}
+	b.l.Unlock()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-waitCh:
+		return true
 	}
 }
 
@@ -154,25 +196,28 @@ func (b *Broker) Ack(evalID, token string) error {
 	b.l.Lock()
 	defer b.l.Unlock()
 
+	b.logger.Debug("ack", "eval_id", evalID, "token", token)
+
 	// Lookup the unack'd eval.
 	unack, ok := b.unack[evalID]
 	if !ok {
-		return fmt.Errorf("Evaluation ID not found")
+		return fmt.Errorf("evaluation ID not found")
 	}
 	if unack.Token != token {
-		return fmt.Errorf("Token does not match for Evaluation ID")
+		return fmt.Errorf("token does not match for evaluation ID")
 	}
 
-	// Ensure we were able to stop the timer
+	// Ensure we were able to stop the timer.
 	if !unack.NackTimer.Stop() {
-		return fmt.Errorf("Evaluation ID Ack'd after Nack timer expiration")
+		return fmt.Errorf("evaluation ID Ack'd after Nack timer expiration")
 	}
 
-	// Cleanup
+	// Cleanup.
 	delete(b.unack, evalID)
 	delete(b.enqueuedEvals, evalID)
 	delete(b.enqueuedPolicies, unack.Eval.Policy.ID)
 
+	b.logger.Debug("ack'd", "eval_id", evalID, "policy_id", unack.Eval.Policy.ID, "token", token)
 	return nil
 }
 
@@ -180,31 +225,32 @@ func (b *Broker) Nack(evalID, token string) error {
 	b.l.Lock()
 	defer b.l.Unlock()
 
+	b.logger.Debug("nack", "eval_id", evalID)
+
 	// Lookup the unack'd eval
 	unack, ok := b.unack[evalID]
 	if !ok {
-		return fmt.Errorf("Evaluation ID not found")
+		return fmt.Errorf("evaluation ID not found")
 	}
 	if unack.Token != token {
-		return fmt.Errorf("Token does not match for Evaluation ID")
+		return fmt.Errorf("token does not match for evaluation ID")
 	}
 
-	// Stop the timer, doesn't matter if we've missed it
+	// Stop the timer, doesn't matter if we've missed it.
 	unack.NackTimer.Stop()
 
-	// Cleanup
+	// Cleanup.
 	delete(b.unack, evalID)
-	delete(b.enqueuedEvals, evalID)
-	delete(b.enqueuedPolicies, unack.Eval.Policy.ID)
 
-	// Check if we've hit the delivery limit
+	// Check if we've hit the delivery limit.
 	if dequeues := b.enqueuedEvals[evalID]; dequeues >= b.deliveryLimit {
+		b.logger.Debug("eval delivery limit reached", "eval_id", evalID, "policy_id", unack.Eval.Policy.ID, "count", dequeues, "limit", b.deliveryLimit)
 		// TODO(luiz): probably need a failed queue as well
-		return fmt.Errorf("eval delivery retry limit reached")
+		return nil
 	}
 
-	go b.Enqueue(unack.Eval)
-
+	// Re-enqueue eval to try again.
+	b.enqueueLocked(unack.Eval, token)
 	return nil
 }
 
@@ -256,13 +302,12 @@ func (p PendingEvaluations) Peek() *sdk.ScalingEvaluation {
 	return p[n-1]
 }
 
-// IndexOfPolicyID returns the index of the policy eval with a give policy ID.
-func (p PendingEvaluations) IndexOfPolicyID(policyID string) int {
+func (p PendingEvaluations) GetEvaluation(evalID string) (int, *sdk.ScalingEvaluation) {
 	for i, eval := range p {
-		if eval.Policy.ID == policyID {
-			return i
+		if eval.ID == evalID {
+			return i, eval
 		}
 	}
 
-	return -1
+	return -1, nil
 }

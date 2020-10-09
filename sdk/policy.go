@@ -2,6 +2,11 @@ package sdk
 
 import "time"
 
+const (
+	ScalingPolicyTypeCluster    = "cluster"
+	ScalingPolicyTypeHorizontal = "horizontal"
+)
+
 // ScalingPolicy is the internal representation of a scaling document and
 // encompasses all the required information for the autoscaler to perform
 // scaling evaluations on a target.
@@ -11,6 +16,7 @@ type ScalingPolicy struct {
 	// the policy source this will be sourced in different manners.
 	ID string
 
+	// Type is the type of scaling this policy will perform.
 	Type string
 
 	Priority int
@@ -118,6 +124,7 @@ func (t *ScalingPolicyTarget) IsNodePoolTarget() bool {
 // translate into the internal struct but use this.
 type FileDecodeScalingPolicy struct {
 	Enabled bool                 `hcl:"enabled,optional"`
+	Type    string               `hcl:"type,optional"`
 	Min     int64                `hcl:"min,optional"`
 	Max     int64                `hcl:"max"`
 	Doc     *FileDecodePolicyDoc `hcl:"policy,block"`
@@ -147,6 +154,7 @@ func (fpd *FileDecodeScalingPolicy) Translate(p *ScalingPolicy) {
 	p.Min = fpd.Min
 	p.Max = fpd.Max
 	p.Enabled = fpd.Enabled
+	p.Type = fpd.Type
 	p.Cooldown = fpd.Doc.Cooldown
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
 	p.Target = fpd.Doc.Target

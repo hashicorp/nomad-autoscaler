@@ -15,6 +15,12 @@ func decodeFile(file string, p *sdk.ScalingPolicy) error {
 		return err
 	}
 
+	// Assume file policies are cluster policies unless specificied.
+	// TODO: revisit this assumption.
+	if decodePolicy.Type == "" {
+		decodePolicy.Type = sdk.ScalingPolicyTypeCluster
+	}
+
 	if decodePolicy.Doc.CooldownHCL != "" {
 		d, err := time.ParseDuration(decodePolicy.Doc.CooldownHCL)
 		if err != nil {

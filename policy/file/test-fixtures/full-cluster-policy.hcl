@@ -1,6 +1,7 @@
 enabled = true
 min     = 10
 max     = 100
+type    = "cluster"
 
 policy {
 
@@ -18,8 +19,8 @@ policy {
   }
 
   check "memory_prom" {
-    source    = "prometheus"
-    query     = "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)"
+    source = "prometheus"
+    query  = "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)"
 
     strategy "target-value" {
       target = "80"
@@ -27,8 +28,8 @@ policy {
   }
 
   target "aws-asg" {
-      aws_asg_name        = "my-target-asg"
-      node_class          = "high-memory"
-      node_drain_deadline = "15m"
+    aws_asg_name        = "my-target-asg"
+    node_class          = "high-memory"
+    node_drain_deadline = "15m"
   }
 }

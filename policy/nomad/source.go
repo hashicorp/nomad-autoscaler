@@ -199,6 +199,12 @@ func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 		return
 	}
 
+	// Assume a policy coming from Nomad without a type is a horizontal policy.
+	// TODO: review this assumption.
+	if p.Type == "" {
+		p.Type = sdk.ScalingPolicyTypeHorizontal
+	}
+
 	// Apply the cooldown and evaluation interval defaults if the operator did
 	// not pass any values.
 	s.policyProcessor.ApplyPolicyDefaults(p)

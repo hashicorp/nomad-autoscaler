@@ -21,6 +21,7 @@ func parsePolicy(p *api.ScalingPolicy) sdk.ScalingPolicy {
 
 	to := sdk.ScalingPolicy{
 		ID:      p.ID,
+		Type:    p.Type,
 		Max:     *p.Max, // Nomad always ensures Max is populated.
 		Enabled: true,
 		Checks:  parseChecks(p.Policy[keyChecks]),

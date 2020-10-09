@@ -21,6 +21,7 @@ func Test_decodeFile(t *testing.T) {
 			inputPolicy: &sdk.ScalingPolicy{},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				ID:                 "",
+				Type:               sdk.ScalingPolicyTypeCluster,
 				Enabled:            true,
 				Min:                10,
 				Max:                100,
@@ -68,6 +69,7 @@ func Test_decodeFile(t *testing.T) {
 			inputPolicy: &sdk.ScalingPolicy{},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				ID:                 "",
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				Enabled:            true,
 				Min:                1,
 				Max:                10,

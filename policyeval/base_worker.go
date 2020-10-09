@@ -19,38 +19,37 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-const (
-	dequeueTimeout = 500 * time.Millisecond
-	policyType     = "horizontal"
-)
-
 // errTargetNotReady is used by a check handler to indicate the policy target
 // is not ready.
 var errTargetNotReady = errors.New("target not ready")
 
 // Worker is responsible for executing a policy evaluation request.
-type HorizontalAppWorker struct {
+type BaseWorker struct {
 	id            string
 	logger        hclog.Logger
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
 	broker        *Broker
+	queue         string
 }
 
-// NewHorizontalAppWorker returns a new HorizontalAppWorker instance.
-func NewHorizontalAppWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager, b *Broker) *HorizontalAppWorker {
+// NewBaseWorker returns a new BaseWorker instance.
+func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager, b *Broker, queue string) *BaseWorker {
 	id := uuid.Generate()
 
-	return &HorizontalAppWorker{
+	return &BaseWorker{
 		id:            id,
-		logger:        l.Named("worker").With("id", id),
+		logger:        l.Named("worker").With("id", id, "queue", queue),
 		pluginManager: pm,
 		policyManager: m,
 		broker:        b,
+		queue:         queue,
 	}
 }
 
-func (w *HorizontalAppWorker) Run(ctx context.Context) {
+func (w *BaseWorker) Run(ctx context.Context) {
+	w.logger.Debug("starting worker")
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -59,7 +58,7 @@ func (w *HorizontalAppWorker) Run(ctx context.Context) {
 		default:
 		}
 
-		eval, token, err := w.broker.Dequeue(ctx, policyType)
+		eval, token, err := w.broker.Dequeue(ctx, w.queue)
 		if err != nil {
 			w.logger.Warn("failed to dequeue evaluation", "err", err)
 			continue
@@ -76,7 +75,7 @@ func (w *HorizontalAppWorker) Run(ctx context.Context) {
 			"policy_id", eval.Policy.ID)
 
 		if err := w.handlePolicy(ctx, eval); err != nil {
-			logger.Warn("failed to evaluate policy", "err", err)
+			logger.Error("failed to evaluate policy", "err", err)
 
 			// Notify broker that policy eval was not successful.
 			if err := w.broker.Nack(eval.ID, token); err != nil {
@@ -89,13 +88,11 @@ func (w *HorizontalAppWorker) Run(ctx context.Context) {
 		if err := w.broker.Ack(eval.ID, token); err != nil {
 			logger.Warn("failed to ACK policy evaluation", "err", err)
 		}
-
 	}
-
 }
 
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
-func (w *HorizontalAppWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) error {
+func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) error {
 
 	// Record the start time of the eval portion of this function. The labels
 	// are also used across multiple metrics, so define them.
@@ -194,8 +191,6 @@ func (w *HorizontalAppWorker) handlePolicy(ctx context.Context, eval *sdk.Scalin
 		return nil
 	case r := <-winningHandler.results():
 		if r.err != nil {
-			logger.Error("failed to execute check",
-				"error", r.err, "check", winningHandler.checkEval.Check.Name)
 			return r.err
 		}
 		if r.action == nil {
@@ -266,7 +261,7 @@ func (h *checkHandler) results() <-chan checkHandlerResult {
 func (h *checkHandler) start(ctx context.Context) {
 	defer close(h.resultCh)
 
-	h.logger.Info("received policy check for evaluation")
+	h.logger.Debug("received policy check for evaluation")
 
 	result := checkHandlerResult{}
 
@@ -324,12 +319,12 @@ func (h *checkHandler) start(ctx context.Context) {
 	sort.Sort(h.checkEval.Metrics)
 
 	if len(h.checkEval.Metrics) == 0 {
-		h.logger.Info("no metrics available")
+		h.logger.Warn("no metrics available")
 		return
 	}
 
 	// Calculate new count using check's Strategy.
-	h.logger.Info("calculating new count", "count", currentStatus.Count)
+	h.logger.Debug("calculating new count", "count", currentStatus.Count)
 	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)
 	if err != nil {
 		result.err = fmt.Errorf("failed to execute strategy: %v", err)
@@ -360,7 +355,7 @@ func (h *checkHandler) start(ctx context.Context) {
 		if minMaxAction != nil {
 			h.checkEval.Action = minMaxAction
 		} else {
-			h.logger.Info("nothing to do")
+			h.logger.Debug("nothing to do")
 			result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
 			h.resultCh <- result
 			return
@@ -372,7 +367,7 @@ func (h *checkHandler) start(ctx context.Context) {
 
 	// Skip action if count doesn't change.
 	if currentStatus.Count == h.checkEval.Action.Count {
-		h.logger.Info("nothing to do", "from", currentStatus.Count, "to", h.checkEval.Action.Count)
+		h.logger.Debug("nothing to do", "from", currentStatus.Count, "to", h.checkEval.Action.Count)
 
 		result.action = &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}
 		h.resultCh <- result
@@ -402,7 +397,7 @@ func (h *checkHandler) start(ctx context.Context) {
 	}
 
 	if h.checkEval.Action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		h.logger.Info("registering scaling event",
+		h.logger.Debug("registering scaling event",
 			"count", currentStatus.Count, "reason", h.checkEval.Action.Reason, "meta", h.checkEval.Action.Meta)
 	} else {
 		h.logger.Info("scaling target",
@@ -431,7 +426,7 @@ func (h *checkHandler) start(ctx context.Context) {
 // functionality.
 func (h *checkHandler) runTargetStatus(targetImpl target.Target) (*sdk.TargetStatus, error) {
 
-	h.logger.Info("fetching current count")
+	h.logger.Debug("fetching current count")
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
@@ -454,7 +449,7 @@ func (h *checkHandler) runTargetScale(targetImpl target.Target, action sdk.Scali
 // runAPMQuery wraps the apm.Query call to provide operational functionality.
 func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (sdk.TimestampedMetrics, error) {
 
-	h.logger.Info("querying source", "query", h.checkEval.Check.Query, "source", h.checkEval.Check.Source)
+	h.logger.Debug("querying source", "query", h.checkEval.Check.Query, "source", h.checkEval.Check.Source)
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: h.checkEval.Check.Source}, {Name: "policy_id", Value: h.policy.ID}}

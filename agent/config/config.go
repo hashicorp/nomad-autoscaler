@@ -43,6 +43,10 @@ type Agent struct {
 	// Policy is the configuration used to setup the policy manager.
 	Policy *Policy `hcl:"policy,block"`
 
+	// PolicyWorkers is the configuration used to define the number of workers
+	// to start for each policy type.
+	PolicyWorkers *PolicyWorkers `hcl:"policy_workers,block"`
+
 	// Telemetry is the configuration used to setup metrics collection.
 	Telemetry *Telemetry `hcl:"telemetry,block"`
 
@@ -247,6 +251,16 @@ type Policy struct {
 	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
 }
 
+// PolicyWorkers holds the configuration for the number of policy evaluation
+// workers for each policy type.
+type PolicyWorkers struct {
+	ClusterPtr *int `hcl:"cluster,optional" json:"-"`
+	Cluster    int
+
+	HorizontalPtr *int `hcl:"horizontal,optional" json:"-"`
+	Horizontal    int
+}
+
 const (
 	// defaultLogLevel is the default log level used for the Autoscaler agent.
 	defaultLogLevel = "info"
@@ -280,6 +294,14 @@ const (
 	// defaultTelemetryCollectionInterval is the default telemetry metrics
 	// collection interval.
 	defaultTelemetryCollectionInterval = 1 * time.Second
+
+	// defaultClusterPolicyWorkers is the default number of workers for cluster
+	// policies.
+	defaultClusterPolicyWorkers = 10
+
+	// defaultHorizontalPolicyWorkers is the default number of workers for
+	// horizontal policies.
+	defaultHorizontalPolicyWorkers = 10
 )
 
 // Default is used to generate a new default agent configuration.
@@ -309,6 +331,10 @@ func Default() (*Agent, error) {
 		Policy: &Policy{
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
+		},
+		PolicyWorkers: &PolicyWorkers{
+			Cluster:    defaultClusterPolicyWorkers,
+			Horizontal: defaultHorizontalPolicyWorkers,
 		},
 		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
@@ -343,6 +369,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.Policy != nil {
 		result.Policy = result.Policy.merge(b.Policy)
+	}
+
+	if b.PolicyWorkers != nil {
+		result.PolicyWorkers = result.PolicyWorkers.merge(b.PolicyWorkers)
 	}
 
 	if len(result.APMs) == 0 && len(b.APMs) != 0 {
@@ -542,6 +572,22 @@ func (p *Policy) merge(b *Policy) *Policy {
 	return &result
 }
 
+func (pw *PolicyWorkers) merge(in *PolicyWorkers) *PolicyWorkers {
+	result := *pw
+
+	if in.ClusterPtr != nil {
+		result.ClusterPtr = in.ClusterPtr
+		result.Cluster = in.Cluster
+	}
+
+	if in.HorizontalPtr != nil {
+		result.HorizontalPtr = in.HorizontalPtr
+		result.Horizontal = in.Horizontal
+	}
+
+	return &result
+}
+
 // pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
 // same name, the configs are merged.
 func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
@@ -618,6 +664,15 @@ func parseFile(file string, cfg *Agent) error {
 				return err
 			}
 			cfg.Telemetry.PrometheusRetentionTime = d
+		}
+	}
+
+	if cfg.PolicyWorkers != nil {
+		if cfg.PolicyWorkers.ClusterPtr != nil {
+			cfg.PolicyWorkers.Cluster = *cfg.PolicyWorkers.ClusterPtr
+		}
+		if cfg.PolicyWorkers.HorizontalPtr != nil {
+			cfg.PolicyWorkers.Horizontal = *cfg.PolicyWorkers.HorizontalPtr
 		}
 	}
 

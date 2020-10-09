@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -15,6 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
+	"github.com/hashicorp/nomad-autoscaler/policyeval"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
@@ -26,6 +28,7 @@ type Agent struct {
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
 	httpServer    *agentServer.Server
+	evalBroker    *policyeval.Broker
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
@@ -70,6 +73,10 @@ func (a *Agent) Run() error {
 	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
 
+	// Launch eval broker and workers.
+	a.evalBroker = policyeval.NewBroker(a.logger.ResetNamed("policy_eval"), 5*time.Minute, 3)
+	a.initWorkers(ctx)
+
 	// Launch the eval handler.
 	go a.runEvalHandler(ctx, policyEvalCh)
 
@@ -85,9 +92,24 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEval
 			a.logger.Info("context closed, shutting down eval handler")
 			return
 		case policyEval := <-evalCh:
-			w := policy.NewWorker(a.logger, a.pluginManager, a.policyManager)
-			go w.HandlePolicy(ctx, policyEval)
+			a.evalBroker.Enqueue(policyEval)
 		}
+	}
+}
+
+func (a *Agent) initWorkers(ctx context.Context) {
+	policyEvalLogger := a.logger.ResetNamed("policy_eval")
+
+	for i := 0; i < a.config.PolicyWorkers.Horizontal; i++ {
+		w := policyeval.NewBaseWorker(
+			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "horizontal")
+		go w.Run(ctx)
+	}
+
+	for i := 0; i < a.config.PolicyWorkers.Cluster; i++ {
+		w := policyeval.NewBaseWorker(
+			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "cluster")
+		go w.Run(ctx)
 	}
 }
 

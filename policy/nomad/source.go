@@ -108,6 +108,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			for _, p := range policies {
 				if p.Enabled {
 					policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				} else {
+					s.log.Info("policy not enabled", "policy_id", p.ID)
 				}
 			}
 

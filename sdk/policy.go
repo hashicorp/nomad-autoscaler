@@ -19,6 +19,7 @@ type ScalingPolicy struct {
 	// Type is the type of scaling this policy will perform.
 	Type string
 
+	// Priority controls the order in which a policy is picked for evaluation.
 	Priority int
 
 	// Min forms a lower bound at which the target should never be asked to

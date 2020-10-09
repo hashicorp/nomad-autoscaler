@@ -105,7 +105,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	logger := w.logger.With("policy_id", eval.Policy.ID, "target", eval.Policy.Target.Name)
 	checks := make(map[string]*checkHandler)
 
-	logger.Info("received policy for evaluation")
+	logger.Debug("received policy for evaluation")
 
 	handlersCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -163,7 +163,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
 
 	if winningHandler == nil || winningAction.Direction == sdk.ScaleDirectionNone {
-		logger.Info("no checks need to be executed")
+		logger.Debug("no checks need to be executed")
 		return nil
 	}
 

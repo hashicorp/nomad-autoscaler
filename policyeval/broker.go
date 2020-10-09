@@ -12,18 +12,26 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+// Broker stores, dedups and control access to policy evaluation requests.
 type Broker struct {
 	logger hclog.Logger
 
 	l sync.RWMutex
 
-	nackTimeout   time.Duration
+	// nackTimeout is the time required for a dequeued eval to be ack'd.
+	nackTimeout time.Duration
+
+	// deliveryLimit is the number of times an eval can be dequeued before
+	// being considered as failed.
 	deliveryLimit int
 
-	// h is a heap that holds evaluations that are ready to be evaluated.
+	// pendingEvals holds evaluations that are ready to be picked for
+	// further evaluation.
+	// Each key represents a different queue and the value is a heap holding
+	// the evals in order of priority and create time.
 	pendingEvals map[string]PendingEvaluations
 
-	// enqueuedEvals and enqueuedPolicies are indexes to quick find if an eval
+	// enqueuedEvals and enqueuedPolicies are indexes to quickly find if an eval
 	// or a policy is waiting be evaluated.
 	enqueuedEvals    map[string]int
 	enqueuedPolicies map[string]string
@@ -42,9 +50,10 @@ type unackEval struct {
 	NackTimer *time.Timer
 }
 
+// NewBroker returns a new Broker object.
 func NewBroker(l hclog.Logger, timeout time.Duration, deliveryLimit int) *Broker {
 	return &Broker{
-		logger:           l.Named("eval_broker"),
+		logger:           l.Named("broker"),
 		nackTimeout:      timeout,
 		deliveryLimit:    deliveryLimit,
 		pendingEvals:     make(map[string]PendingEvaluations),
@@ -55,6 +64,7 @@ func NewBroker(l hclog.Logger, timeout time.Duration, deliveryLimit int) *Broker
 	}
 }
 
+// Enqueue adds an eval to the broker.
 func (b *Broker) Enqueue(eval *sdk.ScalingEvaluation) {
 	b.l.Lock()
 	defer b.l.Unlock()
@@ -62,21 +72,26 @@ func (b *Broker) Enqueue(eval *sdk.ScalingEvaluation) {
 }
 
 func (b *Broker) enqueueLocked(eval *sdk.ScalingEvaluation, token string) {
-	b.logger.Debug("enqueue", "eval_id", eval.ID, "policy_id", eval.Policy.ID, "token", token)
+	logger := b.logger.With(
+		"eval_id", eval.ID, "policy_id", eval.Policy.ID,
+		"queue", eval.Policy.Type, "token", token)
+
+	logger.Debug("enqueue eval")
 
 	// Check if eval is already enqueued.
 	if _, ok := b.enqueuedEvals[eval.ID]; ok {
 		if token == "" {
-			b.logger.Debug("already enqueued")
+			logger.Debug("eval already enqueued")
 			return
 		}
 	} else {
 		b.enqueuedEvals[eval.ID] = 0
 	}
 
-	// Get pending heap for the policy type.
 	queue := eval.Policy.Type
-	pending, ok := b.pendingEvals[eval.Policy.Type]
+
+	// Get pending heap for the policy type.
+	pending, ok := b.pendingEvals[queue]
 	if !ok {
 		// Initialize pending heap and waiting channel.
 		pending = PendingEvaluations{}
@@ -89,38 +104,44 @@ func (b *Broker) enqueueLocked(eval *sdk.ScalingEvaluation, token string) {
 	pendingEvalID, ok := b.enqueuedPolicies[eval.Policy.ID]
 	if !ok {
 		b.enqueuedPolicies[eval.Policy.ID] = eval.ID
-	} else {
-		if pendingEvalID != eval.ID {
-			// Policy is waiting to be evaluated, but this could be a newer
-			// evaluation request and the policy could have changed.
-			// So update the pending heap with the new eval.
-			i, pendingEval := pending.GetEvaluation(pendingEvalID)
-			if pendingEval != nil && eval.CreateTime.After(pendingEval.CreateTime) {
+	} else if pendingEvalID != eval.ID {
+		logger.Debug("policy already enqueued")
+
+		// Policy is waiting to be evaluated, but this could be a newer
+		// evaluation request and the policy could have changed. So update
+		// the pending heap with the new eval.
+		i, pendingEval := pending.GetEvaluation(pendingEvalID)
+		if pendingEval != nil {
+			if eval.CreateTime.After(pendingEval.CreateTime) {
+				logger.Debug("new eval is newer, policy updated")
+				b.enqueuedPolicies[eval.Policy.ID] = eval.ID
 				pending[i] = eval
 				heap.Fix(&pending, i)
-				return
 			}
+			return
 		}
 	}
 
 	heap.Push(&pending, eval)
 	b.pendingEvals[queue] = pending
 
-	// Unblock any blocked dequeues
+	// Unblock any blocked dequeues.
 	select {
 	case b.waiting[queue] <- struct{}{}:
 	default:
 	}
 
-	b.logger.Debug("enqueued", "eval_id", eval.ID, "policy_id", eval.Policy.ID)
+	logger.Debug("eval enqueued")
 }
 
+// Dequeue is used to retrieve an eval from the broker.
 func (b *Broker) Dequeue(ctx context.Context, queue string) (*sdk.ScalingEvaluation, string, error) {
-	b.logger.Debug("dequeue", "queue", queue)
+	logger := b.logger.With("queue", queue)
+
+	logger.Debug("dequeue eval")
 
 	eval := b.findWork(queue)
 	for eval == nil {
-		b.logger.Debug("eval is nil")
 		proceed := b.waitForWork(ctx, queue)
 		if !proceed {
 			return nil, "", nil
@@ -151,10 +172,12 @@ func (b *Broker) Dequeue(ctx context.Context, queue string) (*sdk.ScalingEvaluat
 	// Increment dequeue counter.
 	b.enqueuedEvals[eval.ID] += 1
 
-	b.logger.Debug("dequeued", "eval_id", eval.ID, "queue", queue, "token", token)
+	logger.Debug("eval dequeued",
+		"eval_id", eval.ID, "policy_id", eval.Policy.ID, "token", token)
 	return eval, token, nil
 }
 
+// findWork returns an eval from the queue heap or nil if there's no eval available.
 func (b *Broker) findWork(queue string) *sdk.ScalingEvaluation {
 	b.l.Lock()
 	defer b.l.Unlock()
@@ -175,7 +198,10 @@ func (b *Broker) findWork(queue string) *sdk.ScalingEvaluation {
 	return raw.(*sdk.ScalingEvaluation)
 }
 
+// waitForWork blocks until queue receives an item or the context is canceled.
 func (b *Broker) waitForWork(ctx context.Context, queue string) bool {
+	b.logger.Debug("waiting for eval", "queue", queue)
+
 	b.l.Lock()
 	waitCh, ok := b.waiting[queue]
 	if !ok {
@@ -192,11 +218,14 @@ func (b *Broker) waitForWork(ctx context.Context, queue string) bool {
 	}
 }
 
+// Ack is used to acknowledge the successful completion of an eval.
 func (b *Broker) Ack(evalID, token string) error {
+	logger := b.logger.With("eval_id", evalID, "token", token)
+
+	logger.Debug("ack eval", "eval_id", evalID, "token", token)
+
 	b.l.Lock()
 	defer b.l.Unlock()
-
-	b.logger.Debug("ack", "eval_id", evalID, "token", token)
 
 	// Lookup the unack'd eval.
 	unack, ok := b.unack[evalID]
@@ -217,15 +246,18 @@ func (b *Broker) Ack(evalID, token string) error {
 	delete(b.enqueuedEvals, evalID)
 	delete(b.enqueuedPolicies, unack.Eval.Policy.ID)
 
-	b.logger.Debug("ack'd", "eval_id", evalID, "policy_id", unack.Eval.Policy.ID, "token", token)
+	b.logger.Debug("eval ack'd", "policy_id", unack.Eval.Policy.ID)
 	return nil
 }
 
+// Nack is used to mark an eval as not completed.
 func (b *Broker) Nack(evalID, token string) error {
+	logger := b.logger.With("eval_id", evalID, "token", token)
+
+	logger.Debug("nack eval")
+
 	b.l.Lock()
 	defer b.l.Unlock()
-
-	b.logger.Debug("nack", "eval_id", evalID)
 
 	// Lookup the unack'd eval
 	unack, ok := b.unack[evalID]
@@ -236,6 +268,8 @@ func (b *Broker) Nack(evalID, token string) error {
 		return fmt.Errorf("token does not match for evaluation ID")
 	}
 
+	logger = logger.With("policy_id", unack.Eval.Policy.ID)
+
 	// Stop the timer, doesn't matter if we've missed it.
 	unack.NackTimer.Stop()
 
@@ -244,13 +278,13 @@ func (b *Broker) Nack(evalID, token string) error {
 
 	// Check if we've hit the delivery limit.
 	if dequeues := b.enqueuedEvals[evalID]; dequeues >= b.deliveryLimit {
-		b.logger.Debug("eval delivery limit reached", "eval_id", evalID, "policy_id", unack.Eval.Policy.ID, "count", dequeues, "limit", b.deliveryLimit)
-		// TODO(luiz): probably need a failed queue as well
+		logger.Warn("eval delivery limit reached", "count", dequeues, "limit", b.deliveryLimit)
 		return nil
 	}
 
 	// Re-enqueue eval to try again.
 	b.enqueueLocked(unack.Eval, token)
+	logger.Info("eval nack'd, retrying it")
 	return nil
 }
 

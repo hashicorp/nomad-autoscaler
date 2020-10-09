@@ -130,6 +130,11 @@ func TestNewScalingEvaluation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := NewScalingEvaluation(tc.inputScalingPolicy, tc.inputTargetStatus)
+			assert.NotEmpty(t, actualOutput.ID)
+			assert.NotZero(t, actualOutput.CreateTime)
+			// Fill in randomly generated values
+			tc.expectedOutput.ID = actualOutput.ID
+			tc.expectedOutput.CreateTime = actualOutput.CreateTime
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}

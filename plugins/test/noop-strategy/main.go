@@ -5,6 +5,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -24,18 +25,19 @@ type Noop struct {
 	logger hclog.Logger
 }
 
-func (n *Noop) Run(req strategy.RunRequest) (strategy.RunResponse, error) {
-	n.logger.Info("Run")
-	return strategy.RunResponse{Actions: []strategy.Action{}}, nil
+func (n *Noop) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	n.logger.Debug("run")
+	eval.Action = nil
+	return eval, nil
 }
 
 func (n *Noop) PluginInfo() (*base.PluginInfo, error) {
-	n.logger.Debug("PluginInfo")
+	n.logger.Debug("plugin info")
 	return pluginInfo, nil
 }
 
 func (n *Noop) SetConfig(config map[string]string) error {
-	n.logger.Debug("SetConfig", "config", config)
+	n.logger.Debug("set config", "config", config)
 	return nil
 }
 

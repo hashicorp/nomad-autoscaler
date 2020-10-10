@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strconv"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -10,6 +12,11 @@ import (
 
 const (
 	pluginName = "noop-strategy"
+
+	runConfigKeyCount     = "count"
+	runConfigKeyReason    = "reason"
+	runConfigKeyError     = "error"
+	runConfigKeyDirection = "direction"
 )
 
 var (
@@ -26,8 +33,25 @@ type Noop struct {
 }
 
 func (n *Noop) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
-	n.logger.Debug("run")
-	eval.Action = nil
+	config := eval.Check.Strategy.Config
+
+	action := &sdk.ScalingAction{
+		Reason: config[runConfigKeyReason],
+		Error:  config[runConfigKeyError] == "true",
+	}
+
+	countStr := config[runConfigKeyCount]
+	action.Count, _ = strconv.ParseInt(countStr, 10, 64)
+
+	if config[runConfigKeyDirection] == "up" {
+		action.Direction = sdk.ScaleDirectionUp
+	} else if config[runConfigKeyDirection] == "down" {
+		action.Direction = sdk.ScaleDirectionDown
+	}
+
+	n.logger.Debug("run", "action", action)
+
+	eval.Action = action
 	return eval, nil
 }
 

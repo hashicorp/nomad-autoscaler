@@ -310,6 +310,9 @@ func (h *checkHandler) start(ctx context.Context) {
 		}
 	}
 
+	// Canonicalize action so plugins don't have to.
+	h.checkEval.Action.Canonicalize()
+
 	// Make sure new count value is within [min, max] limits
 	h.checkEval.Action.CapCount(h.policy.Min, h.policy.Max)
 

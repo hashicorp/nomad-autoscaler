@@ -13,6 +13,35 @@ import (
 )
 
 // Broker stores, dedups and control access to policy evaluation requests.
+//
+// A few notes on the inner workings of the broker:
+//   - `pendingEvals` has a key for every policy type (queue) and a heap of
+//     evals as value.
+//   - `enqueuedEvals` has an eval ID as key and a dequeue counter as value.
+//   - `enqueuedPolicies` has a policy ID as key and the corresponding eval ID
+//     as value.
+//
+//   - evals are either in `pendingEvals` or `unack`, but never in both.
+//   - evals start in `pendingEvals` and move to `unack` when dequeued.
+//   - evals in `unack` are removed when the eval is ACK'd or the delivery
+//     limit is reached.
+//   - evals in `unack` are moved back to `pendingEvals` if the eval is NACK'd.
+//   - the eval is updated if a new eval is enqueued for the same policy.
+//
+//   - eval IDs are stored as keys in `enqueuedEvals` when an eval is enqueued.
+//   - the eval ID key remains in `enqueuedEvals` until the eval is ACK'd, the
+//     delivery limit is reached or a newer eval for the same policy is
+//     enqueued.
+//   - the value for an entry in `enqueuedEvals` is incremented by one every
+//     time the corresponding policy is dequeued.
+//
+//   - policy IDs are stored as keys in `enqueuedPolicies` when an eval is
+//     enqueued.
+//   - the policy ID remains in `enqueuedPolicies` until the eval is ACK'd or
+//     the delivery limit is reached.
+//   - the value for the policy ID is the ID of the eval that was enqueued.
+//   - the value for the policy ID is updated if a newer eval for the policy is
+//     enqueued.
 type Broker struct {
 	logger hclog.Logger
 

@@ -199,7 +199,7 @@ func (b *Broker) findWork(queue string) *sdk.ScalingEvaluation {
 }
 
 // waitForWork blocks until queue receives an item or the context is canceled.
-func (b *Broker) waitForWork(ctx context.Context, queue string) bool {
+func (b *Broker) waitForWork(ctx context.Context, queue string) (proceed bool) {
 	b.logger.Debug("waiting for eval", "queue", queue)
 
 	b.l.Lock()

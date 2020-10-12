@@ -327,15 +327,6 @@ func (p *PendingEvaluations) Pop() interface{} {
 	return e
 }
 
-// Peek is used to peek at the next element that would be popped
-func (p PendingEvaluations) Peek() *sdk.ScalingEvaluation {
-	n := len(p)
-	if n == 0 {
-		return nil
-	}
-	return p[n-1]
-}
-
 func (p PendingEvaluations) GetEvaluation(evalID string) (int, *sdk.ScalingEvaluation) {
 	for i, eval := range p {
 		if eval.ID == evalID {

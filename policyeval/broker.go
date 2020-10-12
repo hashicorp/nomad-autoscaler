@@ -115,6 +115,7 @@ func (b *Broker) enqueueLocked(eval *sdk.ScalingEvaluation, token string) {
 			if eval.CreateTime.After(pendingEval.CreateTime) {
 				logger.Debug("new eval is newer, policy updated")
 				b.enqueuedPolicies[eval.Policy.ID] = eval.ID
+				delete(b.enqueuedEvals, eval.ID)
 				pending[i] = eval
 				heap.Fix(&pending, i)
 			}
@@ -279,6 +280,9 @@ func (b *Broker) Nack(evalID, token string) error {
 	// Check if we've hit the delivery limit.
 	if dequeues := b.enqueuedEvals[evalID]; dequeues >= b.deliveryLimit {
 		logger.Warn("eval delivery limit reached", "count", dequeues, "limit", b.deliveryLimit)
+
+		delete(b.enqueuedEvals, evalID)
+		delete(b.enqueuedPolicies, unack.Eval.Policy.ID)
 		return nil
 	}
 

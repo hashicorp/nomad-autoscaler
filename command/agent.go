@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
@@ -214,7 +215,7 @@ func (c *AgentCommand) Run(args []string) int {
 
 	parsedConfig := c.readConfig()
 	if parsedConfig == nil {
-		fmt.Print(c.Help())
+		fmt.Println("Run 'nomad-autoscaler --help' for more information.")
 		return 1
 	}
 
@@ -323,6 +324,7 @@ func (c *AgentCommand) readConfig() *config.Agent {
 		return nil
 	}
 
+	var validationErr *multierror.Error
 	for _, path := range configPath {
 		current, err := config.Load(path)
 		if err != nil {
@@ -330,11 +332,24 @@ func (c *AgentCommand) readConfig() *config.Agent {
 			return nil
 		}
 
+		if err := current.Validate(); err != nil {
+			errPrefix := fmt.Sprintf("%s:", path)
+			validationErr = multierror.Append(validationErr, multierror.Prefix(err, errPrefix))
+
+			// Continue looping so we can validate other files.
+			continue
+		}
+
 		if cfg == nil {
 			cfg = current
 		} else {
 			cfg = cfg.Merge(current)
 		}
+	}
+
+	if validationErr != nil {
+		fmt.Printf("Invalid configuration. %v", validationErr)
+		return nil
 	}
 
 	// Merge the read file based configuration with the passed CLI args.

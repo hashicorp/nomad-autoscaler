@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
@@ -431,6 +432,16 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	return &result
 }
 
+func (a *Agent) Validate() error {
+	var result *multierror.Error
+
+	if a.PolicyWorkers != nil {
+		result = multierror.Append(result, a.PolicyWorkers.validate())
+	}
+
+	return result.ErrorOrNil()
+}
+
 func (h *HTTP) merge(b *HTTP) *HTTP {
 	result := *h
 
@@ -620,6 +631,31 @@ func (pw *PolicyWorkers) merge(in *PolicyWorkers) *PolicyWorkers {
 	return &result
 }
 
+func (pw *PolicyWorkers) validate() *multierror.Error {
+	var result *multierror.Error
+	prefix := "policy_workers ->"
+
+	if pw.DeliveryLimitPtr != nil && pw.DeliveryLimit <= 0 {
+		result = multierror.Append(result, fmt.Errorf("delivery_limit must be bigger than 0"))
+	}
+
+	if pw.ClusterPtr != nil && pw.Cluster <= 0 {
+		result = multierror.Append(result, fmt.Errorf("cluster must be bigger than 0"))
+	}
+
+	if pw.HorizontalPtr != nil && pw.Horizontal <= 0 {
+		result = multierror.Append(result, fmt.Errorf("horizontal must be bigger than 0"))
+	}
+
+	// Prefix all errors.
+	if result != nil {
+		for i, err := range result.Errors {
+			result.Errors[i] = multierror.Prefix(err, prefix)
+		}
+	}
+	return result
+}
+
 // pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
 // same name, the configs are merged.
 func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
@@ -700,9 +736,22 @@ func parseFile(file string, cfg *Agent) error {
 	}
 
 	if cfg.PolicyWorkers != nil {
+		if cfg.PolicyWorkers.AckTimeoutHCL != "" {
+			t, err := time.ParseDuration(cfg.PolicyWorkers.AckTimeoutHCL)
+			if err != nil {
+				return err
+			}
+			cfg.PolicyWorkers.AckTimeout = t
+		}
+
+		if cfg.PolicyWorkers.DeliveryLimitPtr != nil {
+			cfg.PolicyWorkers.DeliveryLimit = *cfg.PolicyWorkers.DeliveryLimitPtr
+		}
+
 		if cfg.PolicyWorkers.ClusterPtr != nil {
 			cfg.PolicyWorkers.Cluster = *cfg.PolicyWorkers.ClusterPtr
 		}
+
 		if cfg.PolicyWorkers.HorizontalPtr != nil {
 			cfg.PolicyWorkers.Horizontal = *cfg.PolicyWorkers.HorizontalPtr
 		}

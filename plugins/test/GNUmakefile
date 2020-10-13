@@ -6,9 +6,15 @@ define build
 	@echo "==> Done"
 endef
 
-default: clean bin/noop-strategy bin/noop-fake-strategy
+default: clean bin/noop-apm bin/noop-strategy bin/noop-target bin/noop-fake-strategy
 
 bin/noop-strategy: bin
+	$(build)
+
+bin/noop-target: bin
+	$(build)
+
+bin/noop-apm: bin
 	$(build)
 
 bin/noop-fake-strategy: bin

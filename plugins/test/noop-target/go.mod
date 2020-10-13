@@ -1,4 +1,4 @@
-module github.com/hashicorp/nomad-autoscaler/plugins/test/noop-strategy
+module github.com/hashicorp/nomad-autoscaler/plugins/test/noop-target
 
 go 1.14
 

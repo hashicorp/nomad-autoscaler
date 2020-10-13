@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,6 +24,8 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
 	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
+	assert.Equal(t, defaultClusterPolicyWorkers, def.PolicyWorkers.Cluster)
+	assert.Equal(t, defaultHorizontalPolicyWorkers, def.PolicyWorkers.Horizontal)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 	assert.Len(t, def.Strategies, 1)
@@ -40,6 +43,10 @@ func TestAgent_Merge(t *testing.T) {
 		},
 		Nomad: &Nomad{
 			Address: "http://nomad.systems:4646",
+		},
+		PolicyWorkers: &PolicyWorkers{
+			HorizontalPtr: ptr.IntToPtr(5),
+			Horizontal:    5,
 		},
 		APMs: []*Plugin{
 			{
@@ -74,6 +81,12 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+		},
+		PolicyWorkers: &PolicyWorkers{
+			ClusterPtr:    ptr.IntToPtr(8),
+			Cluster:       8,
+			HorizontalPtr: ptr.IntToPtr(7),
+			Horizontal:    7,
 		},
 		Telemetry: &Telemetry{
 			StatsiteAddr:                       "some-address",
@@ -144,6 +157,12 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
 		},
+		PolicyWorkers: &PolicyWorkers{
+			Cluster:       8,
+			ClusterPtr:    ptr.IntToPtr(8),
+			Horizontal:    7,
+			HorizontalPtr: ptr.IntToPtr(7),
+		},
 		Telemetry: &Telemetry{
 			StatsiteAddr:                       "some-address",
 			StatsdAddr:                         "some-other-address",
@@ -211,6 +230,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.Nomad, actualResult.Nomad)
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
+	assert.Equal(t, expectedResult.PolicyWorkers, actualResult.PolicyWorkers)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)

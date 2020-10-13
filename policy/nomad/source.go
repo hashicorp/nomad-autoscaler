@@ -7,10 +7,10 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -108,6 +108,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			for _, p := range policies {
 				if p.Enabled {
 					policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				} else {
+					s.log.Info("policy not enabled", "policy_id", p.ID)
 				}
 			}
 
@@ -197,6 +199,12 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 	if p == nil {
 		return
+	}
+
+	// Assume a policy coming from Nomad without a type is a horizontal policy.
+	// TODO: review this assumption.
+	if p.Type == "" {
+		p.Type = sdk.ScalingPolicyTypeHorizontal
 	}
 
 	// Apply the cooldown and evaluation interval defaults if the operator did

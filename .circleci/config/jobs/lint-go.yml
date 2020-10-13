@@ -3,4 +3,5 @@ steps:
   - install-go
   - install-golangci-lint
   - checkout
+  - run: make check
   - run: make lint

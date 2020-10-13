@@ -8,12 +8,12 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/helper/nomad"
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
 const (

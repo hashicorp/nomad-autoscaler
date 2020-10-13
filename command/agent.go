@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	flaghelper "github.com/hashicorp/nomad-autoscaler/helper/flag"
+	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 )
 
 type AgentCommand struct {
@@ -188,7 +188,7 @@ Telemetry Options:
 
   -telemetry-circonus-broker-id
     The Circonus broker to use when creating a new check.
-  
+
   -telemetry-circonus-broker-select-tag
     A tag which is used to select a broker ID when an explicit broker ID is not
     provided.

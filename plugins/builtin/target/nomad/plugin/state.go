@@ -7,8 +7,8 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/helper/blocking"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
 	"github.com/hashicorp/nomad/api"
 )
 

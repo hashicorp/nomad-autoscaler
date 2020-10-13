@@ -22,6 +22,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name: "full policy",
 			input: &sdk.ScalingPolicy{
 				ID:                 "string",
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				Min:                1,
 				Max:                5,
 				Enabled:            true,
@@ -53,6 +54,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			},
 			expected: &sdk.ScalingPolicy{
 				ID:                 "string",
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				Min:                1,
 				Max:                5,
 				Enabled:            true,
@@ -87,6 +89,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "set all defaults",
 			input: &sdk.ScalingPolicy{},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
@@ -115,6 +118,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 			},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
@@ -152,6 +156,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 			},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
@@ -188,6 +193,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 			},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
@@ -225,6 +231,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 			},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
@@ -261,6 +268,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 			},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
@@ -285,6 +293,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "sets eval interval from agent",
 			input: &sdk.ScalingPolicy{},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 5 * time.Second,
 				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
@@ -299,6 +308,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			name:  "sets cooldown from agent",
 			input: &sdk.ScalingPolicy{},
 			expected: &sdk.ScalingPolicy{
+				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Cooldown:           1 * time.Hour,
 				Target: &sdk.ScalingPolicyTarget{

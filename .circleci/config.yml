@@ -41,6 +41,8 @@ jobs:
         working_directory: ~/
     - checkout
     - run:
+        command: make check
+    - run:
         command: make lint
     environment:
     - CIRCLECI_CLI_VERSION: 0.1.6772
@@ -215,6 +217,7 @@ workflows:
 #             - install-go
 #             - install-golangci-lint
 #             - checkout
+#             - run: make check
 #             - run: make lint
 #     test-go:
 #         executor: go

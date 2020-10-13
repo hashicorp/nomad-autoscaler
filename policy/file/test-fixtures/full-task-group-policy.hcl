@@ -1,6 +1,7 @@
 enabled = true
 min     = 1
 max     = 10
+type    = "horizontal"
 
 policy {
 
@@ -8,8 +9,8 @@ policy {
   evaluation_interval = "30s"
 
   check "cpu_nomad" {
-    source    = "nomad_apm"
-    query     = "avg_cpu"
+    source = "nomad_apm"
+    query  = "avg_cpu"
 
     strategy "target-value" {
       target = "80"
@@ -17,8 +18,8 @@ policy {
   }
 
   check "memory_nomad" {
-    source    = "nomad_apm"
-    query     = "avg_memory"
+    source = "nomad_apm"
+    query  = "avg_memory"
 
     strategy "target-value" {
       target = "80"

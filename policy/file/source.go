@@ -9,10 +9,10 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
-	fileHelper "github.com/hashicorp/nomad-autoscaler/helper/file"
-	"github.com/hashicorp/nomad-autoscaler/helper/uuid"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	fileHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
 )
 
 // Ensure NomadSource satisfies the Source interface.

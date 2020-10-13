@@ -45,6 +45,7 @@ import (
 type Broker struct {
 	logger hclog.Logger
 
+	// l is the lock used control access to all internal state of the broker.
 	l sync.RWMutex
 
 	// nackTimeout is the time required for a dequeued eval to be ack'd.
@@ -189,7 +190,9 @@ func (b *Broker) Dequeue(ctx context.Context, queue string) (*sdk.ScalingEvaluat
 	// Setup Nack timer.
 	// Eval needs to be Ack'd before this timer finishes.
 	nackTimer := time.AfterFunc(b.nackTimeout, func() {
-		b.Nack(eval.ID, token)
+		if err := b.Nack(eval.ID, token); err != nil {
+			logger.Warn("failed to nack eval", "error", err.Error())
+		}
 	})
 
 	// Mark eval as not Ack'd yet.

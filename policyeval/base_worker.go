@@ -48,7 +48,7 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 }
 
 func (w *BaseWorker) Run(ctx context.Context) {
-	w.logger.Debug("starting worker")
+	w.logger.Info("starting worker")
 
 	for {
 		select {

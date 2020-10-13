@@ -254,9 +254,22 @@ type Policy struct {
 // PolicyWorkers holds the configuration for the number of policy evaluation
 // workers for each policy type.
 type PolicyWorkers struct {
+	// DeliveryLimit is the maxmimum number of times a policy evaluation can
+	// be dequeued from the broker.
+	DeliveryLimitPtr *int `hcl:"delivery_limit,optional"`
+	DeliveryLimit    int
+
+	// AckTimeout is the time limit that an eval must be ACK'd before being
+	// considered NACK'd.
+	AckTimeout    time.Duration
+	AckTimeoutHCL string `hcl:"ack_timeout,optional" json:"-"`
+
+	// Cluster is the number of policy workers for policies of type "cluster".
 	ClusterPtr *int `hcl:"cluster,optional" json:"-"`
 	Cluster    int
 
+	// Horizontal is the number of policy workers for policies of type
+	// "horizontal".
 	HorizontalPtr *int `hcl:"horizontal,optional" json:"-"`
 	Horizontal    int
 }
@@ -294,6 +307,14 @@ const (
 	// defaultTelemetryCollectionInterval is the default telemetry metrics
 	// collection interval.
 	defaultTelemetryCollectionInterval = 1 * time.Second
+
+	// defaultPolicyWorkerDeliveryLimit is the default value for the delivery
+	// limit count for the policy eval broker.
+	defaultPolicyWorkerDeliveryLimit = 3
+
+	// defaultPolicyWorkerAckTimeout is the default time limit that a policy
+	// eval must be ACK'd.
+	defaultPolicyWorkerAckTimeout = 5 * time.Minute
 
 	// defaultClusterPolicyWorkers is the default number of workers for cluster
 	// policies.
@@ -333,8 +354,10 @@ func Default() (*Agent, error) {
 			DefaultEvaluationInterval: defaultEvaluationInterval,
 		},
 		PolicyWorkers: &PolicyWorkers{
-			Cluster:    defaultClusterPolicyWorkers,
-			Horizontal: defaultHorizontalPolicyWorkers,
+			DeliveryLimit: defaultPolicyWorkerDeliveryLimit,
+			AckTimeout:    defaultPolicyWorkerAckTimeout,
+			Cluster:       defaultClusterPolicyWorkers,
+			Horizontal:    defaultHorizontalPolicyWorkers,
 		},
 		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
@@ -574,6 +597,15 @@ func (p *Policy) merge(b *Policy) *Policy {
 
 func (pw *PolicyWorkers) merge(in *PolicyWorkers) *PolicyWorkers {
 	result := *pw
+
+	if in.AckTimeout != 0 {
+		result.AckTimeout = in.AckTimeout
+	}
+
+	if in.DeliveryLimitPtr != nil {
+		result.DeliveryLimitPtr = in.DeliveryLimitPtr
+		result.DeliveryLimit = in.DeliveryLimit
+	}
 
 	if in.ClusterPtr != nil {
 		result.ClusterPtr = in.ClusterPtr

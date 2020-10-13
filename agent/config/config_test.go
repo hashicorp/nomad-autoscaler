@@ -24,6 +24,8 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
 	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
+	assert.Equal(t, defaultPolicyWorkerDeliveryLimit, def.PolicyWorkers.DeliveryLimit)
+	assert.Equal(t, defaultPolicyWorkerAckTimeout, def.PolicyWorkers.AckTimeout)
 	assert.Equal(t, defaultClusterPolicyWorkers, def.PolicyWorkers.Cluster)
 	assert.Equal(t, defaultHorizontalPolicyWorkers, def.PolicyWorkers.Horizontal)
 	assert.Len(t, def.APMs, 1)
@@ -83,10 +85,13 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultEvaluationInterval: 10 * time.Second,
 		},
 		PolicyWorkers: &PolicyWorkers{
-			ClusterPtr:    ptr.IntToPtr(8),
-			Cluster:       8,
-			HorizontalPtr: ptr.IntToPtr(7),
-			Horizontal:    7,
+			DeliveryLimitPtr: ptr.IntToPtr(10),
+			DeliveryLimit:    10,
+			AckTimeout:       3 * time.Minute,
+			ClusterPtr:       ptr.IntToPtr(8),
+			Cluster:          8,
+			HorizontalPtr:    ptr.IntToPtr(7),
+			Horizontal:       7,
 		},
 		Telemetry: &Telemetry{
 			StatsiteAddr:                       "some-address",
@@ -158,10 +163,13 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultEvaluationInterval: 10 * time.Second,
 		},
 		PolicyWorkers: &PolicyWorkers{
-			Cluster:       8,
-			ClusterPtr:    ptr.IntToPtr(8),
-			Horizontal:    7,
-			HorizontalPtr: ptr.IntToPtr(7),
+			DeliveryLimitPtr: ptr.IntToPtr(10),
+			DeliveryLimit:    10,
+			AckTimeout:       3 * time.Minute,
+			Cluster:          8,
+			ClusterPtr:       ptr.IntToPtr(8),
+			Horizontal:       7,
+			HorizontalPtr:    ptr.IntToPtr(7),
 		},
 		Telemetry: &Telemetry{
 			StatsiteAddr:                       "some-address",

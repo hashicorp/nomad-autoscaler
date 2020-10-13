@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -74,7 +73,10 @@ func (a *Agent) Run() error {
 	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
-	a.evalBroker = policyeval.NewBroker(a.logger.ResetNamed("policy_eval"), 5*time.Minute, 3)
+	a.evalBroker = policyeval.NewBroker(
+		a.logger.ResetNamed("policy_eval"),
+		a.config.PolicyWorkers.AckTimeout,
+		a.config.PolicyWorkers.DeliveryLimit)
 	a.initWorkers(ctx)
 
 	// Launch the eval handler.

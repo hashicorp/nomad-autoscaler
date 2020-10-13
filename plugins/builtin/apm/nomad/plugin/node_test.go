@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )

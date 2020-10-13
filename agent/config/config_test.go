@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/stretchr/testify/assert"
 )
 

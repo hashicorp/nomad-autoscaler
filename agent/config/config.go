@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/hcl/v2/hclsimple"
-	"github.com/hashicorp/nomad-autoscaler/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
 	"github.com/mitchellh/copystructure"
 )
 

@@ -4,9 +4,9 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	nomadHelper "github.com/hashicorp/nomad-autoscaler/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 )
 
 // setupPlugins is used to setup the plugin manager for all the agents plugins

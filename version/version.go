@@ -21,6 +21,9 @@ var (
 	// then it means that it is a final release. Otherwise, this is a pre-release
 	// such as "dev" (in development), "beta", "rc1", etc.
 	VersionPrerelease = "dev"
+
+	// VersionMetadata is metadata further describing the build type.
+	VersionMetadata = ""
 )
 
 // GetHumanVersion composes the parts of the version in a way that's suitable
@@ -41,14 +44,19 @@ func GetHumanVersion() string {
 		release = "dev"
 	}
 
-	if release != "" {
-		if !strings.HasSuffix(version, "-"+release) {
-			// if we tagged a prerelease version then the release is in the version already
-			version += fmt.Sprintf("-%s", release)
-		}
-		if GitCommit != "" {
-			version += fmt.Sprintf(" (%s)", GitCommit)
-		}
+	if release != "" && !strings.HasSuffix(version, "-"+release) {
+		// if we tagged a prerelease version then the release is in the version
+		// already.
+		version += fmt.Sprintf("-%s", release)
+	}
+
+	if VersionMetadata != "" {
+		version += fmt.Sprintf("+%s", VersionMetadata)
+	}
+
+	// Add the commit hash at the very end of the version.
+	if release != "" && GitCommit != "" {
+		version += fmt.Sprintf(" (%s)", GitCommit)
 	}
 
 	// Strip off any single quotes added by the git information.

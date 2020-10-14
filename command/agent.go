@@ -325,6 +325,10 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	}
 
 	var validationErr *multierror.Error
+
+	// Merge in the enterprise overlay.
+	cfg = cfg.Merge(config.DefaultEntConfig())
+
 	for _, path := range configPath {
 		current, err := config.Load(path)
 		if err != nil {

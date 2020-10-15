@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 929,
+    "CreateIndex": 204,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-strategy",
-    "JobModifyIndex": 929,
+    "JobModifyIndex": 204,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 931,
+    "ModifyIndex": 205,
+    "Multiregion": null,
     "Name": "invalid-strategy",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316287786000,
+    "SubmitTime": 1602724422143286000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,12 +60,12 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 929,
+          "CreateIndex": 204,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 929,
+          "ModifyIndex": 204,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -82,7 +84,8 @@
             "Namespace": "default",
             "Job": "invalid-strategy",
             "Group": "test"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -93,10 +96,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -127,6 +130,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -151,6 +155,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

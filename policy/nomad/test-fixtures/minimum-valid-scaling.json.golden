@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 781,
+    "CreateIndex": 281,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "minimum-valid-scaling",
-    "JobModifyIndex": 781,
+    "JobModifyIndex": 281,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 785,
+    "ModifyIndex": 284,
+    "Multiregion": null,
     "Name": "minimum-valid-scaling",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592018407872194000,
+    "SubmitTime": 1602724433723277000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,18 +60,19 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 781,
+          "CreateIndex": 281,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 781,
+          "ModifyIndex": 281,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "query": "query",
                     "strategy": [
                       {
                         "strategy": [
@@ -80,18 +83,18 @@
                           }
                         ]
                       }
-                    ],
-                    "query": "query"
+                    ]
                   }
                 ]
               }
             ]
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "minimum-valid-scaling"
-          }
+            "Job": "minimum-valid-scaling",
+            "Group": "test"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -136,6 +139,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -160,6 +164,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

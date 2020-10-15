@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 909,
+    "CreateIndex": 242,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-cooldown-type",
-    "JobModifyIndex": 909,
+    "JobModifyIndex": 242,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 911,
+    "ModifyIndex": 243,
+    "Multiregion": null,
     "Name": "invalid-cooldown-type",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592020641400083000,
+    "SubmitTime": 1602724427933971000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,21 +60,22 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 909,
+          "CreateIndex": 242,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 909,
+          "ModifyIndex": 242,
           "Namespace": "",
           "Policy": {
             "cooldown": 5
           },
           "Target": {
-            "Job": "invalid-cooldown-type",
             "Group": "test",
-            "Namespace": "default"
-          }
+            "Namespace": "default",
+            "Job": "invalid-cooldown-type"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -117,6 +120,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -141,6 +145,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

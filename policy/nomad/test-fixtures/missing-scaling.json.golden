@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 954,
+    "CreateIndex": 291,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "missing-scaling",
-    "JobModifyIndex": 954,
+    "JobModifyIndex": 291,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 964,
+    "ModifyIndex": 294,
+    "Multiregion": null,
     "Name": "missing-scaling",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316380828000,
+    "SubmitTime": 1602724435429383000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,10 +69,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -101,6 +103,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -125,6 +128,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

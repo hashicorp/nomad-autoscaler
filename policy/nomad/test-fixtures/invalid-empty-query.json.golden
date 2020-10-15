@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 831,
+    "CreateIndex": 304,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-empty-query",
-    "JobModifyIndex": 831,
+    "JobModifyIndex": 304,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 833,
+    "ModifyIndex": 307,
+    "Multiregion": null,
     "Name": "invalid-empty-query",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -25,10 +27,10 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592019351752082000,
+    "SubmitTime": 1602724438153574000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,19 +60,18 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 831,
+          "CreateIndex": 304,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 831,
+          "ModifyIndex": 304,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "",
                     "strategy": [
                       {
                         "strategy": [
@@ -81,7 +82,8 @@
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": ""
                   }
                 ]
               }
@@ -91,7 +93,8 @@
             "Job": "invalid-empty-query",
             "Group": "test",
             "Namespace": "default"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -102,10 +105,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -136,6 +139,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -160,6 +164,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

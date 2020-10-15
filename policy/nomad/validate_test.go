@@ -42,6 +42,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "id is missing",
 			input: &api.ScalingPolicy{
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -74,9 +75,10 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "target is missing",
 			input: &api.ScalingPolicy{
-				ID:  "id",
-				Min: ptr.Int64ToPtr(1),
-				Max: ptr.Int64ToPtr(5),
+				ID:   "id",
+				Type: "horizontal",
+				Min:  ptr.Int64ToPtr(1),
+				Max:  ptr.Int64ToPtr(5),
 				Policy: map[string]interface{}{
 					keyChecks: []interface{}{
 						map[string]interface{}{
@@ -104,7 +106,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "min is missing",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -136,7 +139,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "min is negative",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -169,7 +173,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "max is negative",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -202,7 +207,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "max less than min",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -275,7 +281,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "policy.check.strategy.name is empty",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -308,7 +315,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "policy.check.strategy has wrong type",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -352,7 +360,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "policy.target.name is empty",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},
@@ -394,7 +403,8 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name: "policy.target has wrong type",
 			input: &api.ScalingPolicy{
-				ID: "id",
+				ID:   "id",
+				Type: "horizontal",
 				Target: map[string]string{
 					"key": "value",
 				},

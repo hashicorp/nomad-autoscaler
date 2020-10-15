@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 945,
+    "CreateIndex": 273,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "single-check",
-    "JobModifyIndex": 945,
+    "JobModifyIndex": 273,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 947,
+    "ModifyIndex": 274,
+    "Multiregion": null,
     "Name": "single-check",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316342319000,
+    "SubmitTime": 1602724433038736000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,41 +60,42 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 945,
+          "CreateIndex": 273,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 945,
+          "ModifyIndex": 273,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "query": "query",
+                    "source": "source",
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "int_config": 2,
                             "str_config": "str",
-                            "bool_config": true
+                            "bool_config": true,
+                            "int_config": 2
                           }
                         ]
                       }
-                    ],
-                    "query": "query",
-                    "source": "source"
+                    ]
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Job": "single-check",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "single-check"
-          }
+            "Namespace": "default"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -103,10 +106,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -137,6 +140,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -161,6 +165,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

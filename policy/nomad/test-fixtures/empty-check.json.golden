@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 939,
+    "CreateIndex": 252,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "empty-check",
-    "JobModifyIndex": 939,
+    "JobModifyIndex": 252,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 941,
+    "ModifyIndex": 253,
+    "Multiregion": null,
     "Name": "empty-check",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316324233000,
+    "SubmitTime": 1602724429635116000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,12 +60,12 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 939,
+          "CreateIndex": 252,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 939,
+          "ModifyIndex": 252,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -78,7 +80,8 @@
             "Job": "empty-check",
             "Group": "test",
             "Namespace": "default"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -89,10 +92,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -123,6 +126,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -147,6 +151,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

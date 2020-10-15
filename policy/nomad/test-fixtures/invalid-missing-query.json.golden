@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 805,
+    "CreateIndex": 263,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-missing-query",
-    "JobModifyIndex": 805,
+    "JobModifyIndex": 263,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 807,
+    "ModifyIndex": 266,
+    "Multiregion": null,
     "Name": "invalid-missing-query",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -25,10 +27,10 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592018720561322000,
+    "SubmitTime": 1602724431336385000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,12 +60,12 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 805,
+          "CreateIndex": 263,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 805,
+          "ModifyIndex": 263,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -87,10 +89,11 @@
             ]
           },
           "Target": {
+            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-missing-query",
-            "Group": "test"
-          }
+            "Job": "invalid-missing-query"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -135,6 +138,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -159,6 +163,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

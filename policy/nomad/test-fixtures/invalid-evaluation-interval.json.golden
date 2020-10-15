@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 948,
+    "CreateIndex": 277,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-evaluation-interval",
-    "JobModifyIndex": 948,
+    "JobModifyIndex": 277,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 950,
+    "ModifyIndex": 278,
+    "Multiregion": null,
     "Name": "invalid-evaluation-interval",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316353862000,
+    "SubmitTime": 1602724433380668000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,21 +60,22 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 948,
+          "CreateIndex": 277,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 948,
+          "ModifyIndex": 277,
           "Namespace": "",
           "Policy": {
             "evaluation_interval": "invalid"
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-evaluation-interval"
-          }
+            "Job": "invalid-evaluation-interval",
+            "Group": "test"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -117,6 +120,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -141,6 +145,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

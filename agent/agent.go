@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -74,7 +73,10 @@ func (a *Agent) Run() error {
 	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
-	a.evalBroker = policyeval.NewBroker(a.logger.ResetNamed("policy_eval"), 5*time.Minute, 3)
+	a.evalBroker = policyeval.NewBroker(
+		a.logger.ResetNamed("policy_eval"),
+		a.config.PolicyEval.AckTimeout,
+		a.config.PolicyEval.DeliveryLimit)
 	a.initWorkers(ctx)
 
 	// Launch the eval handler.
@@ -100,13 +102,13 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEval
 func (a *Agent) initWorkers(ctx context.Context) {
 	policyEvalLogger := a.logger.ResetNamed("policy_eval")
 
-	for i := 0; i < a.config.PolicyWorkers.Horizontal; i++ {
+	for i := 0; i < a.config.PolicyEval.Workers["horizontal"]; i++ {
 		w := policyeval.NewBaseWorker(
 			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "horizontal")
 		go w.Run(ctx)
 	}
 
-	for i := 0; i < a.config.PolicyWorkers.Cluster; i++ {
+	for i := 0; i < a.config.PolicyEval.Workers["cluster"]; i++ {
 		w := policyeval.NewBaseWorker(
 			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "cluster")
 		go w.Run(ctx)

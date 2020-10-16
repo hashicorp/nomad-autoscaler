@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
@@ -45,7 +46,7 @@ type Agent struct {
 
 	// PolicyWorkers is the configuration used to define the number of workers
 	// to start for each policy type.
-	PolicyWorkers *PolicyWorkers `hcl:"policy_workers,block"`
+	PolicyEval *PolicyEval `hcl:"policy_eval,block"`
 
 	// Telemetry is the configuration used to setup metrics collection.
 	Telemetry *Telemetry `hcl:"telemetry,block"`
@@ -251,14 +252,20 @@ type Policy struct {
 	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
 }
 
-// PolicyWorkers holds the configuration for the number of policy evaluation
-// workers for each policy type.
-type PolicyWorkers struct {
-	ClusterPtr *int `hcl:"cluster,optional" json:"-"`
-	Cluster    int
+// PolicyEval holds the configuration related to the policy evaluation process.
+type PolicyEval struct {
+	// DeliveryLimit is the maxmimum number of times a policy evaluation can
+	// be dequeued from the broker.
+	DeliveryLimitPtr *int `hcl:"delivery_limit,optional"`
+	DeliveryLimit    int
 
-	HorizontalPtr *int `hcl:"horizontal,optional" json:"-"`
-	Horizontal    int
+	// AckTimeout is the time limit that an eval must be ACK'd before being
+	// considered NACK'd.
+	AckTimeout    time.Duration
+	AckTimeoutHCL string `hcl:"ack_timeout,optional" json:"-"`
+
+	// Workers hold the number of workers to initialize for each queue.
+	Workers map[string]int `hcl:"workers,optional"`
 }
 
 const (
@@ -295,14 +302,19 @@ const (
 	// collection interval.
 	defaultTelemetryCollectionInterval = 1 * time.Second
 
-	// defaultClusterPolicyWorkers is the default number of workers for cluster
-	// policies.
-	defaultClusterPolicyWorkers = 10
+	// defaultPolicyWorkerDeliveryLimit is the default value for the delivery
+	// limit count for the policy eval broker.
+	defaultPolicyEvalDeliveryLimit = 1
 
-	// defaultHorizontalPolicyWorkers is the default number of workers for
-	// horizontal policies.
-	defaultHorizontalPolicyWorkers = 10
+	// defaultPolicyWorkerAckTimeout is the default time limit that a policy
+	// eval must be ACK'd.
+	defaultPolicyEvalAckTimeout = 5 * time.Minute
 )
+
+var defaultPolicyEvalWorkers = map[string]int{
+	"cluster":    10,
+	"horizontal": 10,
+}
 
 // Default is used to generate a new default agent configuration.
 func Default() (*Agent, error) {
@@ -332,9 +344,10 @@ func Default() (*Agent, error) {
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
 		},
-		PolicyWorkers: &PolicyWorkers{
-			Cluster:    defaultClusterPolicyWorkers,
-			Horizontal: defaultHorizontalPolicyWorkers,
+		PolicyEval: &PolicyEval{
+			DeliveryLimit: defaultPolicyEvalDeliveryLimit,
+			AckTimeout:    defaultPolicyEvalAckTimeout,
+			Workers:       defaultPolicyEvalWorkers,
 		},
 		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
 		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
@@ -371,8 +384,8 @@ func (a *Agent) Merge(b *Agent) *Agent {
 		result.Policy = result.Policy.merge(b.Policy)
 	}
 
-	if b.PolicyWorkers != nil {
-		result.PolicyWorkers = result.PolicyWorkers.merge(b.PolicyWorkers)
+	if b.PolicyEval != nil {
+		result.PolicyEval = result.PolicyEval.merge(b.PolicyEval)
 	}
 
 	if len(result.APMs) == 0 && len(b.APMs) != 0 {
@@ -406,6 +419,16 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	}
 
 	return &result
+}
+
+func (a *Agent) Validate() error {
+	var result *multierror.Error
+
+	if a.PolicyEval != nil {
+		result = multierror.Append(result, a.PolicyEval.validate())
+	}
+
+	return result.ErrorOrNil()
 }
 
 func (h *HTTP) merge(b *HTTP) *HTTP {
@@ -572,20 +595,46 @@ func (p *Policy) merge(b *Policy) *Policy {
 	return &result
 }
 
-func (pw *PolicyWorkers) merge(in *PolicyWorkers) *PolicyWorkers {
+func (pw *PolicyEval) merge(in *PolicyEval) *PolicyEval {
 	result := *pw
 
-	if in.ClusterPtr != nil {
-		result.ClusterPtr = in.ClusterPtr
-		result.Cluster = in.Cluster
+	if in.AckTimeout != 0 {
+		result.AckTimeout = in.AckTimeout
 	}
 
-	if in.HorizontalPtr != nil {
-		result.HorizontalPtr = in.HorizontalPtr
-		result.Horizontal = in.Horizontal
+	if in.DeliveryLimitPtr != nil {
+		result.DeliveryLimitPtr = in.DeliveryLimitPtr
+		result.DeliveryLimit = in.DeliveryLimit
+	}
+
+	for k, v := range in.Workers {
+		result.Workers[k] = v
 	}
 
 	return &result
+}
+
+func (pw *PolicyEval) validate() *multierror.Error {
+	var result *multierror.Error
+	prefix := "policy_workers ->"
+
+	if pw.DeliveryLimitPtr != nil && pw.DeliveryLimit <= 0 {
+		result = multierror.Append(result, fmt.Errorf("delivery_limit must be bigger than 0"))
+	}
+
+	for k, v := range pw.Workers {
+		if v < 0 {
+			result = multierror.Append(result, fmt.Errorf("number of workers for %q must be positive", k))
+		}
+	}
+
+	// Prefix all errors.
+	if result != nil {
+		for i, err := range result.Errors {
+			result.Errors[i] = multierror.Prefix(err, prefix)
+		}
+	}
+	return result
 }
 
 // pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
@@ -667,12 +716,17 @@ func parseFile(file string, cfg *Agent) error {
 		}
 	}
 
-	if cfg.PolicyWorkers != nil {
-		if cfg.PolicyWorkers.ClusterPtr != nil {
-			cfg.PolicyWorkers.Cluster = *cfg.PolicyWorkers.ClusterPtr
+	if cfg.PolicyEval != nil {
+		if cfg.PolicyEval.AckTimeoutHCL != "" {
+			t, err := time.ParseDuration(cfg.PolicyEval.AckTimeoutHCL)
+			if err != nil {
+				return err
+			}
+			cfg.PolicyEval.AckTimeout = t
 		}
-		if cfg.PolicyWorkers.HorizontalPtr != nil {
-			cfg.PolicyWorkers.Horizontal = *cfg.PolicyWorkers.HorizontalPtr
+
+		if cfg.PolicyEval.DeliveryLimitPtr != nil {
+			cfg.PolicyEval.DeliveryLimit = *cfg.PolicyEval.DeliveryLimitPtr
 		}
 	}
 

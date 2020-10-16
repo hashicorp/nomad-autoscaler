@@ -46,6 +46,15 @@ func (a *APMPlugin) Query(q string, _ sdk.TimeRange) (sdk.TimestampedMetrics, er
 	}
 }
 
+func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	d, err := a.Query(q, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return []sdk.TimestampedMetrics{d}, nil
+}
+
 // validateMetric helps ensure the desired metric within the query is able to
 // be handled by the plugin.
 func validateMetric(metric string) error {

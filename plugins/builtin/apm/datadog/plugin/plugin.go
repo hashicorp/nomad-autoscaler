@@ -109,6 +109,22 @@ func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+	m, err := a.QueryMultiple(q, r)
+	if err != nil {
+		return nil, err
+	}
+
+	switch len(m) {
+	case 0:
+		return sdk.TimestampedMetrics{}, nil
+	case 1:
+		return m[0], nil
+	default:
+		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected.", len(m))
+	}
+}
+
+func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
@@ -133,28 +149,36 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 		return nil, nil
 	}
 
-	pl, ok := series[0].GetPointlistOk()
-	if !ok {
-		a.logger.Warn("no data points found in time series response from datadog, try a wider query window")
-		return nil, nil
-	}
-
-	var result sdk.TimestampedMetrics
-
-	// pl is [[timestamp, value]...] array
-	for _, p := range *pl {
-		if len(p) != 2 {
+	var results []sdk.TimestampedMetrics
+	for _, s := range series {
+		pl, ok := s.GetPointlistOk()
+		if !ok {
 			continue
 		}
 
-		ts := int64(p[0]) / 1e3
-		value := p[1]
-		tm := sdk.TimestampedMetric{
-			Timestamp: time.Unix(ts, 0),
-			Value:     value,
+		var result sdk.TimestampedMetrics
+
+		// pl is [[timestamp, value]...] array
+		for _, p := range *pl {
+			if len(p) != 2 {
+				continue
+			}
+
+			ts := int64(p[0]) / 1e3
+			value := p[1]
+			tm := sdk.TimestampedMetric{
+				Timestamp: time.Unix(ts, 0),
+				Value:     value,
+			}
+			result = append(result, tm)
 		}
-		result = append(result, tm)
+
+		results = append(results, result)
 	}
 
-	return result, nil
+	if len(results) == 0 {
+		a.logger.Warn("no data points found in time series response from datadog, try a wider query window")
+	}
+
+	return results, nil
 }

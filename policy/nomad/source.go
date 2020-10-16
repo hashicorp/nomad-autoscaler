@@ -216,16 +216,31 @@ func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 		p.Target = &sdk.ScalingPolicyTarget{}
 	}
 
-	if p.Target.Name == "" {
-		p.Target.Name = plugins.InternalTargetNomad
-	}
-
 	if p.Target.Config == nil {
 		p.Target.Config = make(map[string]string)
 	}
 
+	s.canonicalizePolicyByType(p)
+
 	for _, c := range p.Checks {
 		s.canonicalizeCheck(c, p.Target)
+	}
+}
+
+func (s *Source) canonicalizePolicyByType(p *sdk.ScalingPolicy) {
+	switch p.Type {
+	case "horizontal":
+		s.canonicalizeHorizontalPolicy(p)
+	case "cluster":
+		// Nothing to do for now.
+	default:
+		s.canonicalizeAdditionalTypes(p)
+	}
+}
+
+func (s *Source) canonicalizeHorizontalPolicy(p *sdk.ScalingPolicy) {
+	if p.Target.Name == "" {
+		p.Target.Name = plugins.InternalTargetNomad
 	}
 }
 

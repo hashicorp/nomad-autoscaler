@@ -103,7 +103,9 @@ func TestNewScalingEvaluation(t *testing.T) {
 						},
 						Metrics: nil,
 						Action: &ScalingAction{
-							Meta: make(map[string]interface{}),
+							Meta: map[string]interface{}{
+								"nomad_policy_id": "test-test-test",
+							},
 						},
 					},
 					{
@@ -118,7 +120,9 @@ func TestNewScalingEvaluation(t *testing.T) {
 						},
 						Metrics: nil,
 						Action: &ScalingAction{
-							Meta: make(map[string]interface{}),
+							Meta: map[string]interface{}{
+								"nomad_policy_id": "test-test-test",
+							},
 						},
 					},
 				},

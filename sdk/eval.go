@@ -32,8 +32,12 @@ func NewScalingEvaluation(p *ScalingPolicy, status *TargetStatus) *ScalingEvalua
 	// Iterate the policy checks and add then to the eval.
 	for _, check := range p.Checks {
 		checkEval := ScalingCheckEvaluation{
-			Check:  check,
-			Action: &ScalingAction{},
+			Check: check,
+			Action: &ScalingAction{
+				Meta: map[string]interface{}{
+					"nomad_policy_id": p.ID,
+				},
+			},
 		}
 
 		// Ensure the Action is canonicalized so we don't need to perform this

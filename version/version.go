@@ -30,33 +30,34 @@ var (
 // for displaying to humans.
 func GetHumanVersion() string {
 	version := Version
+	release := VersionPrerelease
+
 	if GitDescribe != "" {
 		version = GitDescribe
+	} else {
+		if release == "" {
+			release = "dev"
+		}
+
+		if release != "" && !strings.HasSuffix(version, "-"+release) {
+			// if we tagged a prerelease version then the release is in the version
+			// already.
+			version += fmt.Sprintf("-%s", release)
+		}
+
+		if VersionMetadata != "" {
+			version += fmt.Sprintf("+%s", VersionMetadata)
+		}
+	}
+
+	// Add the commit hash at the very end of the version.
+	if GitCommit != "" {
+		version += fmt.Sprintf(" (%s)", GitCommit)
 	}
 
 	// Add v as prefix if not present
 	if !strings.HasPrefix(version, "v") {
 		version = fmt.Sprintf("v%s", version)
-	}
-
-	release := VersionPrerelease
-	if GitDescribe == "" && release == "" {
-		release = "dev"
-	}
-
-	if release != "" && !strings.HasSuffix(version, "-"+release) {
-		// if we tagged a prerelease version then the release is in the version
-		// already.
-		version += fmt.Sprintf("-%s", release)
-	}
-
-	if VersionMetadata != "" {
-		version += fmt.Sprintf("+%s", VersionMetadata)
-	}
-
-	// Add the commit hash at the very end of the version.
-	if release != "" && GitCommit != "" {
-		version += fmt.Sprintf(" (%s)", GitCommit)
 	}
 
 	// Strip off any single quotes added by the git information.

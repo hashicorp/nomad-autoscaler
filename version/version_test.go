@@ -37,15 +37,23 @@ func Test_GetHumanVersion(t *testing.T) {
 			inputVersion:         "1.0.0",
 			inputPrerelease:      "",
 			inputVersionMetadata: "",
-			expectedOutput:       "v1.0.0",
+			expectedOutput:       "v1.0.0 (440bca3)",
 		},
 		{
-			inputCommit:          "440bca3",
-			inputDescribe:        "v1.0.0",
+			inputCommit:          "",
+			inputDescribe:        "",
 			inputVersion:         "1.0.0",
 			inputPrerelease:      "",
 			inputVersionMetadata: "special",
-			expectedOutput:       "v1.0.0+special",
+			expectedOutput:       "v1.0.0-dev+special",
+		},
+		{
+			inputCommit:          "440bca3",
+			inputDescribe:        "v1.0.0+special",
+			inputVersion:         "1.0.0",
+			inputPrerelease:      "",
+			inputVersionMetadata: "special",
+			expectedOutput:       "v1.0.0+special (440bca3)",
 		},
 	}
 

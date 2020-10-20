@@ -1,5 +1,5 @@
 ### Amazon Web Services
-The following steps requre you to authenticate with AWS. This can be done by exporting your
+The following steps require you to authenticate with AWS. This can be done by exporting your
 credentials locally using the `AWS_SECRET_ACCESS_KEY`, `AWS_ACCESS_KEY_ID` and `AWS_DEFAULT_REGION`
 environment variables.
 

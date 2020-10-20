@@ -19,7 +19,6 @@ source "amazon-ebs" "hashistack" {
 
   communicator = "ssh"
   ssh_username = "ubuntu"
-  ami_groups   = ["all"]
 
   tags = {
     OS_Version    = "Ubuntu"

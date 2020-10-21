@@ -43,6 +43,11 @@ nomad {
   address = "http://{{env "attr.unique.network.ip-address" }}:4646"
 }
 
+telemetry {
+  prometheus_metrics = true
+  disable_hostname   = true
+}
+
 apm "prometheus" {
   driver = "prometheus"
   config = {

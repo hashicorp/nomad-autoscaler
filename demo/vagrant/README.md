@@ -110,10 +110,10 @@ The increase in load will be reflected through Prometheus metrics to the Autosca
 2020-03-25T17:23:12.735Z [INFO]  agent: scaling target: policy_id=248f6157-ca37-f868-a0ab-cabbc67fec1d source=prometheus strategy=target-value target=local-nomad target_config="map[group:demo job_id:webapp]" from=1 to=2 reason="scaling up because factor is 1.500000"
 ```
 
-## Understanding the dashboard
-From the [dashboard](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s) you will be able to see the actions taken by the Autoscaler:
+## Understanding the Demo Dashboard
+From the [demo dashboard](http://localhost:3000/d/8QlvShyZz/nomad-autoscaler-demo?orgId=1&refresh=5s) you will be able to see the actions taken by the Autoscaler:
 
-![dashboard](images/dashboard.png)
+![dashboard](images/demo_dashboard.png)
 
 The green shaded area in the middle of the dashboard is the `count` of the `webapp` task group that the Autoscaler will act on. The blue line is the total number of connections hitting our services and the purple line is the average number of connections per instance of `webapp`, and it's the metric we are monitoring.
 
@@ -122,6 +122,23 @@ You can see that the `count` starts at 3, but drops to 1 after the Autoscaler is
 The Autoscaler notices this spike and reacts a few seconds later by increasing the `count`. This will add more instances of our web app to handle the load and drop the average number of connections to our target value. Once the load is removed, the Autoscaler returns `count` to 1. The log entries for the scaling actions performed by the Autoscaler are automatically added to the graphs as annotations represented by the dashed light blue vertical lines. Hovering over them will display more details about the scaling event.
 
 The actual values you observe might be different, but the general idea of `count` reacting to the average number of connections should be noticeable.
+
+## Understanding the Autoscaler Dashboard
+The [autoscaler dashboard](http://localhost:3000/d/23veuVIGk/nomad-autoscaler-telemetry?orgId=1) provides
+insights into the runtime performance of the Nomad Autoscaler using its
+[metrics API endpoint](https://www.nomadproject.io/docs/autoscaling/api#metrics-api):
+
+![dashboard](images/autoscaler_dashboard.png)
+
+The top row of panels detail the plugin performance by invocation time. The invocation time is the
+time taken to perform a single RPC plugin call.
+
+The middle row provides useful business metrics about the Nomad Autoscaler, in particular the total
+time taken to perform a scaling evaluation, as well as the success and error rates when submitting
+scaling actions to the target.
+
+The bottom row provides insight into the Go runtime for the Nomad Autoscaler. It displays the most
+commonly tracked stats which indicate runtime performance.
 
 ## Demo End
 Congratulations, you have run through the Nomad Autoscaler Vagrant demo. In order to destroy the created virtual machine, close all SSH connection and then issue a `vagrant destroy -f` command.

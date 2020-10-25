@@ -48,6 +48,11 @@ type RemoteProvider string
 // nodeAttrAWSInstanceID to perform ID translation.
 const RemoteProviderAWSInstanceID RemoteProvider = "aws_instance_id"
 
+// RemoteProviderAzureInstanceID is the Azure remote provider for
+// VM instances. This provider will use the node attribute as defined by
+// nodeAttrAzureInstanceID to perform ID translation.
+const RemoteProviderAzureInstanceID RemoteProvider = "azure_instance_id"
+
 // NodeIDStrategy is the strategy used to identify nodes for removal as part of
 // scaling in.
 type NodeIDStrategy string
@@ -62,6 +67,10 @@ const IDStrategyNewestCreateIndex NodeIDStrategy = "newest_create_index"
 // nodeAttrAWSInstanceID is the node attribute to use when identifying the
 // AWS instanceID of a node.
 const nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
+
+// nodeAttrAzureName is the node attribute to use when identifying the
+// Azure instanceID of a node.
+const nodeAttrAzureInstanceID = "unique.platform.azure.name"
 
 // defaultClassIdentifier is the class used for nodes which have an empty class
 // parameter when using the IdentifierKeyClass.
@@ -108,7 +117,8 @@ type nodeIDMapFunc func(n *api.Node) (string, error)
 // idFuncMap contains a mapping of RemoteProvider to the function which can
 // pull the remote ID information from the node.
 var idFuncMap = map[RemoteProvider]nodeIDMapFunc{
-	RemoteProviderAWSInstanceID: awsNodeIDMap,
+	RemoteProviderAWSInstanceID:   awsNodeIDMap,
+	RemoteProviderAzureInstanceID: azureNodeIDMap,
 }
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using
@@ -120,4 +130,19 @@ func awsNodeIDMap(n *api.Node) (string, error) {
 		err = fmt.Errorf("attribute %q not found", nodeAttrAWSInstanceID)
 	}
 	return val, err
+}
+
+// azureNodeIDMap is used to identify the Azure InstanceID of a Nomad node using
+// the relevant attribute value.
+func azureNodeIDMap(n *api.Node) (string, error) {
+	if val, ok := n.Attributes[nodeAttrAzureInstanceID]; ok {
+		return val, nil
+	}
+
+	// Fallback to meta tag.
+	if val, ok := n.Meta[nodeAttrAzureInstanceID]; ok {
+		return val, nil
+	}
+
+	return "", fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
 }

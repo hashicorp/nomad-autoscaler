@@ -104,5 +104,11 @@ bin/plugins/datadog:
 	@cd ./plugins/builtin/apm/datadog && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/azure-vmss:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/azure-vmss && go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
-plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog
+plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog bin/plugins/azure-vmss

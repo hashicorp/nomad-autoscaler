@@ -11,9 +11,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
 // argsOrEnv allows you to pick an environmental variable for a setting if the arg is not set

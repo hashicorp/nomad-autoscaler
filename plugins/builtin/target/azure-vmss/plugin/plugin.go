@@ -8,13 +8,13 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/helper/nomad"
-	"github.com/hashicorp/nomad-autoscaler/helper/ptr"
-	"github.com/hashicorp/nomad-autoscaler/helper/scaleutils"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
 const (

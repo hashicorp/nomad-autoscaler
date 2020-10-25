@@ -40,6 +40,10 @@ const (
 	// plugin.
 	InternalTargetAWSASG = "aws-asg"
 
+	// InternalTargetAzureVMSS is the Azure Virtual Machine Scale Set target
+	// plugin.
+	InternalTargetAzureVMSS = "azure-vmss"
+
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
 )

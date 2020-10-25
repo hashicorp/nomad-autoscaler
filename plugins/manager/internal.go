@@ -11,6 +11,7 @@ import (
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
+	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
@@ -36,6 +37,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetAWSASG:
 		info.factory = awsASG.PluginConfig.Factory
 		info.driver = "aws-asg"
+	case plugins.InternalTargetAzureVMSS:
+		info.factory = azureVMSS.PluginConfig.Factory
+		info.driver = "azure-vmss"
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
@@ -80,6 +84,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalAPMPrometheus,
 		plugins.InternalStrategyTargetValue,
 		plugins.InternalTargetAWSASG,
+		plugins.InternalTargetAzureVMSS,
 		plugins.InternalAPMDatadog:
 		return true
 	default:

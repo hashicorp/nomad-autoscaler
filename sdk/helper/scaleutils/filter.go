@@ -135,10 +135,14 @@ func awsNodeIDMap(n *api.Node) (string, error) {
 // azureNodeIDMap is used to identify the Azure InstanceID of a Nomad node using
 // the relevant attribute value.
 func azureNodeIDMap(n *api.Node) (string, error) {
-	var err error
-	val, ok := n.Attributes[nodeAttrAzureInstanceID]
-	if !ok {
-		err = fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
+	if val, ok := n.Attributes[nodeAttrAzureInstanceID]; ok {
+		return val, nil
 	}
-	return val, err
+
+	// Fallback to meta tag.
+	if val, ok := n.Meta[nodeAttrAzureInstanceID]; ok {
+		return val, nil
+	}
+
+	return "", fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
 }

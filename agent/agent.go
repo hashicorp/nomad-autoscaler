@@ -79,6 +79,8 @@ func (a *Agent) Run() error {
 		a.config.PolicyEval.DeliveryLimit)
 	a.initWorkers(ctx)
 
+	a.initEnt(ctx)
+
 	// Launch the eval handler.
 	go a.runEvalHandler(ctx, policyEvalCh)
 

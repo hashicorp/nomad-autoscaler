@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+ * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]
+
 IMPROVEMENTS:
  * plugins/target/nomad: Added support for namespaced jobs [[GH-277](https://github.com/hashicorp/nomad-autoscaler/pull/277)]
 

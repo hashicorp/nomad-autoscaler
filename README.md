@@ -18,6 +18,12 @@ to ensure there is an appropriate amount of cluster resource for the scheduled a
 achieved by interacting with remote providers to start or terminate new Nomad clients based on metrics
 such as the remaining free schedulable CPU or memory.
 
+* **Dynamic Application Sizing (Enterprise)**: Dynamic Application Sizing enables organizations to
+optimize the resource consumption of applications using sizing recommendations from Nomad. It
+evaluates, processes and stores historical task resource usage data, making recommendations for CPU
+and Memory resource parameters. The recommendations can be calculated using a number of different
+algorithms to ensure the recommendation best fits the application profile.
+
 ## Requirements
 
 The autoscaler relies on Nomad APIs that were introduced in Nomad 0.11-beta1, some of which have been changed during the beta.

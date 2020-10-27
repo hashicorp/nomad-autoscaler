@@ -4,8 +4,6 @@ The Nomad Autoscaler is an autoscaling daemon for [Nomad](https://nomadproject.i
 architectured around plug-ins to allow for easy extensibility in terms of supported metrics sources,
 scaling targets and scaling algorithms.
 
-***This project is in the early stages of development and is supplied without guarantees and subject to change without warning***
-
 The Nomad Autoscaler currently supports:
 * **Horizontal Application Autoscaling**: The process of automatically controlling the number of
 instances of an application to have sufficient work throughput to meet service-level agreements (SLA).

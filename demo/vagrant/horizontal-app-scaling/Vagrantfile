@@ -13,8 +13,10 @@ Vagrant.configure("2") do |config|
   config.vm.network "forwarded_port", guest: 9090, host: 9090, host_ip: "127.0.0.1"    # Prometheus
   config.vm.network "forwarded_port", guest: 3000, host: 3000, host_ip: "127.0.0.1"    # Grafana
 
-  # Share current directory with jobs and configuration files with the VM.
+  # Share current directory with jobs and configuration files with the VM. Add
+  # the shared files in a sub-dir.
   config.vm.synced_folder "./", "/home/vagrant/nomad-autoscaler"
+  config.vm.synced_folder "../shared", "/home/vagrant/nomad-autoscaler-shared"
 
   # VM configuration.
   config.vm.provider "virtualbox" do |vb|
@@ -81,23 +83,30 @@ Vagrant.configure("2") do |config|
   #   - Create daemons for Nomad and Consul
   # Runs everytime the VM starts.
   config.vm.provision "app:setup", type: "shell", run: "always", inline: <<-SHELL
-    # create paths for Nomad host volumes
+    # Create paths for Nomad host volumes.
     mkdir -p /opt/nomad-volumes
     pushd /opt/nomad-volumes
     mkdir -p grafana
     chown 472:472 grafana
     popd
 
-    # configure Nomad and Consul daemons
-    pushd /home/vagrant/nomad-autoscaler/files
+    # Configure the Nomad and Consul daemons.
+    pushd /home/vagrant/nomad-autoscaler-shared
     for t in consul nomad; do
       cp ${t}.service /etc/systemd/system/
       mkdir -p /etc/${t}.d
-      cp ${t}.hcl /etc/${t}.d/
-      systemctl enable $t
-      systemctl start $t
     done
     popd
+
+    # Copy across the config files.
+    cp /home/vagrant/nomad-autoscaler-shared/consul.hcl /etc/consul.d/
+    cp /home/vagrant/nomad-autoscaler/files/nomad.hcl /etc/nomad.d/
+
+    # Enable and start the daemons
+    systemctl enable consul
+    systemctl start consul
+    sudo systemctl enable nomad
+    sudo systemctl start nomad
   SHELL
 
 end

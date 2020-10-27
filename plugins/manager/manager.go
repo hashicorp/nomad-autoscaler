@@ -75,6 +75,8 @@ func (pm *PluginManager) Load() error {
 			// the loading of the config into the manager store.
 			if pm.useInternal(cfg.Driver) {
 				pm.loadInternalPlugin(cfg, t)
+			} else if isEnterprise(cfg.Driver) {
+				pm.loadEnterprisePlugin(cfg, t)
 			} else {
 				pm.loadExternalPlugin(cfg, t)
 			}

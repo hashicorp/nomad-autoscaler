@@ -4,8 +4,6 @@ The Nomad Autoscaler is an autoscaling daemon for [Nomad](https://nomadproject.i
 architectured around plug-ins to allow for easy extensibility in terms of supported metrics sources,
 scaling targets and scaling algorithms.
 
-***This project is in the early stages of development and is supplied without guarantees and subject to change without warning***
-
 The Nomad Autoscaler currently supports:
 * **Horizontal Application Autoscaling**: The process of automatically controlling the number of
 instances of an application to have sufficient work throughput to meet service-level agreements (SLA).
@@ -17,6 +15,12 @@ of open connections.
 to ensure there is an appropriate amount of cluster resource for the scheduled applications. This is
 achieved by interacting with remote providers to start or terminate new Nomad clients based on metrics
 such as the remaining free schedulable CPU or memory.
+
+* **Dynamic Application Sizing (Enterprise)**: Dynamic Application Sizing enables organizations to
+optimize the resource consumption of applications using sizing recommendations from Nomad. It
+evaluates, processes and stores historical task resource usage data, making recommendations for CPU
+and Memory resource parameters. The recommendations can be calculated using a number of different
+algorithms to ensure the recommendation best fits the application profile.
 
 ## Requirements
 
@@ -38,8 +42,9 @@ Documentation is available on the [Nomad project website](https://www.nomadproje
 
 ## Demo
 
-The [Vagrant based demo](./demo/vagrant/README.md) provides a guided example of running and autoscaling
-an application based on Prometheus metrics using the Nomad Autoscaler.
+There are both [horizontal application scaling](./demo/vagrant/horizontal-app-scaling/README.md) and
+[dynamic application sizing](./demo/vagrant/dynamic-app-sizing/README.md) based demos available
+providing guided examples of running the autoscaler.
 
 The [remote provider based demo](./demo/remote/README.md) provides guided examples of running horizontal
 application and cluster scaling.

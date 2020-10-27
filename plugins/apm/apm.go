@@ -10,6 +10,7 @@ import (
 
 type APM interface {
 	Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error)
+	QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error)
 	PluginInfo() (*base.PluginInfo, error)
 	SetConfig(config map[string]string) error
 }

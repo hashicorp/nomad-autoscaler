@@ -24,31 +24,6 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 		result = multierror.Append(result, fmt.Errorf("ID is empty"))
 	}
 
-	// Validate Min and Max values.
-	//   1. Min must not be nil.
-	//   2. Min must be positive.
-	//   3. Max must be positive.
-	//   4. Max must not be nil.
-	//   5. Min must be smaller than Max.
-	if policy.Min == nil {
-		result = multierror.Append(result, fmt.Errorf("scaling.min is missing"))
-	} else if policy.Max == nil {
-		result = multierror.Append(result, fmt.Errorf("scaling.max is missing"))
-	} else {
-		min := *policy.Min
-		if min < 0 {
-			result = multierror.Append(result, fmt.Errorf("scaling.min can't be negative"))
-		}
-
-		if min > *policy.Max {
-			result = multierror.Append(result, fmt.Errorf("scaling.min must be smaller than scaling.max"))
-		}
-
-		if *policy.Max < 0 {
-			result = multierror.Append(result, fmt.Errorf("scaling.max can't be negative"))
-		}
-	}
-
 	// Validate Target.
 	if policy.Target == nil {
 		result = multierror.Append(result, fmt.Errorf("Target is nil"))
@@ -59,7 +34,21 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 		result = multierror.Append(result, policyErr)
 	}
 
+	// Run type-specific validations.
+	result = multierror.Append(result, validateScalingPolicyByType(policy))
+
 	return result.ErrorOrNil()
+}
+
+func validateScalingPolicyByType(policy *api.ScalingPolicy) error {
+	switch policy.Type {
+	case "horizontal":
+		return validateHorizontalPolicy(policy)
+	case "cluster":
+		return validateClusterPolicy(policy)
+	default:
+		return additionalPolicyTypeValidation(policy)
+	}
 }
 
 // validatePolicy validates the content of the policy block inside scaling.
@@ -188,13 +177,10 @@ func validateCheck(c map[string]interface{}, path string) error {
 	}
 
 	// Validate Query.
-	//   1. Query key must exist.
-	//   2. Query must have string value.
-	//   3. Query must not be empty.
+	//   1. Query must have string value.
+	//   2. Query must not be empty.
 	query, ok := c[keyQuery]
-	if !ok {
-		result = multierror.Append(result, fmt.Errorf("%s.%s is missing", path, keyQuery))
-	} else {
+	if ok {
 		queryStr, ok := query.(string)
 		if !ok {
 			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keyQuery, query))

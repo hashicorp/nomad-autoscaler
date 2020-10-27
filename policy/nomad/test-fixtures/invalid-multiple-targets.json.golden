@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 896,
+    "CreateIndex": 319,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-multiple-targets",
-    "JobModifyIndex": 896,
+    "JobModifyIndex": 319,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 898,
+    "ModifyIndex": 322,
+    "Multiregion": null,
     "Name": "invalid-multiple-targets",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -25,10 +27,10 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592020485506877000,
+    "SubmitTime": 1602724440240885000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,26 +60,14 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 896,
+          "CreateIndex": 319,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 896,
+          "ModifyIndex": 319,
           "Namespace": "",
           "Policy": {
-            "target": [
-              {
-                "target-1": [
-                  {}
-                ]
-              },
-              {
-                "target-2": [
-                  {}
-                ]
-              }
-            ],
             "check": [
               {
                 "check": [
@@ -97,13 +87,26 @@
                   }
                 ]
               }
+            ],
+            "target": [
+              {
+                "target-1": [
+                  {}
+                ]
+              },
+              {
+                "target-2": [
+                  {}
+                ]
+              }
             ]
           },
           "Target": {
-            "Namespace": "default",
             "Job": "invalid-multiple-targets",
-            "Group": "test"
-          }
+            "Group": "test",
+            "Namespace": "default"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -148,6 +151,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -172,6 +176,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

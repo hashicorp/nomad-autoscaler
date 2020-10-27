@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 873,
+    "CreateIndex": 232,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-multiple-strategies",
-    "JobModifyIndex": 873,
+    "JobModifyIndex": 232,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 877,
+    "ModifyIndex": 235,
+    "Multiregion": null,
     "Name": "invalid-multiple-strategies",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592019961856603000,
+    "SubmitTime": 1602724426232809000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,49 +60,42 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 873,
+          "CreateIndex": 232,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 873,
+          "ModifyIndex": 232,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "query": "query",
                     "strategy": [
                       {
                         "strategy-1": [
-                          {
-                            "str_config": "str",
-                            "bool_config": true,
-                            "int_config": 2
-                          }
+                          {}
                         ]
                       },
                       {
                         "strategy-2": [
-                          {
-                            "bool_config": true,
-                            "int_config": 2,
-                            "str_config": "str"
-                          }
+                          {}
                         ]
                       }
-                    ],
-                    "query": "query"
+                    ]
                   }
                 ]
               }
             ]
           },
           "Target": {
-            "Job": "invalid-multiple-strategies",
             "Group": "test",
-            "Namespace": "default"
-          }
+            "Namespace": "default",
+            "Job": "invalid-multiple-strategies"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -145,6 +140,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -169,6 +165,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

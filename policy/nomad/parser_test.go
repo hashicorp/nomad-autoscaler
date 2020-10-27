@@ -26,6 +26,7 @@ func Test_parsePolicy(t *testing.T) {
 				Enabled:            false,
 				EvaluationInterval: 5 * time.Second,
 				Cooldown:           5 * time.Minute,
+				Type:               "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
@@ -76,6 +77,7 @@ func Test_parsePolicy(t *testing.T) {
 				Min:     1,
 				Max:     10,
 				Enabled: true,
+				Type:    "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -109,8 +111,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "empty policy",
 			input: "empty-policy",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -125,8 +128,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "invalid evaluation_interval",
 			input: "invalid-evaluation-interval",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -141,8 +145,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "invalid cooldown",
 			input: "invalid-cooldown",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -157,8 +162,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "empty target",
 			input: "empty-target",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
@@ -173,16 +179,18 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "invalid target",
 			input: "invalid-target",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 			},
 		},
 		{
 			name:  "empty check",
 			input: "empty-check",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -200,8 +208,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "single check",
 			input: "single-check",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -231,8 +240,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "invalid check",
 			input: "invalid-check",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -247,8 +257,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "missing strategy",
 			input: "missing-strategy",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -270,8 +281,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "empty strategy",
 			input: "empty-strategy",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{
@@ -295,8 +307,9 @@ func Test_parsePolicy(t *testing.T) {
 			name:  "invalid strategy",
 			input: "invalid-strategy",
 			expected: sdk.ScalingPolicy{
-				ID:  "id",
-				Max: 10,
+				ID:   "id",
+				Max:  10,
+				Type: "horizontal",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "",
 					Config: map[string]string{

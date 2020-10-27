@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 792,
+    "CreateIndex": 212,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-source-not-string",
-    "JobModifyIndex": 792,
+    "JobModifyIndex": 212,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 794,
+    "ModifyIndex": 215,
+    "Multiregion": null,
     "Name": "invalid-source-not-string",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -25,10 +27,10 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1592018567288208000,
+    "SubmitTime": 1602724422826471000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,18 +60,19 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 792,
+          "CreateIndex": 212,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 792,
+          "ModifyIndex": 212,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "source": 2,
                     "strategy": [
                       {
                         "strategy": [
@@ -81,18 +84,18 @@
                         ]
                       }
                     ],
-                    "query": "query",
-                    "source": 2
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-source-not-string",
-            "Group": "test"
-          }
+            "Job": "invalid-source-not-string"
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -103,10 +106,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -137,6 +140,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -161,6 +165,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

@@ -85,6 +85,24 @@ func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 }
 
 func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+	m, err := a.QueryMultiple(q, r)
+	if err != nil {
+		return nil, err
+	}
+
+	switch len(m) {
+	case 0:
+		return sdk.TimestampedMetrics{}, nil
+	case 1:
+		return m[0], nil
+	default:
+		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected.", len(m))
+	}
+}
+
+func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	a.logger.Debug("querying Prometheus", "query", q, "range", r)
+
 	v1api := v1.NewAPI(a.client)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -115,7 +133,7 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 	}
 }
 
-func parseScalar(s *model.Scalar) (sdk.TimestampedMetrics, error) {
+func parseScalar(s *model.Scalar) ([]sdk.TimestampedMetrics, error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -125,10 +143,10 @@ func parseScalar(s *model.Scalar) (sdk.TimestampedMetrics, error) {
 		return nil, err
 	}
 
-	return sdk.TimestampedMetrics{tm}, nil
+	return []sdk.TimestampedMetrics{{tm}}, nil
 }
 
-func parseVector(v model.Vector) (sdk.TimestampedMetrics, error) {
+func parseVector(v model.Vector) ([]sdk.TimestampedMetrics, error) {
 	var result sdk.TimestampedMetrics
 	for _, s := range v {
 		tm, err := parseSample(*s)
@@ -139,29 +157,25 @@ func parseVector(v model.Vector) (sdk.TimestampedMetrics, error) {
 		result = append(result, tm)
 	}
 
-	return result, nil
+	return []sdk.TimestampedMetrics{result}, nil
 }
 
-func parseMatrix(m model.Matrix) (sdk.TimestampedMetrics, error) {
-	if m.Len() != 1 {
-		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected.", m.Len())
-	}
-
-	// Cast matrix to a list of sample streams so we can get the first stream.
+func parseMatrix(m model.Matrix) ([]sdk.TimestampedMetrics, error) {
+	// Cast matrix to a list of sample streams so we can iterate over it.
 	ssList := []*model.SampleStream(m)
-	ss := ssList[0]
-	if ss == nil {
-		return nil, nil
-	}
+	result := make([]sdk.TimestampedMetrics, len(ssList))
+	for i, ss := range ssList {
+		var metrics sdk.TimestampedMetrics
+		for _, sp := range ss.Values {
+			tm, err := parseSample(sp)
+			if err != nil {
+				return nil, err
+			}
 
-	var result sdk.TimestampedMetrics
-	for _, sp := range ss.Values {
-		tm, err := parseSample(sp)
-		if err != nil {
-			return nil, err
+			metrics = append(metrics, tm)
 		}
 
-		result = append(result, tm)
+		result[i] = metrics
 	}
 
 	return result, nil
@@ -192,7 +206,7 @@ func parseSample(s interface{}) (sdk.TimestampedMetric, error) {
 		return result, fmt.Errorf("query result value is not-a-number")
 	}
 
-	tsTime := time.Unix(int64(ts), 0)
+	tsTime := time.Unix(int64(ts)/1e3, 0)
 
 	return sdk.TimestampedMetric{
 		Timestamp: tsTime,

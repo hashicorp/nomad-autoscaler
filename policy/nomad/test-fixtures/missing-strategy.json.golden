@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 961,
+    "CreateIndex": 311,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "missing-strategy",
-    "JobModifyIndex": 961,
+    "JobModifyIndex": 311,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 963,
+    "ModifyIndex": 312,
+    "Multiregion": null,
     "Name": "missing-strategy",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316405449000,
+    "SubmitTime": 1602724439544604000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,20 +60,20 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 961,
+          "CreateIndex": 311,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 961,
+          "ModifyIndex": 311,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "query",
-                    "source": "source"
+                    "source": "source",
+                    "query": "query"
                   }
                 ]
               }
@@ -81,7 +83,8 @@
             "Job": "missing-strategy",
             "Group": "test",
             "Namespace": "default"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -92,10 +95,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -126,6 +129,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -150,6 +154,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

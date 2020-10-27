@@ -4,18 +4,20 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 958,
+    "CreateIndex": 315,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "empty-strategy",
-    "JobModifyIndex": 958,
+    "JobModifyIndex": 315,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 960,
+    "ModifyIndex": 316,
+    "Multiregion": null,
     "Name": "empty-strategy",
     "Namespace": "default",
+    "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
     "Payload": null,
@@ -28,7 +30,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1591924316397290000,
+    "SubmitTime": 1602724439894161000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -58,12 +60,12 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 958,
+          "CreateIndex": 315,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 958,
+          "ModifyIndex": 315,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -86,7 +88,8 @@
             "Namespace": "default",
             "Job": "empty-strategy",
             "Group": "test"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -131,6 +134,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -155,6 +159,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

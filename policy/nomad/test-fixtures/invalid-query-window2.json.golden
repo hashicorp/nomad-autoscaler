@@ -4,16 +4,16 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulToken": "",
-    "CreateIndex": 42,
+    "CreateIndex": 222,
     "Datacenters": [
       "dc1"
     ],
     "Dispatched": false,
     "ID": "invalid-query-window2",
-    "JobModifyIndex": 42,
+    "JobModifyIndex": 222,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 43,
+    "ModifyIndex": 225,
     "Multiregion": null,
     "Name": "invalid-query-window2",
     "Namespace": "default",
@@ -27,10 +27,10 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1600299193558569000,
+    "SubmitTime": 1602724424533032000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -60,31 +60,31 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 42,
+          "CreateIndex": 222,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 42,
+          "ModifyIndex": 222,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "query": "query",
                     "query_window": "not quite right",
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "bool_config": true,
                             "int_config": 2,
-                            "str_config": "str"
+                            "str_config": "str",
+                            "bool_config": true
                           }
                         ]
                       }
-                    ],
-                    "query": "query"
+                    ]
                   }
                 ]
               }
@@ -94,7 +94,8 @@
             "Group": "test",
             "Namespace": "default",
             "Job": "invalid-query-window2"
-          }
+          },
+          "Type": "horizontal"
         },
         "Services": null,
         "ShutdownDelay": null,
@@ -139,6 +140,7 @@
               "Interval": 86400000000000,
               "Mode": "fail"
             },
+            "ScalingPolicies": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -163,6 +165,7 @@
       "ProgressDeadline": 0,
       "Stagger": 0
     },
+    "VaultNamespace": "",
     "VaultToken": "",
     "Version": 0
   }

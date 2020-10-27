@@ -264,6 +264,11 @@ type PolicyEval struct {
 	AckTimeout    time.Duration
 	AckTimeoutHCL string `hcl:"ack_timeout,optional" json:"-"`
 
+	// EvaluateAfter is the time limit for how much historical data must be
+	// available before the Autoscaler evaluates a policy.
+	EvaluateAfter    time.Duration
+	EvaluateAfterHCL string `hcl:"evaluate_after,optional" json:"-"`
+
 	// Workers hold the number of workers to initialize for each queue.
 	Workers map[string]int `hcl:"workers,optional"`
 }
@@ -611,6 +616,10 @@ func (pw *PolicyEval) merge(in *PolicyEval) *PolicyEval {
 		result.Workers[k] = v
 	}
 
+	if in.EvaluateAfter != 0 {
+		result.EvaluateAfter = in.EvaluateAfter
+	}
+
 	return &result
 }
 
@@ -727,6 +736,14 @@ func parseFile(file string, cfg *Agent) error {
 
 		if cfg.PolicyEval.DeliveryLimitPtr != nil {
 			cfg.PolicyEval.DeliveryLimit = *cfg.PolicyEval.DeliveryLimitPtr
+		}
+
+		if cfg.PolicyEval.EvaluateAfterHCL != "" {
+			t, err := time.ParseDuration(cfg.PolicyEval.EvaluateAfterHCL)
+			if err != nil {
+				return err
+			}
+			cfg.PolicyEval.EvaluateAfter = t
 		}
 	}
 

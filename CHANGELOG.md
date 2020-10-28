@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.2.0-beta2 (October 28, 2020)
 
 FEATURES:
  * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]

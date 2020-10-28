@@ -2,6 +2,7 @@
 
 FEATURES:
  * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]
+ * __Dynamic Application Sizing (Enterprise)__: Evaluate, processes and store historical task resource usage data, making recommendations for CPU and Memory resource parameters [[GH-298](https://github.com/hashicorp/nomad-autoscaler/pull/298)]
 
 IMPROVEMENTS:
  * agent: Added new evaluation broker to manage storing, deduping and controlling the distribution policy evaluation requests to workers [[GH-282](https://github.com/hashicorp/nomad-autoscaler/pull/282)]

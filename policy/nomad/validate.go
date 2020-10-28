@@ -42,7 +42,7 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 
 func validateScalingPolicyByType(policy *api.ScalingPolicy) error {
 	switch policy.Type {
-	case "horizontal":
+	case "horizontal", "":
 		return validateHorizontalPolicy(policy)
 	case "cluster":
 		return validateClusterPolicy(policy)

@@ -6,7 +6,7 @@ version: 2
 jobs:
   lint-go:
     docker:
-    - image: golang:1.15.2
+    - image: docker.mirror.hashicorp.services/golang:1.15.2
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -51,7 +51,7 @@ jobs:
     - GO111MODULE: 'on'
   check-deps-go:
     docker:
-    - image: golang:1.15.2
+    - image: docker.mirror.hashicorp.services/golang:1.15.2
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -81,7 +81,7 @@ jobs:
     - GO111MODULE: 'on'
   test-go:
     docker:
-    - image: golang:1.15.2
+    - image: docker.mirror.hashicorp.services/golang:1.15.2
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -111,7 +111,7 @@ jobs:
     - GO111MODULE: 'on'
   build-go:
     docker:
-    - image: golang:1.15.2
+    - image: docker.mirror.hashicorp.services/golang:1.15.2
     shell: /usr/bin/env bash -euo pipefail -c
     working_directory: /go/src/github.com/hashicorp/nomad-autoscaler
     steps:
@@ -190,7 +190,7 @@ workflows:
 # executors:
 #     go:
 #         docker:
-#             - image: golang:1.15.2
+#             - image: docker.mirror.hashicorp.services/golang:1.15.2
 #         environment:
 #             CIRCLECI_CLI_VERSION: 0.1.6772
 #             GO_TAGS: \"\"

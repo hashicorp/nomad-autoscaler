@@ -40,6 +40,11 @@ REQUESTS={{ or (env "NOMAD_META_requests") "100000" }}
 CLIENTS={{  or (env "NOMAD_META_clients") "50" }}
 EOF
       }
+
+      resources {
+        cpu    = 100
+        memory = 128
+      }
     }
   }
 }

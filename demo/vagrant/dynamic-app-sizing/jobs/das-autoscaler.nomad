@@ -5,10 +5,11 @@ job "das-autoscaler" {
     count = 1
 
     task "autoscaler" {
-      driver = "exec"
+      driver = "docker"
 
       config {
-        command = "/bin/nomad-autoscaler"
+        image   = "hashicorp/nomad-autoscaler-enterprise:0.2.0-beta2"
+        command = "nomad-autoscaler"
         args    = ["agent", "-config", "local/autoscaler.hcl"]
       }
 
@@ -70,8 +71,8 @@ EOH
       }
 
       resources {
-        cpu    = 1024
-        memory = 1024
+        cpu    = 512
+        memory = 512
 
         network {
           mbits = 10

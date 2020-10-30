@@ -30,11 +30,15 @@ job "example" {
         image = "nginx"
         ports = ["lb"]
         volumes = [
+          # It's safe to mount this path as a file because it won't re-render.
           "local/nginx.conf:/etc/nginx/nginx.conf",
+          # This path hosts files that will re-render with Consul Template.
           "local/nginx:/etc/nginx/conf.d"
         ]
       }
 
+      # This template overwrites the embedded nginx.conf file so it loads
+      # conf.d/*.conf files outside of the `http` block.
       template {
         data        = <<EOF
 user  nginx;
@@ -53,6 +57,7 @@ EOF
         destination = "local/nginx.conf"
       }
 
+      # This template creates a TCP proxy to Redis.
       template {
         data          = <<EOF
 stream {

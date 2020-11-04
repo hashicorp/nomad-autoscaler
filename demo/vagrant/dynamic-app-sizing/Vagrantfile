@@ -57,18 +57,8 @@ Vagrant.configure("2") do |config|
     docker run hello-world
     usermod -aG docker vagrant
 
-    // Create the HashiCorp binary destination.
+    # Create the HashiCorp binary destination.
     mkdir -p /opt/hashicorp/bin
-
-    # Download the Autoscaler Binary.
-    pushd /tmp/downloads
-    curl --silent --show-error --remote-name-all \
-      https://releases.hashicorp.com/nomad-autoscaler/0.2.0-beta2+ent/nomad-autoscaler_0.2.0-beta2+ent_linux_amd64.zip
-    unzip nomad-autoscaler_0.2.0-beta1+ent_linux_amd64.zip
-    mv nomad-autoscaler /opt/hashicorp/bin
-    chmod +x /opt/hashicorp/bin/nomad-autoscaler
-    cp /opt/hashicorp/bin/nomad-autoscaler /bin
-    popd
 
     # Download and install Nomad and Consul.
     pushd /tmp/downloads

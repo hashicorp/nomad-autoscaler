@@ -28,7 +28,7 @@ them as environment variables:
 
 ```shellsession
 $ export ARM_SUBSCRIPTION_ID=<SUBSCRIPTION_ID>
-$ export ARM_TENENT_ID=<TENANT_ID>
+$ export ARM_TENANT_ID=<TENANT_ID>
 ```
 
 Next, create an application ID and password that will be used to run Terraform:

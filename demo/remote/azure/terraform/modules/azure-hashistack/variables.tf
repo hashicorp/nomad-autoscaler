@@ -46,6 +46,24 @@ variable "nomad_autoscaler_image" {
   default     = "hashicorp/nomad-autoscaler:0.1.1"
 }
 
+variable "hashistack_image_name" {
+  description = "The name of the VM base image."
+  type        = string
+  default     = "hashistack"
+}
+
+variable "hashistack_image_resource_group" {
+  description = "An existing resource group where the base image will be created. If not defined, the image will be co-located with the other resources."
+  type        = string
+  default     = ""
+}
+
+variable "build_hashistack_image" {
+  description = "If set to false, the VM image is assumed to already exist and will not be built."
+  type        = bool
+  default     = true
+}
+
 variable "allowlist_ip" {
   description = "A list of IP address to grant access via the LBs."
   type        = list(string)

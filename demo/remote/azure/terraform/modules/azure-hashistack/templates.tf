@@ -26,8 +26,9 @@ data "template_file" "nomad_autoscaler_jobspec" {
   template = file("${path.module}/templates/azure_autoscaler.nomad")
 
   vars = {
-    subscription_id = data.azurerm_subscription.main.subscription_id
-    resource_group  = azurerm_resource_group.hashistack.name
+    nomad_autoscaler_image = var.nomad_autoscaler_image
+    subscription_id        = data.azurerm_subscription.main.subscription_id
+    resource_group         = azurerm_resource_group.hashistack.name
   }
 }
 

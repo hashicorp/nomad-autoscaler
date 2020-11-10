@@ -40,6 +40,12 @@ variable "consul_binary" {
   default     = "none"
 }
 
+variable "nomad_autoscaler_image" {
+  description = "The Docker image to use for the Nomad Autoscaler job."
+  type        = string
+  default     = "hashicorp/nomad-autoscaler:0.1.1"
+}
+
 variable "allowlist_ip" {
   description = "A list of IP address to grant access via the LBs."
   type        = list(string)

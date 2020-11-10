@@ -6,6 +6,8 @@ resource "azurerm_public_ip" "servers_lb" {
 }
 
 resource "azurerm_lb" "servers" {
+  depends_on = [azurerm_linux_virtual_machine.servers]
+
   name                = "servers-lb"
   location            = azurerm_resource_group.hashistack.location
   resource_group_name = azurerm_resource_group.hashistack.name

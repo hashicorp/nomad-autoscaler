@@ -1,4 +1,13 @@
 resource "azurerm_linux_virtual_machine_scale_set" "clients" {
+  depends_on = [
+    azurerm_lb_rule.clients_nomad,
+    azurerm_lb_rule.clients_consul,
+    azurerm_lb_rule.clients_grafana,
+    azurerm_lb_rule.clients_prometheus,
+    azurerm_lb_rule.clients_traefik,
+    azurerm_lb_rule.clients_http,
+  ]
+
   name                = "clients"
   location            = azurerm_resource_group.hashistack.location
   resource_group_name = azurerm_resource_group.hashistack.name

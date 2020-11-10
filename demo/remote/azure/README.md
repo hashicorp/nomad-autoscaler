@@ -115,9 +115,85 @@ The Autoscaler is not triggered automatically. This provides the opportunity to
 look through the jobfile to understand it better before deploying. The most
 important parts of the `azure_autoscaler.nomad` file are the template sections.
 The first defines our agent config where we configure the `prometheus`,
-`azure-vmss` and `target-value` plugins. The second is where we define our
-cluster scaling policy and write this to a local directory for reading. Once
-you have an understanding of the job file, submit it to the Nomad cluster
+`azure-vmss` and `target-value` plugins.
+
+```hcl
+template {
+  data = <<EOF
+nomad {
+  address = "http://{{env "attr.unique.network.ip-address" }}:4646"
+}
+
+apm "prometheus" {
+  driver = "prometheus"
+  config = {
+    address = "http://{{ range service "prometheus" }}{{ .Address }}:{{ .Port }}{{ end }}"
+  }
+}
+
+target "azure-vmss" {
+  driver = "azure-vmss"
+  config = {
+    subscription_id = "${subscription_id}"
+  }
+}
+
+strategy "target-value" {
+  driver = "target-value"
+}
+EOF
+
+   destination = "$${NOMAD_TASK_DIR}/config.hcl"
+}
+```
+
+The second is where we define our cluster scaling policy and write this to a
+local directory for reading.
+
+```hcl
+template {
+  data = <<EOF
+enabled = true
+min     = 1
+max     = 2
+
+policy {
+
+  cooldown            = "2m"
+  evaluation_interval = "1m"
+
+  check "cpu_allocated_percentage" {
+    source = "prometheus"
+    query  = "sum(nomad_client_allocated_cpu{node_class=\"hashistack\"}*100/(nomad_client_unallocated_cpu{node_class=\"hashistack\"}+nomad_client_allocated_cpu{node_class=\"hashistack\"}))/count(nomad_client_allocated_cpu{node_class=\"hashistack\"})"
+
+    strategy "target-value" {
+      target = 70
+    }
+  }
+
+  check "mem_allocated_percentage" {
+    source = "prometheus"
+    query  = "sum(nomad_client_allocated_memory{node_class=\"hashistack\"}*100/(nomad_client_unallocated_memory{node_class=\"hashistack\"}+nomad_client_allocated_memory{node_class=\"hashistack\"}))/count(nomad_client_allocated_memory{node_class=\"hashistack\"})"
+
+    strategy "target-value" {
+      target = 70
+    }
+  }
+
+  target "azure-vmss" {
+    resource_group      = "${resource_group}"
+    vm_scale_set        = "clients"
+    node_class          = "hashistack"
+    node_drain_deadline = "5m"
+  }
+}
+EOF
+
+  destination = "$${NOMAD_TASK_DIR}/policies/hashistack.hcl"
+}
+```
+
+Once you have an understanding of the job file, submit it to the Nomad cluster
 ensuring the `NOMAD_ADDR` env var has been exported.
 
 ```shellsession

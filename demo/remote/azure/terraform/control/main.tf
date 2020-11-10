@@ -1,3 +1,7 @@
+provider "nomad" {
+  address = module.hashistack_cluster.nomad_addr
+}
+
 module "my_ip_address" {
   source = "matti/resource/shell"
 
@@ -11,7 +15,8 @@ module "hashistack_cluster" {
 }
 
 module "hashistack_jobs" {
-  source = "../../../terraform/modules/shared-nomad-jobs"
+  source     = "../../../terraform/modules/shared-nomad-jobs"
+  depends_on = [module.hashistack_cluster]
 
   nomad_addr = module.hashistack_cluster.nomad_addr
 }

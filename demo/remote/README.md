@@ -18,6 +18,7 @@ In order to build and run the demo, the following applications are required loca
 There are specific steps to build the infrastructure depending on which provider you wish to use.
 Please navigate to the appropriate section below.
  * [Amazon Web Services](./aws.md)
+ * [Microsoft Azure](./azure/README.md)
 
 ## The Demo
 The steps below this point are generic across providers and form the main part of this demo. Enjoy.

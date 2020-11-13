@@ -15,6 +15,7 @@ pkg/
 # Terraform state files.
 *.tfstate
 *.tfstate.backup
+*.tfstate.*.backup
 .terraform.tfstate.lock.info
 
 # Terraform module and provider directory.

@@ -1,3 +1,7 @@
+provider "nomad" {
+  address = "http://${module.hashistack_cluster.server_elb_dns}:4646"
+}
+
 module "my_ip_address" {
   source = "matti/resource/shell"
 

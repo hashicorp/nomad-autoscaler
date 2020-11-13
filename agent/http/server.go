@@ -24,6 +24,10 @@ const (
 	// to register the metrics server endpoint.
 	metricsRoutePattern = "/v1/metrics"
 
+	// agentRoutePattern is the Autoscaler HTTP router pattern which is used to
+	// register endpoints related to the agent.
+	agentRoutePattern = "/v1/agent/"
+
 	// healthAliveness is used to define the health of the Autoscaler agent. It
 	// currently can only be in two states; ready or unavailable and depends
 	// entirely on whether the server is serving or not.
@@ -36,6 +40,9 @@ type Server struct {
 	ln  net.Listener
 	mux *http.ServeMux
 	srv *http.Server
+
+	// agentCh is used by the HTTP server to communicate back with the agent.
+	agentCh chan AgentRequest
 
 	// aliveness is used to describe the health response and should be set
 	// atomically using healthAlivenessReady and healthAlivenessUnavailable
@@ -54,11 +61,13 @@ func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, inmSink *metrics.InmemSin
 		inMemSink: inmSink,
 		log:       log.Named("http_server"),
 		mux:       http.NewServeMux(),
+		agentCh:   make(chan AgentRequest),
 	}
 
 	// Setup our handlers.
 	srv.mux.HandleFunc(healthRoutePattern, srv.wrap(srv.getHealth))
 	srv.mux.HandleFunc(metricsRoutePattern, srv.wrap(srv.getMetrics))
+	srv.mux.HandleFunc(agentRoutePattern, srv.wrap(srv.agentSpecificRequest))
 
 	// Configure the HTTP server to the most basic level.
 	srv.srv = &http.Server{
@@ -118,6 +127,11 @@ func (s *Server) Stop() {
 	if err := s.srv.Shutdown(ctx); err != nil {
 		s.log.Error("could not gracefully shutdown HTTP server", "error", err)
 	}
+}
+
+// AgentCh returns a read-only channel used to listen for agent requests.
+func (s *Server) AgentCh() <-chan AgentRequest {
+	return s.agentCh
 }
 
 // wrap is a helper for all HTTP handler functions providing common

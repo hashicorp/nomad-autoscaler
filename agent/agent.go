@@ -68,6 +68,7 @@ func (a *Agent) Run() error {
 
 	a.httpServer = httpServer
 	go a.httpServer.Start()
+	go a.handleHTTPRequests(ctx)
 
 	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
@@ -215,6 +216,7 @@ func (a *Agent) generateNomadClient() error {
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
 func (a Agent) reload() {
+	a.logger.Debug("reloading policy sources")
 	a.policyManager.ReloadSources()
 }
 

@@ -48,7 +48,7 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 	// optional.
 	keyID, idOK := config[configKeyAccessID]
 	secretKey, keyOK := config[configKeySecretKey]
-	session, _ := config[configKeySessionToken]
+	session := config[configKeySessionToken]
 
 	if idOK && keyOK {
 		t.logger.Trace("setting AWS access credentials from config map")
@@ -204,10 +204,11 @@ func (t *TargetPlugin) detachInstances(ctx context.Context, asgName *string, ins
 	// Confirm that the detachments complete before moving on. I (jrasell) am
 	// not exactly sure what happens if we terminate an instance which is still
 	// detaching from an ASG, but we might as well avoid finding out if we can.
-	if err := t.ensureActivitiesComplete(ctx, activityIDs, *asgName); err != nil {
-		err = fmt.Errorf("failed to detached instances from AutoScaling Group: %v", err)
+	err = t.ensureActivitiesComplete(ctx, activityIDs, *asgName)
+	if err != nil {
+		return fmt.Errorf("failed to detached instances from AutoScaling Group: %v", err)
 	}
-	return err
+	return nil
 }
 
 func (t *TargetPlugin) terminateInstances(ctx context.Context, instanceIDs []string) error {
@@ -224,10 +225,11 @@ func (t *TargetPlugin) terminateInstances(ctx context.Context, instanceIDs []str
 	// Confirm that the instances have indeed terminated properly. This allows
 	// us to handle reconciliation if the error is transient, or at least
 	// allows operators to see the error and perform manual actions to resolve.
-	if err := t.ensureInstancesTerminate(ctx, instanceIDs); err != nil {
-		err = fmt.Errorf("failed to terminate EC2 instances: %v", err)
+	err = t.ensureInstancesTerminate(ctx, instanceIDs)
+	if err != nil {
+		return fmt.Errorf("failed to terminate EC2 instances: %v", err)
 	}
-	return err
+	return nil
 }
 
 func (t *TargetPlugin) describeASG(ctx context.Context, asgName string) (*autoscaling.AutoScalingGroup, error) {

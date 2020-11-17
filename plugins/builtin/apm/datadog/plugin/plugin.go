@@ -32,12 +32,6 @@ const (
 	ratelimitResetHdr = "X-Ratelimit-Reset"
 )
 
-type datadogQuery struct {
-	from  time.Time
-	to    time.Time
-	query string
-}
-
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
@@ -120,7 +114,7 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 	case 1:
 		return m[0], nil
 	default:
-		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected.", len(m))
+		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected", len(m))
 	}
 }
 

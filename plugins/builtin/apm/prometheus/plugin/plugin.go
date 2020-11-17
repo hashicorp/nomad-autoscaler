@@ -96,7 +96,7 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 	case 1:
 		return m[0], nil
 	default:
-		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected.", len(m))
+		return nil, fmt.Errorf("query returned %d metric streams, only 1 is expected", len(m))
 	}
 }
 
@@ -186,16 +186,16 @@ func parseSample(s interface{}) (sdk.TimestampedMetric, error) {
 	var val model.SampleValue
 	var result sdk.TimestampedMetric
 
-	switch s.(type) {
+	switch sType := s.(type) {
 	case model.Scalar:
-		val = s.(model.Scalar).Value
-		ts = s.(model.Scalar).Timestamp
+		val = sType.Value
+		ts = sType.Timestamp
 	case model.Sample:
-		val = s.(model.Sample).Value
-		ts = s.(model.Sample).Timestamp
+		val = sType.Value
+		ts = sType.Timestamp
 	case model.SamplePair:
-		val = s.(model.SamplePair).Value
-		ts = s.(model.SamplePair).Timestamp
+		val = sType.Value
+		ts = sType.Timestamp
 	default:
 		return result, fmt.Errorf("invalid sample type %T", s)
 	}

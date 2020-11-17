@@ -10,7 +10,6 @@ import (
 func TestFileDecodePolicy_Translate(t *testing.T) {
 	testCases := []struct {
 		inputFileDecodePolicy *FileDecodeScalingPolicy
-		inputPolicy           *ScalingPolicy
 		expectedOutputPolicy  *ScalingPolicy
 		name                  string
 	}{
@@ -47,7 +46,6 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 					},
 				},
 			},
-			inputPolicy: &ScalingPolicy{},
 			expectedOutputPolicy: &ScalingPolicy{
 				ID:                 "",
 				Min:                1,
@@ -82,8 +80,8 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.inputFileDecodePolicy.Translate(tc.inputPolicy)
-			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
+			got := tc.inputFileDecodePolicy.Translate()
+			assert.Equal(t, tc.expectedOutputPolicy, got, tc.name)
 		})
 	}
 }

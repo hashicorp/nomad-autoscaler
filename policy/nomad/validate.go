@@ -26,7 +26,7 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 
 	// Validate Target.
 	if policy.Target == nil {
-		result = multierror.Append(result, fmt.Errorf("Target is nil"))
+		result = multierror.Append(result, fmt.Errorf("Target is nil")) //lint:ignore ST1005 Target is a field value
 	}
 
 	// Validate Policy.

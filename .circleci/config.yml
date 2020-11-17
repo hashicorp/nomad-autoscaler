@@ -26,22 +26,9 @@ jobs:
           go version
         name: Setup Go
         working_directory: ~/
-    - run:
-        command: |
-          # Install golangci-lint
-          curl -sSLO "https://github.com/golangci/golangci-lint/releases/download/v1.24.0/golangci-lint-1.24.0-linux-amd64.tar.gz"
-          tar -xzf "golangci-lint-1.24.0-linux-amd64.tar.gz"
-          mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
-          rm -f golangci-lint-1.24.0-linux-amd64.tar.gz
-          rm -rf golangci-lint-1.24.0-linux-amd64/
-          chmod +x /usr/local/bin/golangci-lint
-          echo "$ golangci-lint version"
-          golangci-lint version
-        name: Setup golangci-lint
-        working_directory: ~/
     - checkout
     - run:
-        command: make check
+        command: make tools
     - run:
         command: make lint
     environment:
@@ -73,7 +60,7 @@ jobs:
         working_directory: ~/
     - checkout
     - run:
-        command: make check-mod
+        command: make check
     environment:
     - CIRCLECI_CLI_VERSION: 0.1.6772
     - GO_TAGS: ''
@@ -170,23 +157,6 @@ workflows:
 #                     go version
 #                 name: Setup Go
 #                 working_directory: ~/
-#     install-golangci-lint:
-#         description: |
-#             Ensure golangci-lint is installed.
-#         steps:
-#             - run:
-#                 command: |
-#                     # Install golangci-lint
-#                     curl -sSLO \"https://github.com/golangci/golangci-lint/releases/download/v1.24.0/golangci-lint-1.24.0-linux-amd64.tar.gz\"
-#                     tar -xzf \"golangci-lint-1.24.0-linux-amd64.tar.gz\"
-#                     mv golangci-lint-1.24.0-linux-amd64/golangci-lint /usr/local/bin/golangci-lint
-#                     rm -f golangci-lint-1.24.0-linux-amd64.tar.gz
-#                     rm -rf golangci-lint-1.24.0-linux-amd64/
-#                     chmod +x /usr/local/bin/golangci-lint
-#                     echo \"$ golangci-lint version\"
-#                     golangci-lint version
-#                 name: Setup golangci-lint
-#                 working_directory: ~/
 # executors:
 #     go:
 #         docker:
@@ -210,14 +180,13 @@ workflows:
 #         steps:
 #             - install-go
 #             - checkout
-#             - run: make check-mod
+#             - run: make check
 #     lint-go:
 #         executor: go
 #         steps:
 #             - install-go
-#             - install-golangci-lint
 #             - checkout
-#             - run: make check
+#             - run: make tools
 #             - run: make lint
 #     test-go:
 #         executor: go

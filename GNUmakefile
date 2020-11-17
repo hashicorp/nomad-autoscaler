@@ -8,8 +8,8 @@ GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_
 
 .PHONY: tools
 tools: ## Install the tools used to test and build
-	@echo "==> Installing tools"
-	GO111MODULE=off go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+	@echo "==> Installing tools..."
+	GO111MODULE=on cd tools && go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
 	@echo "==> Done"
 
 .PHONY: build
@@ -28,7 +28,7 @@ lint: ## Lint the source code
 	@echo "==> Done"
 
 .PHONY: check
-check: check-sdk check-mod
+check: check-sdk check-root-mod check-tools-mod
 
 .PHONY: check-sdk
 check-sdk: ## Checks the SDK pkg is isolated
@@ -38,12 +38,23 @@ check-sdk: ## Checks the SDK pkg is isolated
 		exit 1; fi
 	@echo "==> Done"
 
-.PHONEY: check-mod
-check-mod: ## Checks the Go mod is tidy
+.PHONEY: check-root-mod
+check-root-mod: ## Checks the root Go mod is tidy
 	@echo "==> Checking Go mod and Go sum..."
 	@GO111MODULE=on go mod tidy
 	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
 		echo go.mod or go.sum needs updating; \
+		git --no-pager diff go.mod; \
+		git --no-pager diff go.sum; \
+		exit 1; fi
+	@echo "==> Done"
+
+.PHONEY: check-tools-mod
+check-tools-mod: ## Checks the tools Go mod is tidy
+	@echo "==> Checking tools Go mod and Go sum..."
+	@GO111MODULE=on cd tools && go mod tidy
+	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
+		echo tools go.mod or go.sum needs updating; \
 		git --no-pager diff go.mod; \
 		git --no-pager diff go.sum; \
 		exit 1; fi

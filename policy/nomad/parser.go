@@ -212,10 +212,8 @@ func parseTarget(targetBlock interface{}, targetAttr map[string]string) *sdk.Sca
 		configMapString[k] = v
 	}
 
-	if targetMap != nil {
-		for k, v := range targetMap {
-			configMapString[k] = fmt.Sprintf("%v", v)
-		}
+	for k, v := range targetMap {
+		configMapString[k] = fmt.Sprintf("%v", v)
 	}
 
 	return &sdk.ScalingPolicyTarget{

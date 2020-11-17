@@ -10,11 +10,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 )
 
 type AgentCommand struct {
 	args []string
+
+	agent      *agent.Agent
+	httpServer *agentHTTP.Server
 }
 
 // Help should return long-form help text that includes the command-line
@@ -226,9 +230,19 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
-	// create and run agent
-	a := agent.NewAgent(parsedConfig, logger)
-	if err := a.Run(); err != nil {
+	// create and run agent and HTTP server
+	c.agent = agent.NewAgent(parsedConfig, logger)
+	httpServer, err := agentHTTP.NewHTTPServer(parsedConfig.HTTP, logger, c.agent)
+	if err != nil {
+		logger.Error("failed to setup HTTP getHealth server", "error", err)
+		return 1
+	}
+
+	c.httpServer = httpServer
+	go c.httpServer.Start()
+	defer c.httpServer.Stop()
+
+	if err := c.agent.Run(); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}

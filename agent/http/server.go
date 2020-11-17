@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -24,12 +23,26 @@ const (
 	// to register the metrics server endpoint.
 	metricsRoutePattern = "/v1/metrics"
 
+	// agentRoutePattern is the Autoscaler HTTP router pattern which is used to
+	// register endpoints related to the agent.
+	agentRoutePattern = "/v1/agent/"
+
 	// healthAliveness is used to define the health of the Autoscaler agent. It
 	// currently can only be in two states; ready or unavailable and depends
 	// entirely on whether the server is serving or not.
 	healthAlivenessReady = iota
 	healthAlivenessUnavailable
 )
+
+// AgentHTTP is the interface that defines the HTTP handlers that an Agent
+// must implement in order to be accessible through the HTTP API.
+type AgentHTTP interface {
+	// DisplayMetrics returns a summary of metrics collected by the agent.
+	DisplayMetrics(resp http.ResponseWriter, req *http.Request) (interface{}, error)
+
+	// ReloadAgent triggers the agent to reload policies and configuration.
+	ReloadAgent(resp http.ResponseWriter, req *http.Request) (interface{}, error)
+}
 
 type Server struct {
 	log hclog.Logger
@@ -42,23 +55,24 @@ type Server struct {
 	// const declarations.
 	aliveness int32
 
-	// inMemSink is our in-memory telemetry sink used to server metrics
-	// endpoint requests.
-	inMemSink *metrics.InmemSink
+	// agent is the reference to an object that implements the AgentHTTP
+	// interface to handle agent requests.
+	agent AgentHTTP
 }
 
 // NewHTTPServer creates a new agent HTTP server.
-func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, inmSink *metrics.InmemSink) (*Server, error) {
+func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
 
 	srv := &Server{
-		inMemSink: inmSink,
-		log:       log.Named("http_server"),
-		mux:       http.NewServeMux(),
+		log:   log.Named("http_server"),
+		mux:   http.NewServeMux(),
+		agent: agent,
 	}
 
 	// Setup our handlers.
 	srv.mux.HandleFunc(healthRoutePattern, srv.wrap(srv.getHealth))
 	srv.mux.HandleFunc(metricsRoutePattern, srv.wrap(srv.getMetrics))
+	srv.mux.HandleFunc(agentRoutePattern, srv.wrap(srv.agentSpecificRequest))
 
 	// Configure the HTTP server to the most basic level.
 	srv.srv = &http.Server{

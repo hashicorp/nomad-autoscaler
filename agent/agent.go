@@ -7,9 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	metrics "github.com/armon/go-metrics"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	agentServer "github.com/hashicorp/nomad-autoscaler/agent/http"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
@@ -26,7 +26,7 @@ type Agent struct {
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
-	httpServer    *agentServer.Server
+	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
 }
 
@@ -59,15 +59,7 @@ func (a *Agent) Run() error {
 	if err != nil {
 		return fmt.Errorf("failed to setup telemetry: %v", err)
 	}
-
-	// Setup and start the HTTP server.
-	httpServer, err := agentServer.NewHTTPServer(a.config.HTTP, a.logger, inMem)
-	if err != nil {
-		return fmt.Errorf("failed to setup HTTP getHealth server: %v", err)
-	}
-
-	a.httpServer = httpServer
-	go a.httpServer.Start()
+	a.inMemSink = inMem
 
 	policyEvalCh := a.setupPolicyManager()
 	go a.policyManager.Run(ctx, policyEvalCh)
@@ -144,11 +136,6 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 }
 
 func (a *Agent) stop() {
-	// Stop the health server.
-	if a.httpServer != nil {
-		a.httpServer.Stop()
-	}
-
 	// Kill all the plugins.
 	if a.pluginManager != nil {
 		a.pluginManager.KillPlugins()
@@ -214,7 +201,8 @@ func (a *Agent) generateNomadClient() error {
 
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
-func (a Agent) reload() {
+func (a *Agent) reload() {
+	a.logger.Debug("reloading policy sources")
 	a.policyManager.ReloadSources()
 }
 

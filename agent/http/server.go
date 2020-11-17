@@ -131,7 +131,7 @@ func (s *Server) wrap(handler func(w http.ResponseWriter, r *http.Request) (inte
 		// the HTTP request.
 		defer func() {
 			s.log.Trace("request complete", "method", r.Method,
-				"path", r.URL, "duration", time.Now().Sub(start))
+				"path", r.URL, "duration", time.Since(start))
 		}()
 
 		// Handle the request, allowing us to the get response object and any

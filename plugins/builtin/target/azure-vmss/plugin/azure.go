@@ -72,6 +72,9 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 			Capacity: ptr.Int64ToPtr(count),
 		},
 	})
+	if err != nil {
+		return fmt.Errorf("failed to get the vmss update response: %v", err)
+	}
 
 	err = future.WaitForCompletionRef(ctx, t.vmss.Client)
 	if err != nil {

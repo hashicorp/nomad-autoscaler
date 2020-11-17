@@ -37,8 +37,11 @@ const (
 // AgentHTTP is the interface that defines the HTTP handlers that an Agent
 // must implement in order to be accessible through the HTTP API.
 type AgentHTTP interface {
+	// DisplayMetrics returns a summary of metrics collected by the agent.
 	DisplayMetrics(resp http.ResponseWriter, req *http.Request) (interface{}, error)
-	Reload(resp http.ResponseWriter, req *http.Request) (interface{}, error)
+
+	// ReloadAgent triggers the agent to reload policies and configuration.
+	ReloadAgent(resp http.ResponseWriter, req *http.Request) (interface{}, error)
 }
 
 type Server struct {
@@ -52,6 +55,8 @@ type Server struct {
 	// const declarations.
 	aliveness int32
 
+	// agent is the reference to an object that implements the AgentHTTP
+	// interface to handle agent requests.
 	agent AgentHTTP
 }
 

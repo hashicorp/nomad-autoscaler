@@ -8,7 +8,7 @@ func (a *Agent) DisplayMetrics(resp http.ResponseWriter, req *http.Request) (int
 	return a.inMemSink.DisplayMetrics(resp, req)
 }
 
-func (a *Agent) Reload(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
+func (a *Agent) ReloadAgent(_ http.ResponseWriter, _ *http.Request) (interface{}, error) {
 	a.reload()
 	return nil, nil
 }

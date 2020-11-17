@@ -17,6 +17,6 @@ func (m *MockAgentHTTP) DisplayMetrics(resp http.ResponseWriter, req *http.Reque
 		Samples:   []metrics.SampledValue{},
 	}, nil
 }
-func (m *MockAgentHTTP) Reload(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
+func (m *MockAgentHTTP) ReloadAgent(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
 	return nil, nil
 }

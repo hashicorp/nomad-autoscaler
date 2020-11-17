@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// agentSpecificRequest handles the requests for the `/v1/agent/` endpoint and sub-paths.
 func (s *Server) agentSpecificRequest(w http.ResponseWriter, r *http.Request) (interface{}, error) {
 	path := strings.TrimPrefix(r.URL.Path, "/v1/agent")
 	switch {
@@ -20,5 +21,5 @@ func (s *Server) agentReload(w http.ResponseWriter, r *http.Request) (interface{
 		return nil, newCodedError(http.StatusMethodNotAllowed, errInvalidMethod)
 	}
 
-	return s.agent.Reload(w, r)
+	return s.agent.ReloadAgent(w, r)
 }

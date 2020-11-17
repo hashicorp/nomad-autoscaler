@@ -28,7 +28,7 @@ func (s *Server) getMetrics(w http.ResponseWriter, r *http.Request) (interface{}
 		s.getPrometheusMetrics().ServeHTTP(w, r)
 		return nil, nil
 	}
-	return s.inMemSink.DisplayMetrics(w, r)
+	return s.agent.DisplayMetrics(w, r)
 }
 
 // getPrometheusMetrics is the getMetrics handler when the caller wishes to

@@ -1,29 +1,14 @@
 package agent
 
-import (
-	"context"
-	"fmt"
+import "net/http"
 
-	"github.com/hashicorp/nomad-autoscaler/agent/http"
-)
+// The methods in this file implement in the http.AgentHTTP interface.
 
-func (a *Agent) handleHTTPRequests(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case r := <-a.httpServer.AgentCh():
-			switch r.Type {
-			case http.AgentRequestTypeReload:
-				a.handleHTTPReload(r)
-			default:
-				r.ResponseCh <- fmt.Errorf("invalid request type %q", r.Type)
-			}
-		}
-	}
+func (a *Agent) DisplayMetrics(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
+	return a.inMemSink.DisplayMetrics(resp, req)
 }
 
-func (a *Agent) handleHTTPReload(r http.AgentRequest) {
+func (a *Agent) Reload(resp http.ResponseWriter, req *http.Request) (interface{}, error) {
 	a.reload()
-	r.ResponseCh <- nil
+	return nil, nil
 }

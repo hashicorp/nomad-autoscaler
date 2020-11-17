@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -43,9 +41,8 @@ func TestServer_getHealth(t *testing.T) {
 	}
 
 	// Create our HTTP server.
-	srv, err := NewHTTPServer(&config.HTTP{BindAddress: "127.0.0.1", BindPort: 8080}, hclog.NewNullLogger(), nil)
-	assert.Nil(t, err)
-	defer srv.ln.Close()
+	srv, stopSrv := TestServer(t)
+	defer stopSrv()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

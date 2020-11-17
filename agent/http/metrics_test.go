@@ -4,11 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
-	metrics "github.com/armon/go-metrics"
-	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -44,14 +40,9 @@ func TestServer_getMetrics(t *testing.T) {
 		},
 	}
 
-	// Create a simple in-memory sink to use.
-	inm := metrics.NewInmemSink(10*time.Second, time.Minute)
-	metrics.DefaultInmemSignal(inm)
-
 	// Create our HTTP server.
-	srv, err := NewHTTPServer(&config.HTTP{BindAddress: "127.0.0.1", BindPort: 8080}, hclog.NewNullLogger(), inm)
-	assert.Nil(t, err)
-	defer srv.ln.Close()
+	srv, stopSrv := TestServer(t)
+	defer stopSrv()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

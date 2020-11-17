@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
@@ -35,33 +34,34 @@ const (
 	healthAlivenessUnavailable
 )
 
+// AgentHTTP is the interface that defines the HTTP handlers that an Agent
+// must implement in order to be accessible through the HTTP API.
+type AgentHTTP interface {
+	DisplayMetrics(resp http.ResponseWriter, req *http.Request) (interface{}, error)
+	Reload(resp http.ResponseWriter, req *http.Request) (interface{}, error)
+}
+
 type Server struct {
 	log hclog.Logger
 	ln  net.Listener
 	mux *http.ServeMux
 	srv *http.Server
 
-	// agentCh is used by the HTTP server to communicate back with the agent.
-	agentCh chan AgentRequest
-
 	// aliveness is used to describe the health response and should be set
 	// atomically using healthAlivenessReady and healthAlivenessUnavailable
 	// const declarations.
 	aliveness int32
 
-	// inMemSink is our in-memory telemetry sink used to server metrics
-	// endpoint requests.
-	inMemSink *metrics.InmemSink
+	agent AgentHTTP
 }
 
 // NewHTTPServer creates a new agent HTTP server.
-func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, inmSink *metrics.InmemSink) (*Server, error) {
+func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
 
 	srv := &Server{
-		inMemSink: inmSink,
-		log:       log.Named("http_server"),
-		mux:       http.NewServeMux(),
-		agentCh:   make(chan AgentRequest),
+		log:   log.Named("http_server"),
+		mux:   http.NewServeMux(),
+		agent: agent,
 	}
 
 	// Setup our handlers.
@@ -127,11 +127,6 @@ func (s *Server) Stop() {
 	if err := s.srv.Shutdown(ctx); err != nil {
 		s.log.Error("could not gracefully shutdown HTTP server", "error", err)
 	}
-}
-
-// AgentCh returns a read-only channel used to listen for agent requests.
-func (s *Server) AgentCh() <-chan AgentRequest {
-	return s.agentCh
 }
 
 // wrap is a helper for all HTTP handler functions providing common

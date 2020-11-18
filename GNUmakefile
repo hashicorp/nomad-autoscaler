@@ -10,6 +10,7 @@ GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_
 tools: ## Install the tools used to test and build
 	@echo "==> Installing tools..."
 	GO111MODULE=on cd tools && go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
+	GO111MODULE=on cd tools && go get -u honnef.co/go/tools/cmd/staticcheck@2020.1.6
 	@echo "==> Done"
 
 .PHONY: build
@@ -25,6 +26,7 @@ build:
 lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
+	@staticcheck ./...
 	@echo "==> Done"
 
 .PHONY: check

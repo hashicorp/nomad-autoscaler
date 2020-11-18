@@ -164,7 +164,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	}
 
 	// If we have previous activities then process the last.
-	if events != nil && len(events) > 0 {
+	if len(events) > 0 {
 		processLastActivity(events[0], &resp)
 	}
 

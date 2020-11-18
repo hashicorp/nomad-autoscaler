@@ -191,12 +191,9 @@ func (t *TargetPlugin) garbageCollectionLoop() {
 	ticker := time.NewTicker(garbageCollectionSecondInterval * time.Second)
 	t.gcRunning = true
 
-	for {
-		select {
-		case <-ticker.C:
-			t.logger.Debug("triggering run of handler garbage collection")
-			t.garbageCollect()
-		}
+	for range ticker.C {
+		t.logger.Debug("triggering run of handler garbage collection")
+		t.garbageCollect()
 	}
 }
 

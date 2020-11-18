@@ -166,4 +166,6 @@ func TestBroker(t *testing.T) {
 	<-ctxTO.Done()
 	assert.Nil(e)
 	assert.NoError(ctx.Err())
+	assert.Empty(token)
+	assert.Nil(err)
 }

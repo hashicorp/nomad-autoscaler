@@ -20,14 +20,17 @@ func TestGenerate(t *testing.T) {
 
 			stored := make(map[string]interface{})
 
+			compiledRegex, err := regexp.Compile(`[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}`)
+			assert.Nil(t, err, tc.name)
+			assert.NotNil(t, compiledRegex, tc.name)
+
 			for i := 0; i < 100; i++ {
 
 				newUUID := Generate()
 
 				// Check the UUID matches the expected regex.
-				matched, err := regexp.MatchString("[\\da-f]{8}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{4}-[\\da-f]{12}", newUUID)
+				matched := compiledRegex.MatchString(newUUID)
 				assert.True(t, matched, tc.name)
-				assert.Nil(t, err, tc.name)
 
 				// Ensure we have not seen the UUID before. Then store the new
 				// UUID.

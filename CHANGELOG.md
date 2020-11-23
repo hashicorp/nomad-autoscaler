@@ -1,4 +1,7 @@
-## 0.2.0-beta2 (October 28, 2020)
+## UNRELEASED
+
+__BACKWARDS INCOMPATIBILITIES:__
+ * policy/file: Policies stored in files must be wrapped in a `scaling` block [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]
 
 FEATURES:
  * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]
@@ -6,7 +9,9 @@ FEATURES:
 
 IMPROVEMENTS:
  * agent: Added new evaluation broker to manage storing, deduping and controlling the distribution policy evaluation requests to workers [[GH-282](https://github.com/hashicorp/nomad-autoscaler/pull/282)]
+ * agent: Add `/v1/agent/reload` endpoint [[GH-312](https://github.com/hashicorp/nomad-autoscaler/pull/312)]
  * plugins/target/nomad: Added support for namespaced jobs [[GH-277](https://github.com/hashicorp/nomad-autoscaler/pull/277)]
+ * policy/file: Allow multiple policies per file [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]
 
 ## 0.1.1 (September 11, 2020)
 

@@ -47,9 +47,10 @@ type Source struct {
 }
 
 // filePolicy is a wrapper around a scaling policy that also provides the file
-// that it came from.
+// and name that it came from.
 type filePolicy struct {
 	file   string
+	name   string
 	policy *sdk.ScalingPolicy
 }
 
@@ -111,6 +112,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 	s.policyMapLock.Lock()
 
 	var file string
+	var name string
 
 	// There isn't a possibility that I can think of where this call wouldn't
 	// be ok. Nevertheless check it to be safe before sending the policy to the
@@ -124,14 +126,15 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		// it later without performing a lookup. The file value will stay the
 		// same for the entire duration of this function.
 		file = val.file
+		name = val.name
 
-		p, err := s.handleIndividualPolicyRead(req.ID, file)
+		p, err := s.handleIndividualPolicyRead(req.ID, file, name)
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
 		}
 		if p != nil {
 			req.ResultCh <- *p
-			s.policyMap[req.ID] = &filePolicy{file: file, policy: p}
+			s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
 		}
 	}
 	s.policyMapLock.Unlock()
@@ -139,7 +142,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 	// Technically the log message should come further up, but its quite
 	// helpful to have the file path logged with the policyID otherwise there
 	// is no way to understand the ID->File mapping.
-	log := s.log.With("policy_id", req.ID, "file", file)
+	log := s.log.With("policy_id", req.ID, "file", file, "name", name)
 	log.Debug("starting file policy monitor")
 
 	for {
@@ -153,7 +156,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 			// Grab a lock as required by the function and the call.
 			s.policyMapLock.Lock()
-			newPolicy, err := s.handleIndividualPolicyRead(req.ID, file)
+			newPolicy, err := s.handleIndividualPolicyRead(req.ID, file, name)
 			s.policyMapLock.Unlock()
 
 			// An error indicates the policy failed to be decoded properly. It
@@ -179,17 +182,22 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 // be returned, otherwise we return nil to indicate no reload is required. This
 // function is not thread safe, so the caller should obtain at least a read
 // lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path string) (*sdk.ScalingPolicy, error) {
-
-	newPolicy := &sdk.ScalingPolicy{}
+func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (*sdk.ScalingPolicy, error) {
 
 	// Decode the file into a new policy to allow comparison to our stored
 	// policy. Make sure to add the ID string and defaults, we are responsible
 	// for managing this and if we don't add it, there will always be a
 	// difference.
-	if err := decodeFile(path, newPolicy); err != nil {
+	policies, err := decodeFile(path)
+	if err != nil {
 		return nil, fmt.Errorf("failed to decode file %s: %v", path, err)
 	}
+
+	newPolicy, ok := policies[name]
+	if !ok {
+		return nil, fmt.Errorf("policy %q doesn't exist in file %s", name, path)
+	}
+
 	newPolicy.ID = ID.String()
 	s.policyProcessor.ApplyPolicyDefaults(newPolicy)
 
@@ -246,58 +254,60 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 
 	for _, file := range files {
 
-		var scalingPolicy sdk.ScalingPolicy
-
-		// We have to decode the file to check whether the policy is enabled or
-		// not. If we cannot decode the file, append an error but do not bail
-		// on the process. A single decode failure shouldn't stop us decoding
-		// the rest of the files in the directory.
-		if err := decodeFile(file, &scalingPolicy); err != nil {
+		// We have to decode the file to read the policies name and check
+		// whether they are enabled or not.
+		// If we cannot decode the file, append an error but do not bail on
+		// the process. A single decode failure shouldn't stop us decoding the
+		// rest of the files in the directory.
+		policies, err := decodeFile(file)
+		if err != nil {
 			mErr = multierror.Append(fmt.Errorf("failed to decode file %s: %v", file, err), mErr)
 			continue
 		}
 
-		// Get the policyID for the file.
-		policyID := s.getFilePolicyID(file)
-		scalingPolicy.ID = string(policyID)
+		for name, scalingPolicy := range policies {
+			// Get the policyID for the file.
+			policyID := s.getFilePolicyID(file, name)
+			scalingPolicy.ID = string(policyID)
 
-		// Ignore the policy if its disabled. The log line is because I
-		// (jrasell) have spent too much time figuring out why a policy doesn't
-		// get tracked here.
-		if !scalingPolicy.Enabled {
-			s.log.Trace("policy is disabled therefore ignoring",
-				"policy_id", scalingPolicy.ID, "file", file)
-			continue
+			// Ignore the policy if its disabled. The log line is because I
+			// (jrasell) have spent too much time figuring out why a policy doesn't
+			// get tracked here.
+			if !scalingPolicy.Enabled {
+				s.log.Trace("policy is disabled therefore ignoring",
+					"policy_id", scalingPolicy.ID, "file", file)
+				continue
+			}
+
+			s.policyProcessor.ApplyPolicyDefaults(scalingPolicy)
+
+			if err := s.policyProcessor.ValidatePolicy(scalingPolicy); err != nil {
+				mErr = multierror.Append(fmt.Errorf("failed to validate file %s: %v", file, err), mErr)
+				continue
+			}
+
+			for _, c := range scalingPolicy.Checks {
+				s.policyProcessor.CanonicalizeCheck(c, scalingPolicy.Target)
+			}
+
+			// Store the file/name>id mapping if it doesn't exist. This makes the
+			// MonitorPolicy function simpler as we have an easy mapping of the
+			// policyID to the file it came from.
+			//
+			// The OK check is performed because this function gets called during
+			// the initial load and then on reloads of the monitor IDs routine.
+			// When we are asked to reload, if we overwrite what is stored, when we
+			// subsequently trigger reload of the individual policy monitor we can
+			// never tell whether the newly read policy differs from the stored
+			// policy.
+			s.policyMapLock.Lock()
+			if _, ok := s.policyMap[policyID]; !ok {
+				s.policyMap[policyID] = &filePolicy{file: file, name: name}
+			}
+			s.policyMapLock.Unlock()
+
+			policyIDs = append(policyIDs, policyID)
 		}
-
-		s.policyProcessor.ApplyPolicyDefaults(&scalingPolicy)
-
-		if err := s.policyProcessor.ValidatePolicy(&scalingPolicy); err != nil {
-			mErr = multierror.Append(fmt.Errorf("failed to validate file %s: %v", file, err), mErr)
-			continue
-		}
-
-		for _, c := range scalingPolicy.Checks {
-			s.policyProcessor.CanonicalizeCheck(c, scalingPolicy.Target)
-		}
-
-		// Store the file>id mapping if it doesn't exist. This makes the
-		// MonitorPolicy function simpler as we have an easy mapping of the
-		// policyID to the file it came from.
-		//
-		// The OK check is performed because this function gets called during
-		// the initial load and then on reloads of the monitor IDs routine.
-		// When we are asked to reload, if we overwrite what is stored, when we
-		// subsequently trigger reload of the individual policy monitor we can
-		// never tell whether the newly read policy differs from the stored
-		// policy.
-		s.policyMapLock.Lock()
-		if _, ok := s.policyMap[policyID]; !ok {
-			s.policyMap[policyID] = &filePolicy{file: file}
-		}
-		s.policyMapLock.Unlock()
-
-		policyIDs = append(policyIDs, policyID)
 	}
 
 	return policyIDs, mErr.ErrorOrNil()
@@ -306,7 +316,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 // getFilePolicyID translates the file into its policyID. This is done by
 // firstly checking our internal state. If it isn't found, we generate and
 // store the ID in our state.
-func (s *Source) getFilePolicyID(file string) policy.PolicyID {
+func (s *Source) getFilePolicyID(file, name string) policy.PolicyID {
 
 	// The function performs at least a read and potentially a write so obtain
 	// a lock.
@@ -314,7 +324,7 @@ func (s *Source) getFilePolicyID(file string) policy.PolicyID {
 	defer s.idMapLock.Unlock()
 
 	// MD5 the file path so we have our map key to perform lookups.
-	md5Sum := md5Sum(file)
+	md5Sum := md5Sum(file + "/" + name)
 
 	// Attempt to lookup the policyID. If we do not find it within our map then
 	// this is the first time we have seen this file. Therefore generate a UUID

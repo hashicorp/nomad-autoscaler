@@ -119,11 +119,16 @@ func (t *ScalingPolicyTarget) IsNodePoolTarget() bool {
 	return ok
 }
 
+type FileDecodeScalingPolicies struct {
+	ScalingPolicies []*FileDecodeScalingPolicy `hcl:"scaling,block"`
+}
+
 // FileDecodeScalingPolicy is used as an intermediate step when decoding a
 // policy from a file. It is needed because the internal Policy object is
 // flattened when compared to the literal HCL version. Therefore we cannot
 // translate into the internal struct but use this.
 type FileDecodeScalingPolicy struct {
+	Name    string               `hcl:"name,label"`
 	Enabled bool                 `hcl:"enabled,optional"`
 	Type    string               `hcl:"type,optional"`
 	Min     int64                `hcl:"min,optional"`
@@ -151,7 +156,9 @@ type FileDecodePolicyCheckDoc struct {
 
 // Translate all values from the decoded policy file into our internal policy
 // object.
-func (fpd *FileDecodeScalingPolicy) Translate(p *ScalingPolicy) {
+func (fpd *FileDecodeScalingPolicy) Translate() *ScalingPolicy {
+	p := &ScalingPolicy{}
+
 	p.Min = fpd.Min
 	p.Max = fpd.Max
 	p.Enabled = fpd.Enabled
@@ -161,6 +168,8 @@ func (fpd *FileDecodeScalingPolicy) Translate(p *ScalingPolicy) {
 	p.Target = fpd.Doc.Target
 
 	fpd.translateChecks(p)
+
+	return p
 }
 
 func (fpd *FileDecodeScalingPolicy) translateChecks(p *ScalingPolicy) {

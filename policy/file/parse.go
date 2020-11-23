@@ -3,18 +3,35 @@ package file
 import (
 	"time"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-func decodeFile(file string, p *sdk.ScalingPolicy) error {
+func decodeFile(file string) (map[string]*sdk.ScalingPolicy, error) {
+	policies := make(map[string]*sdk.ScalingPolicy)
 
-	decodePolicy := &sdk.FileDecodeScalingPolicy{}
-
-	if err := hclsimple.DecodeFile(file, nil, decodePolicy); err != nil {
-		return err
+	filePolicies := sdk.FileDecodeScalingPolicies{}
+	if err := hclsimple.DecodeFile(file, nil, &filePolicies); err != nil {
+		return nil, err
 	}
 
+	var mErr *multierror.Error
+	for _, p := range filePolicies.ScalingPolicies {
+		if err := decodePolicyDoc(p); err != nil {
+			mErr = multierror.Append(mErr, multierror.Prefix(err, p.Name))
+		}
+		policies[p.Name] = p.Translate()
+	}
+	if mErr != nil {
+		return nil, mErr.ErrorOrNil()
+	}
+
+	return policies, nil
+
+}
+
+func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 	// Assume file policies are cluster policies unless specificied.
 	// TODO: revisit this assumption.
 	if decodePolicy.Type == "" {
@@ -52,10 +69,6 @@ func decodeFile(file string, p *sdk.ScalingPolicy) error {
 		}
 		decodePolicy.Doc.Checks[i].QueryWindow = w
 	}
-
-	// Translate from our intermediate struct, to our internal flattened
-	// policy.
-	decodePolicy.Translate(p)
 
 	return nil
 }

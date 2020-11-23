@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.2.0-beta3 (November 23, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__
  * policy/file: Policies stored in files must be wrapped in a `scaling` block [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]

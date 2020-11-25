@@ -162,7 +162,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// tracking how long it takes to run all the checks within a policy.
 	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
 
-	if winningHandler == nil || winningAction.Direction == sdk.ScaleDirectionNone {
+	if winningHandler == nil || winningAction == nil || winningAction.Direction == sdk.ScaleDirectionNone {
 		logger.Debug("no checks need to be executed")
 		return nil
 	}

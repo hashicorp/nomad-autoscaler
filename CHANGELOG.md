@@ -1,6 +1,7 @@
 ## 0.2.0-beta3 (November 23, 2020)
 
 __BACKWARDS INCOMPATIBILITIES:__
+ * apm/datadog: Queries should use the new `query_window` parameter [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]
  * policy/file: Policies stored in files must be wrapped in a `scaling` block [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]
 
 FEATURES:
@@ -11,6 +12,7 @@ IMPROVEMENTS:
  * agent: Added new evaluation broker to manage storing, deduping and controlling the distribution policy evaluation requests to workers [[GH-282](https://github.com/hashicorp/nomad-autoscaler/pull/282)]
  * agent: Add `/v1/agent/reload` endpoint [[GH-312](https://github.com/hashicorp/nomad-autoscaler/pull/312)]
  * plugins/target/nomad: Added support for namespaced jobs [[GH-277](https://github.com/hashicorp/nomad-autoscaler/pull/277)]
+ * policy: Add `query_window` parameter to `check` [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]
  * policy/file: Allow multiple policies per file [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]
 
 ## 0.1.1 (September 11, 2020)

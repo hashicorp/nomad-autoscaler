@@ -41,7 +41,7 @@ apm "prometheus" {
   }
 }
 
-# datadog example
+# Datadog example
 # apm "datadog" {
 #   driver = "datadog"
 #   config = {
@@ -86,10 +86,11 @@ scaling "cluster_policy" {
         target = 70
       }
     }
-    # datadog example
+    # Datadog example
     # check "cpu_allocated_percentage" {
-    #   source = "datadog"
-    #   query  = "FROM=2m;TO=0m;QUERY=avg:nomad.client.allocated.cpu{*}/(avg:nomad.client.unallocated.cpu{*}+avg:nomad.client.allocated.cpu{*})*100"
+    #   source       = "datadog"
+    #   query        = "avg:nomad.client.allocated.cpu{*}/(avg:nomad.client.unallocated.cpu{*}+avg:nomad.client.allocated.cpu{*})*100"
+    #   query_window = "2m"
     #   strategy "target-value" {
     #     target = 70
     #   }
@@ -103,10 +104,11 @@ scaling "cluster_policy" {
         target = 70
       }
     }
-    # datadog example
+    # Datadog example
     # check "memory_allocated_percentage" {
-    #   source = "datadog"
-    #   query  = "FROM=2m;TO=0m;QUERY=avg:nomad.client.allocated.memory{*}/(avg:nomad.client.unallocated.memory{*}+avg:nomad.client.allocated.memory{*})*100"
+    #   source       = "datadog"
+    #   query        = "avg:nomad.client.allocated.memory{*}/(avg:nomad.client.unallocated.memory{*}+avg:nomad.client.allocated.memory{*})*100"
+    #   query_window = "2m"
     #   strategy "target-value" {
     #     target = 70
     #   }

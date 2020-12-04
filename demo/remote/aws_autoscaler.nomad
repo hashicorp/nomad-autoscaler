@@ -41,6 +41,17 @@ apm "prometheus" {
   }
 }
 
+# Datadog example
+# apm "datadog" {
+#   driver = "datadog"
+#   config = {
+# {{ with secret "secret/autoscaler/datadog" }}
+#     dd_api_key = "{{ .Data.data.api_key }}"
+#     dd_app_key = "{{ .Data.data.app_key }}"
+# {{ end }}
+#   }
+# }
+
 target "aws-asg" {
   driver = "aws-asg"
   config = {
@@ -64,7 +75,6 @@ scaling "cluster_policy" {
   max     = 2
 
   policy {
-
     cooldown            = "2m"
     evaluation_interval = "1m"
 
@@ -76,6 +86,15 @@ scaling "cluster_policy" {
         target = 70
       }
     }
+    # Datadog example
+    # check "cpu_allocated_percentage" {
+    #   source       = "datadog"
+    #   query        = "avg:nomad.client.allocated.cpu{*}/(avg:nomad.client.unallocated.cpu{*}+avg:nomad.client.allocated.cpu{*})*100"
+    #   query_window = "2m"
+    #   strategy "target-value" {
+    #     target = 70
+    #   }
+    # }
 
     check "mem_allocated_percentage" {
       source = "prometheus"
@@ -85,6 +104,15 @@ scaling "cluster_policy" {
         target = 70
       }
     }
+    # Datadog example
+    # check "memory_allocated_percentage" {
+    #   source       = "datadog"
+    #   query        = "avg:nomad.client.allocated.memory{*}/(avg:nomad.client.unallocated.memory{*}+avg:nomad.client.allocated.memory{*})*100"
+    #   query_window = "2m"
+    #   strategy "target-value" {
+    #     target = 70
+    #   }
+    # }
 
     target "aws-asg" {
       dry-run             = "false"

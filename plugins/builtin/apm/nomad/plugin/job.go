@@ -65,8 +65,19 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 	// switch a single time, rather than on a per allocation basis.
 	switch query.metric {
 	case queryMetricCPU:
+
+		// Since the Nomad API does not provide a metric for the percentage of CPU used
+		// out of amount allocated for taskgroups, the calculation must be done here.
+		// The total CPU allocated to the task group is retrieved once here since it
+		// does not vary between allocations.
+		allocatedCPU, err := a.getAllocatedCPUForTaskGroup(query.job, query.group)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get total alloacted CPU for taskgroup: %v", err)
+		}
+
+		// Create the metric function now that the total allocated CPU is known
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
-			*m = append(*m, ru.CpuStats.Percent)
+			*m = append(*m, ru.CpuStats.TotalTicks / float64(allocatedCPU))
 		}
 	case queryMetricMem:
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
@@ -105,6 +116,34 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 	}
 
 	return resp, nil
+}
+
+// getAllocatedCPUForTaskGroup calculates the total allocated CPU in MHz for a taskgroup
+func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, error) {
+	jobInfo, _, err := a.client.Jobs().Info(job, nil)
+	if err != nil {
+		return -1, fmt.Errorf("failed to get info for job: %v", err)
+	}
+
+	var taskGroupConfig *api.TaskGroup
+	for _, taskGroup := range jobInfo.TaskGroups {
+		if taskGroup.Name != nil && *taskGroup.Name == taskgroup {
+			taskGroupConfig = taskGroup
+			break
+		}
+	}
+	if taskGroupConfig == nil {
+		return -1, fmt.Errorf("taskgroup was not found in job config")
+	}
+
+	taskGroupAllocatedCPU := 0
+	for _, task := range taskGroupConfig.Tasks {
+		if task.Resources == nil || task.Resources.CPU == nil {
+			continue
+		}
+		taskGroupAllocatedCPU += *task.Resources.CPU
+	}
+	return taskGroupAllocatedCPU, nil
 }
 
 // calculateTaskGroupResult determines the query result based on the metrics

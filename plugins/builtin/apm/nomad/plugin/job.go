@@ -125,15 +125,9 @@ func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, err
 		return -1, fmt.Errorf("failed to get info for job: %v", err)
 	}
 
-	var taskGroupConfig *api.TaskGroup
-	for _, taskGroup := range jobInfo.TaskGroups {
-		if taskGroup.Name != nil && *taskGroup.Name == taskgroup {
-			taskGroupConfig = taskGroup
-			break
-		}
-	}
+	taskGroupConfig := jobInfo.LookupTaskGroup(taskgroup)
 	if taskGroupConfig == nil {
-		return -1, fmt.Errorf("taskgroup was not found in job config")
+		return -1, fmt.Errorf("specified taskgroup was not found in job config")
 	}
 
 	taskGroupAllocatedCPU := 0

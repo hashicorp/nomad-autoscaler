@@ -68,7 +68,7 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			name:                "invalid metric",
 		},
 		{
-			inputQuery:		     "node_percentage-allocated_cpu-allocated/class/high-compute",
+			inputQuery:          "node_percentage-allocated_cpu-allocated/class/high-compute",
 			expectedOutputQuery: nil,
 			expectError:         errors.New("invalid metric \"cpu-allocated\", allowed values are: cpu, memory"),
 			name:                "metric for task group queries only",

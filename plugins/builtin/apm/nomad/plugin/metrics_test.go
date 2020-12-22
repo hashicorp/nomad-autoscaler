@@ -15,28 +15,28 @@ func Test_validateMetric(t *testing.T) {
 		name              string
 	}{
 		{
-			inputMetric:    "memory",
+			inputMetric:       "memory",
 			inputValidMetrics: []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem},
-			expectedOutput: nil,
-			name:           "memory metric",
+			expectedOutput:    nil,
+			name:              "memory metric",
 		},
 		{
-			inputMetric:    "cpu",
+			inputMetric:       "cpu",
 			inputValidMetrics: []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem},
-			expectedOutput: nil,
-			name:           "cpu metric",
+			expectedOutput:    nil,
+			name:              "cpu metric",
 		},
 		{
-			inputMetric:    "cpu-allocated",
+			inputMetric:       "cpu-allocated",
 			inputValidMetrics: []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem},
-			expectedOutput: nil,
-			name:           "cpu-allocated metric",
+			expectedOutput:    nil,
+			name:              "cpu-allocated metric",
 		},
 		{
-			inputMetric:    "cost-of-server",
+			inputMetric:       "cost-of-server",
 			inputValidMetrics: []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem},
-			expectedOutput: errors.New("invalid metric \"cost-of-server\", allowed values are: cpu, cpu-allocated, memory"),
-			name:           "invalid metric",
+			expectedOutput:    errors.New("invalid metric \"cost-of-server\", allowed values are: cpu, cpu-allocated, memory"),
+			name:              "invalid metric",
 		},
 	}
 

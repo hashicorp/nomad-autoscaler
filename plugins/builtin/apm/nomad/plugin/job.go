@@ -81,7 +81,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 
 		// Create the metric function now that the total allocated CPU is known
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
-			*m = append(*m, (ru.CpuStats.TotalTicks / float64(allocatedCPU)) * 100)
+			*m = append(*m, (ru.CpuStats.TotalTicks/float64(allocatedCPU))*100)
 		}
 	case queryMetricMem:
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {

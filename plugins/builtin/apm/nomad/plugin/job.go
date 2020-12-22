@@ -65,6 +65,10 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 	// switch a single time, rather than on a per allocation basis.
 	switch query.metric {
 	case queryMetricCPU:
+		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
+			*m = append(*m, ru.CpuStats.Percent)
+		}
+	case queryMetricCPUAllocated:
 
 		// Since the Nomad API does not provide a metric for the percentage of CPU used
 		// out of amount allocated for taskgroups, the calculation must be done here.
@@ -202,7 +206,7 @@ func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 	op := opMetricParts[1]
 	metric := opMetricParts[2]
 
-	if err := validateMetric(metric); err != nil {
+	if err := validateMetricTaskGroupQuery(metric); err != nil {
 		return nil, err
 	}
 	query.metric = metric
@@ -216,4 +220,8 @@ func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 	}
 
 	return query, nil
+}
+
+func validateMetricTaskGroupQuery(metric string) error {
+	return validateMetric(metric, []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem})
 }

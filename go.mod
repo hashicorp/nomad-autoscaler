@@ -23,12 +23,13 @@ require (
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/hcl/v2 v2.3.0
-	github.com/hashicorp/nomad/api v0.0.0-20201028161914-e9cea770e630
+	github.com/hashicorp/nomad/api v0.0.0-20201208211811-bbf1eaa833ed
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
+	github.com/mitchellh/mapstructure v1.4.0 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/common v0.9.1
 	github.com/stretchr/testify v1.5.1

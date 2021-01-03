@@ -8,16 +8,19 @@ job "grafana" {
       type   = "host"
       source = "grafana"
     }
-
+    network {
+      port "grafana_ui" {
+        to = 3000
+        static = 3000
+      }
+    }
     task "grafana" {
       driver = "docker"
 
       config {
         image = "grafana/grafana:7.0.0"
-
-        port_map {
-          grafana_ui = 3000
-        }
+        network_mode = "host"
+        ports = ["grafana_ui"]
 
         volumes = [
           "local/datasources:/etc/grafana/provisioning/datasources",
@@ -90,14 +93,6 @@ EOH
       resources {
         cpu    = 100
         memory = 64
-
-        network {
-          mbits = 10
-
-          port "grafana_ui" {
-            static = 3000
-          }
-        }
       }
     }
   }

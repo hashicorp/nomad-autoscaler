@@ -3,7 +3,11 @@ job "loki" {
 
   group "loki" {
     count = 1
-
+    network {
+      port "loki_port" {
+        static = 3100
+      }
+    }
     task "loki" {
       driver = "docker"
 
@@ -13,14 +17,11 @@ job "loki" {
         args = [
           "--config.file=/etc/loki/config/loki.yml",
         ]
-
+        network_mode = "host"
         volumes = [
           "local/config:/etc/loki/config",
         ]
-
-        port_map {
-          loki_port = 3100
-        }
+        ports = ["loki_port"]
       }
 
       template {
@@ -73,12 +74,6 @@ EOH
       resources {
         cpu    = 100
         memory = 256
-
-        network {
-          mbits = 10
-
-          port "loki_port" {}
-        }
       }
 
       service {

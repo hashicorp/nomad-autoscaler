@@ -3,14 +3,27 @@ job "haproxy" {
 
   group "haproxy" {
     count = 1
+    network {
+      port "http" {
+        static = 9101
+      }
+      port "webapp" {
+        to = 8000
+        static = 8000
+      }
 
+      port "haproxy_ui" {
+        to = 1936
+        static = 1936
+      }
+    }
     task "haproxy" {
       driver = "docker"
 
       config {
         image        = "haproxy:2.1.4"
         network_mode = "host"
-
+        ports = ["webapp","haproxy_ui"]
         volumes = [
           "local/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg",
         ]
@@ -59,6 +72,15 @@ EOF
           interval = "10s"
           timeout  = "2s"
         }
+
+        check {
+          name = "host"
+          type     = "http"
+          address_mode = "driver"
+          path     = "/"
+          interval = "10s"
+          timeout  = "2s"
+        }
       }
 
       service {
@@ -69,18 +91,6 @@ EOF
       resources {
         cpu    = 500
         memory = 128
-
-        network {
-          mbits = 10
-
-          port "webapp" {
-            static = 8000
-          }
-
-          port "haproxy_ui" {
-            static = 1936
-          }
-        }
       }
     }
 
@@ -94,12 +104,9 @@ EOF
 
       config {
         image = "prom/haproxy-exporter:v0.10.0"
-
-        args = ["--haproxy.scrape-uri", "http://${NOMAD_ADDR_haproxy_haproxy_ui}/?stats;csv"]
-
-        port_map {
-          http = 9101
-        }
+        network_mode = "host"
+        args = ["--haproxy.scrape-uri", "http://${NOMAD_ADDR_haproxy_ui}/?stats;csv"]
+        ports = ["http"]
       }
 
       service {
@@ -117,12 +124,6 @@ EOF
       resources {
         cpu    = 100
         memory = 32
-
-        network {
-          mbits = 10
-
-          port "http" {}
-        }
       }
     }
   }

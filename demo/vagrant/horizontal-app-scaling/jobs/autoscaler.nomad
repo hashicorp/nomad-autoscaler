@@ -4,13 +4,24 @@ job "autoscaler" {
   group "autoscaler" {
     count = 1
 
+    network {
+      port "http" {
+        to = 8080
+        static = 8080
+      }
+      port  "promtail"{
+        to = 9080
+        static = 9080
+      }
+    }
+
     task "autoscaler" {
       driver = "docker"
 
       config {
         image   = "hashicorp/nomad-autoscaler:0.1.1"
         command = "nomad-autoscaler"
-
+        network_mode = "host"
         args = [
           "agent",
           "-config",
@@ -18,10 +29,7 @@ job "autoscaler" {
           "-http-bind-address",
           "0.0.0.0",
         ]
-
-        port_map {
-          http = 8080
-        }
+        ports = ["http"]
       }
 
       ## Alternatively, you could also run the Autoscaler using the exec driver
@@ -66,11 +74,6 @@ strategy "target-value" {
       resources {
         cpu    = 50
         memory = 128
-
-        network {
-          mbits = 10
-          port "http" {}
-        }
       }
 
       service {
@@ -96,15 +99,12 @@ strategy "target-value" {
 
       config {
         image = "grafana/promtail:1.5.0"
-
+        network_mode = "host"
         args = [
           "-config.file",
           "local/promtail.yaml",
         ]
-
-        port_map {
-          promtail_port = 9080
-        }
+        ports = ["promtail"]
       }
 
       template {
@@ -150,16 +150,11 @@ EOH
       resources {
         cpu    = 50
         memory = 32
-
-        network {
-          mbits = 1
-          port  "promtail_port"{}
-        }
       }
 
       service {
         name = "promtail"
-        port = "promtail_port"
+        port = "promtail"
 
         check {
           type     = "http"

@@ -40,7 +40,7 @@ Vagrant.configure("2") do |config|
       software-properties-common \
       zip
 
-    nomad_version=1.0.0-beta2+ent
+    nomad_version=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/nomad | jq -r '.current_version')+ent
     consul_version=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/consul | jq -r '.current_version')
 
     # Download and install Docker.

@@ -4,13 +4,27 @@ job "das-autoscaler" {
   group "autoscaler" {
     count = 1
 
+    network {
+      port "http" {
+        to = 8080
+      }
+    }
+
     task "autoscaler" {
       driver = "docker"
 
       config {
         image   = "hashicorp/nomad-autoscaler-enterprise:0.2.0-beta2"
         command = "nomad-autoscaler"
-        args    = ["agent", "-config", "local/autoscaler.hcl"]
+        ports   = ["http"]
+
+        args = [
+          "agent",
+          "-config",
+          "local/autoscaler.hcl",
+          "-http-bind-address",
+          "0.0.0.0",
+        ]
       }
 
       template {
@@ -73,9 +87,17 @@ EOH
       resources {
         cpu    = 512
         memory = 512
+      }
 
-        network {
-          mbits = 10
+      service {
+        name = "autoscaler"
+        port = "http"
+
+        check {
+          type     = "http"
+          path     = "/v1/health"
+          interval = "5s"
+          timeout  = "2s"
         }
       }
     }

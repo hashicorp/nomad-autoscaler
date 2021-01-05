@@ -177,7 +177,7 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 		return nil, fmt.Errorf("expected node_<operation>_<metric>, received %s", mainParts[0])
 	}
 
-	if err := validateMetric(opMetricParts[2]); err != nil {
+	if err := validateMetricNodeQuery(opMetricParts[2]); err != nil {
 		return nil, err
 	}
 	query.metric = opMetricParts[2]
@@ -190,6 +190,10 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 			opMetricParts[1], queryOpPercentageAllocated)
 	}
 	return &query, nil
+}
+
+func validateMetricNodeQuery(metric string) error {
+	return validateMetric(metric, []string{queryMetricCPU, queryMetricMem})
 }
 
 // calculateNodePoolResult returns the current usage percentage of the node

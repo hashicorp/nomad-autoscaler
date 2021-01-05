@@ -68,6 +68,21 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
 			*m = append(*m, ru.CpuStats.Percent)
 		}
+	case queryMetricCPUAllocated:
+
+		// Since the Nomad API does not provide a metric for the percentage of CPU used
+		// out of amount allocated for taskgroups, the calculation must be done here.
+		// The total CPU allocated to the task group is retrieved once here since it
+		// does not vary between allocations.
+		allocatedCPU, err := a.getAllocatedCPUForTaskGroup(query.job, query.group)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get total alloacted CPU for taskgroup: %v", err)
+		}
+
+		// Create the metric function now that the total allocated CPU is known
+		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
+			*m = append(*m, (ru.CpuStats.TotalTicks/float64(allocatedCPU))*100)
+		}
 	case queryMetricMem:
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
 			*m = append(*m, float64(ru.MemoryStats.Usage))
@@ -105,6 +120,28 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 	}
 
 	return resp, nil
+}
+
+// getAllocatedCPUForTaskGroup calculates the total allocated CPU in MHz for a taskgroup
+func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, error) {
+	jobInfo, _, err := a.client.Jobs().Info(job, nil)
+	if err != nil {
+		return -1, fmt.Errorf("failed to get info for job: %v", err)
+	}
+
+	taskGroupConfig := jobInfo.LookupTaskGroup(taskgroup)
+	if taskGroupConfig == nil {
+		return -1, fmt.Errorf("specified taskgroup was not found in job config")
+	}
+
+	taskGroupAllocatedCPU := 0
+	for _, task := range taskGroupConfig.Tasks {
+		if task.Resources == nil || task.Resources.CPU == nil {
+			continue
+		}
+		taskGroupAllocatedCPU += *task.Resources.CPU
+	}
+	return taskGroupAllocatedCPU, nil
 }
 
 // calculateTaskGroupResult determines the query result based on the metrics
@@ -169,7 +206,7 @@ func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 	op := opMetricParts[1]
 	metric := opMetricParts[2]
 
-	if err := validateMetric(metric); err != nil {
+	if err := validateMetricTaskGroupQuery(metric); err != nil {
 		return nil, err
 	}
 	query.metric = metric
@@ -183,4 +220,8 @@ func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 	}
 
 	return query, nil
+}
+
+func validateMetricTaskGroupQuery(metric string) error {
+	return validateMetric(metric, []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem})
 }

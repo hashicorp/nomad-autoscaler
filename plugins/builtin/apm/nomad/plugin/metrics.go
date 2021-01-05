@@ -27,6 +27,7 @@ const (
 	queryMetricCPU          = "cpu"
 	queryMetricCPUAllocated = "cpu-allocated"
 	queryMetricMem          = "memory"
+	queryMetricMemAllocated = "memory-allocated"
 )
 
 // Query satisfies the Query function on the apm.APM interface.

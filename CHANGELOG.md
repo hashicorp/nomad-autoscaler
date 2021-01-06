@@ -1,4 +1,4 @@
-## 0.2.0-beta3 (November 23, 2020)
+## UNRELEASED
 
 __BACKWARDS INCOMPATIBILITIES:__
  * apm/datadog: Queries should use the new `query_window` parameter [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]

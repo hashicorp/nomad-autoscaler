@@ -87,6 +87,23 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
 			*m = append(*m, float64(ru.MemoryStats.Usage))
 		}
+	case queryMetricMemAllocated:
+
+		// Similarly to `queryMetricCPUAllocated` we must calculate the alloacted
+		// memory since it's not provided as a metric.
+		allocatedMem, err := a.getAllocatedMemForTaskGroup(query.job, query.group)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get total alloacted memory for taskgroup: %v", err)
+		}
+
+		// Create the metric function now that the total allocated memory is known.
+		// The job info has total memory in memibytes (incorrectly labeled as MB) and
+		// the `MemoryStats.Usage` metric is reported in bytes, so we must convert one
+		// of them.
+		metricFunc = func(m *[]float64, ru *api.ResourceUsage) {
+			usageMiB := ru.MemoryStats.Usage / 1024 / 1024
+			*m = append(*m, (float64(usageMiB)/float64(allocatedMem))*100)
+		}
 	}
 
 	for _, alloc := range allocs {
@@ -124,14 +141,9 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 
 // getAllocatedCPUForTaskGroup calculates the total allocated CPU in MHz for a taskgroup
 func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, error) {
-	jobInfo, _, err := a.client.Jobs().Info(job, nil)
+	taskGroupConfig, err := a.getTaskGroup(job, taskgroup)
 	if err != nil {
-		return -1, fmt.Errorf("failed to get info for job: %v", err)
-	}
-
-	taskGroupConfig := jobInfo.LookupTaskGroup(taskgroup)
-	if taskGroupConfig == nil {
-		return -1, fmt.Errorf("specified taskgroup was not found in job config")
+		return -1, err
 	}
 
 	taskGroupAllocatedCPU := 0
@@ -142,6 +154,38 @@ func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, err
 		taskGroupAllocatedCPU += *task.Resources.CPU
 	}
 	return taskGroupAllocatedCPU, nil
+}
+
+// getAllocatedMemForTaskGroup calculates the total allocated memory in MiB for a taskgroup
+func (a *APMPlugin) getAllocatedMemForTaskGroup(job, taskgroup string) (int, error) {
+	taskGroupConfig, err := a.getTaskGroup(job, taskgroup)
+	if err != nil {
+		return -1, err
+	}
+
+	taskGroupAllocatedMem := 0
+	for _, task := range taskGroupConfig.Tasks {
+		if task.Resources == nil || task.Resources.MemoryMB == nil {
+			continue
+		}
+		taskGroupAllocatedMem += *task.Resources.MemoryMB
+	}
+	return taskGroupAllocatedMem, nil
+}
+
+// getTaskGroup returns a task group configuration from a job.
+func (a *APMPlugin) getTaskGroup(job, taskgroup string) (*api.TaskGroup, error) {
+	jobInfo, _, err := a.client.Jobs().Info(job, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get info for job: %v", err)
+	}
+
+	taskGroupConfig := jobInfo.LookupTaskGroup(taskgroup)
+	if taskGroupConfig == nil {
+		return nil, fmt.Errorf("task group %q not found in job %q", taskgroup, job)
+	}
+
+	return taskGroupConfig, nil
 }
 
 // calculateTaskGroupResult determines the query result based on the metrics
@@ -223,5 +267,5 @@ func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 }
 
 func validateMetricTaskGroupQuery(metric string) error {
-	return validateMetric(metric, []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem})
+	return validateMetric(metric, []string{queryMetricCPU, queryMetricCPUAllocated, queryMetricMem, queryMetricMemAllocated})
 }

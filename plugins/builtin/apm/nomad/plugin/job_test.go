@@ -88,6 +88,17 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 			expectError: false,
 		},
 		{
+			name:  "avg_memory-allocated",
+			input: "taskgroup_avg_memory-allocated/group/job",
+			expected: &taskGroupQuery{
+				metric:    "memory-allocated",
+				job:       "job",
+				group:     "group",
+				operation: "avg",
+			},
+			expectError: false,
+		},
+		{
 			name:  "job with fwd slashes",
 			input: "taskgroup_avg_cpu/group/my/super/job//",
 			expected: &taskGroupQuery{

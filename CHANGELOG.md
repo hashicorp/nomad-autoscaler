@@ -11,6 +11,8 @@ FEATURES:
 IMPROVEMENTS:
  * agent: Added new evaluation broker to manage storing, deduping and controlling the distribution policy evaluation requests to workers [[GH-282](https://github.com/hashicorp/nomad-autoscaler/pull/282)]
  * agent: Add `/v1/agent/reload` endpoint [[GH-312](https://github.com/hashicorp/nomad-autoscaler/pull/312)]
+ * apm/nomad: CPU query relative to task group allocated resources [[GH-324](https://github.com/hashicorp/nomad-autoscaler/pull/324)]
+ * apm/nomad: Memory query relative to task group allocated resources [[GH-334](https://github.com/hashicorp/nomad-autoscaler/pull/334)]
  * plugins/target/nomad: Added support for namespaced jobs [[GH-277](https://github.com/hashicorp/nomad-autoscaler/pull/277)]
  * policy: Add `query_window` parameter to `check` [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]
  * policy/file: Allow multiple policies per file [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]

@@ -11,6 +11,7 @@ tools: ## Install the tools used to test and build
 	@echo "==> Installing tools..."
 	GO111MODULE=on cd tools && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
 	GO111MODULE=on cd tools && go get -u honnef.co/go/tools/cmd/staticcheck@2020.1.6
+	GO111MODULE=on cd tools && go get github.com/hashicorp/go-hclog/hclogvet@v0.1.3
 	@echo "==> Done"
 
 .PHONY: build
@@ -27,6 +28,7 @@ lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
 	@staticcheck ./...
+	@hclogvet .
 	@echo "==> Done"
 
 .PHONY: check

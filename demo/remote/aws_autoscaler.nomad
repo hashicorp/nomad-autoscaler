@@ -8,7 +8,7 @@ job "autoscaler" {
       driver = "docker"
 
       config {
-        image   = "hashicorp/nomad-autoscaler:0.1.0"
+        image   = "hashicorp/nomad-autoscaler:0.2.0"
         command = "nomad-autoscaler"
 
         args = [

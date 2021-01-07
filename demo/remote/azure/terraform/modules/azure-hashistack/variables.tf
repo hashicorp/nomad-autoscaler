@@ -43,7 +43,7 @@ variable "consul_binary" {
 variable "nomad_autoscaler_image" {
   description = "The Docker image to use for the Nomad Autoscaler job."
   type        = string
-  default     = "hashicorp/nomad-autoscaler:0.1.1"
+  default     = "hashicorp/nomad-autoscaler:0.2.0"
 }
 
 variable "hashistack_image_name" {

@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
+	"github.com/hashicorp/nomad-autoscaler/version"
 )
 
 type AgentCommand struct {
@@ -229,6 +230,8 @@ func (c *AgentCommand) Run(args []string) int {
 		Level:      hclog.LevelFromString(parsedConfig.LogLevel),
 		JSONFormat: parsedConfig.LogJson,
 	})
+
+	logger.Info(fmt.Sprintf("nomad-autoscaler version %s starting", version.GetHumanVersion))
 
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, logger)

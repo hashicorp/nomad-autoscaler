@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.2.1 (January 12, 2021)
 
 BUG FIXES:
  * plugins/apm: Fix a bug where external APM plugins would cause the Nomad Autoscaler to panic [[GH-341](https://github.com/hashicorp/nomad-autoscaler/pull/341)]

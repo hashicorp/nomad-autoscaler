@@ -45,6 +45,17 @@ func (r *RPC) Query(q string, rng sdk.TimeRange) (sdk.TimestampedMetrics, error)
 	return resp, nil
 }
 
+func (r *RPC) QueryMultiple(q string, rng sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	req := QueryRPCReq{Query: q, Range: rng}
+	var resp []sdk.TimestampedMetrics
+
+	err := r.client.Call("Plugin.QueryMultiple", req, &resp)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
 func (r *RPC) PluginInfo() (*base.PluginInfo, error) {
 	var resp base.PluginInfo
 	err := r.client.Call("Plugin.PluginInfo", new(interface{}), &resp)
@@ -67,6 +78,15 @@ func (s *RPCServer) SetConfig(config map[string]string, resp *error) error {
 
 func (s *RPCServer) Query(req QueryRPCReq, resp *sdk.TimestampedMetrics) error {
 	r, err := s.Impl.Query(req.Query, req.Range)
+	if err != nil {
+		return err
+	}
+	*resp = r
+	return nil
+}
+
+func (s *RPCServer) QueryMultiple(req QueryRPCReq, resp *[]sdk.TimestampedMetrics) error {
+	r, err := s.Impl.QueryMultiple(req.Query, req.Range)
 	if err != nil {
 		return err
 	}

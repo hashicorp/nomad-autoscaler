@@ -31,6 +31,14 @@ type Noop struct {
 	logger hclog.Logger
 }
 
+func (n *Noop) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	m, err := n.Query(q, r)
+	if err != nil {
+		return nil, err
+	}
+	return []sdk.TimestampedMetrics{m}, nil
+}
+
 func (n *Noop) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
 	n.logger.Debug("query request", "query", q, "range", r)
 

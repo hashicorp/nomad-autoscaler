@@ -231,7 +231,7 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
-	logger.Info(fmt.Sprintf("nomad-autoscaler version %s starting", version.GetHumanVersion))
+	logger.Info(fmt.Sprintf("nomad-autoscaler version %s starting", version.GetHumanVersion()))
 
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, logger)

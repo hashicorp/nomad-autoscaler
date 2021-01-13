@@ -3,6 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -231,7 +232,35 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
-	logger.Info(fmt.Sprintf("nomad-autoscaler version %s starting", version.GetHumanVersion()))
+	logger.Info("Starting nomad-autoscaler agent")
+	// Compile agent information for output later
+	info := make(map[string]string)
+	info["bind addrs"] = parsedConfig.HTTP.BindAddress
+	info["log level"] = parsedConfig.LogLevel
+	info["version"] = version.GetHumanVersion()
+	info["plugins"] = parsedConfig.PluginDir
+	info["policies"] = parsedConfig.Policy.Dir
+
+	// Sort the keys for output
+	infoKeys := make([]string, 0, len(info))
+	for key := range info {
+		infoKeys = append(infoKeys, key)
+	}
+	sort.Strings(infoKeys)
+
+	// Agent configuration output
+	padding := 18
+	logger.Info("Nomad agent configuration:")
+	for _, k := range infoKeys {
+		logger.Info(fmt.Sprintf(
+			"%s%s: %s",
+			strings.Repeat(" ", padding-len(k)),
+			strings.Title(k),
+			info[k]))
+	}
+	logger.Info("")
+	// Output the header that the server has started
+	logger.Info("Nomad agent started! Log data will stream in below:")
 
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, logger)

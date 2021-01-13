@@ -251,6 +251,7 @@ func (c *AgentCommand) Run(args []string) int {
 	// Agent configuration output
 	padding := 18
 	logger.Info("Nomad agent configuration:")
+	logger.Info("")
 	for _, k := range infoKeys {
 		logger.Info(fmt.Sprintf(
 			"%s%s: %s",

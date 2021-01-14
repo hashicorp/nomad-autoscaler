@@ -232,7 +232,7 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
-	logger.Info("Starting nomad-autoscaler agent")
+	logger.Info("Starting Nomad Autoscaler agent")
 	// Compile agent information for output later
 	info := make(map[string]string)
 	info["bind addrs"] = parsedConfig.HTTP.BindAddress
@@ -250,7 +250,7 @@ func (c *AgentCommand) Run(args []string) int {
 
 	// Agent configuration output
 	padding := 18
-	logger.Info("Nomad agent configuration:")
+	logger.Info("Nomad Autoscaler agent configuration:")
 	logger.Info("")
 	for _, k := range infoKeys {
 		logger.Info(fmt.Sprintf(
@@ -261,7 +261,7 @@ func (c *AgentCommand) Run(args []string) int {
 	}
 	logger.Info("")
 	// Output the header that the server has started
-	logger.Info("Nomad agent started! Log data will stream in below:")
+	logger.Info("Nomad Autoscaler agent started! Log data will stream in below:")
 
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, logger)

@@ -1,6 +1,0 @@
-executor: go
-steps:
-  - install-go
-  - checkout
-  - run: make lint-tools
-  - run: make lint

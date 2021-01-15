@@ -32,6 +32,9 @@ type Agent struct {
 	// LogJson enables log output in JSON format.
 	LogJson bool `hcl:"log_json,optional"`
 
+	// EnableDebug is used to enable debugging HTTP endpoints.
+	EnableDebug bool `hcl:"enable_debug,optional"`
+
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
@@ -364,6 +367,9 @@ func Default() (*Agent, error) {
 func (a *Agent) Merge(b *Agent) *Agent {
 	result := *a
 
+	if b.EnableDebug {
+		result.EnableDebug = true
+	}
 	if b.LogLevel != "" {
 		result.LogLevel = b.LogLevel
 	}

@@ -323,6 +323,8 @@ func (h *checkHandler) start(ctx context.Context) {
 		return
 	}
 
+	h.logger.Debug("received metrics from APM", "metrics", h.checkEval.Metrics)
+
 	// Calculate new count using check's Strategy.
 	h.logger.Debug("calculating new count", "count", currentStatus.Count)
 	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)

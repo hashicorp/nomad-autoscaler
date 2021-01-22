@@ -2,6 +2,7 @@ package scaleutils
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/nomad/api"
 )
@@ -53,6 +54,8 @@ const RemoteProviderAWSInstanceID RemoteProvider = "aws_instance_id"
 // nodeAttrAzureInstanceID to perform ID translation.
 const RemoteProviderAzureInstanceID RemoteProvider = "azure_instance_id"
 
+const RemoteProviderGCEInstanceID RemoteProvider = "gce_instance_id"
+
 // NodeIDStrategy is the strategy used to identify nodes for removal as part of
 // scaling in.
 type NodeIDStrategy string
@@ -71,6 +74,11 @@ const nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 // nodeAttrAzureName is the node attribute to use when identifying the
 // Azure instanceID of a node.
 const nodeAttrAzureInstanceID = "unique.platform.azure.name"
+
+// nodeAttrAzureName is the node attribute to use when identifying the
+// Azure instanceID of a node.
+const nodeAttrGCEHostname = "unique.platform.gce.hostname"
+const nodeAttrGCEZone = "platform.gce.zone"
 
 // defaultClassIdentifier is the class used for nodes which have an empty class
 // parameter when using the IdentifierKeyClass.
@@ -119,6 +127,7 @@ type nodeIDMapFunc func(n *api.Node) (string, error)
 var idFuncMap = map[RemoteProvider]nodeIDMapFunc{
 	RemoteProviderAWSInstanceID:   awsNodeIDMap,
 	RemoteProviderAzureInstanceID: azureNodeIDMap,
+	RemoteProviderGCEInstanceID:   gceNodeIDMap,
 }
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using
@@ -145,4 +154,22 @@ func azureNodeIDMap(n *api.Node) (string, error) {
 	}
 
 	return "", fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
+}
+
+// gceNodeIDMap is used to identify the GCE Instance of a Nomad node using
+// the relevant attribute value.
+func gceNodeIDMap(n *api.Node) (string, error) {
+	zone, ok := n.Attributes[nodeAttrGCEZone]
+	if !ok {
+		return "", fmt.Errorf("attribute %q not found", nodeAttrGCEZone)
+	}
+	hostname, ok := n.Attributes[nodeAttrGCEHostname]
+	if !ok {
+		return "", fmt.Errorf("attribute %q not found", nodeAttrGCEHostname)
+	}
+	if idx := strings.Index(hostname, "."); idx != -1 {
+		return fmt.Sprintf("zones/%s/instances/%s", zone, hostname[0:idx]), nil
+	} else {
+		return fmt.Sprintf("zones/%s/instances/%s", zone, hostname), nil
+	}
 }

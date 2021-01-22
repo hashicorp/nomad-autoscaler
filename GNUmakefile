@@ -137,5 +137,11 @@ bin/plugins/azure-vmss:
 	@cd ./plugins/builtin/target/azure-vmss && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/gce-mig:
+	@echo "==> Building $@"
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/gce-mig && go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
-plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog bin/plugins/azure-vmss
+plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog bin/plugins/azure-vmss bin/plugins/gce-mig

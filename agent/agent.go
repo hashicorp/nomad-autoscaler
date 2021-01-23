@@ -28,6 +28,7 @@ type Agent struct {
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
+	workerPools   []*policyeval.WorkerPool
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
@@ -69,7 +70,7 @@ func (a *Agent) Run() error {
 		a.logger.ResetNamed("policy_eval"),
 		a.config.PolicyEval.AckTimeout,
 		a.config.PolicyEval.DeliveryLimit)
-	a.initWorkers(ctx)
+	a.workerPools = a.initWorkerPools(ctx)
 
 	a.initEnt(ctx)
 
@@ -93,20 +94,30 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEval
 	}
 }
 
-func (a *Agent) initWorkers(ctx context.Context) {
+func (a *Agent) initWorkerPools(ctx context.Context) []*policyeval.WorkerPool {
 	policyEvalLogger := a.logger.ResetNamed("policy_eval")
 
-	for i := 0; i < a.config.PolicyEval.Workers["horizontal"]; i++ {
-		w := policyeval.NewBaseWorker(
-			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "horizontal")
-		go w.Run(ctx)
+	workersConfig := a.config.PolicyEval.Workers
+	workerPools := make([]*policyeval.WorkerPool, len(workersConfig))
+
+	for queue, count := range workersConfig {
+		poolCfg := &policyeval.WorkerPoolConfig{
+			Logger:        policyEvalLogger,
+			PluginManager: a.pluginManager,
+			PolicyManager: a.policyManager,
+			Broker:        a.evalBroker,
+			Queue:         queue,
+			Workers:       count,
+		}
+		pool, err := policyeval.NewWorkerPool(ctx, poolCfg)
+		if err != nil {
+			a.logger.Warn("failed to initialize worker pool", "queue", queue, "err", err)
+			continue
+		}
+		workerPools = append(workerPools, pool)
 	}
 
-	for i := 0; i < a.config.PolicyEval.Workers["cluster"]; i++ {
-		w := policyeval.NewBaseWorker(
-			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "cluster")
-		go w.Run(ctx)
-	}
+	return workerPools
 }
 
 func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {

@@ -31,6 +31,9 @@ type BaseWorker struct {
 	policyManager *policy.Manager
 	broker        *Broker
 	queue         string
+
+	heartbeatTicker *time.Ticker
+	heartbeatCh     chan interface{}
 }
 
 // NewBaseWorker returns a new BaseWorker instance.
@@ -47,21 +50,48 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 	}
 }
 
-func (w *BaseWorker) Run(ctx context.Context) {
+func (w *BaseWorker) ID() string {
+	return w.id
+}
+
+func (w *BaseWorker) Run(ctx context.Context, heartbeatInterval time.Duration) <-chan interface{} {
+	w.heartbeatCh = make(chan interface{})
+	w.heartbeatTicker = time.NewTicker(heartbeatInterval)
+
+	// Start worker.
+	go w.run(ctx)
+	return w.heartbeatCh
+}
+
+func (w *BaseWorker) run(ctx context.Context) {
 	w.logger.Info("starting worker")
 
 	for {
+		getWorkCh := make(chan bool)
+		var eval *sdk.ScalingEvaluation
+		var token string
+
+		go func() {
+			var err error
+			eval, token, err = w.broker.Dequeue(ctx, w.queue)
+			if err != nil {
+				w.logger.Warn("failed to dequeue evaluation", "err", err)
+				getWorkCh <- false
+			}
+			getWorkCh <- true
+		}()
+
 		select {
 		case <-ctx.Done():
 			w.logger.Info("stopping worker")
 			return
-		default:
-		}
-
-		eval, token, err := w.broker.Dequeue(ctx, w.queue)
-		if err != nil {
-			w.logger.Warn("failed to dequeue evaluation", "err", err)
+		case <-w.heartbeatTicker.C:
+			w.sendHeartbeat()
 			continue
+		case proceed := <-getWorkCh:
+			if !proceed {
+				continue
+			}
 		}
 
 		if eval == nil {
@@ -88,6 +118,13 @@ func (w *BaseWorker) Run(ctx context.Context) {
 		if err := w.broker.Ack(eval.ID, token); err != nil {
 			logger.Warn("failed to ACK policy evaluation", "err", err)
 		}
+	}
+}
+
+func (w *BaseWorker) sendHeartbeat() {
+	select {
+	case w.heartbeatCh <- struct{}{}:
+	default: // Make sure we don't block if no one is listening.
 	}
 }
 
@@ -128,28 +165,35 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 	// Wait for check results and pick the winner.
 	for check, handler := range checks {
-		select {
-		case <-ctx.Done():
-			logger.Info("policy evaluation canceled")
-			return nil
-		case <-resultsTimeout.C:
-			return fmt.Errorf("timeout while waiting for policy check results")
-		case r := <-handler.results():
-			if r.err != nil {
-				if r.err == errTargetNotReady {
-					logger.Info("target not ready")
-					return nil
-				}
-
-				// TODO(luiz): properly handle errors.
-				logger.Warn("failed to evaluate check", "error", r.err, "check", check)
+		var r checkHandlerResult
+		for {
+			select {
+			case <-ctx.Done():
+				logger.Info("policy evaluation canceled")
+				return nil
+			case <-resultsTimeout.C:
+				return fmt.Errorf("timeout while waiting for policy check results")
+			case <-w.heartbeatTicker.C:
+				w.sendHeartbeat()
 				continue
+			case r = <-handler.results():
+			}
+			break
+		}
+		if r.err != nil {
+			if r.err == errTargetNotReady {
+				logger.Info("target not ready")
+				return nil
 			}
 
-			winningAction = sdk.PreemptScalingAction(winningAction, r.action)
-			if winningAction == r.action {
-				winningHandler = handler
-			}
+			// TODO(luiz): properly handle errors.
+			logger.Warn("failed to evaluate check", "error", r.err, "check", check)
+			break
+		}
+
+		winningAction = sdk.PreemptScalingAction(winningAction, r.action)
+		if winningAction == r.action {
+			winningHandler = handler
 		}
 	}
 
@@ -185,17 +229,23 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
 
 	// Block until winning handler returns.
-	select {
-	case <-ctx.Done():
-		logger.Info("policy evaluation canceled")
-		return nil
-	case r := <-winningHandler.results():
-		if r.err != nil {
-			return r.err
-		}
-		if r.action == nil {
+	var r checkHandlerResult
+	for {
+		select {
+		case <-ctx.Done():
+			logger.Info("policy evaluation canceled")
 			return nil
+		case <-w.heartbeatTicker.C:
+			w.sendHeartbeat()
+		case r = <-winningHandler.results():
 		}
+		break
+	}
+	if r.err != nil {
+		return r.err
+	}
+	if r.action == nil {
+		return nil
 	}
 
 	// Enforce the cooldown after a successful scaling event.

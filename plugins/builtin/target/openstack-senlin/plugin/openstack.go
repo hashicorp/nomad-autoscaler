@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gophercloud/gophercloud"
@@ -180,31 +181,26 @@ func (t *TargetPlugin) detachInstances(ctx context.Context, clusterID string, in
 		Nodes: instanceIDs,
 	}
 
-	err := clusters.RemoveNodes(t.client, clusterID, opts).ExtractErr()
-	if err != nil {
+	res := clusters.RemoveNodes(t.client, clusterID, opts)
+
+	// manually extract actionID until new gophercloud release
+	// that includes change to return ActionResult from RemoveNodes
+	location := res.Header.Get("Location")
+	v := strings.Split(location, "actions/")
+	if len(v) < 2 {
+		return fmt.Errorf("unable to determine action ID")
+	}
+
+	actionID := v[1]
+
+	if err := res.ExtractErr(); err != nil {
 		return fmt.Errorf("failed to detach instances from OpenStack Senlin Cluster: %v", err)
 	}
 
-	/*
-		// TODO: fix gophercloud so that RemoveNodes returns actionID to track
-
-		// Identify the activities that were created as a result of the detachment
-		// request so that we can go ahead and track these to completion.
-		var activityIDs []string
-
-		for _, activity := range asgResp.Activities {
-			activityIDs = append(activityIDs, *activity.ActivityId)
-		}
-
-		// Confirm that the detachments complete before moving on. I (jrasell) am
-		// not exactly sure what happens if we terminate an instance which is still
-		// detaching from an ASG, but we might as well avoid finding out if we can.
-		err = t.ensureActionsComplete(ctx, activityIDs, *asgName)
-		if err != nil {
-			return fmt.Errorf("failed to detached instances from AutoScaling Group: %v", err)
-		}
-
-	*/
+	err := t.ensureActionsComplete(ctx,[]string{actionID})
+	if err != nil {
+		return fmt.Errorf("failed to detached instances from Senlin Cluster: %v", err)
+	}
 
 	return nil
 
@@ -259,7 +255,7 @@ func (t *TargetPlugin) describeActions(ctx context.Context, clusterID string, id
 	return actions, nil
 }
 
-func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string, clusterID string) error {
+func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string) error {
 
 	f := func(ctx context.Context) (bool, error) {
 		// Reset the scaling action IDs we are waiting to complete so we can

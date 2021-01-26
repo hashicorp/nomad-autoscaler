@@ -30,6 +30,8 @@ jobs:
     - run:
         command: make lint-tools
     - run:
+        command: make generate-tools
+    - run:
         command: make lint
     environment:
     - CIRCLECI_CLI_VERSION: 0.1.6772
@@ -59,6 +61,8 @@ jobs:
         name: Setup Go
         working_directory: ~/
     - checkout
+    - run:
+        command: make generate-tools
     - run:
         command: make check
     environment:
@@ -182,6 +186,7 @@ workflows:
 #         steps:
 #             - install-go
 #             - checkout
+#             - run: make generate-tools
 #             - run: make check
 #     lint-go:
 #         executor: go
@@ -189,6 +194,7 @@ workflows:
 #             - install-go
 #             - checkout
 #             - run: make lint-tools
+#             - run: make generate-tools
 #             - run: make lint
 #     test-go:
 #         executor: go

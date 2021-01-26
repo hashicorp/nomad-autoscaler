@@ -10,7 +10,7 @@ func main() {
 	plugins.Serve(factory)
 }
 
-// factory returns a new instance of the AWS ASG plugin.
+// factory returns a new instance of the Google Cloud Engine MIG plugin.
 func factory(log hclog.Logger) interface{} {
 	return plugin.NewGCEMIGPlugin(log)
 }

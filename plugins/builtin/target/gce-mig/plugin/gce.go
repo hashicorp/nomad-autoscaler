@@ -3,20 +3,20 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"time"
+
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/mitchellh/go-homedir"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
-	"io/ioutil"
-	"os"
-	"time"
 )
 
 func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 
 	credentials, ok := config[configKeyCredentials]
-
 	if ok {
 		contents, err := pathOrContents(credentials)
 		if err != nil {
@@ -24,13 +24,11 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 		}
 
 		t.service, err = compute.NewService(context.Background(), option.WithCredentialsJSON([]byte(contents)))
-
 		if err != nil {
 			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)
 		}
 	} else {
 		service, err := compute.NewService(context.Background())
-
 		if err != nil {
 			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)
 		}
@@ -44,7 +42,6 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 func (t *TargetPlugin) scaleOut(ctx context.Context, project string, zone string, mig string, num int64) error {
 
 	_, err := t.service.RegionInstanceGroupManagers.Resize(project, zone, mig, num).Context(ctx).Do()
-
 	if err != nil {
 		return fmt.Errorf("failed to scale out instance group: %v", err)
 	}
@@ -63,8 +60,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, project string, region strin
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
 
-	// Grab the instanceIDs once as it is used multiple times throughout the
-	// scale in event.
+	// Grab the instanceIDs
 	var instanceIDs []string
 
 	for _, node := range ids {
@@ -75,20 +71,20 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, project string, region strin
 	// would like on all log lines.
 	log := t.logger.With("action", "scale_in", "instance_group", mig, "instances", ids)
 
-	// Terminate the detached instances.
-	log.Debug("deleting gce MIG instances")
+	// Delete the instances from the Managed Instance Groups. The targetSize of the MIG is will be reduced by the
+	// number of instances that are deleted.
+	log.Debug("deleting GCE MIG instances")
 
 	request := &compute.RegionInstanceGroupManagersDeleteInstancesRequest{
 		Instances: instanceIDs,
 	}
 
 	_, err = t.service.RegionInstanceGroupManagers.DeleteInstances(project, region, mig, request).Context(ctx).Do()
-
 	if err != nil {
 		return fmt.Errorf("failed to delete instances: %v", err)
 	}
 
-	log.Info("successfully deleted gce MIG instances")
+	log.Info("successfully deleted GCE MIG instances")
 
 	// Run any post scale in tasks that are desired.
 	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {

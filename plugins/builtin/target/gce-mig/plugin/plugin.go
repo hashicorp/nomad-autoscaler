@@ -3,7 +3,8 @@ package plugin
 import (
 	"context"
 	"fmt"
-	hclog "github.com/hashicorp/go-hclog"
+
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
@@ -46,7 +47,7 @@ type TargetPlugin struct {
 	service *compute.Service
 }
 
-// NewGCEMIGPlugin returns the gce MIG implementation of the target.Target
+// NewGCEMIGPlugin returns the GCE MIG implementation of the target.Target
 // interface.
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
@@ -86,7 +87,6 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	}
 
 	migRef, err := t.calculateMIG(config)
-
 	if err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 
 	mig, err := t.service.RegionInstanceGroupManagers.Get(migRef.project, migRef.region, migRef.name).Context(ctx).Do()
 	if err != nil {
-		return fmt.Errorf("failed to describe gce Managed Instance Group: %v", err)
+		return fmt.Errorf("failed to describe GCE Managed Instance Group: %v", err)
 	}
 
 	num, direction := t.calculateDirection(mig.TargetSize, action.Count)
@@ -123,7 +123,6 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
 	migRef, err := t.calculateMIG(config)
-
 	if err != nil {
 		return nil, err
 	}

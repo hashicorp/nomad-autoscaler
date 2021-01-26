@@ -199,7 +199,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	}
 
 	// Last check for early exit before scaling the target, which we consider
-	// a non-preemtable action since we can be sure that a scaling action can
+	// a non-preemptable action since we cannot be sure that a scaling action can
 	// be cancelled halfway through or undone.
 	select {
 	case <-ctx.Done():

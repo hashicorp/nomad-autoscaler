@@ -24,8 +24,28 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 				"node_drain_deadline": "5m",
 			},
 			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:           2,
-				DrainDeadline: 5 * time.Minute,
+				Num:              2,
+				DrainDeadline:    5 * time.Minute,
+				IgnoreSystemJobs: false,
+				PoolIdentifier: &scaleutils.PoolIdentifier{
+					IdentifierKey: scaleutils.IdentifierKeyClass,
+					Value:         "high-memory",
+				},
+				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
+				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
+			},
+			expectedOutputError: nil,
+			name:                "valid request with drain_deadline in config",
+		},
+		{
+			inputNum: 2,
+			inputConfig: map[string]string{
+				"node_class":                    "high-memory",
+				"node_drain_ignore_system_jobs": "true",
+			},
+			expectedOutputReq: &scaleutils.ScaleInReq{
+				Num:              2,
+				IgnoreSystemJobs: true,
 				PoolIdentifier: &scaleutils.PoolIdentifier{
 					IdentifierKey: scaleutils.IdentifierKeyClass,
 					Value:         "high-memory",
@@ -49,8 +69,9 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 				"node_class": "high-memory",
 			},
 			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:           2,
-				DrainDeadline: 15 * time.Minute,
+				Num:              2,
+				IgnoreSystemJobs: false,
+				DrainDeadline:    15 * time.Minute,
 				PoolIdentifier: &scaleutils.PoolIdentifier{
 					IdentifierKey: scaleutils.IdentifierKeyClass,
 					Value:         "high-memory",

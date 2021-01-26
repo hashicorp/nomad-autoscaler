@@ -110,7 +110,10 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	if err != nil {
 		return fmt.Errorf(`target plugin "%s" not initialized: %v`, eval.Policy.Target.Name, err)
 	}
-	targetInst := targetPlugin.Plugin().(target.Target)
+	targetInst, ok := targetPlugin.Plugin().(target.Target)
+	if !ok {
+		return fmt.Errorf(`"%s" is not a target plugin`, eval.Policy.Target.Name)
+	}
 
 	// Fetch target status.
 	logger.Debug("fetching current count")
@@ -281,13 +284,19 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	if err != nil {
 		return nil, fmt.Errorf(`apm plugin "%s" not initialized: %v`, h.checkEval.Check.Source, err)
 	}
-	apmInst = apmPlugin.Plugin().(apm.APM)
+	apmInst, ok := apmPlugin.Plugin().(apm.APM)
+	if !ok {
+		return nil, fmt.Errorf(`"%s" is not an APM plugin`, h.checkEval.Check.Source)
+	}
 
 	strategyPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Strategy.Name, plugins.PluginTypeStrategy)
 	if err != nil {
 		return nil, fmt.Errorf(`strategy plugin "%s" not initialized: %v`, h.checkEval.Check.Strategy.Name, err)
 	}
-	strategyInst = strategyPlugin.Plugin().(strategy.Strategy)
+	strategyInst, ok = strategyPlugin.Plugin().(strategy.Strategy)
+	if !ok {
+		return nil, fmt.Errorf(`"%s" is not a strategy plugin`, h.checkEval.Check.Strategy.Name)
+	}
 
 	// Query check's APM.
 	// Wrap call in a goroutine so we can listen for ctx as well.

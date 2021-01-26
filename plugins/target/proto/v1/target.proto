@@ -1,0 +1,27 @@
+syntax = "proto3";
+package hashicorp.nomad_autoscaler.plugins.target.proto.v1;
+option go_package = "proto";
+
+import "plugins/shared/proto/v1/shared.proto" ;
+
+service TargetPluginService{
+    rpc Scale(ScaleRequest) returns(ScaleResponse) {}
+    rpc Status(StatusRequest) returns(StatusResponse) {}
+}
+
+message ScaleRequest{
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.ScalingAction action = 1;
+    map<string, string> config = 2;
+}
+
+message ScaleResponse{}
+
+message StatusRequest{
+    map<string, string> config = 1;
+}
+
+message StatusResponse{
+    bool ready = 1;
+    int64 count = 2;
+    map<string, string> meta = 3;
+}

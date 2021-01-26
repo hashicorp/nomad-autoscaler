@@ -22,7 +22,7 @@ const (
 var (
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeStrategy,
+		PluginType: sdk.PluginTypeStrategy,
 	}
 )
 

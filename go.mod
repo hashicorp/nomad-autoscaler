@@ -15,7 +15,8 @@ require (
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
-	github.com/google/go-cmp v0.4.0
+	github.com/golang/protobuf v1.4.3
+	github.com/google/go-cmp v0.5.0
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/cronexpr v1.1.1 // indirect
 	github.com/hashicorp/go-hclog v0.12.0
@@ -34,4 +35,10 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.3.1 // indirect
+	golang.org/x/net v0.0.0-20210119194325-5f4716e94777 // indirect
+	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4 // indirect
+	golang.org/x/text v0.3.5 // indirect
+	google.golang.org/genproto v0.0.0-20210119180700-e258113e47cc // indirect
+	google.golang.org/grpc v1.35.0
+	google.golang.org/protobuf v1.25.0
 )

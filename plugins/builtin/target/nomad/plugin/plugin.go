@@ -37,7 +37,7 @@ const (
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeTarget,
+		PluginType: sdk.PluginTypeTarget,
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -46,7 +46,7 @@ var (
 
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeTarget,
+		PluginType: sdk.PluginTypeTarget,
 	}
 )
 
@@ -83,7 +83,7 @@ func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 	}
 }
 
-// SetConfig satisfies the SetConfig function on the base.Plugin interface.
+// SetConfig satisfies the SetConfig function on the base.Base interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
 
 	if !t.gcRunning {
@@ -101,7 +101,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
-// PluginInfo satisfies the PluginInfo function on the base.Plugin interface.
+// PluginInfo satisfies the PluginInfo function on the base.Base interface.
 func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }

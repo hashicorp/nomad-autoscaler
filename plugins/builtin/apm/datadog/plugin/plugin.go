@@ -35,7 +35,7 @@ const (
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -44,7 +44,7 @@ var (
 
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 )
 

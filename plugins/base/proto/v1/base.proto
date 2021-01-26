@@ -1,0 +1,28 @@
+syntax = "proto3";
+package hashicorp.nomad_autoscaler.plugins.base.proto.v1;
+option go_package = "proto";
+
+service BasePluginService {
+    rpc PluginInfo(PluginInfoRequest) returns(PluginInfoResponse) {}
+    rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {}
+}
+
+message PluginInfoRequest {}
+
+enum PluginType {
+    PLUGIN_TYPE_UNSPECIFIED = 0;
+    PLUGIN_TYPE_APM = 1;
+    PLUGIN_TYPE_STRATEGY = 2;
+    PLUGIN_TYPE_TARGET = 3;
+}
+
+message PluginInfoResponse {
+    string name = 1;
+    PluginType type = 2;
+}
+
+message SetConfigRequest {
+    map<string, string> config = 1;
+}
+
+message SetConfigResponse {}

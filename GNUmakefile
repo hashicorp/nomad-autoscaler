@@ -10,7 +10,13 @@ GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_
 GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
 
 .PHONY: tools
-tools: lint-tools test-tools
+tools: lint-tools test-tools generate-tools
+
+.PHONY: generate-tools
+generate-tools: ## Install the tools used to generate code
+	@echo "==> Installing code generate tools..."
+	GO111MODULE=on cd tools && go get github.com/bufbuild/buf/cmd/buf@v0.36.0
+	@echo "==> Done"
 
 .PHONY: test-tools
 test-tools: ## Install the tools used to run tests
@@ -35,16 +41,23 @@ build:
 	-o ./bin/nomad-autoscaler
 	@echo "==> Done"
 
+.PHONY: generate-proto
+generate-proto: ## Generate the protocol buffers
+	@echo "==> Generating proto bindings..."
+	@buf --config tools/buf/buf.yaml --template tools/buf/buf.gen.yaml generate
+	@echo "==> Done"
+
 .PHONY: lint
 lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
 	@staticcheck ./...
 	@hclogvet .
+	@buf lint --config=./tools/buf/buf.yaml
 	@echo "==> Done"
 
 .PHONY: check
-check: check-sdk check-root-mod check-tools-mod
+check: check-sdk check-root-mod check-tools-mod check-protobuf
 
 .PHONY: check-sdk
 check-sdk: ## Checks the SDK pkg is isolated
@@ -74,6 +87,13 @@ check-tools-mod: ## Checks the tools Go mod is tidy
 		git --no-pager diff go.mod; \
 		git --no-pager diff go.sum; \
 		exit 1; fi
+	@echo "==> Done"
+
+.PHONEY: check-protobuf
+check-protobuf: ## Checks the protobuf files are in-sync
+	@$(MAKE) generate-proto
+	@echo "==> Checking proto files are in-sync..."
+	@if (git status -s | grep -q .pb.go); then echo the following proto files are out of sync; git status -s | grep .pb.go; exit 1; fi
 	@echo "==> Done"
 
 .PHONY: test

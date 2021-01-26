@@ -19,9 +19,10 @@ var handshake = plugin.HandshakeConfig{
 
 func TestStrategyPluginRPCServerSetConfig(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"strategy": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-strategy"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"strategy": &PluginStrategy{}},
+		Cmd:              exec.Command("../test/bin/noop-strategy"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -38,9 +39,10 @@ func TestStrategyPluginRPCServerSetConfig(t *testing.T) {
 
 func TestStrategyPluginRPCServerPluginInfo(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"strategy": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-strategy"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"strategy": &PluginStrategy{}},
+		Cmd:              exec.Command("../test/bin/noop-strategy"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -59,9 +61,10 @@ func TestStrategyPluginRPCServerPluginInfo(t *testing.T) {
 
 func TestStrategyPluginRPCServerRun(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"strategy": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-strategy"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"strategy": &PluginStrategy{}},
+		Cmd:              exec.Command("../test/bin/noop-strategy"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 

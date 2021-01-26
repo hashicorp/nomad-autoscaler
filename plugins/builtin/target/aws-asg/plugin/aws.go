@@ -3,6 +3,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -159,6 +160,7 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 	// The drain_deadline is an optional parameter so define out default and
 	// then attempt to find an operator specified value.
 	drain := scaleutils.DefaultDrainDeadline
+	ignoreSystemJobs := scaleutils.DefaultIgnoreSystemJobs
 
 	if drainString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
 		d, err := time.ParseDuration(drainString)
@@ -168,9 +170,19 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 		drain = d
 	}
 
+	if ignoreSystemJobsString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
+		isj, err := strconv.ParseBool(ignoreSystemJobsString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsString)
+		}
+		ignoreSystemJobs = isj
+	}
+
 	return &scaleutils.ScaleInReq{
-		Num:           int(num),
-		DrainDeadline: drain,
+		Num:              int(num),
+		DrainDeadline:    drain,
+		IgnoreSystemJobs: ignoreSystemJobs,
+
 		PoolIdentifier: &scaleutils.PoolIdentifier{
 			IdentifierKey: scaleutils.IdentifierKeyClass,
 			Value:         class,

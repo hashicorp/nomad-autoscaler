@@ -10,7 +10,8 @@ import (
 const (
 	// DefaultDrainDeadline is the drainSpec deadline used if one is not
 	// specified by an operator.
-	DefaultDrainDeadline = 15 * time.Minute
+	DefaultDrainDeadline    = 15 * time.Minute
+	DefaultIgnoreSystemJobs = false
 )
 
 // ScaleInReq represents an individual cluster scaling request and encompasses
@@ -22,7 +23,8 @@ type ScaleInReq struct {
 
 	// DrainDeadline is the deadline used within the DrainSpec when performing
 	// Nomad Node drain.
-	DrainDeadline time.Duration
+	DrainDeadline    time.Duration
+	IgnoreSystemJobs bool
 
 	PoolIdentifier *PoolIdentifier
 	RemoteProvider RemoteProvider

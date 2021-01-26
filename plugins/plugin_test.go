@@ -3,6 +3,7 @@ package plugins
 import (
 	"testing"
 
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,21 +15,21 @@ func TestPluginID_String(t *testing.T) {
 		{
 			inputPluginID: PluginID{
 				Name:       "foobar",
-				PluginType: PluginTypeAPM,
+				PluginType: sdk.PluginTypeAPM,
 			},
 			expectedOutput: "\"foobar\" (apm)",
 		},
 		{
 			inputPluginID: PluginID{
 				Name:       "foobar",
-				PluginType: PluginTypeTarget,
+				PluginType: sdk.PluginTypeTarget,
 			},
 			expectedOutput: "\"foobar\" (target)",
 		},
 		{
 			inputPluginID: PluginID{
 				Name:       "foobar",
-				PluginType: PluginTypeStrategy,
+				PluginType: sdk.PluginTypeStrategy,
 			},
 			expectedOutput: "\"foobar\" (strategy)",
 		},

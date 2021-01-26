@@ -46,6 +46,7 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 			expectedOutputReq: &scaleutils.ScaleInReq{
 				Num:              2,
 				IgnoreSystemJobs: true,
+				DrainDeadline:    15 * time.Minute,
 				PoolIdentifier: &scaleutils.PoolIdentifier{
 					IdentifierKey: scaleutils.IdentifierKeyClass,
 					Value:         "high-memory",
@@ -54,7 +55,7 @@ func TestTargetPlugin_generateScaleReq(t *testing.T) {
 				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
 			},
 			expectedOutputError: nil,
-			name:                "valid request with drain_deadline in config",
+			name:                "valid request with node_drain_ignore_system_jobs in config",
 		},
 		{
 			inputNum:            2,

@@ -255,11 +255,6 @@ type checkHandler struct {
 	pluginManager *manager.PluginManager
 }
 
-type checkHandlerResult struct {
-	action *sdk.ScalingAction
-	err    error
-}
-
 // newCheckHandler returns a new checkHandler instance.
 func newCheckHandler(l hclog.Logger, p *sdk.ScalingPolicy, c *sdk.ScalingCheckEvaluation, pm *manager.PluginManager) *checkHandler {
 	return &checkHandler{

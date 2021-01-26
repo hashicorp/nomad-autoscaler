@@ -13,7 +13,6 @@ require (
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/armon/go-metrics v0.3.3
 	github.com/aws/aws-sdk-go-v2 v0.23.0
-	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/google/go-cmp v0.4.0
@@ -35,5 +34,4 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/stretchr/testify v1.5.1
 	github.com/zclconf/go-cty v1.3.1 // indirect
-	github.com/zorkian/go-datadog-api v2.30.0+incompatible
 )

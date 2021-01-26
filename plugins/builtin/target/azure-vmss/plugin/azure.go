@@ -166,7 +166,7 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 		drain = d
 	}
 
-	if ignoreSystemJobsString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
+	if ignoreSystemJobsString, ok := config[sdk.TargetConfigKeyIgnoreSystemJobs]; ok {
 		isj, err := strconv.ParseBool(ignoreSystemJobsString)
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsString)

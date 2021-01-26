@@ -44,6 +44,10 @@ func (sr *ScaleInReq) validate() error {
 		err = multierror.Append(errors.New("deadline should be non-zero"), err)
 	}
 
+	if sr.IgnoreSystemJobs == nil {
+		err = multierror.Append(errors.New("ignore_system_jobs should be non-nil"), err)
+	}
+
 	if sr.PoolIdentifier == nil {
 		err = multierror.Append(errors.New("pool identifier should be non-nil"), err)
 	}

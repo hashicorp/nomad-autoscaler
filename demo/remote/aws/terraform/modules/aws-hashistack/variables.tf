@@ -94,3 +94,9 @@ variable "allowlist_ip" {
   type        = list(string)
   default     = ["0.0.0.0/0"]
 }
+
+variable "nomad_autoscaler_image" {
+  description = "The Docker image to use for the Nomad Autoscaler job."
+  type        = string
+  default     = "hashicorp/nomad-autoscaler:0.2.1"
+}

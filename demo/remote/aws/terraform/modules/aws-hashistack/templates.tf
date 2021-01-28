@@ -21,3 +21,18 @@ data "template_file" "user_data_client" {
     node_class    = "hashistack"
   }
 }
+
+data "template_file" "nomad_autoscaler_jobspec" {
+  template = file("${path.module}/templates/aws_autoscaler.nomad")
+
+  vars = {
+    nomad_autoscaler_image = var.nomad_autoscaler_image
+    client_asg_name        = aws_autoscaling_group.nomad_client.name
+  }
+}
+
+resource "null_resource" "nomad_autoscaler_jobspec" {
+  provisioner "local-exec" {
+    command = "echo '${data.template_file.nomad_autoscaler_jobspec.rendered}' > aws_autoscaler.nomad"
+  }
+}

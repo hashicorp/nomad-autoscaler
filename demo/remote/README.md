@@ -17,7 +17,7 @@ In order to build and run the demo, the following applications are required loca
 ## Infrastructure Build
 There are specific steps to build the infrastructure depending on which provider you wish to use.
 Please navigate to the appropriate section below.
- * [Amazon Web Services](./aws.md)
+ * [Amazon Web Services](./aws/README.md)
  * [Microsoft Azure](./azure/README.md)
 
 ## The Demo
@@ -113,9 +113,8 @@ terminating it within the provider.
 It is important to destroy the created infrastructure as soon as you are finished with the demo. In
 order to do this you should navigate to your Terraform env directory and issue a `destroy` command.
 ```
-$ cd terraform/env/<env>
 $ terraform destroy --auto-approve
 ```
 
 Please also check and complete any provider specific steps:
- * [Amazon Web Services](./aws.md#post-demo-steps)
+ * [Amazon Web Services](./aws/README.md#post-demo-steps)

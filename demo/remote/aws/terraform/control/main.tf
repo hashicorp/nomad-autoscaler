@@ -9,7 +9,7 @@ module "my_ip_address" {
 }
 
 module "hashistack_cluster" {
-  source = "../../modules/aws-hashistack"
+  source = "../modules/aws-hashistack"
 
   owner_name         = var.owner_name
   owner_email        = var.owner_email
@@ -21,7 +21,7 @@ module "hashistack_cluster" {
 }
 
 module "hashistack_jobs" {
-  source = "../../modules/shared-nomad-jobs"
+  source = "../../../shared/terraform/modules/shared-nomad-jobs"
 
   nomad_addr = "http://${module.hashistack_cluster.server_elb_dns}:4646"
 }

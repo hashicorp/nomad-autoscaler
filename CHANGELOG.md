@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+  * agent: Add pprof HTTP debug endpoints [[GH-349](https://github.com/hashicorp/nomad-autoscaler/pull/349)]
+
 IMPROVEMENTS:
  * plugins/target: Add cluster scaling configuration to ignore system jobs on drain [[GH-356](https://github.com/hashicorp/nomad-autoscaler/pull/356)]
 

@@ -21,6 +21,7 @@ const (
 	configKeyCredentials = "credentials"
 	configKeyProject     = "project"
 	configKeyRegion      = "region"
+	configKeyZone        = "zone"
 	configKeyMIGName     = "mig_name"
 )
 
@@ -93,21 +94,21 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 
 	ctx := context.Background()
 
-	mig, err := t.service.RegionInstanceGroupManagers.Get(migRef.project, migRef.region, migRef.name).Context(ctx).Do()
+	_, currentCount, err := t.status(ctx, migRef)
 	if err != nil {
 		return fmt.Errorf("failed to describe GCE Managed Instance Group: %v", err)
 	}
 
-	num, direction := t.calculateDirection(mig.TargetSize, action.Count)
+	num, direction := t.calculateDirection(currentCount, action.Count)
 
 	switch direction {
 	case "in":
-		err = t.scaleIn(ctx, migRef.project, migRef.region, migRef.name, num, config)
+		err = t.scaleIn(ctx, migRef, num, config)
 	case "out":
-		err = t.scaleOut(ctx, migRef.project, migRef.region, migRef.name, num)
+		err = t.scaleOut(ctx, migRef, num)
 	default:
-		t.logger.Info("scaling not required", "mig_name", migRef.name,
-			"current_count", mig.TargetSize, "strategy_count", action.Count)
+		t.logger.Info("scaling not required", "mig_name", migRef.getName(),
+			"current_count", currentCount, "strategy_count", action.Count)
 		return nil
 	}
 
@@ -122,21 +123,21 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 // Status satisfies the Status function on the target.Target interface.
 func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
-	migRef, err := t.calculateMIG(config)
+	group, err := t.calculateMIG(config)
 	if err != nil {
 		return nil, err
 	}
 
 	ctx := context.Background()
 
-	mig, err := t.service.RegionInstanceGroupManagers.Get(migRef.project, migRef.region, migRef.name).Context(ctx).Do()
+	stable, currentCount, err := t.status(ctx, group)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe GCE Managed Instance Group: %v", err)
 	}
 
 	resp := sdk.TargetStatus{
-		Ready: mig.Status.IsStable,
-		Count: mig.TargetSize,
+		Ready: stable,
+		Count: currentCount,
 		Meta:  make(map[string]string),
 	}
 
@@ -153,17 +154,19 @@ func (t *TargetPlugin) calculateDirection(migTarget, strategyDesired int64) (int
 	return 0, ""
 }
 
-func (t *TargetPlugin) calculateMIG(config map[string]string) (*migReference, error) {
+func (t *TargetPlugin) calculateMIG(config map[string]string) (instanceGroup, error) {
 
-	// We cannot scale an MIG without knowing the MIG name.
+	// We cannot scale an MIG without knowing the project.
 	project, ok := t.getValue(config, configKeyProject)
 	if !ok {
 		return nil, fmt.Errorf("required config param %s not found", configKeyProject)
 	}
 
-	region, ok := t.getValue(config, configKeyRegion)
-	if !ok {
-		return nil, fmt.Errorf("required config param %s not found", configKeyRegion)
+	// We cannot scale an MIG without knowing the MIG region or zone.
+	region, _ := t.getValue(config, configKeyRegion)
+	zone, _ := t.getValue(config, configKeyZone)
+	if len(zone) == 0 && len(region) == 0 {
+		return nil, fmt.Errorf("required config param %s or %s not found", configKeyRegion, configKeyZone)
 	}
 
 	// We cannot scale an MIG without knowing the MIG name.
@@ -172,11 +175,19 @@ func (t *TargetPlugin) calculateMIG(config map[string]string) (*migReference, er
 		return nil, fmt.Errorf("required config param %s not found", configKeyMIGName)
 	}
 
-	return &migReference{
-		project: project,
-		region:  region,
-		name:    migName,
-	}, nil
+	if len(zone) != 0 {
+		return &zonalInstanceGroup{
+			project: project,
+			zone:    zone,
+			name:    migName,
+		}, nil
+	} else {
+		return &regionalInstanceGroup{
+			project: project,
+			region:  region,
+			name:    zone,
+		}, nil
+	}
 }
 
 func (t *TargetPlugin) getValue(config map[string]string, name string) (string, bool) {
@@ -191,10 +202,4 @@ func (t *TargetPlugin) getValue(config map[string]string, name string) (string, 
 	}
 
 	return "", false
-}
-
-type migReference struct {
-	project string
-	region  string
-	name    string
 }

@@ -39,17 +39,15 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 	return nil
 }
 
-func (t *TargetPlugin) scaleOut(ctx context.Context, project string, zone string, mig string, num int64) error {
-
-	_, err := t.service.RegionInstanceGroupManagers.Resize(project, zone, mig, num).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to scale out instance group: %v", err)
-	}
-
-	return nil
+func (t *TargetPlugin) status(ctx context.Context, mr instanceGroup) (bool, int64, error) {
+	return mr.status(ctx, t.service)
 }
 
-func (t *TargetPlugin) scaleIn(ctx context.Context, project string, region string, mig string, num int64, config map[string]string) error {
+func (t *TargetPlugin) scaleOut(ctx context.Context, mr instanceGroup, num int64) error {
+	return mr.resize(ctx, t.service, num)
+}
+
+func (t *TargetPlugin) scaleIn(ctx context.Context, mr instanceGroup, num int64, config map[string]string) error {
 	scaleReq, err := t.generateScaleReq(num, config)
 	if err != nil {
 		return fmt.Errorf("failed to generate scale in request: %v", err)
@@ -69,17 +67,13 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, project string, region strin
 
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "instance_group", mig, "instances", ids)
+	log := t.logger.With("action", "scale_in", "instance_group", mr.getName(), "instances", ids)
 
 	// Delete the instances from the Managed Instance Groups. The targetSize of the MIG is will be reduced by the
 	// number of instances that are deleted.
 	log.Debug("deleting GCE MIG instances")
 
-	request := &compute.RegionInstanceGroupManagersDeleteInstancesRequest{
-		Instances: instanceIDs,
-	}
-
-	_, err = t.service.RegionInstanceGroupManagers.DeleteInstances(project, region, mig, request).Context(ctx).Do()
+	err = mr.deleteInstance(ctx, t.service, instanceIDs)
 	if err != nil {
 		return fmt.Errorf("failed to delete instances: %v", err)
 	}

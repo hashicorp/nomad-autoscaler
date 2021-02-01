@@ -1,7 +1,6 @@
 resource "google_compute_instance_template" "nomad_client" {
   name         = local.client_stack_name
   machine_type = var.client_machine_type
-  project      = google_project.hashistack.project_id
 
   disk {
     source_image = data.google_compute_image.hashistack.id
@@ -12,7 +11,7 @@ resource "google_compute_instance_template" "nomad_client" {
 
   network_interface {
     subnetwork         = google_compute_subnetwork.hashistack.name
-    subnetwork_project = google_project.hashistack.project_id
+    subnetwork_project = var.project_id
 
     access_config {
       network_tier = "STANDARD"
@@ -29,7 +28,7 @@ resource "google_compute_instance_template" "nomad_client" {
 
   metadata = {
     startup-script = templatefile("${path.module}/templates/user-data-client.sh", {
-      retry_join    = format("provider=gce project_name=%s tag_value=nomad-server", google_project.hashistack.project_id)
+      retry_join    = format("provider=gce project_name=%s tag_value=nomad-server", var.project_id)
       consul_binary = var.consul_binary
       nomad_binary  = var.nomad_binary
       node_class    = "hashistack"
@@ -40,7 +39,6 @@ resource "google_compute_instance_template" "nomad_client" {
 resource "google_compute_region_instance_group_manager" "nomad_client" {
   name                      = local.client_stack_name
   base_instance_name        = local.client_stack_name
-  project                   = google_project.hashistack.project_id
   region                    = var.region
   distribution_policy_zones = [local.zone_id]
   target_size               = "1"

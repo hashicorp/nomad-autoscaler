@@ -1,7 +1,6 @@
 resource "google_compute_firewall" "nomad_consul_generic" {
   name    = format("%s-allow-consul-nomad", local.stack_name)
   network = google_compute_network.hashistack.name
-  project = google_project.hashistack.project_id
 
   allow {
     protocol = "icmp"
@@ -43,7 +42,6 @@ resource "google_compute_firewall" "nomad_consul_generic" {
 resource "google_compute_firewall" "allow-all-internal-dyanmic-ports" {
   name    = format("%s-allow-dynamic-ports", local.stack_name)
   network = google_compute_network.hashistack.name
-  project = google_project.hashistack.project_id
 
   source_tags = [
     "nomad-server",
@@ -61,7 +59,6 @@ resource "google_compute_firewall" "allow-all-internal-dyanmic-ports" {
 resource "google_compute_firewall" "allow_server_ingress" {
   name          = format("%s-allow-ingress", local.server_stack_name)
   network       = google_compute_network.hashistack.name
-  project       = google_project.hashistack.project_id
   direction     = "INGRESS"
   source_ranges = var.allowlist_ip
 
@@ -78,7 +75,6 @@ resource "google_compute_firewall" "allow_server_ingress" {
 resource "google_compute_firewall" "allow_client_ingress" {
   name          = format("%s-allow-ingress", local.client_stack_name)
   network       = google_compute_network.hashistack.name
-  project       = google_project.hashistack.project_id
   direction     = "INGRESS"
   source_ranges = var.allowlist_ip
 

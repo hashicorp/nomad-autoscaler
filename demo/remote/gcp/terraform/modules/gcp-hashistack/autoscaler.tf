@@ -3,7 +3,7 @@ data "template_file" "nomad_autoscaler_jobspec" {
 
   vars = {
     nomad_autoscaler_image = var.nomad_autoscaler_image
-    project                = google_project.hashistack.project_id
+    project                = var.project_id
     region                 = var.region
     mig_name               = google_compute_region_instance_group_manager.nomad_client.name
   }

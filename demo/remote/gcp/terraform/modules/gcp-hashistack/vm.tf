@@ -2,7 +2,6 @@ resource "google_compute_instance" "nomad_server" {
   count        = var.server_count
   name         = local.server_stack_name
   machine_type = var.server_machine_type
-  project      = google_project.hashistack.project_id
   zone         = local.zone_id
 
   depends_on = [google_project_service.compute]
@@ -16,7 +15,7 @@ resource "google_compute_instance" "nomad_server" {
 
   network_interface {
     subnetwork         = google_compute_subnetwork.hashistack.name
-    subnetwork_project = google_project.hashistack.project_id
+    subnetwork_project = var.project_id
 
     access_config {
       network_tier = "STANDARD"

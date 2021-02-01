@@ -1,5 +1,5 @@
 output "google_project_id" {
-  value = google_project.hashistack.id
+  value = var.project_id
 }
 
 output "nomad_addr" {

@@ -1,10 +1,10 @@
 locals {
-  hashistack_image_project_id = var.hashistack_image_project_id != "" ? var.hashistack_image_project_id : google_project.hashistack.project_id
+  hashistack_image_project_id = var.hashistack_image_project_id != "" ? var.hashistack_image_project_id : var.project_id
 }
 
 resource "null_resource" "packer_build" {
   count      = var.build_hashistack_image ? 1 : 0
-  depends_on = [google_project.hashistack, google_project_service.compute]
+  depends_on = [google_project_service.compute]
 
   provisioner "local-exec" {
     command = <<EOF

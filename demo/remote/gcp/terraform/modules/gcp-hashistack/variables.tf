@@ -1,11 +1,11 @@
-variable "org_id" {
-  description = "The Google Cloud Platform organization where resources will be created."
+variable "project_id" {
+  description = "The project ID where resources will be created."
   type        = string
 }
 
-variable "billing_account" {
-  description = "The billing account that will be linked to the project."
-  type        = string
+variable "stack_name" {
+  type    = string
+  default = "hashistack"
 }
 
 variable "hashistack_image_project_id" {

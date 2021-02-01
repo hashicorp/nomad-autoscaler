@@ -294,14 +294,6 @@ const (
 	// the PluginDir default value.
 	defaultPluginDirSuffix = "/plugins"
 
-	// defaultNomadAddress is the default address used for Nomad API
-	// connectivity.
-	defaultNomadAddress = "http://127.0.0.1:4646"
-
-	// defaultNomadRegion is the default Nomad region to use when performing
-	// Nomad API calls.
-	defaultNomadRegion = "global"
-
 	// defaultPolicyCooldown is the default time duration applied to policies
 	// which do not explicitly configure a cooldown.
 	defaultPolicyCooldown = 5 * time.Minute
@@ -341,10 +333,7 @@ func Default() (*Agent, error) {
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
 		},
-		Nomad: &Nomad{
-			Address: defaultNomadAddress,
-			Region:  defaultNomadRegion,
-		},
+		Nomad: &Nomad{},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,
 		},

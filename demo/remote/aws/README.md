@@ -8,7 +8,7 @@ instances. Please be careful to replace the variables where necessary which will
 resources in your environment. The region flag can be omitted if you are using the `us-east-1`
 region.
 ```
-$ cd packer
+$ cd ./aws/packer
 $ packer build \
     -var 'created_email="<your_email_address>"' \
     -var 'created_name="<your_name>"' \
@@ -19,7 +19,7 @@ $ packer build \
 You can then navigate to the Terraform AWS environment you will be using to build the
 infrastructure components.
 ```
-$ cd ../terraform/env/aws
+$ cd ../terraform/control
 ```
 
 In order for Terraform to run correctly you'll need to provide the appropriate variables within a
@@ -89,7 +89,6 @@ file are the template sections. The first defines our agent config where we conf
 scaling policy and write this to a local directory for reading. Once you have an understanding of
 the job file, submit it to the Nomad cluster ensuring the `NOMAD_ADDR` env var has been exported.
 ```
-$ cd ../../..
 $ nomad run aws_autoscaler.nomad
 ```
 
@@ -99,7 +98,7 @@ the Nomad Autoscaler logs.
 $ nomad logs -stderr -f <alloc-id>
 ```
 
-You can now return to the [demo instrunctions](./README.md#the-demo).
+You can now return to the [demo instrunctions](../README.md#the-demo).
 
 ## Post Demo Steps
 The AMI is built outside of Terraform's control and therefore needs to be deregistered. This can be

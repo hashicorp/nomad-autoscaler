@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -143,14 +144,14 @@ func Test_ActionMetaToProto(t *testing.T) {
 		{
 			input: map[string]interface{}{"foo": "bar"},
 			expectedOutputPB: &anypb.Any{
-				Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+				Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 			},
 			expectedOutputError: nil,
 		},
 		{
 			input: map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
 			expectedOutputPB: &anypb.Any{
-				Value: []byte{123, 34, 102, 111, 111, 34, 58, 123, 34, 98, 97, 114, 34, 58, 34, 98, 97, 122, 34, 125, 125},
+				Value: mapToByteArray(t, map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}}),
 			},
 			expectedOutputError: nil,
 		},
@@ -178,14 +179,14 @@ func Test_ProtoToActionMeta(t *testing.T) {
 	}{
 		{
 			input: &anypb.Any{
-				Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+				Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 			},
 			expectedOutputMap:   map[string]interface{}{"foo": "bar"},
 			expectedOutputError: nil,
 		},
 		{
 			input: &anypb.Any{
-				Value: []byte{123, 34, 102, 111, 111, 34, 58, 123, 34, 98, 97, 114, 34, 58, 34, 98, 97, 122, 34, 125, 125},
+				Value: mapToByteArray(t, map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}}),
 			},
 			expectedOutputMap:   map[string]interface{}{"foo": map[string]interface{}{"bar": "baz"}},
 			expectedOutputError: nil,
@@ -226,7 +227,7 @@ func Test_ScalingActionToProto(t *testing.T) {
 				Error:     false,
 				Direction: proto.ScalingDirection_SCALING_DIRECTION_UP,
 				Meta: &anypb.Any{
-					Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+					Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 				},
 			},
 			expectedOutputError: nil,
@@ -245,7 +246,7 @@ func Test_ScalingActionToProto(t *testing.T) {
 				Error:     true,
 				Direction: proto.ScalingDirection_SCALING_DIRECTION_DOWN,
 				Meta: &anypb.Any{
-					Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+					Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 				},
 			},
 			expectedOutputError: nil,
@@ -310,4 +311,12 @@ func Test_ProtoToScalingAction(t *testing.T) {
 		assert.Equal(t, tc.expectedOutputAction, actualAction)
 		assert.Equal(t, tc.expectedOutputError, actualError)
 	}
+}
+
+func mapToByteArray(t *testing.T, input map[string]interface{}) []byte {
+	out, err := json.Marshal(input)
+	if err != nil {
+		t.Fail()
+	}
+	return out
 }

@@ -163,9 +163,9 @@ func (t *TargetPlugin) calculateMIG(config map[string]string) (instanceGroup, er
 	}
 
 	// We cannot scale an MIG without knowing the MIG region or zone.
-	region, _ := t.getValue(config, configKeyRegion)
-	zone, _ := t.getValue(config, configKeyZone)
-	if len(zone) == 0 && len(region) == 0 {
+	region, regionOk := t.getValue(config, configKeyRegion)
+	zone, zoneOk := t.getValue(config, configKeyZone)
+	if !regionOk && !zoneOk {
 		return nil, fmt.Errorf("required config param %s or %s not found", configKeyRegion, configKeyZone)
 	}
 
@@ -185,7 +185,7 @@ func (t *TargetPlugin) calculateMIG(config map[string]string) (instanceGroup, er
 		return &regionalInstanceGroup{
 			project: project,
 			region:  region,
-			name:    zone,
+			name:    migName,
 		}, nil
 	}
 }

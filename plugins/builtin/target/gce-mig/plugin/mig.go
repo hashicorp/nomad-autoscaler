@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"context"
-	"fmt"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -39,10 +38,7 @@ func (z *zonalInstanceGroup) status(ctx context.Context, service *compute.Servic
 
 func (z *zonalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {
 	_, err := service.InstanceGroupManagers.Resize(z.project, z.zone, z.name, num).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to scale out instance group: %v", err)
-	}
-	return nil
+	return err
 }
 
 func (z *zonalInstanceGroup) deleteInstance(ctx context.Context, service *compute.Service, instanceIDs []string) error {
@@ -51,10 +47,11 @@ func (z *zonalInstanceGroup) deleteInstance(ctx context.Context, service *comput
 	}
 
 	_, err := service.InstanceGroupManagers.DeleteInstances(z.project, z.zone, z.name, request).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to delete instances: %v", err)
-	}
-	return nil
+	return err
+}
+
+func (r *regionalInstanceGroup) getName() string {
+	return r.name
 }
 
 func (r *regionalInstanceGroup) status(ctx context.Context, service *compute.Service) (bool, int64, error) {
@@ -67,10 +64,7 @@ func (r *regionalInstanceGroup) status(ctx context.Context, service *compute.Ser
 
 func (r *regionalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {
 	_, err := service.RegionInstanceGroupManagers.Resize(r.project, r.region, r.name, num).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to scale out instance group: %v", err)
-	}
-	return nil
+	return err
 }
 
 func (r *regionalInstanceGroup) deleteInstance(ctx context.Context, service *compute.Service, instanceIDs []string) error {
@@ -79,12 +73,5 @@ func (r *regionalInstanceGroup) deleteInstance(ctx context.Context, service *com
 	}
 
 	_, err := service.RegionInstanceGroupManagers.DeleteInstances(r.project, r.region, r.name, request).Context(ctx).Do()
-	if err != nil {
-		return fmt.Errorf("failed to delete instances: %v", err)
-	}
-	return nil
-}
-
-func (r *regionalInstanceGroup) getName() string {
-	return r.name
+	return err
 }

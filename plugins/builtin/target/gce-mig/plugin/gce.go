@@ -14,6 +14,11 @@ import (
 	"google.golang.org/api/option"
 )
 
+const (
+	defaultRetryInterval = 10 * time.Second
+	defaultRetryLimit    = 15
+)
+
 func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 
 	credentials, ok := config[configKeyCredentials]
@@ -39,15 +44,23 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 	return nil
 }
 
-func (t *TargetPlugin) status(ctx context.Context, mr instanceGroup) (bool, int64, error) {
-	return mr.status(ctx, t.service)
+func (t *TargetPlugin) status(ctx context.Context, ig instanceGroup) (bool, int64, error) {
+	return ig.status(ctx, t.service)
 }
 
-func (t *TargetPlugin) scaleOut(ctx context.Context, mr instanceGroup, num int64) error {
-	return mr.resize(ctx, t.service, num)
+func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64) error {
+	log := t.logger.With("action", "scale_out", "instance_group", ig.getName())
+	if err := ig.resize(ctx, t.service, num); err != nil {
+		return fmt.Errorf("failed to scale out GCE Instance Group: %v", err)
+	}
+	if err := t.ensureInstanceGroupIsStable(ctx, ig); err != nil {
+		return fmt.Errorf("failed to confirm scale out GCE Instance Group: %v", err)
+	}
+	log.Debug("scale out GCE MIG confirmed")
+	return nil
 }
 
-func (t *TargetPlugin) scaleIn(ctx context.Context, mr instanceGroup, num int64, config map[string]string) error {
+func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int64, config map[string]string) error {
 	scaleReq, err := t.generateScaleReq(num, config)
 	if err != nil {
 		return fmt.Errorf("failed to generate scale in request: %v", err)
@@ -67,18 +80,23 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, mr instanceGroup, num int64,
 
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "instance_group", mr.getName(), "instances", ids)
+	log := t.logger.With("action", "scale_in", "instance_group", group.getName(), "instances", ids)
 
 	// Delete the instances from the Managed Instance Groups. The targetSize of the MIG is will be reduced by the
 	// number of instances that are deleted.
 	log.Debug("deleting GCE MIG instances")
 
-	err = mr.deleteInstance(ctx, t.service, instanceIDs)
-	if err != nil {
+	if err := group.deleteInstance(ctx, t.service, instanceIDs); err != nil {
 		return fmt.Errorf("failed to delete instances: %v", err)
 	}
 
 	log.Info("successfully deleted GCE MIG instances")
+
+	if err := t.ensureInstanceGroupIsStable(ctx, group); err != nil {
+		return fmt.Errorf("failed to confirm scale in GCE MIG: %v", err)
+	}
+
+	log.Debug("scale in GCE MIG confirmed")
 
 	// Run any post scale in tasks that are desired.
 	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
@@ -86,6 +104,20 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, mr instanceGroup, num int64,
 	}
 
 	return nil
+}
+
+func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup) error {
+
+	f := func(ctx context.Context) (bool, error) {
+		stable, _, err := group.status(ctx, t.service)
+		if stable || err != nil {
+			return true, err
+		} else {
+			return false, fmt.Errorf("waiting for instance group to become stable")
+		}
+	}
+
+	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
 }
 
 func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*scaleutils.ScaleInReq, error) {

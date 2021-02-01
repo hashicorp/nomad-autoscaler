@@ -192,3 +192,39 @@ func ProtoToScalingAction(input *proto.ScalingAction) (sdk.ScalingAction, error)
 
 	return out, nil
 }
+
+// ScalingPolicyCheckToProto converts the input ScalingPolicyCheck to the proto
+// equivalent.
+func ScalingPolicyCheckToProto(input *sdk.ScalingPolicyCheck) *proto.ScalingPolicyCheck {
+	return &proto.ScalingPolicyCheck{
+		Name:        input.Name,
+		Source:      input.Source,
+		Query:       input.Query,
+		QueryWindow: ptypes.DurationProto(input.QueryWindow),
+		Strategy: &proto.ScalingPolicyStrategy{
+			Name:   input.Strategy.Name,
+			Config: input.Strategy.Config,
+		},
+	}
+}
+
+// ProtoToScalingPolicyCheck converts the input proto ScalingPolicyCheck object
+// and returns the the Autoscaler equivalent.
+func ProtoToScalingPolicyCheck(input *proto.ScalingPolicyCheck) (*sdk.ScalingPolicyCheck, error) {
+
+	queryWindow, err := ptypes.Duration(input.GetQueryWindow())
+	if err != nil {
+		return nil, err
+	}
+
+	return &sdk.ScalingPolicyCheck{
+		Name:        input.GetName(),
+		Source:      input.GetSource(),
+		Query:       input.GetQuery(),
+		QueryWindow: queryWindow,
+		Strategy: &sdk.ScalingPolicyStrategy{
+			Name:   input.GetStrategy().GetName(),
+			Config: input.GetStrategy().GetConfig(),
+		},
+	}, nil
+}

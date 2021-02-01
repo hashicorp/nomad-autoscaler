@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
@@ -310,6 +311,76 @@ func Test_ProtoToScalingAction(t *testing.T) {
 		actualAction, actualError := ProtoToScalingAction(tc.input)
 		assert.Equal(t, tc.expectedOutputAction, actualAction)
 		assert.Equal(t, tc.expectedOutputError, actualError)
+	}
+}
+
+func Test_ScalingPolicyCheckToProto(t *testing.T) {
+	testCases := []struct {
+		input               *sdk.ScalingPolicyCheck
+		expectedOutputCheck *proto.ScalingPolicyCheck
+	}{
+		{
+			input: &sdk.ScalingPolicyCheck{
+				Name:        "foo-bar-check",
+				Source:      "prometheus",
+				Query:       "some(super-weird/query).format()",
+				QueryWindow: 5 * time.Second,
+				Strategy: &sdk.ScalingPolicyStrategy{
+					Name:   "target-value",
+					Config: map[string]string{"target": "13"},
+				},
+			},
+			expectedOutputCheck: &proto.ScalingPolicyCheck{
+				Name:        "foo-bar-check",
+				Source:      "prometheus",
+				Query:       "some(super-weird/query).format()",
+				QueryWindow: ptypes.DurationProto(5 * time.Second),
+				Strategy: &proto.ScalingPolicyStrategy{
+					Name:   "target-value",
+					Config: map[string]string{"target": "13"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		assert.Equal(t, tc.expectedOutputCheck, ScalingPolicyCheckToProto(tc.input))
+	}
+}
+
+func Test_ProtoToScalingPolicyCheck(t *testing.T) {
+	testCases := []struct {
+		input               *proto.ScalingPolicyCheck
+		expectedOutputCheck *sdk.ScalingPolicyCheck
+	}{
+		{
+			input: &proto.ScalingPolicyCheck{
+				Name:        "foo-bar-check",
+				Source:      "prometheus",
+				Query:       "some(super-weird/query).format()",
+				QueryWindow: ptypes.DurationProto(5 * time.Second),
+				Strategy: &proto.ScalingPolicyStrategy{
+					Name:   "target-value",
+					Config: map[string]string{"target": "13"},
+				},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:        "foo-bar-check",
+				Source:      "prometheus",
+				Query:       "some(super-weird/query).format()",
+				QueryWindow: 5 * time.Second,
+				Strategy: &sdk.ScalingPolicyStrategy{
+					Name:   "target-value",
+					Config: map[string]string{"target": "13"},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		actualOutputCheck, outputErr := ProtoToScalingPolicyCheck(tc.input)
+		assert.Equal(t, tc.expectedOutputCheck, actualOutputCheck)
+		assert.Nil(t, outputErr)
 	}
 }
 

@@ -3,7 +3,6 @@ package strategy
 import (
 	"context"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	sharedProto "github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
@@ -27,18 +26,9 @@ type pluginClient struct {
 func (p *pluginClient) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 
 	resp, err := p.client.Run(p.doneCTX, &proto.RunRequest{
-		Action: &sharedProto.ScalingAction{},
-		Count:  count,
-		Check: &sharedProto.ScalingPolicyCheck{
-			Name:        eval.Check.Name,
-			Source:      eval.Check.Source,
-			Query:       eval.Check.Query,
-			QueryWindow: ptypes.DurationProto(eval.Check.QueryWindow),
-			Strategy: &sharedProto.ScalingPolicyStrategy{
-				Name:   eval.Check.Strategy.Name,
-				Config: eval.Check.Strategy.Config,
-			},
-		},
+		Action:            &sharedProto.ScalingAction{},
+		Count:             count,
+		Check:             shared.ScalingPolicyCheckToProto(eval.Check),
 		TimestampedMetric: shared.TimestampedMetricsToProto(eval.Metrics),
 	})
 	if err != nil {

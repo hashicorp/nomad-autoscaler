@@ -3,7 +3,6 @@ package strategy
 import (
 	"context"
 
-	"github.com/golang/protobuf/ptypes"
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1"
@@ -19,7 +18,7 @@ type pluginServer struct {
 // Run is the gRPC server implementation of the Strategy.Run interface function.
 func (p *pluginServer) Run(_ context.Context, req *proto.RunRequest) (*proto.RunResponse, error) {
 
-	queryWindow, err := ptypes.Duration(req.Check.GetQueryWindow())
+	check, err := shared.ProtoToScalingPolicyCheck(req.GetCheck())
 	if err != nil {
 		return nil, err
 	}
@@ -27,17 +26,8 @@ func (p *pluginServer) Run(_ context.Context, req *proto.RunRequest) (*proto.Run
 	// Populate the eval. At this point of the evaluation flow we will only
 	// have Check and Metrics sections populated, so only translate this.
 	eval := sdk.ScalingCheckEvaluation{
-		Action: &sdk.ScalingAction{},
-		Check: &sdk.ScalingPolicyCheck{
-			Name:        req.Check.GetName(),
-			Source:      req.Check.GetSource(),
-			Query:       req.Check.GetQuery(),
-			QueryWindow: queryWindow,
-			Strategy: &sdk.ScalingPolicyStrategy{
-				Name:   req.Check.Strategy.GetName(),
-				Config: req.Check.Strategy.GetConfig(),
-			},
-		},
+		Action:  &sdk.ScalingAction{},
+		Check:   check,
 		Metrics: shared.ProtoToTimestampedMetrics(req.TimestampedMetric),
 	}
 

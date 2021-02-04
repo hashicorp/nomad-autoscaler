@@ -129,7 +129,7 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
 	}
 
-	// The drain_deadline is an optional parameter so define out default and
+	// The drain_deadline is an optional parameter so define our default and
 	// then attempt to find an operator specified value.
 	drain := scaleutils.DefaultDrainDeadline
 

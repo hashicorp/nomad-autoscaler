@@ -75,9 +75,12 @@ const nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 // Azure instanceID of a node.
 const nodeAttrAzureInstanceID = "unique.platform.azure.name"
 
-// nodeAttrAzureName is the node attribute to use when identifying the
-// Azure instanceID of a node.
+// nodeAttrGCEHostname is the node attribute to use when identifying the
+// GCE hostname of a node.
 const nodeAttrGCEHostname = "unique.platform.gce.hostname"
+
+// nodeAttrGCEZone is the node attribute to use when identifying the GCE
+// zonde of a node.
 const nodeAttrGCEZone = "platform.gce.zone"
 
 // defaultClassIdentifier is the class used for nodes which have an empty class

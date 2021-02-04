@@ -26,7 +26,6 @@ func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, 
 	)
 
 	for {
-
 		if ctx.Err() != nil {
 			if lastErr != nil {
 				return fmt.Errorf("retry failed with %v; last error: %v", ctx.Err(), lastErr)

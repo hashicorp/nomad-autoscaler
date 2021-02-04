@@ -39,7 +39,7 @@ var (
 // Assert that TargetPlugin meets the target.Target interface.
 var _ target.Target = (*TargetPlugin)(nil)
 
-// TargetPlugin is the AWS ASG implementation of the target.Target interface.
+// TargetPlugin is the CGE MIG implementation of the target.Target interface.
 type TargetPlugin struct {
 	config       map[string]string
 	logger       hclog.Logger

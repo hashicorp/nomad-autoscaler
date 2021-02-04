@@ -44,6 +44,10 @@ const (
 	// plugin.
 	InternalTargetAzureVMSS = "azure-vmss"
 
+	// InternalTargetOSSenlin is the OpenStack Senlin Cluster target
+	// plugin.
+	InternalTargetOSSenlin = "openstack-senlin"
+
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
 )

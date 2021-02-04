@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -22,13 +21,7 @@ const (
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
 	configKeyRegion      = "os_region"
-	configKeyUserName    = "os_username"
-	configKeyPassword    = "os_password"
 	configKeyClusterName = "os_senlin_cluster_name"
-
-	// configValues are the default values used when a configuration key is not
-	// supplied by the operator that are specific to the plugin.
-	configValueRegionDefault = "us-east-1"
 )
 
 var (
@@ -103,7 +96,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	// correct and ensure the OpenStack client is configured correctly. The response
 	// can also be used when performing the scaling, meaning we only need to
 	// call it once.
-	curCluster, err := t.describeCluster(ctx, clusterName)
+	curCluster, err := t.describeCluster(clusterName)
 	if err != nil {
 		return fmt.Errorf("failed to describe OpenStack Senlin Cluster: %v", err)
 	}
@@ -140,28 +133,16 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	if !ok {
 		return nil, fmt.Errorf("required config param %s not found", configKeyClusterName)
 	}
-	ctx := context.Background()
 
-	cluster, err := t.describeCluster(ctx, clusterName)
+	cluster, err := t.describeCluster(clusterName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe OpenStack Senlin Cluster: %v", err)
 	}
 
-	events, err := t.describeActions(ctx, clusterName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to describe OpenStack Senlin Cluster actions: %v", err)
-	}
-
-	// Set our initial status.
 	resp := sdk.TargetStatus{
 		Ready: cluster.Status == "ACTIVE",
 		Count: int64(cluster.DesiredCapacity),
 		Meta:  make(map[string]string),
-	}
-
-	// If we have previous action then process the last.
-	if len(events) > 0 {
-		processLastAction(events[0], &resp)
 	}
 
 	return &resp, nil
@@ -173,25 +154,7 @@ func (t *TargetPlugin) calculateDirection(clusterDesired, strategyDesired int64)
 		return clusterDesired - strategyDesired, "in"
 	}
 	if strategyDesired > clusterDesired {
-		return strategyDesired, "out"
+		return strategyDesired - clusterDesired, "out"
 	}
 	return 0, ""
-}
-
-// processLastActivity updates the status object based on the details within
-// the last scaling action.
-func processLastAction(action actions.Action, status *sdk.TargetStatus) {
-
-	// If the last action progress is not nil then check whether this
-	// finished or not. In the event there is a current action in progress
-	// set ready to false so the autoscaler will not perform any actions.
-	if action.Status != "SUCCESS" {
-		status.Ready = false
-	}
-
-	// EndTime isn't always populated, especially if the activity has not yet
-	// finished :).
-	if action.EndTime != 0 {
-		status.Meta[sdk.TargetStatusMetaKeyLastEvent] = fmt.Sprintf("%f", action.EndTime)
-	}
 }

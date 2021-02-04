@@ -53,6 +53,11 @@ const RemoteProviderAWSInstanceID RemoteProvider = "aws_instance_id"
 // nodeAttrAzureInstanceID to perform ID translation.
 const RemoteProviderAzureInstanceID RemoteProvider = "azure_instance_id"
 
+// RemoteProviderOpenStackInstanceName is the OpenStack remote provider for
+// VM instances. This provider will use the node attribute as defined by
+// nodeAttrOpenStackInstanceID to perform hostname translation.
+const RemoteProviderOpenStackInstanceName RemoteProvider = "openstack_instance_name"
+
 // NodeIDStrategy is the strategy used to identify nodes for removal as part of
 // scaling in.
 type NodeIDStrategy string
@@ -71,6 +76,10 @@ const nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 // nodeAttrAzureName is the node attribute to use when identifying the
 // Azure instanceID of a node.
 const nodeAttrAzureInstanceID = "unique.platform.azure.name"
+
+// nodeAttrOpenStackHostname is the node attribute to use when identifying the
+// OpenStack hostname of a node.
+const nodeAttrOpenStackHostname = "unique.hostname"
 
 // defaultClassIdentifier is the class used for nodes which have an empty class
 // parameter when using the IdentifierKeyClass.
@@ -117,8 +126,9 @@ type nodeIDMapFunc func(n *api.Node) (string, error)
 // idFuncMap contains a mapping of RemoteProvider to the function which can
 // pull the remote ID information from the node.
 var idFuncMap = map[RemoteProvider]nodeIDMapFunc{
-	RemoteProviderAWSInstanceID:   awsNodeIDMap,
-	RemoteProviderAzureInstanceID: azureNodeIDMap,
+	RemoteProviderAWSInstanceID:         awsNodeIDMap,
+	RemoteProviderAzureInstanceID:       azureNodeIDMap,
+	RemoteProviderOpenStackInstanceName: openstackNodeNameMap,
 }
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using
@@ -145,4 +155,14 @@ func azureNodeIDMap(n *api.Node) (string, error) {
 	}
 
 	return "", fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
+}
+
+// openstackNodeIDMap is used to identify the OpenStack hostname of a Nomad node using
+// the relevant attribute value.
+func openstackNodeNameMap(n *api.Node) (string, error) {
+	if val, ok := n.Attributes[nodeAttrOpenStackHostname]; ok {
+		return val, nil
+	}
+
+	return "", fmt.Errorf("attribute %q not found", nodeAttrOpenStackHostname)
 }

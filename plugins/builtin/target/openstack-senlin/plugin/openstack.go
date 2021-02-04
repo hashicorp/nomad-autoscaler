@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/clusters"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
-	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
@@ -32,27 +33,15 @@ func (t *TargetPlugin) setupOSClients(config map[string]string) error {
 		return fmt.Errorf("failed to load default OpenStack config: %v", err)
 	}
 
-	// Check for a configured region and set the value to our internal default
-	// if nothing is found.
 	region, ok := config[configKeyRegion]
 	if !ok {
-		region = configValueRegionDefault
-	}
-
-	username, userOK := config[configKeyUserName]
-	password, pwOK := config[configKeyPassword]
-
-	if userOK && pwOK {
-		t.logger.Trace("setting OpenStack access credentials from config map")
-
-		opts = gophercloud.AuthOptions{
-			IdentityEndpoint: "https://openstack.example.com:5000/v2.0",
-			Username:         username,
-			Password:         password,
-		}
+		return fmt.Errorf("region must be specified in config")
 	}
 
 	provider, err := openstack.AuthenticatedClient(opts)
+	if err != nil {
+		return errors.Wrap(err, "unable to authenticate client")
+	}
 
 	t.client, err = openstack.NewClusteringV1(provider, gophercloud.EndpointOpts{
 		Region: region,
@@ -76,11 +65,11 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, cluster *clusters.Cluster, 
 
 	actionID, err := clusters.ScaleOut(t.client, cluster.ID, opts).Extract()
 	if err != nil {
-		return fmt.Errorf("failed to scale out Senlin cluster: %v", err)
+		return fmt.Errorf("failed to scale out OpenStack Senlin cluster %s: %v", cluster.Name, err)
 	}
 
-	if err := t.ensureClusterInstancesCount(ctx, count, cluster.Name, actionID); err != nil {
-		return fmt.Errorf("failed to confirm scale out OpenStack Senlin Cluster: %v", err)
+	if err := t.ensureActionsComplete(ctx, []string{actionID}); err != nil {
+		return fmt.Errorf("failed to confirm scale out OpenStack Senlin Cluster %s: %v", cluster.Name, err)
 	}
 
 	log.Info("successfully performed and verified scaling out")
@@ -99,41 +88,23 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, cluster *clusters.Cluster, n
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
 
-	// Grab the instanceIDs once as it is used multiple times throughout the
-	// scale in event.
-	var instanceIDs []string
-
-	for _, node := range ids {
-		instanceIDs = append(instanceIDs, node.RemoteID)
+	nodeIDs, err := t.getNodeIDs(ids)
+	if err != nil {
+		return err
 	}
-
-	// Create the event writer and write that the drain event has been
-	// completed which is part of the RunPreScaleInTasks() function.
-	eWriter := newEventWriter(t.logger, t.client, instanceIDs, cluster.Name)
-	eWriter.write(ctx, scalingEventDrain)
 
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
 	log := t.logger.With("action", "scale_in", "cluster_name", cluster.Name,
-		"instances", instanceIDs)
+		"nodes", nodeIDs)
 
-	// Detach the desired instances.
-	log.Debug("detaching instances from Senlin cluster")
+	// Delete the desired instances.
+	log.Debug("deleting instances from Senlin cluster %s", cluster.Name)
 
-	if err := t.detachInstances(ctx, cluster.Name, instanceIDs); err != nil {
-		return fmt.Errorf("failed to scale in OpenStack Senlin Cluster: %v", err)
+	if err := t.deleteNodes(ctx, nodeIDs); err != nil {
+		return fmt.Errorf("failed to scale in OpenStack Senlin Cluster %s: %v", cluster.Name, err)
 	}
-	log.Info("successfully detached instances from OpenStack Senlin Cluster")
-	eWriter.write(ctx, scalingEventDetach)
-
-	// Terminate the detached instances.
-	log.Debug("terminating VM instances")
-
-	if err := t.terminateInstances(ctx, instanceIDs); err != nil {
-		return fmt.Errorf("failed to scale in OpenStack Senlin Cluster: %v", err)
-	}
-	log.Info("successfully terminated VM instances")
-	eWriter.write(ctx, scalingEventTerminate)
+	log.Info("successfully deleted instances from OpenStack Senlin Cluster %s", cluster.Name)
 
 	// Run any post scale in tasks that are desired.
 	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
@@ -171,60 +142,68 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 			IdentifierKey: scaleutils.IdentifierKeyClass,
 			Value:         class,
 		},
-		RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
+		RemoteProvider: scaleutils.RemoteProviderOpenStackInstanceName,
 		NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
 	}, nil
 }
 
-func (t *TargetPlugin) detachInstances(ctx context.Context, clusterID string, instanceIDs []string) error {
-	opts := clusters.RemoveNodesOpts{
-		Nodes: instanceIDs,
+func (t *TargetPlugin) getNodeIDs(ids []scaleutils.NodeID) ([]string, error) {
+	instanceIDs := []string{}
+
+	for _, n := range ids {
+		nodeOpts := nodes.ListOpts{
+			Name: n.RemoteID,
+		}
+
+		allPages, err := nodes.List(t.client, nodeOpts).AllPages()
+		if err != nil {
+			return nil, err
+		}
+
+		allNodes, err := nodes.ExtractNodes(allPages)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(allNodes) != 1 {
+			return nil, fmt.Errorf("expected 1 node with name %q, but found %d", n, len(allNodes))
+		}
+
+		instanceIDs = append(instanceIDs, allNodes[0].ID)
 	}
 
-	res := clusters.RemoveNodes(t.client, clusterID, opts)
-
-	// manually extract actionID until new gophercloud release
-	// that includes change to return ActionResult from RemoveNodes
-	location := res.Header.Get("Location")
-	v := strings.Split(location, "actions/")
-	if len(v) < 2 {
-		return fmt.Errorf("unable to determine action ID")
-	}
-
-	actionID := v[1]
-
-	if err := res.ExtractErr(); err != nil {
-		return fmt.Errorf("failed to detach instances from OpenStack Senlin Cluster: %v", err)
-	}
-
-	err := t.ensureActionsComplete(ctx,[]string{actionID})
-	if err != nil {
-		return fmt.Errorf("failed to detached instances from Senlin Cluster: %v", err)
-	}
-
-	return nil
-
+	return instanceIDs, nil
 }
 
-func (t *TargetPlugin) terminateInstances(ctx context.Context, instanceIDs []string) error {
-	for _, i := range instanceIDs {
-		err := startstop.Stop(t.client, i).ExtractErr()
+func (t *TargetPlugin) deleteNodes(ctx context.Context, nodeIDs []string) error {
+	for _, id := range nodeIDs {
+		res := nodes.Delete(t.client, id)
+
+		// manually extract actionID until new gophercloud release
+		// that includes change to return ActionResult from Delete
+		location := res.Header.Get("Location")
+		v := strings.Split(location, "actions/")
+		if len(v) < 2 {
+			return fmt.Errorf("unable to determine action ID when deleting node %s", id)
+		}
+
+		actionID := v[1]
+
+		if err := res.ExtractErr(); err != nil {
+			return fmt.Errorf("failed to delete node %s: %v", id, err)
+		}
+
+		err := t.ensureActionsComplete(ctx, []string{actionID})
 		if err != nil {
-			return fmt.Errorf("failed to terminate VM instances: %v", err)
+			return fmt.Errorf("failed to ensure delete action complete for node %s: %v", id, err)
 		}
 	}
 
-	// Confirm that the instances have indeed terminated properly. This allows
-	// us to handle reconciliation if the error is transient, or at least
-	// allows operators to see the error and perform manual actions to resolve.
-	err := t.ensureInstancesTerminate(ctx, instanceIDs)
-	if err != nil {
-		return fmt.Errorf("failed to terminate VM instances: %v", err)
-	}
 	return nil
+
 }
 
-func (t *TargetPlugin) describeCluster(ctx context.Context, clusterName string) (*clusters.Cluster, error) {
+func (t *TargetPlugin) describeCluster(clusterName string) (*clusters.Cluster, error) {
 	cluster, err := clusters.Get(t.client, clusterName).Extract()
 	if err != nil {
 		return nil, err
@@ -233,30 +212,7 @@ func (t *TargetPlugin) describeCluster(ctx context.Context, clusterName string) 
 	return cluster, nil
 }
 
-func (t *TargetPlugin) describeActions(ctx context.Context, clusterID string, ids []string) ([]actions.Action, error) {
-	if len(ids) > 0 {
-		return nil, fmt.Errorf("TODO: implement filtering of action list by given ids")
-	}
-
-	opts := actions.ListOpts{
-		Target: clusterID,
-	}
-
-	resp, err := actions.List(t.client, opts).AllPages()
-	if err != nil {
-		return nil, err
-	}
-
-	actions, err := actions.ExtractActions(resp)
-	if err != nil {
-		return nil, err
-	}
-
-	return actions, nil
-}
-
 func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string) error {
-
 	f := func(ctx context.Context) (bool, error) {
 		// Reset the scaling action IDs we are waiting to complete so we can
 		// re-populate with a modified list later.
@@ -270,7 +226,7 @@ func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string) 
 				return true, err
 			}
 
-			if action.Status == "SUCCESS" {
+			if action.Status == "SUCCEEDED" {
 				continue
 			}
 
@@ -290,59 +246,6 @@ func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string) 
 		}
 
 		return false, fmt.Errorf("waiting for %v actions to finish", len(ids))
-	}
-
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
-}
-
-func (t *TargetPlugin) ensureInstancesTerminate(ctx context.Context, ids []string) error {
-
-	f := func(ctx context.Context) (bool, error) {
-		newIDs := []string{}
-
-		for _, i := range ids {
-			s, err := servers.Get(t.client, i).Extract()
-			if err != nil {
-				return true, err
-			}
-
-			if s.Status == "SHUTDOWN" {
-				continue
-			}
-
-			newIDs = append(newIDs, s.ID)
-		}
-
-		ids = newIDs
-
-		// If we dont have any remaining IDs to check, we can finish.
-		if len(ids) == 0 {
-			return true, nil
-		}
-
-		return false, fmt.Errorf("waiting for %v instances to terminate", len(ids))
-	}
-
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
-}
-
-func (t *TargetPlugin) ensureClusterInstancesCount(ctx context.Context, desired int64, clusterName string, actionID string) error {
-
-	f := func(ctx context.Context) (bool, error) {
-		action, err := actions.Get(t.client, actionID).Extract()
-		if err != nil {
-			return true, err
-		}
-
-		if action.Status == "SUCCESS" {
-			return true, nil
-		}
-
-		if action.Status == "FAILED" || action.Status == "CANCELLED" {
-			return true, fmt.Errorf("Cluster action was unsuccessful: %v", action.Status)
-		}
-
-		return false, fmt.Errorf("Action has not completed")
 	}
 
 	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)

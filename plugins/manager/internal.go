@@ -13,6 +13,7 @@ import (
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
+	osSenlin "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/openstack-senlin/plugin"
 )
 
 // loadInternalPlugin takes the plugin configuration and attempts to load it
@@ -40,6 +41,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetAzureVMSS:
 		info.factory = azureVMSS.PluginConfig.Factory
 		info.driver = "azure-vmss"
+	case plugins.InternalTargetOSSenlin:
+		info.factory = osSenlin.PluginConfig.Factory
+		info.driver = "openstack-senlin"
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
@@ -85,6 +89,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalStrategyTargetValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,
+		plugins.InternalTargetOSSenlin,
 		plugins.InternalAPMDatadog:
 		return true
 	default:

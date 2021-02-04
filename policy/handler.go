@@ -3,7 +3,6 @@ package policy
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -185,7 +184,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// Timestamp the invocation of this evaluation run. This can be
 	// used when checking cooldown or emitting metrics to ensure some
 	// consistency.
-	curTime := time.Now().UTC().UnixNano()
+	//curTime := time.Now().UTC().UnixNano()
 
 	eval, err := h.generateEvaluation(policy)
 	if err != nil {
@@ -201,38 +200,40 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.
-	ts, ok := eval.TargetStatus.Meta[sdk.TargetStatusMetaKeyLastEvent]
-	if !ok {
-		return eval, nil
-	}
+	//ts, ok := eval.TargetStatus.Meta[sdk.TargetStatusMetaKeyLastEvent]
+	//if !ok {
+	//	return eval, nil
+	//}
 
 	// Convert the last event string. If an error occurs, just log and
 	// continue with the evaluation. A malformed timestamp shouldn't mean
 	// we skip scaling.
-	lastTS, err := strconv.ParseUint(ts, 10, 64)
-	if err != nil {
-		h.log.Error("failed to parse last event timestamp as uint64", "error", err)
-		return eval, nil
-	}
+	//lastTS, err := strconv.ParseUint(ts, 10, 64)
+	//if err != nil {
+	//	h.log.Error("failed to parse last event timestamp as uint64", "error", err)
+	//	return eval, nil
+	//}
 
 	// Calculate the remaining time period left on the cooldown. If this is
 	// cooldownIgnoreTime or below, we do not need to enter cooldown. Reasoning
 	// on ignoring small variations can be seen within GH-138.
-	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
-	if cdPeriod <= cooldownIgnoreTime {
-		return eval, nil
-	}
+	//cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
+	//if cdPeriod <= cooldownIgnoreTime {
+	//	return eval, nil
+	//}
 
 	// Enforce the cooldown which will block until complete. A false response
 	// means we did not reach the end of cooldown due to a request to shutdown.
-	if !h.enforceCooldown(ctx, cdPeriod) {
-		return nil, context.Canceled
-	}
+	//if !h.enforceCooldown(ctx, cdPeriod) {
+	//	return nil, context.Canceled
+	//}
+
+	return eval, nil
 
 	// If we reach this point, we have entered and exited cooldown. Our data is
 	// stale, therefore return so that we do not send the eval this time and
 	// wait for the next tick.
-	return nil, nil
+	//return nil, nil
 }
 
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.

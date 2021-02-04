@@ -13,6 +13,7 @@ type ScalingEvaluation struct {
 	Policy           *ScalingPolicy
 	TargetStatus     *TargetStatus
 	CheckEvaluations []*ScalingCheckEvaluation
+	Action           *ScalingAction
 	CreateTime       time.Time
 }
 

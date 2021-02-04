@@ -7,6 +7,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
+	"github.com/hashicorp/nomad-autoscaler/policyeval/hooks"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -41,6 +42,11 @@ func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 		if c.QueryWindow == 0 {
 			c.QueryWindow = DefaultQueryWindow
 		}
+	}
+
+	//TODO(luiz): here's not the right place for this.
+	if p.Cooldown != 0 {
+		p.Hooks = append(p.Hooks, hooks.NewCooldownHook())
 	}
 }
 

@@ -7,6 +7,15 @@ const (
 	ScalingPolicyTypeHorizontal = "horizontal"
 )
 
+type ScalingPolicyHook interface {
+	PreStart(*ScalingEvaluation) error
+	PostStatus(*ScalingEvaluation) error
+	PostQuery(*ScalingEvaluation) error
+	PostStrategy(*ScalingEvaluation) error
+	PreScale(*ScalingEvaluation) error
+	PostScale(*ScalingEvaluation) error
+}
+
 // ScalingPolicy is the internal representation of a scaling document and
 // encompasses all the required information for the autoscaler to perform
 // scaling evaluations on a target.
@@ -48,6 +57,8 @@ type ScalingPolicy struct {
 	// Checks is an array of checks which will be triggered in parallel to
 	// determine the desired state of the ScalingPolicyTarget.
 	Checks []*ScalingPolicyCheck
+
+	Hooks []ScalingPolicyHook
 
 	// Target identifies the scaling target which the autoscaler will interact
 	// with to ensure it meets the desired state as determined by the Checks.

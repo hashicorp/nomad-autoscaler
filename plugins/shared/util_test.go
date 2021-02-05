@@ -274,7 +274,7 @@ func Test_ProtoToScalingAction(t *testing.T) {
 				Error:     false,
 				Direction: proto.ScalingDirection_SCALING_DIRECTION_UP,
 				Meta: &anypb.Any{
-					Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+					Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 				},
 			},
 			expectedOutputAction: sdk.ScalingAction{
@@ -293,7 +293,7 @@ func Test_ProtoToScalingAction(t *testing.T) {
 				Error:     true,
 				Direction: proto.ScalingDirection_SCALING_DIRECTION_DOWN,
 				Meta: &anypb.Any{
-					Value: []byte{123, 34, 102, 111, 111, 34, 58, 34, 98, 97, 114, 34, 125},
+					Value: mapToByteArray(t, map[string]interface{}{"foo": "bar"}),
 				},
 			},
 			expectedOutputAction: sdk.ScalingAction{

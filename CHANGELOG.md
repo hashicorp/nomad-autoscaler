@@ -1,16 +1,32 @@
-## 0.2.0-beta3 (November 23, 2020)
+## UNRELEASED
+
+FEATURES:
+  * agent: Add pprof HTTP debug endpoints [[GH-349](https://github.com/hashicorp/nomad-autoscaler/pull/349)]
+
+IMPROVEMENTS:
+ * plugins/apm/prometheus: Update Prometheus client dependency from v1.5.1 to v1.9.0 [[GH-368](https://github.com/hashicorp/nomad-autoscaler/pull/368)]
+ * plugins/target: Add cluster scaling configuration to ignore system jobs on drain [[GH-356](https://github.com/hashicorp/nomad-autoscaler/pull/356)]
+
+## 0.2.1 (January 12, 2021)
+
+BUG FIXES:
+ * plugins/apm: Fix a bug where external APM plugins would cause the Nomad Autoscaler to panic [[GH-341](https://github.com/hashicorp/nomad-autoscaler/pull/341)]
+
+## 0.2.0 (January 06, 2021)
 
 __BACKWARDS INCOMPATIBILITIES:__
  * apm/datadog: Queries should use the new `query_window` parameter [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]
  * policy/file: Policies stored in files must be wrapped in a `scaling` block [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]
 
 FEATURES:
- * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within AWS AutoScaling Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]
+ * __Azure VMSS Horizontal Cluster Scaling__: Scale the number of Nomad clients within Azure virtual machine scale sets [[GH-278](https://github.com/hashicorp/nomad-autoscaler/pull/278)]
  * __Dynamic Application Sizing (Enterprise)__: Evaluate, processes and store historical task resource usage data, making recommendations for CPU and Memory resource parameters [[GH-298](https://github.com/hashicorp/nomad-autoscaler/pull/298)]
 
 IMPROVEMENTS:
  * agent: Added new evaluation broker to manage storing, deduping and controlling the distribution policy evaluation requests to workers [[GH-282](https://github.com/hashicorp/nomad-autoscaler/pull/282)]
  * agent: Add `/v1/agent/reload` endpoint [[GH-312](https://github.com/hashicorp/nomad-autoscaler/pull/312)]
+ * apm/nomad: CPU query relative to task group allocated resources [[GH-324](https://github.com/hashicorp/nomad-autoscaler/pull/324)]
+ * apm/nomad: Memory query relative to task group allocated resources [[GH-334](https://github.com/hashicorp/nomad-autoscaler/pull/334)]
  * plugins/target/nomad: Added support for namespaced jobs [[GH-277](https://github.com/hashicorp/nomad-autoscaler/pull/277)]
  * policy: Add `query_window` parameter to `check` [[GH-268](https://github.com/hashicorp/nomad-autoscaler/pull/268)]
  * policy/file: Allow multiple policies per file [[GH-313](https://github.com/hashicorp/nomad-autoscaler/pull/313)]

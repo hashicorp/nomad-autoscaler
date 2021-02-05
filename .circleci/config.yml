@@ -28,7 +28,7 @@ jobs:
         working_directory: ~/
     - checkout
     - run:
-        command: make tools
+        command: make lint-tools
     - run:
         command: make lint
     environment:
@@ -89,6 +89,8 @@ jobs:
         name: Setup Go
         working_directory: ~/
     - checkout
+    - run:
+        command: make test-tools
     - run:
         command: make test
     environment:
@@ -186,13 +188,14 @@ workflows:
 #         steps:
 #             - install-go
 #             - checkout
-#             - run: make tools
+#             - run: make lint-tools
 #             - run: make lint
 #     test-go:
 #         executor: go
 #         steps:
 #             - install-go
 #             - checkout
+#             - run: make test-tools
 #             - run: make test
 # version: 2.1
 # workflows:

@@ -6,5 +6,7 @@ package tools
 
 import (
 	_ "github.com/golangci/golangci-lint/cmd/golangci-lint"
+	_ "github.com/hashicorp/go-hclog/hclogvet"
+	_ "gotest.tools/gotestsum"
 	_ "honnef.co/go/tools/cmd/staticcheck"
 )

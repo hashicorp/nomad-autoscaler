@@ -15,12 +15,12 @@ var (
 	//
 	// Version must conform to the format expected by github.com/hashicorp/go-version
 	// for tests to work.
-	Version = "0.2.0"
+	Version = "0.2.2"
 
 	// A pre-release marker for the version. If this is "" (empty string)
 	// then it means that it is a final release. Otherwise, this is a pre-release
 	// such as "dev" (in development), "beta", "rc1", etc.
-	VersionPrerelease = "beta3"
+	VersionPrerelease = "dev"
 
 	// VersionMetadata is metadata further describing the build type.
 	VersionMetadata = ""

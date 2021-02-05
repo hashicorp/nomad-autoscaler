@@ -8,19 +8,19 @@ job "autoscaler" {
       driver = "docker"
 
       config {
-        image   = "hashicorp/nomad-autoscaler:0.1.0"
+        image   = "${nomad_autoscaler_image}"
         command = "nomad-autoscaler"
 
         args = [
           "agent",
           "-config",
-          "${NOMAD_TASK_DIR}/config.hcl",
+          "$${NOMAD_TASK_DIR}/config.hcl",
           "-http-bind-address",
           "0.0.0.0",
           "-log-level",
           "debug",
           "-policy-dir",
-          "${NOMAD_TASK_DIR}/policies/",
+          "$${NOMAD_TASK_DIR}/policies/",
         ]
 
         port_map {
@@ -41,14 +41,17 @@ apm "prometheus" {
   }
 }
 
-# Datadog example
+# Datadog example template is below. In order to use the example config section
+# you will need to remove the first line "#" comments as well as the golang
+# template comment markers which are "- /*" and "*/".
+#
 # apm "datadog" {
 #   driver = "datadog"
 #   config = {
-# {{ with secret "secret/autoscaler/datadog" }}
+# {{- /* with secret "secret/autoscaler/datadog" }}
 #     dd_api_key = "{{ .Data.data.api_key }}"
 #     dd_app_key = "{{ .Data.data.app_key }}"
-# {{ end }}
+# {{ end */ -}}
 #   }
 # }
 
@@ -64,7 +67,7 @@ strategy "target-value" {
 }
 EOF
 
-        destination = "${NOMAD_TASK_DIR}/config.hcl"
+        destination = "$${NOMAD_TASK_DIR}/config.hcl"
       }
 
       template {
@@ -116,7 +119,7 @@ scaling "cluster_policy" {
 
     target "aws-asg" {
       dry-run             = "false"
-      aws_asg_name        = "hashistack-nomad_client"
+      aws_asg_name        = "${client_asg_name}"
       node_class          = "hashistack"
       node_drain_deadline = "5m"
     }
@@ -124,7 +127,7 @@ scaling "cluster_policy" {
 }
 EOF
 
-        destination = "${NOMAD_TASK_DIR}/policies/hashistack.hcl"
+        destination = "$${NOMAD_TASK_DIR}/policies/hashistack.hcl"
       }
 
       resources {

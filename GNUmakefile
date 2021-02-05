@@ -6,11 +6,24 @@ GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
 
 GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_COMMIT)$(GIT_DIRTY)"
 
+# Attempt to use gotestsum for running tests, otherwise fallback to go test.
+GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
+
 .PHONY: tools
-tools: ## Install the tools used to test and build
-	@echo "==> Installing tools..."
-	GO111MODULE=on cd tools && go get -u github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
+tools: lint-tools test-tools
+
+.PHONY: test-tools
+test-tools: ## Install the tools used to run tests
+	@echo "==> Installing test tools..."
+	GO111MODULE=on cd tools && go get gotest.tools/gotestsum@v0.6.0
+	@echo "==> Done"
+
+.PHONY: lint-tools
+lint-tools: ## Install the tools used to lint
+	@echo "==> Installing lint tools..."
+	GO111MODULE=on cd tools && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
 	GO111MODULE=on cd tools && go get -u honnef.co/go/tools/cmd/staticcheck@2020.1.6
+	GO111MODULE=on cd tools && go get github.com/hashicorp/go-hclog/hclogvet@v0.1.3
 	@echo "==> Done"
 
 .PHONY: build
@@ -27,6 +40,7 @@ lint: ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
 	@staticcheck ./...
+	@hclogvet .
 	@echo "==> Done"
 
 .PHONY: check
@@ -64,9 +78,9 @@ check-tools-mod: ## Checks the tools Go mod is tidy
 
 .PHONY: test
 test: ## Test the source code
-	@echo "==> Testing source code..."
 	@$(MAKE) -C plugins/test
-	@go test -v -race -cover ./...
+	@echo "==> Testing source code..."
+	@$(GO_TEST_CMD) -v -race -cover ./...
 	@echo "==> Done"
 
 .PHONY: clean-plugins

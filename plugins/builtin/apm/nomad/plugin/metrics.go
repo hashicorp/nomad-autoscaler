@@ -24,8 +24,10 @@ const (
 	queryOpPercentageAllocated = "percentage-allocated"
 
 	// queryMetrics are the supported resources for querying.
-	queryMetricCPU = "cpu"
-	queryMetricMem = "memory"
+	queryMetricCPU          = "cpu"
+	queryMetricCPUAllocated = "cpu-allocated"
+	queryMetricMem          = "memory"
+	queryMetricMemAllocated = "memory-allocated"
 )
 
 // Query satisfies the Query function on the apm.APM interface.
@@ -57,15 +59,24 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 
 // validateMetric helps ensure the desired metric within the query is able to
 // be handled by the plugin.
-func validateMetric(metric string) error {
+func validateMetric(metric string, validMetrics []string) error {
 
 	var err error
 
-	switch metric {
-	case queryMetricCPU, queryMetricMem:
+	switch {
+	case contains(validMetrics, metric):
 	default:
-		err = fmt.Errorf(`invalid metric %q, allowed values are %s or %s`,
-			metric, queryMetricCPU, queryMetricMem)
+		err = fmt.Errorf(`invalid metric %q, allowed values are: %s`,
+			metric, strings.Join(validMetrics, ", "))
 	}
 	return err
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }

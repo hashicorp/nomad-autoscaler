@@ -13,9 +13,8 @@ module "hashistack_cluster" {
 
   allowlist_ip = ["${module.my_ip_address.stdout}/32"]
 
-  # Use beta releases until GA
-  nomad_binary           = "https://releases.hashicorp.com/nomad/1.0.0-beta2/nomad_1.0.0-beta2_linux_amd64.zip"
-  nomad_autoscaler_image = "hashicorp/nomad-autoscaler:0.2.0-beta2"
+  nomad_binary           = "https://releases.hashicorp.com/nomad/1.0.1/nomad_1.0.1_linux_amd64.zip"
+  nomad_autoscaler_image = "hashicorp/nomad-autoscaler:0.2.1"
 }
 
 module "hashistack_jobs" {

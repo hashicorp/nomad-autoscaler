@@ -14,7 +14,7 @@ func TestServer(t *testing.T) (*Server, func()) {
 		BindPort:    0, // Use next available port.
 	}
 
-	s, err := NewHTTPServer(cfg, hclog.NewNullLogger(), &agent.MockAgentHTTP{})
+	s, err := NewHTTPServer(false, cfg, hclog.NewNullLogger(), &agent.MockAgentHTTP{})
 	if err != nil {
 		t.Fatalf("failed to start test server: %v", err)
 	}

@@ -3,6 +3,7 @@ package command
 import (
 	"flag"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
+	"github.com/hashicorp/nomad-autoscaler/version"
 )
 
 type AgentCommand struct {
@@ -47,6 +49,9 @@ Options:
 
   -log-json
     Output logs in a JSON format. The default is false.
+
+  -enable-debug
+    Enable the agent debugging HTTP endpoints. The default is false.
 
   -plugin-dir=<path>
     The plugin directory is used to discover Nomad Autoscaler plugins. If not
@@ -230,9 +235,40 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
+	logger.Info("Starting Nomad Autoscaler agent")
+	// Compile agent information for output later
+	info := make(map[string]string)
+	info["bind addrs"] = parsedConfig.HTTP.BindAddress
+	info["log level"] = parsedConfig.LogLevel
+	info["version"] = version.GetHumanVersion()
+	info["plugins"] = parsedConfig.PluginDir
+	info["policies"] = parsedConfig.Policy.Dir
+
+	// Sort the keys for output
+	infoKeys := make([]string, 0, len(info))
+	for key := range info {
+		infoKeys = append(infoKeys, key)
+	}
+	sort.Strings(infoKeys)
+
+	// Agent configuration output
+	padding := 18
+	logger.Info("Nomad Autoscaler agent configuration:")
+	logger.Info("")
+	for _, k := range infoKeys {
+		logger.Info(fmt.Sprintf(
+			"%s%s: %s",
+			strings.Repeat(" ", padding-len(k)),
+			strings.Title(k),
+			info[k]))
+	}
+	logger.Info("")
+	// Output the header that the server has started
+	logger.Info("Nomad Autoscaler agent started! Log data will stream in below:")
+
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, logger)
-	httpServer, err := agentHTTP.NewHTTPServer(parsedConfig.HTTP, logger, c.agent)
+	httpServer, err := agentHTTP.NewHTTPServer(parsedConfig.EnableDebug, parsedConfig.HTTP, logger, c.agent)
 	if err != nil {
 		logger.Error("failed to setup HTTP getHealth server", "error", err)
 		return 1
@@ -267,6 +303,7 @@ func (c *AgentCommand) readConfig() *config.Agent {
 	flags.Var((*flaghelper.StringFlag)(&configPath), "config", "")
 	flags.StringVar(&cmdConfig.LogLevel, "log-level", "", "")
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
+	flags.BoolVar(&cmdConfig.EnableDebug, "enable-debug", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
 
 	// Specify our HTTP bind flags.

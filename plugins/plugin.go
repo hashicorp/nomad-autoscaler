@@ -35,6 +35,10 @@ const (
 	// plugin.
 	InternalTargetAzureVMSS = "azure-vmss"
 
+	// InternalTargetGCEMIG is the Google Compute Engine Managed Instance Group target
+	// plugin.
+	InternalTargetGCEMIG = "gce-mig"
+
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
 )

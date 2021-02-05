@@ -5,7 +5,9 @@ data "template_file" "nomad_autoscaler_jobspec" {
     nomad_autoscaler_image = var.nomad_autoscaler_image
     project                = var.project_id
     region                 = var.region
-    mig_name               = google_compute_region_instance_group_manager.nomad_client.name
+    zone                   = local.zone_id
+    mig_type               = var.client_mig_type
+    mig_name               = local.client_mig_name
   }
 }
 

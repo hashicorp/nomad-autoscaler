@@ -68,6 +68,12 @@ variable "client_machine_type" {
   default     = "e2-small"
 }
 
+variable "client_mig_type" {
+  description = "The type of Managed Instance Group to provision. Possible values are `regional` or `zonal`."
+  type        = string
+  default     = "regional"
+}
+
 variable "allowlist_ip" {
   description = "A list of IP addresses to grant access via the LBs."
   type        = list(string)

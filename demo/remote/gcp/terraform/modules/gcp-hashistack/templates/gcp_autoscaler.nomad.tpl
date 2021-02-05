@@ -81,7 +81,11 @@ scaling "cluster_policy" {
 
     target "gce-mig" {
       project             = "${project}"
+      %{ if mig_type == "regional" }
       region              = "${region}"
+      %{ else }
+      zone                = "${zone}"
+      %{ endif }
       mig_name            = "${mig_name}"
       node_class          = "hashistack"
       node_drain_deadline = "5m"

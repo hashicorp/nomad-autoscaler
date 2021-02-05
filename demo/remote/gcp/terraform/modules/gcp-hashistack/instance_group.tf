@@ -36,7 +36,24 @@ resource "google_compute_instance_template" "nomad_client" {
   }
 }
 
+resource "google_compute_instance_group_manager" "nomad_client" {
+  count = local.client_regional_mig ? 0 : 1
+
+  name               = local.client_stack_name
+  base_instance_name = local.client_stack_name
+  zone               = local.zone_id
+  target_size        = "1"
+  target_pools       = [google_compute_target_pool.nomad_client.id]
+
+  version {
+    name              = local.client_stack_name
+    instance_template = google_compute_instance_template.nomad_client.id
+  }
+}
+
 resource "google_compute_region_instance_group_manager" "nomad_client" {
+  count = local.client_regional_mig ? 1 : 0
+
   name                      = local.client_stack_name
   base_instance_name        = local.client_stack_name
   region                    = var.region

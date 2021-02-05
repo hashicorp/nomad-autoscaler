@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack"
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/actions"
@@ -15,6 +13,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/clustering/v1/nodes"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -40,7 +39,7 @@ func (t *TargetPlugin) setupOSClients(config map[string]string) error {
 
 	provider, err := openstack.AuthenticatedClient(opts)
 	if err != nil {
-		return errors.Wrap(err, "unable to authenticate client")
+		return errors.Wrap(err, "unable to authenticate openstack client")
 	}
 
 	t.client, err = openstack.NewClusteringV1(provider, gophercloud.EndpointOpts{

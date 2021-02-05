@@ -45,6 +45,9 @@ func (t *TargetPlugin) setupOSClients(config map[string]string) error {
 	t.client, err = openstack.NewClusteringV1(provider, gophercloud.EndpointOpts{
 		Region: region,
 	})
+	if err != nil {
+		return errors.Wrap(err, "unable to get openstack senlin client")
+	}
 
 	return nil
 }
@@ -230,7 +233,7 @@ func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []string) 
 			}
 
 			if action.Status == "FAILED" || action.Status == "CANCELLED" {
-				return true, fmt.Errorf("Action %s was unsuccessful: %v", action.ID, action.Status)
+				return true, fmt.Errorf("action %s was unsuccessful: %v", action.ID, action.Status)
 			}
 
 			newIDs = append(newIDs, actionID)

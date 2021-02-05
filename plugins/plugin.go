@@ -6,19 +6,10 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
-)
-
-const (
-	// PluginTypeAPM is a plugin which satisfies the APM interface.
-	PluginTypeAPM = "apm"
-
-	// PluginTypeTarget is a plugin which satisfies the Target interface.
-	PluginTypeTarget = "target"
-
-	// PluginTypeStrategy is a plugin which satisfies the Strategy interface.
-	PluginTypeStrategy = "strategy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 const (
@@ -93,7 +84,7 @@ func (p PluginID) String() string {
 	return fmt.Sprintf("%q (%v)", p.Name, p.PluginType)
 }
 
-// Serve is used to serve a Nomad Autoscaler Plugin.
+// Serve is used to serve a Nomad Autoscaler Base.
 func Serve(f PluginFactory) {
 	logger := hclog.New(&hclog.LoggerOptions{
 		Level:      hclog.Trace,
@@ -112,15 +103,25 @@ func Serve(f PluginFactory) {
 	pCfg := plugin.ServeConfig{
 		HandshakeConfig: Handshake,
 		Logger:          logger,
+		GRPCServer:      plugin.DefaultGRPCServer,
 	}
 
 	switch pType := p.(type) {
 	case apm.APM:
-		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeAPM: &apm.Plugin{Impl: p.(apm.APM)}}
+		pCfg.Plugins = map[string]plugin.Plugin{
+			sdk.PluginTypeAPM:  &apm.PluginAPM{Impl: p.(apm.APM)},
+			sdk.PluginTypeBase: &base.PluginBase{Impl: p.(apm.APM)},
+		}
 	case target.Target:
-		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeTarget: &target.Plugin{Impl: p.(target.Target)}}
+		pCfg.Plugins = map[string]plugin.Plugin{
+			sdk.PluginTypeTarget: &target.PluginTarget{Impl: p.(target.Target)},
+			sdk.PluginTypeBase:   &base.PluginBase{Impl: p.(target.Target)},
+		}
 	case strategy.Strategy:
-		pCfg.Plugins = map[string]plugin.Plugin{PluginTypeStrategy: &strategy.Plugin{Impl: p.(strategy.Strategy)}}
+		pCfg.Plugins = map[string]plugin.Plugin{
+			sdk.PluginTypeStrategy: &strategy.PluginStrategy{Impl: p.(strategy.Strategy)},
+			sdk.PluginTypeBase:     &base.PluginBase{Impl: p.(strategy.Strategy)},
+		}
 	default:
 		logger.Error("unsupported plugin type %q", pType)
 		return

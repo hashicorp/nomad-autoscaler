@@ -1,9 +1,9 @@
 package base
 
-// Plugin is the common interface that all Autoscaler plugins should implement.
+// Base is the common interface that all Autoscaler plugins should implement.
 // It defines basic functionality which helps the Autoscaler core deal with
 // plugins in a common manner.
-type Plugin interface {
+type Base interface {
 
 	// PluginInfo returns information regarding the plugin. This is used during
 	// the plugin's setup as well as lifecycle. Any error generated during the
@@ -20,6 +20,8 @@ type Plugin interface {
 // PluginInfo is the information used by plugins to identify themselves and
 // contains critical information about their configuration. It is used within
 // the base plugin PluginInfo response RPC call.
+//
+// TODO (jrasell) think about moving this into the SDK.
 type PluginInfo struct {
 	Name       string
 	PluginType string

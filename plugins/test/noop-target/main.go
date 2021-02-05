@@ -17,7 +17,7 @@ const (
 var (
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeTarget,
+		PluginType: sdk.PluginTypeTarget,
 	}
 )
 

@@ -1,0 +1,22 @@
+syntax = "proto3";
+package hashicorp.nomad_autoscaler.plugins.strategy.proto.v1;
+option go_package = "proto";
+
+import "plugins/shared/proto/v1/shared.proto";
+
+service StrategyPluginService {
+    rpc Run(RunRequest) returns(RunResponse) {}
+}
+
+message RunRequest{
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.ScalingAction action = 1;
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.ScalingPolicyCheck check = 2;
+    repeated hashicorp.nomad_autoscaler.plugins.shared.proto.v1.TimestampedMetric timestamped_metric = 3;
+    int64 count = 4;
+}
+
+message RunResponse{
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.ScalingAction action = 1;
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.ScalingPolicyCheck check = 2;
+    repeated hashicorp.nomad_autoscaler.plugins.shared.proto.v1.TimestampedMetric timestamped_metric = 3;
+}

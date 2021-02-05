@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -253,7 +252,7 @@ func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEva
 	}
 
 	// Dispense an instance of target plugin used by the policy.
-	targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, plugins.PluginTypeTarget)
+	targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, sdk.PluginTypeTarget)
 	if err != nil {
 		return nil, err
 	}

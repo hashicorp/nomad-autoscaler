@@ -3,4 +3,5 @@ steps:
   - install-go
   - checkout
   - run: make lint-tools
+  - run: make generate-tools
   - run: make lint

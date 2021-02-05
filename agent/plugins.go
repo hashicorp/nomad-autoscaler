@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 )
 
@@ -28,13 +29,13 @@ func (a *Agent) setupPluginsConfig() map[string][]*config.Plugin {
 	cfg := map[string][]*config.Plugin{}
 
 	if len(a.config.APMs) > 0 {
-		cfg[plugins.PluginTypeAPM] = a.config.APMs
+		cfg[sdk.PluginTypeAPM] = a.config.APMs
 	}
 	if len(a.config.Strategies) > 0 {
-		cfg[plugins.PluginTypeStrategy] = a.config.Strategies
+		cfg[sdk.PluginTypeStrategy] = a.config.Strategies
 	}
 	if len(a.config.Targets) > 0 {
-		cfg[plugins.PluginTypeTarget] = a.config.Targets
+		cfg[sdk.PluginTypeTarget] = a.config.Targets
 	}
 
 	// Iterate the configs and perform the config setup on each. If the

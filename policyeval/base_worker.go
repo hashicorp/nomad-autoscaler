@@ -9,7 +9,6 @@ import (
 
 	"github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
@@ -106,7 +105,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	logger.Debug("received policy for evaluation")
 
 	// Dispense taget plugin.
-	targetPlugin, err := w.pluginManager.Dispense(eval.Policy.Target.Name, plugins.PluginTypeTarget)
+	targetPlugin, err := w.pluginManager.Dispense(eval.Policy.Target.Name, sdk.PluginTypeTarget)
 	if err != nil {
 		return fmt.Errorf(`target plugin "%s" not initialized: %v`, eval.Policy.Target.Name, err)
 	}
@@ -280,7 +279,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	var strategyInst strategy.Strategy
 
 	// Dispense plugins.
-	apmPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Source, plugins.PluginTypeAPM)
+	apmPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Source, sdk.PluginTypeAPM)
 	if err != nil {
 		return nil, fmt.Errorf(`apm plugin "%s" not initialized: %v`, h.checkEval.Check.Source, err)
 	}
@@ -289,7 +288,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 		return nil, fmt.Errorf(`"%s" is not an APM plugin`, h.checkEval.Check.Source)
 	}
 
-	strategyPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Strategy.Name, plugins.PluginTypeStrategy)
+	strategyPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Strategy.Name, sdk.PluginTypeStrategy)
 	if err != nil {
 		return nil, fmt.Errorf(`strategy plugin "%s" not initialized: %v`, h.checkEval.Check.Strategy.Name, err)
 	}

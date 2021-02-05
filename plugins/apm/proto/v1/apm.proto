@@ -1,0 +1,29 @@
+syntax = "proto3";
+package hashicorp.nomad_autoscaler.plugins.apm.proto.v1;
+option go_package = "proto";
+
+import "google/protobuf/timestamp.proto";
+import "plugins/shared/proto/v1/shared.proto";
+
+service APMPluginService {
+    rpc Query(QueryRequest) returns(QueryResponse){}
+    rpc QueryMultiple(QueryMultipleRequest) returns(QueryMultipleResponse){}
+}
+
+message QueryRequest{
+    string query = 1;
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.TimeRange time_range = 2;
+}
+
+message QueryResponse{
+    repeated hashicorp.nomad_autoscaler.plugins.shared.proto.v1.TimestampedMetric timestamped_metric = 1;
+}
+
+message QueryMultipleRequest {
+    string query = 1;
+    hashicorp.nomad_autoscaler.plugins.shared.proto.v1.TimeRange time_range = 2;
+}
+
+message QueryMultipleResponse{
+    repeated QueryResponse timestamped_metric = 1;
+}

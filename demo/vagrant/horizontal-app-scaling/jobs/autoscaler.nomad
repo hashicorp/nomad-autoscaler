@@ -1,4 +1,6 @@
 job "autoscaler" {
+  type = "service"
+  
   datacenters = ["dc1"]
 
   group "autoscaler" {

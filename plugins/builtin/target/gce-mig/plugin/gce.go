@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -132,6 +133,7 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 	// The drain_deadline is an optional parameter so define our default and
 	// then attempt to find an operator specified value.
 	drain := scaleutils.DefaultDrainDeadline
+	ignoreSystemJobs := scaleutils.DefaultIgnoreSystemJobs
 
 	if drainString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
 		d, err := time.ParseDuration(drainString)
@@ -141,9 +143,18 @@ func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*s
 		drain = d
 	}
 
+	if ignoreSystemJobsSting, ok := config[sdk.TargetConfigKeyIgnoreSystemJobs]; ok {
+		isj, err := strconv.ParseBool(ignoreSystemJobsSting)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsSting)
+		}
+		ignoreSystemJobs = isj
+	}
+
 	return &scaleutils.ScaleInReq{
-		Num:           int(num),
-		DrainDeadline: drain,
+		Num:              int(num),
+		DrainDeadline:    drain,
+		IgnoreSystemJobs: ignoreSystemJobs,
 		PoolIdentifier: &scaleutils.PoolIdentifier{
 			IdentifierKey: scaleutils.IdentifierKeyClass,
 			Value:         class,

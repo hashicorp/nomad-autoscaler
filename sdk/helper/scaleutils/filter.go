@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -20,12 +21,22 @@ type PoolIdentifier struct {
 	Value         string
 }
 
+// Validate is used to check the validation of the PoolIdentifier object.
+func (p *PoolIdentifier) Validate() error {
+	switch p.IdentifierKey {
+	case IdentifierKeyClass:
+		return nil
+	default:
+		return fmt.Errorf("unsupported node pool identifier: %q", p.IdentifierKey)
+	}
+}
+
 // IdentifyNodes filters the supplied node list based on the PoolIdentifier
 // params.
 func (p *PoolIdentifier) IdentifyNodes(n []*api.NodeListStub) ([]*api.NodeListStub, error) {
 	switch p.IdentifierKey {
 	case IdentifierKeyClass:
-		return filterByClass(n, p.Value), nil
+		return filterByClass(n, p.Value)
 	default:
 		return nil, fmt.Errorf("unsupported node pool identifier: %q", p.IdentifierKey)
 	}
@@ -88,37 +99,78 @@ const nodeAttrGCEZone = "platform.gce.zone"
 const defaultClassIdentifier = "autoscaler-default-pool"
 
 // filterByClass returns a filtered list of nodes which are active in the
-// cluster and where the specified class matches that of the nodes.
-func filterByClass(n []*api.NodeListStub, id string) []*api.NodeListStub {
+// cluster and where the specified class matches that of the nodes. In the
+// event that nodes are found within the class pool in an unstable state, and
+// thus indicating there is change occurring; an error will be returned.
+func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error) {
 
 	// Create our output list object.
 	var out []*api.NodeListStub
 
+	// Track all nodes which are deemed to cause an error to the autoscaler. It
+	// is possible to make an argument that the first error should be returned
+	// in order to improve speed. In a situation where two nodes are in an
+	// undesired state, it would require the operator to perform the same tidy
+	// and restart of the autoscaler loop twice, which seems worse than having
+	// some extra time within this function.
+	var err *multierror.Error
+
 	for _, node := range n {
 
-		// Ignore nodes that are not in a ready state.
-		if node.Status != api.NodeStatusReady {
+		// Filter out all nodes which do not match the target class first.
+		if node.NodeClass != "" && node.NodeClass != id ||
+			node.NodeClass == "" && id != defaultClassIdentifier {
 			continue
 		}
 
-		// Ignore nodes that are not currently eligible.
-		if node.SchedulingEligibility != api.NodeSchedulingEligible {
+		// We should class an initializing node as an error, this is caused by
+		// node registration and could be sourced from scaling out.
+		if node.Status == api.NodeStatusInit {
+			err = multierror.Append(err, fmt.Errorf("node %s is initializing", node.ID))
 			continue
 		}
 
-		if node.Drain {
+		// Assuming a cluster has most, if not all nodes in a correct state for
+		// scheduling then this is the fastest route. Only append in the event
+		// we have not encountered any error to save some cycles.
+		if node.SchedulingEligibility == api.NodeSchedulingEligible {
+			if err == nil {
+				out = append(out, node)
+			}
 			continue
 		}
 
-		// Perform the node class check. We ensure an empty class is treated as
-		// the default value.
-		if node.NodeClass != "" && node.NodeClass == id ||
-			node.NodeClass == "" && id == defaultClassIdentifier {
-			out = append(out, node)
+		// This lifecycle phase relates to nodes that are being drained.
+		if node.Drain && node.Status == api.NodeStatusReady {
+			err = multierror.Append(err, fmt.Errorf("node %s is draining", node.ID))
+			continue
+		}
+
+		// This lifecycle phase relates to nodes that typically have had their
+		// drain completed, and now await removal from the cluster.
+		if !node.Drain && node.Status == api.NodeStatusReady {
+			err = multierror.Append(err, fmt.Errorf("node %s is ineligible", node.ID))
 		}
 	}
 
-	return out
+	// Be choosy with our returns to avoid sending a large list to the caller
+	// that will just get ignored.
+	if err != nil {
+		err.ErrorFormat = multiErrorFunc
+		return nil, err
+	}
+	return out, nil
+}
+
+// multiErrorFunc is a helper to convert the standard multierror output into
+// something a little more friendly to consoles. This is currently only used by
+// the node filter, but could be more useful elsewhere in the future.
+func multiErrorFunc(err []error) string {
+	points := make([]string, len(err))
+	for i, err := range err {
+		points[i] = err.Error()
+	}
+	return strings.Join(points, ", ")
 }
 
 // nodeIDMapFunc is the function signature used to find the Nomad node's remote

@@ -123,6 +123,25 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 // Status satisfies the Status function on the target.Target interface.
 func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
+	class, ok := config[sdk.TargetConfigKeyClass]
+	if !ok {
+		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
+	}
+
+	// Perform our check of the Nomad node pool. If the pool is not ready, we
+	// can exit here and avoid calling the Google API as it wont affect the
+	// outcome.
+	ready, err := t.scaleInUtils.Ready(scaleutils.PoolIdentifier{
+		IdentifierKey: scaleutils.IdentifierKeyClass,
+		Value:         class,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to run Nomad node rediness check: %v", err)
+	}
+	if !ready {
+		return &sdk.TargetStatus{Ready: ready}, nil
+	}
+
 	group, err := t.calculateMIG(config)
 	if err != nil {
 		return nil, err

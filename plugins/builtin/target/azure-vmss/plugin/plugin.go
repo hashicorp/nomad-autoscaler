@@ -136,6 +136,25 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 // Status satisfies the Status function on the target.Target interface.
 func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
+	class, ok := config[sdk.TargetConfigKeyClass]
+	if !ok {
+		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
+	}
+
+	// Perform our check of the Nomad node pool. If the pool is not ready, we
+	// can exit here and avoid calling the Azure API as it wont affect the
+	// outcome.
+	ready, err := t.scaleInUtils.Ready(scaleutils.PoolIdentifier{
+		IdentifierKey: scaleutils.IdentifierKeyClass,
+		Value:         class,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to run Nomad node rediness check: %v", err)
+	}
+	if !ready {
+		return &sdk.TargetStatus{Ready: ready}, nil
+	}
+
 	// We cannot scale an vmss without knowing the vmss resource group and name.
 	resourceGroup, ok := config[configKeyResoureGroup]
 	if !ok {

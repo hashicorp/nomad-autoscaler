@@ -1,5 +1,5 @@
 # Google Cloud Platform
-In order to setup some basic GCP resources for the demo, we will utilise the
+In order to set up some basic GCP resources for the demo, we will utilise the
 [gcloud CLI tool](https://cloud.google.com/sdk/gcloud/). Please ensure this is installed before
 continuing.
 
@@ -104,7 +104,7 @@ be run.
 
 The application is pre-configured with a scaling policy, you can view this by opening the job file
 or calling the Nomad API. The application scales based on the average number of active connections,
-and we are targeting an average of 10 per instance of our app.
+and we are targeting an average of 10 connections per instance of our app.
 
 ```shellsession
 $ curl $NOMAD_ADDR/v1/scaling/policies

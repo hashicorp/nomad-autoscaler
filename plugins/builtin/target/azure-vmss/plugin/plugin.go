@@ -149,7 +149,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 		Value:         class,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to run Nomad node rediness check: %v", err)
+		return nil, fmt.Errorf("failed to run Nomad node readiness check: %v", err)
 	}
 	if !ready {
 		return &sdk.TargetStatus{Ready: ready}, nil

@@ -142,7 +142,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	}
 
 	// Perform our check of the Nomad node pool. If the pool is not ready, we
-	// can exit here and avoid calling the Azure API as it wont affect the
+	// can exit here and avoid calling the Azure API as it won't affect the
 	// outcome.
 	ready, err := t.scaleInUtils.Ready(scaleutils.PoolIdentifier{
 		IdentifierKey: scaleutils.IdentifierKeyClass,

@@ -82,31 +82,36 @@ func Test_HTTPAuthFromString(t *testing.T) {
 func Test_MergeMapWithAgentConfig(t *testing.T) {
 	testCases := []struct {
 		inputMap          map[string]string
-		inputAgentConfig  *config.Nomad
+		inputAPIConfig    *api.Config
 		expectedOutputMap map[string]string
 		name              string
 	}{
 		{
 			inputMap: map[string]string{},
-			inputAgentConfig: &config.Nomad{
-				Address:       "test",
-				Region:        "test",
-				Namespace:     "test",
-				Token:         "test",
-				HTTPAuth:      "test",
-				CACert:        "test",
-				CAPath:        "test",
-				ClientCert:    "test",
-				ClientKey:     "test",
-				TLSServerName: "test",
-				SkipVerify:    true,
+			inputAPIConfig: &api.Config{
+				Address:   "test",
+				Region:    "test",
+				Namespace: "test",
+				SecretID:  "test",
+				HttpAuth: &api.HttpBasicAuth{
+					Username: "test",
+					Password: "test",
+				},
+				TLSConfig: &api.TLSConfig{
+					CACert:        "test",
+					CAPath:        "test",
+					ClientCert:    "test",
+					ClientKey:     "test",
+					TLSServerName: "test",
+					Insecure:      true,
+				},
 			},
 			expectedOutputMap: map[string]string{
 				"nomad_address":         "test",
 				"nomad_region":          "test",
 				"nomad_namespace":       "test",
 				"nomad_token":           "test",
-				"nomad_http-auth":       "test",
+				"nomad_http-auth":       "test:test",
 				"nomad_ca-cert":         "test",
 				"nomad_ca-path":         "test",
 				"nomad_client-cert":     "test",
@@ -116,55 +121,67 @@ func Test_MergeMapWithAgentConfig(t *testing.T) {
 			},
 			name: "empty input map",
 		},
+	}
 
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			MergeMapWithAgentConfig(tc.inputMap, tc.inputAPIConfig)
+			assert.Equal(t, tc.expectedOutputMap, tc.inputMap, tc.name)
+		})
+	}
+}
+
+func Test_MergeDefaultWithAgentConfig(t *testing.T) {
+	testCases := []struct {
+		inputConfig    *config.Nomad
+		expectedOutput *api.Config
+		name           string
+	}{
 		{
-			inputMap: map[string]string{
-				"nomad_address":         "test",
-				"nomad_region":          "test",
-				"nomad_namespace":       "test",
-				"nomad_token":           "test",
-				"nomad_http-auth":       "test",
-				"nomad_ca-cert":         "test",
-				"nomad_ca-path":         "test",
-				"nomad_client-cert":     "test",
-				"nomad_client-key":      "test",
-				"nomad_tls-server-name": "test",
-				"nomad_skip-verify":     "true",
+			inputConfig:    &config.Nomad{},
+			expectedOutput: api.DefaultConfig(),
+			name:           "default Autoscaler Nomad config",
+		},
+		{
+			inputConfig: &config.Nomad{
+				Address:       "http://demo.nomad:4646",
+				Region:        "vlc",
+				Namespace:     "platform",
+				Token:         "shhhhhhhh",
+				HTTPAuth:      "admin:admin",
+				CACert:        "/path/to/long-lived/ca-cert",
+				CAPath:        "/path/to/long-lived/",
+				ClientCert:    "/path/to/long-lived/client-cert",
+				ClientKey:     "/path/to/long-lived/key-cert",
+				TLSServerName: "whatdoesthisdo",
+				SkipVerify:    true,
 			},
-			inputAgentConfig: &config.Nomad{
-				Address:       "test-new",
-				Region:        "test-new",
-				Namespace:     "test-new",
-				Token:         "test-new",
-				HTTPAuth:      "test-new",
-				CACert:        "test-new",
-				CAPath:        "test-new",
-				ClientCert:    "test-new",
-				ClientKey:     "test-new",
-				TLSServerName: "test-new",
-				SkipVerify:    false,
+			expectedOutput: &api.Config{
+				Address:   "http://demo.nomad:4646",
+				Region:    "vlc",
+				SecretID:  "shhhhhhhh",
+				Namespace: "platform",
+				HttpAuth: &api.HttpBasicAuth{
+					Username: "admin",
+					Password: "admin",
+				},
+				TLSConfig: &api.TLSConfig{
+					CACert:        "/path/to/long-lived/ca-cert",
+					CAPath:        "/path/to/long-lived/",
+					ClientCert:    "/path/to/long-lived/client-cert",
+					ClientKey:     "/path/to/long-lived/key-cert",
+					TLSServerName: "whatdoesthisdo",
+					Insecure:      true,
+				},
 			},
-			expectedOutputMap: map[string]string{
-				"nomad_address":         "test",
-				"nomad_region":          "test",
-				"nomad_namespace":       "test",
-				"nomad_token":           "test",
-				"nomad_http-auth":       "test",
-				"nomad_ca-cert":         "test",
-				"nomad_ca-path":         "test",
-				"nomad_client-cert":     "test",
-				"nomad_client-key":      "test",
-				"nomad_tls-server-name": "test",
-				"nomad_skip-verify":     "true",
-			},
-			name: "fully populated input map and input agent config",
+			name: "full Autoscaler Nomad config override",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			MergeMapWithAgentConfig(tc.inputMap, tc.inputAgentConfig)
-			assert.Equal(t, tc.expectedOutputMap, tc.inputMap, tc.name)
+			actualOutput := MergeDefaultWithAgentConfig(tc.inputConfig)
+			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
 }

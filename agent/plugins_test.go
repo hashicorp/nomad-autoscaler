@@ -3,8 +3,9 @@ package agent
 import (
 	"testing"
 
-	"github.com/hashicorp/go-hclog"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,19 +22,22 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				config: &config.Agent{
-					Nomad: &config.Nomad{
-						Address:       "test",
-						Region:        "test",
-						Namespace:     "test",
-						Token:         "test",
-						HTTPAuth:      "test",
+				nomadCfg: &api.Config{
+					Address:   "test",
+					Region:    "test",
+					SecretID:  "test",
+					Namespace: "test",
+					HttpAuth: &api.HttpBasicAuth{
+						Username: "test",
+						Password: "test",
+					},
+					TLSConfig: &api.TLSConfig{
 						CACert:        "test",
 						CAPath:        "test",
 						ClientCert:    "test",
 						ClientKey:     "test",
 						TLSServerName: "test",
-						SkipVerify:    true,
+						Insecure:      true,
 					},
 				},
 			},
@@ -48,19 +52,22 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				config: &config.Agent{
-					Nomad: &config.Nomad{
-						Address:       "test",
-						Region:        "test",
-						Namespace:     "test",
-						Token:         "test",
-						HTTPAuth:      "test",
+				nomadCfg: &api.Config{
+					Address:   "test",
+					Region:    "test",
+					SecretID:  "test",
+					Namespace: "test",
+					HttpAuth: &api.HttpBasicAuth{
+						Username: "test",
+						Password: "test",
+					},
+					TLSConfig: &api.TLSConfig{
 						CACert:        "test",
 						CAPath:        "test",
 						ClientCert:    "test",
 						ClientKey:     "test",
 						TLSServerName: "test",
-						SkipVerify:    true,
+						Insecure:      true,
 					},
 				},
 			},
@@ -75,19 +82,22 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				config: &config.Agent{
-					Nomad: &config.Nomad{
-						Address:       "test",
-						Region:        "test",
-						Namespace:     "test",
-						Token:         "test",
-						HTTPAuth:      "test",
+				nomadCfg: &api.Config{
+					Address:   "test",
+					Region:    "test",
+					SecretID:  "test",
+					Namespace: "test",
+					HttpAuth: &api.HttpBasicAuth{
+						Username: "test",
+						Password: "test",
+					},
+					TLSConfig: &api.TLSConfig{
 						CACert:        "test",
 						CAPath:        "test",
 						ClientCert:    "test",
 						ClientKey:     "test",
 						TLSServerName: "test",
-						SkipVerify:    true,
+						Insecure:      true,
 					},
 				},
 			},
@@ -97,7 +107,7 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 				"nomad_region":          "test",
 				"nomad_namespace":       "test",
 				"nomad_token":           "test",
-				"nomad_http-auth":       "test",
+				"nomad_http-auth":       "test:test",
 				"nomad_ca-cert":         "test",
 				"nomad_ca-path":         "test",
 				"nomad_client-cert":     "test",
@@ -111,19 +121,22 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			inputCfg: map[string]string{},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				config: &config.Agent{
-					Nomad: &config.Nomad{
-						Address:       "test",
-						Region:        "test",
-						Namespace:     "test",
-						Token:         "test",
-						HTTPAuth:      "test",
+				nomadCfg: &api.Config{
+					Address:   "test",
+					Region:    "test",
+					SecretID:  "test",
+					Namespace: "test",
+					HttpAuth: &api.HttpBasicAuth{
+						Username: "test",
+						Password: "test",
+					},
+					TLSConfig: &api.TLSConfig{
 						CACert:        "test",
 						CAPath:        "test",
 						ClientCert:    "test",
 						ClientKey:     "test",
 						TLSServerName: "test",
-						SkipVerify:    true,
+						Insecure:      true,
 					},
 				},
 			},
@@ -132,7 +145,7 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 				"nomad_region":          "test",
 				"nomad_namespace":       "test",
 				"nomad_token":           "test",
-				"nomad_http-auth":       "test",
+				"nomad_http-auth":       "test:test",
 				"nomad_ca-cert":         "test",
 				"nomad_ca-path":         "test",
 				"nomad_client-cert":     "test",

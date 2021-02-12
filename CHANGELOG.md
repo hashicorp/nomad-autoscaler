@@ -12,6 +12,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
  * agent: Fix an issue where the Autoscaler could get blocked and stop evaluating policies [[GH-354](https://github.com/hashicorp/nomad-autoscaler/pull/354)]
+ * agent: Fix Nomad config merging so that Nomad env vars are used correctly [[GH-381](https://github.com/hashicorp/nomad-autoscaler/pull/381)]
 
 ## 0.2.1 (January 12, 2021)
 

@@ -121,7 +121,7 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 		// efficiency, whilst still responding with useful information. It also
 		// avoids error logs messages which are extremely long and potentially
 		// unsuitable for log aggregators.
-		if err != nil && err.Len() == 10 {
+		if err != nil && err.Len() >= 10 {
 			err.ErrorFormat = multiErrorFunc
 			return nil, err
 		}

@@ -89,7 +89,7 @@ func (a *APMPlugin) getPoolResources(id *scaleutils.PoolIdentifier) (*nodePoolRe
 	// our pool and that are in the correct state.
 	nodePoolList, err := id.IdentifyNodes(nodes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to identify nodes within pool")
+		return nil, fmt.Errorf("failed to identify nodes within pool: %v", err)
 	}
 	if len(nodePoolList) == 0 {
 		return nil, errors.New("no nodes identified within pool")

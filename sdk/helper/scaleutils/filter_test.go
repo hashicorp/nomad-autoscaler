@@ -4,16 +4,49 @@ import (
 	"errors"
 	"testing"
 
+	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
+func TestPoolIdentifier_Validate(t *testing.T) {
+	testCases := []struct {
+		inputPID       *PoolIdentifier
+		expectedOutput error
+		name           string
+	}{
+		{
+			inputPID: &PoolIdentifier{
+				IdentifierKey: IdentifierKeyClass,
+				Value:         "someclass",
+			},
+			expectedOutput: nil,
+			name:           "class pool identifier",
+		},
+		{
+			inputPID: &PoolIdentifier{
+				IdentifierKey: "divination",
+				Value:         "someclass",
+			},
+			expectedOutput: errors.New(`unsupported node pool identifier: "divination"`),
+			name:           "unsupported pool identifier",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.inputPID.Validate(), tc.name)
+		})
+	}
+}
+
 func Test_filterByClass(t *testing.T) {
 	testCases := []struct {
-		inputNodeList      []*api.NodeListStub
-		inputID            string
-		expectedOutputList []*api.NodeListStub
-		name               string
+		inputNodeList       []*api.NodeListStub
+		inputID             string
+		expectedOutputList  []*api.NodeListStub
+		expectedOutputError error
+		name                string
 	}{
 		{
 			inputNodeList: []*api.NodeListStub{
@@ -23,13 +56,6 @@ func Test_filterByClass(t *testing.T) {
 					Drain:                 false,
 					SchedulingEligibility: api.NodeSchedulingEligible,
 					Status:                api.NodeStatusReady,
-				},
-				{
-					ID:                    "super-test-class-2",
-					NodeClass:             "super-test-class",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingIneligible,
-					Status:                api.NodeStatusDown,
 				},
 				{
 					ID:                    "super-test-class-3",
@@ -77,7 +103,8 @@ func Test_filterByClass(t *testing.T) {
 					Status:                api.NodeStatusReady,
 				},
 			},
-			name: "complex filter of multiclass input for named class",
+			expectedOutputError: nil,
+			name:                "filter of multiclass input for named class without error",
 		},
 		{
 			inputNodeList: []*api.NodeListStub{
@@ -134,14 +161,125 @@ func Test_filterByClass(t *testing.T) {
 					Status:                api.NodeStatusReady,
 				},
 			},
-			name: "complex filter of multiclass input for default class",
+			expectedOutputError: nil,
+			name:                "filter of multiclass input for default class without error",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node1",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node2",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusInit,
+				},
+			},
+			inputID:            "lionel",
+			expectedOutputList: nil,
+			expectedOutputError: &multierror.Error{
+				Errors:      []error{errors.New("node node2 is initializing")},
+				ErrorFormat: multiErrorFunc,
+			},
+			name: "filter of single class input for named class with initializing error",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node1",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node2",
+					NodeClass:             "lionel",
+					Drain:                 true,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputID:            "lionel",
+			expectedOutputList: nil,
+			expectedOutputError: &multierror.Error{
+				Errors:      []error{errors.New("node node2 is draining")},
+				ErrorFormat: multiErrorFunc,
+			},
+			name: "filter of single class input for named class with draining error",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node1",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node2",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputID:            "lionel",
+			expectedOutputList: nil,
+			expectedOutputError: &multierror.Error{
+				Errors:      []error{errors.New("node node2 is ineligible")},
+				ErrorFormat: multiErrorFunc,
+			},
+			name: "filter of single class input for named class with ineligible error",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := filterByClass(tc.inputNodeList, tc.inputID)
+			actualOutput, actualError := filterByClass(tc.inputNodeList, tc.inputID)
 			assert.Equal(t, tc.expectedOutputList, actualOutput, tc.name)
+
+			if tc.expectedOutputError == nil {
+				assert.Nil(t, actualError, tc.name)
+			} else {
+				assert.Equal(t, tc.expectedOutputError.Error(), actualError.Error(), tc.name)
+			}
+		})
+	}
+}
+
+func Test_multiErrorFunc(t *testing.T) {
+	testCases := []struct {
+		inputErr       []error
+		expectedOutput string
+		name           string
+	}{
+		{
+			inputErr: []error{
+				errors.New("hello"),
+				errors.New("is it me you're looking for"),
+				errors.New("cause I wonder where you are"),
+			},
+			expectedOutput: "hello, is it me you're looking for, cause I wonder where you are",
+			name:           "multiple input errors",
+		},
+		{
+			inputErr:       []error{errors.New("this is not an exciting test message")},
+			expectedOutput: "this is not an exciting test message",
+			name:           "single input error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, multiErrorFunc(tc.inputErr), tc.name)
 		})
 	}
 }

@@ -1,0 +1,45 @@
+syntax = "proto3";
+package hashicorp.nomad_autoscaler.plugins.shared.proto.v1;
+option go_package = "proto";
+
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message ScalingAction {
+    int64 count = 1;
+    string reason = 2;
+    bool error = 3;
+    ScalingDirection direction = 4;
+    google.protobuf.Any meta = 5;
+}
+
+enum ScalingDirection {
+    SCALING_DIRECTION_UNSPECIFIED = 0;
+    SCALING_DIRECTION_NONE = 1;
+    SCALING_DIRECTION_DOWN = 2;
+    SCALING_DIRECTION_UP = 3;
+}
+
+message ScalingPolicyCheck {
+    string name = 1;
+    string source = 2;
+    string query = 3;
+    google.protobuf.Duration query_window = 4;
+    ScalingPolicyStrategy strategy = 5;
+}
+
+message ScalingPolicyStrategy {
+    string name = 1;
+    map<string, string> config = 2;
+}
+
+message TimeRange {
+    google.protobuf.Timestamp to = 1;
+    google.protobuf.Timestamp from = 2;
+}
+
+message TimestampedMetric {
+    google.protobuf.Timestamp timestamp = 1;
+    double value = 2;
+}

@@ -20,7 +20,6 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, def.LogLevel, "info")
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
 	assert.Equal(t, def.Policy.DefaultEvaluationInterval, 10*time.Second)
-	assert.Equal(t, def.Nomad.Address, "http://127.0.0.1:4646")
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
 	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
@@ -31,6 +30,7 @@ func Test_Default(t *testing.T) {
 	assert.Len(t, def.Targets, 1)
 	assert.Len(t, def.Strategies, 1)
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
+	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -61,9 +61,10 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	cfg2 := &Agent{
-		LogLevel:  "trace",
-		LogJson:   true,
-		PluginDir: "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug: true,
+		LogLevel:    "trace",
+		LogJson:     true,
+		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
 		HTTP: &HTTP{
 			BindPort: 4646,
 		},
@@ -138,9 +139,10 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	expectedResult := &Agent{
-		LogLevel:  "trace",
-		LogJson:   true,
-		PluginDir: "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug: true,
+		LogLevel:    "trace",
+		LogJson:     true,
+		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
 		HTTP: &HTTP{
 			BindAddress: "scaler.nomad",
 			BindPort:    4646,

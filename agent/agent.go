@@ -28,12 +28,18 @@ type Agent struct {
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
+
+	// nomadCfg is the merged Nomad API configuration that should be used when
+	// setting up all clients. It is the result of the Nomad api.DefaultConfig
+	// merged with the user specified Nomad config.Nomad.
+	nomadCfg *api.Config
 }
 
 func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
 	return &Agent{
-		logger: logger,
-		config: c,
+		logger:   logger,
+		config:   c,
+		nomadCfg: nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
 	}
 }
 
@@ -142,55 +148,11 @@ func (a *Agent) stop() {
 	}
 }
 
-// generateNomadClient takes the internal Nomad configuration, translates and
-// merges it into a Nomad API config object and creates a client.
+// generateNomadClient creates a Nomad client for use within the agent.
 func (a *Agent) generateNomadClient() error {
 
-	// Use the Nomad API default config which gets populated by defaults and
-	// also checks for environment variables.
-	cfg := api.DefaultConfig()
-
-	// Merge our top level configuration options in.
-	if a.config.Nomad.Address != "" {
-		cfg.Address = a.config.Nomad.Address
-	}
-	if a.config.Nomad.Region != "" {
-		cfg.Region = a.config.Nomad.Region
-	}
-	if a.config.Nomad.Namespace != "" {
-		cfg.Namespace = a.config.Nomad.Namespace
-	}
-	if a.config.Nomad.Token != "" {
-		cfg.SecretID = a.config.Nomad.Token
-	}
-
-	// Merge HTTP auth.
-	if a.config.Nomad.HTTPAuth != "" {
-		cfg.HttpAuth = nomadHelper.HTTPAuthFromString(a.config.Nomad.HTTPAuth)
-	}
-
-	// Merge TLS.
-	if a.config.Nomad.CACert != "" {
-		cfg.TLSConfig.CACert = a.config.Nomad.CACert
-	}
-	if a.config.Nomad.CAPath != "" {
-		cfg.TLSConfig.CAPath = a.config.Nomad.CAPath
-	}
-	if a.config.Nomad.ClientCert != "" {
-		cfg.TLSConfig.ClientCert = a.config.Nomad.ClientCert
-	}
-	if a.config.Nomad.ClientKey != "" {
-		cfg.TLSConfig.ClientKey = a.config.Nomad.ClientKey
-	}
-	if a.config.Nomad.TLSServerName != "" {
-		cfg.TLSConfig.TLSServerName = a.config.Nomad.TLSServerName
-	}
-	if a.config.Nomad.SkipVerify {
-		cfg.TLSConfig.Insecure = a.config.Nomad.SkipVerify
-	}
-
 	// Generate the Nomad client.
-	client, err := api.NewClient(cfg)
+	client, err := api.NewClient(a.nomadCfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}

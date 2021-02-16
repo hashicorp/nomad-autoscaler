@@ -12,6 +12,7 @@ import (
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
+	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
@@ -40,6 +41,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetAzureVMSS:
 		info.factory = azureVMSS.PluginConfig.Factory
 		info.driver = "azure-vmss"
+	case plugins.InternalTargetGCEMIG:
+		info.factory = gceMIG.PluginConfig.Factory
+		info.driver = "gce-mig"
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
@@ -85,6 +89,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalStrategyTargetValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,
+		plugins.InternalTargetGCEMIG,
 		plugins.InternalAPMDatadog:
 		return true
 	default:

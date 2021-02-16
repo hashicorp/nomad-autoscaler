@@ -32,6 +32,9 @@ type Agent struct {
 	// LogJson enables log output in JSON format.
 	LogJson bool `hcl:"log_json,optional"`
 
+	// EnableDebug is used to enable debugging HTTP endpoints.
+	EnableDebug bool `hcl:"enable_debug,optional"`
+
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
@@ -291,14 +294,6 @@ const (
 	// the PluginDir default value.
 	defaultPluginDirSuffix = "/plugins"
 
-	// defaultNomadAddress is the default address used for Nomad API
-	// connectivity.
-	defaultNomadAddress = "http://127.0.0.1:4646"
-
-	// defaultNomadRegion is the default Nomad region to use when performing
-	// Nomad API calls.
-	defaultNomadRegion = "global"
-
 	// defaultPolicyCooldown is the default time duration applied to policies
 	// which do not explicitly configure a cooldown.
 	defaultPolicyCooldown = 5 * time.Minute
@@ -338,10 +333,7 @@ func Default() (*Agent, error) {
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
 		},
-		Nomad: &Nomad{
-			Address: defaultNomadAddress,
-			Region:  defaultNomadRegion,
-		},
+		Nomad: &Nomad{},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,
 		},
@@ -364,6 +356,9 @@ func Default() (*Agent, error) {
 func (a *Agent) Merge(b *Agent) *Agent {
 	result := *a
 
+	if b.EnableDebug {
+		result.EnableDebug = true
+	}
 	if b.LogLevel != "" {
 		result.LogLevel = b.LogLevel
 	}

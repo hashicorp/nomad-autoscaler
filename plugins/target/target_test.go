@@ -19,9 +19,10 @@ var handshake = plugin.HandshakeConfig{
 
 func TestTargetPluginRPCServerSetConfig(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"target": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-target"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"target": &PluginTarget{}},
+		Cmd:              exec.Command("../test/bin/noop-target"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -38,9 +39,10 @@ func TestTargetPluginRPCServerSetConfig(t *testing.T) {
 
 func TestTargetPluginRPCServerPluginInfo(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"target": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-target"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"target": &PluginTarget{}},
+		Cmd:              exec.Command("../test/bin/noop-target"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -59,9 +61,10 @@ func TestTargetPluginRPCServerPluginInfo(t *testing.T) {
 
 func TestTargetPluginRPCServerStatus(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"target": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-target"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"target": &PluginTarget{}},
+		Cmd:              exec.Command("../test/bin/noop-target"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -80,9 +83,10 @@ func TestTargetPluginRPCServerStatus(t *testing.T) {
 
 func TestTargetPluginRPCServerScale(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"target": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-target"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"target": &PluginTarget{}},
+		Cmd:              exec.Command("../test/bin/noop-target"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 

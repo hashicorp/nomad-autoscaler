@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"sync/atomic"
 	"time"
 
@@ -61,7 +62,7 @@ type Server struct {
 }
 
 // NewHTTPServer creates a new agent HTTP server.
-func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
+func NewHTTPServer(debug bool, cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
 
 	srv := &Server{
 		log:   log.Named("http_server"),
@@ -73,6 +74,15 @@ func NewHTTPServer(cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server
 	srv.mux.HandleFunc(healthRoutePattern, srv.wrap(srv.getHealth))
 	srv.mux.HandleFunc(metricsRoutePattern, srv.wrap(srv.getMetrics))
 	srv.mux.HandleFunc(agentRoutePattern, srv.wrap(srv.agentSpecificRequest))
+
+	// Setup the debugging endpoints.
+	if debug {
+		srv.mux.HandleFunc("/debug/pprof/", pprof.Index)
+		srv.mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		srv.mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		srv.mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		srv.mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	// Configure the HTTP server to the most basic level.
 	srv.srv = &http.Server{

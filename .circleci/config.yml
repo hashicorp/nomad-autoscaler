@@ -15,6 +15,7 @@ jobs:
     executor: go-linux
     steps:
       - checkout
+      - run: make generate-tools
       - run: make check
 
   lint-go:
@@ -22,6 +23,7 @@ jobs:
     steps:
       - checkout
       - run: make lint-tools
+      - run: make generate-tools
       - run: make lint
 
   linux-build-go:

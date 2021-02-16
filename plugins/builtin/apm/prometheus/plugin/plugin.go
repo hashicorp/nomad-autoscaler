@@ -28,7 +28,7 @@ const (
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -37,7 +37,7 @@ var (
 
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 )
 
@@ -60,12 +60,13 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	// If the address is not set, or is empty within the config, any client
 	// calls will fail. It seems logical to catch this here rather than just
 	// let queries fail.
-	if a.config[configKeyAddress] == "" {
+	addr, ok := a.config[configKeyAddress]
+	if !ok || addr == "" {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
 	promCfg := api.Config{
-		Address: a.config[configKeyAddress],
+		Address: addr,
 	}
 
 	// create Prometheus client

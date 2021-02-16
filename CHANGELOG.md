@@ -1,5 +1,19 @@
 ## UNRELEASED
 
+FEATURES:
+  * __GCP MIG Horizontal Cluster Scaling__: Scale the number of Nomad clients within a GCP Managed Instance Groups [[GH-353](https://github.com/hashicorp/nomad-autoscaler/pull/353)]
+  * agent: Add pprof HTTP debug endpoints [[GH-349](https://github.com/hashicorp/nomad-autoscaler/pull/349)]
+
+IMPROVEMENTS:
+ * agent: Read Nomad address and region from environment variables [[GH-365](https://github.com/hashicorp/nomad-autoscaler/pull/365)]
+ * plugins: Replace net/rpc plugin subsystem with gRPC implementation [[GH-355](https://github.com/hashicorp/nomad-autoscaler/pull/355)]
+ * plugins/apm/prometheus: Update Prometheus client dependency from v1.5.1 to v1.9.0 [[GH-368](https://github.com/hashicorp/nomad-autoscaler/pull/368)]
+ * plugins/target: Add cluster scaling configuration to ignore system jobs on drain [[GH-356](https://github.com/hashicorp/nomad-autoscaler/pull/356)]
+
+BUG FIXES:
+ * agent: Fix an issue where the Autoscaler could get blocked and stop evaluating policies [[GH-354](https://github.com/hashicorp/nomad-autoscaler/pull/354)]
+ * agent: Fix Nomad config merging so that Nomad env vars are used correctly [[GH-381](https://github.com/hashicorp/nomad-autoscaler/pull/381)]
+
 ## 0.2.1 (January 12, 2021)
 
 BUG FIXES:

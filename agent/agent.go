@@ -26,6 +26,7 @@ type Agent struct {
 	configPaths   []string
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
+	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
@@ -138,7 +139,8 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
 	}
 
-	a.policyManager = policy.NewManager(a.logger, sources, a.pluginManager, a.config.Telemetry.CollectionInterval)
+	a.policySources = sources
+	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
 	return make(chan *sdk.ScalingEvaluation, 10)
 }
@@ -178,7 +180,17 @@ func (a *Agent) reload() {
 	a.config = newCfg
 	a.nomadCfg = nomadHelper.MergeDefaultWithAgentConfig(newCfg.Nomad)
 
+	if err := a.generateNomadClient(); err != nil {
+		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
+		return
+	}
+
 	a.logger.Debug("reloading policy sources")
+	// Set new Nomad client in the Nomad policy source.
+	ps, ok := a.policySources[policy.SourceNameNomad]
+	if ok {
+		ps.(*nomadPolicy.Source).SetNomadClient(a.nomadClient)
+	}
 	a.policyManager.ReloadSources()
 
 	a.logger.Debug("reloading plugins")

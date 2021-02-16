@@ -110,7 +110,10 @@ func (pm *PluginManager) Reload(newCfg map[string][]*config.Plugin) error {
 	}
 
 	for _, pID := range pluginsToStop {
+		// Stop current plugin instance.
 		pm.killPlugin(pID)
+
+		// And remove its configuration.
 		pm.pluginsLock.Lock()
 		delete(pm.plugins, pID)
 		pm.pluginsLock.Unlock()

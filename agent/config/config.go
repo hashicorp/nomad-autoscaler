@@ -745,6 +745,46 @@ func parseFile(file string, cfg *Agent) error {
 	return nil
 }
 
+func LoadPaths(paths []string) (*Agent, error) {
+	// Grab a default config as the base.
+	cfg, err := Default()
+	if err != nil {
+		return nil, err
+	}
+
+	var validationErr *multierror.Error
+
+	// Merge in the enterprise overlay.
+	cfg = cfg.Merge(DefaultEntConfig())
+
+	for _, path := range paths {
+		current, err := Load(path)
+		if err != nil {
+			return nil, fmt.Errorf("error loading configuration from %s: %s\n", path, err)
+		}
+
+		if err := current.Validate(); err != nil {
+			errPrefix := fmt.Sprintf("%s:", path)
+			validationErr = multierror.Append(validationErr, multierror.Prefix(err, errPrefix))
+
+			// Continue looping so we can validate other files.
+			continue
+		}
+
+		if cfg == nil {
+			cfg = current
+		} else {
+			cfg = cfg.Merge(current)
+		}
+	}
+
+	if validationErr != nil {
+		return nil, fmt.Errorf("invalid configuration. %v", validationErr)
+	}
+
+	return cfg, nil
+}
+
 // Load loads the configuration at the given path, regardless if its a file or
 // directory. Called for each -config to build up the runtime config value.
 func Load(path string) (*Agent, error) {

@@ -86,12 +86,89 @@ func (pm *PluginManager) Load() error {
 	return pm.dispensePlugins()
 }
 
+func (pm *PluginManager) Reload(newCfg map[string][]*config.Plugin) error {
+	// Find plugins that are no longer in the new config and stop them.
+	pluginsToStop := []plugins.PluginID{}
+
+	for pType, cfgs := range pm.cfg {
+		newCfgs := newCfg[pType]
+
+		for _, plugin := range cfgs {
+			stop := true
+			for _, newPlugin := range newCfgs {
+				if plugin.Name == newPlugin.Name {
+					stop = false
+					break
+				}
+			}
+
+			if stop {
+				pID := plugins.PluginID{PluginType: pType, Name: plugin.Name}
+				pluginsToStop = append(pluginsToStop, pID)
+			}
+		}
+	}
+
+	for _, pID := range pluginsToStop {
+		pm.killPlugin(pID)
+		pm.pluginsLock.Lock()
+		delete(pm.plugins, pID)
+		pm.pluginsLock.Unlock()
+	}
+
+	// We are only reading from the pluginInstances map, but we will likely
+	// modify instances internals, so acquire a RWLock.
+	pm.pluginInstancesLock.Lock()
+
+	// Reload remaining plugins.
+	var result error
+	for t, cfgs := range newCfg {
+		for _, p := range cfgs {
+			pID := plugins.PluginID{PluginType: t, Name: p.Name}
+
+			pInst, ok := pm.pluginInstances[pID]
+			if !ok {
+				continue
+			}
+
+			err := pInst.Plugin().(base.Base).SetConfig(p.Config)
+			if err != nil {
+				result = multierror.Append(result, err)
+			}
+		}
+	}
+	pm.pluginInstancesLock.Unlock()
+
+	// Store new config and call Load() to start new plugins.
+	pm.cfg = newCfg
+	err := pm.Load()
+	if err != nil {
+		result = multierror.Append(result, err)
+	}
+
+	return result
+}
+
 // KillPlugins calls Kill on all plugins currently dispensed.
 func (pm *PluginManager) KillPlugins() {
-	for id, v := range pm.pluginInstances {
-		pm.logger.Info("shutting down plugin", "plugin_name", id.Name)
-		v.Kill()
+	for id := range pm.pluginInstances {
+		pm.killPlugin(id)
 	}
+}
+
+// killPlugin stops a specific plugin and removes it from the manager.
+func (pm *PluginManager) killPlugin(pID plugins.PluginID) {
+	pm.pluginInstancesLock.Lock()
+	defer pm.pluginInstancesLock.Unlock()
+
+	p, ok := pm.pluginInstances[pID]
+	if !ok {
+		return
+	}
+
+	pm.logger.Info("shutting down plugin", "plugin_name", pID.Name)
+	p.Kill()
+	delete(pm.pluginInstances, pID)
 }
 
 // Dispense returns a PluginInstance for use by safely obtaining the
@@ -124,20 +201,16 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 // they are in a ready state. Any errors from this process will result in the
 // agent failing on startup.
 func (pm *PluginManager) dispensePlugins() error {
-
-	// This function only gets called once currently; but it does perform all
-	// the plugin loading based on the current configuration. Therefore for
-	// future protection blat out our instances map.
-	pm.pluginInstancesLock.Lock()
-	pm.pluginInstances = make(map[plugins.PluginID]PluginInstance)
-	pm.pluginInstancesLock.Unlock()
-
 	var mErr multierror.Error
 
-	pm.pluginsLock.Lock()
-	defer pm.pluginsLock.Unlock()
-
 	for pID, pInfo := range pm.plugins {
+		// Skip if plugin is already dispensed.
+		pm.pluginInstancesLock.Lock()
+		_, ok := pm.pluginInstances[pID]
+		pm.pluginInstancesLock.Unlock()
+		if ok {
+			continue
+		}
 
 		var (
 			inst PluginInstance
@@ -159,7 +232,9 @@ func (pm *PluginManager) dispensePlugins() error {
 
 		// Update our tracking to detail the plugin base information returned
 		// from the plugin itself.
+		pm.pluginsLock.Lock()
 		pm.plugins[pID].baseInfo = info
+		pm.pluginsLock.Unlock()
 
 		// Perform the SetConfig on the plugin to ensure its state is as the
 		// operator desires.

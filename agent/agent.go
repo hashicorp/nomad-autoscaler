@@ -23,6 +23,7 @@ import (
 type Agent struct {
 	logger        hclog.Logger
 	config        *config.Agent
+	configPaths   []string
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
@@ -35,11 +36,12 @@ type Agent struct {
 	nomadCfg *api.Config
 }
 
-func NewAgent(c *config.Agent, logger hclog.Logger) *Agent {
+func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent {
 	return &Agent{
-		logger:   logger,
-		config:   c,
-		nomadCfg: nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
+		logger:      logger,
+		config:      c,
+		configPaths: configPaths,
+		nomadCfg:    nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
 	}
 }
 
@@ -164,8 +166,25 @@ func (a *Agent) generateNomadClient() error {
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
 func (a *Agent) reload() {
+	a.logger.Info("reloading Autoscaler configuration")
+
+	// Reload config files from disk.
+	newCfg, err := config.LoadPaths(a.configPaths)
+	if err != nil {
+		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
+		return
+	}
+
+	a.config = newCfg
+	a.nomadCfg = nomadHelper.MergeDefaultWithAgentConfig(newCfg.Nomad)
+
 	a.logger.Debug("reloading policy sources")
 	a.policyManager.ReloadSources()
+
+	a.logger.Debug("reloading plugins")
+	if err := a.pluginManager.Reload(a.setupPluginsConfig()); err != nil {
+		a.logger.Error("failed to reload plugins", "error", err)
+	}
 }
 
 // handleSignals blocks until the agent receives an exit signal.

@@ -107,15 +107,24 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 	// Create our output list object.
 	var out []*api.NodeListStub
 
-	// Track all nodes which are deemed to cause an error to the autoscaler. It
-	// is possible to make an argument that the first error should be returned
-	// in order to improve speed. In a situation where two nodes are in an
-	// undesired state, it would require the operator to perform the same tidy
-	// and restart of the autoscaler loop twice, which seems worse than having
-	// some extra time within this function.
+	// Track upto 10 nodes which are deemed to cause an error to the
+	// autoscaler. It is possible to make an argument that the first error
+	// should be returned in order to improve speed. In a situation where two
+	// nodes are in an undesired state, it would require the operator to
+	// perform the same tidy and restart of the autoscaler loop twice, which
+	// seems worse than having some extra time within this function.
 	var err *multierror.Error
 
 	for _, node := range n {
+
+		// Track till 10 nodes in an unstable state so that we have some
+		// efficiency, whilst still responding with useful information. It also
+		// avoids error logs messages which are extremely long and potentially
+		// unsuitable for log aggregators.
+		if err != nil && err.Len() == 10 {
+			err.ErrorFormat = multiErrorFunc
+			return nil, err
+		}
 
 		// Filter out all nodes which do not match the target class first.
 		if node.NodeClass != "" && node.NodeClass != id ||
@@ -147,7 +156,10 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 		}
 
 		// This lifecycle phase relates to nodes that typically have had their
-		// drain completed, and now await removal from the cluster.
+		// drain completed, and now await removal from the cluster. Beyond this
+		// point nodes are considered down and waiting for GC from the cluster,
+		// therefore they are safe to ignore and do not impact our
+		// classification of pool stability.
 		if !node.Drain && node.Status == api.NodeStatusReady {
 			err = multierror.Append(err, fmt.Errorf("node %s is ineligible", node.ID))
 		}

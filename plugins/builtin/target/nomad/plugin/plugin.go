@@ -65,7 +65,8 @@ type TargetPlugin struct {
 	statusHandlersLock sync.RWMutex
 
 	// gcRunning indicates whether the GC loop is running or not.
-	gcRunning bool
+	gcRunning     bool
+	gcRunningLock sync.RWMutex
 }
 
 // namespacedJobID encapsulates the namespace and jobID, which together make a
@@ -85,6 +86,8 @@ func NewNomadPlugin(log hclog.Logger) *TargetPlugin {
 
 // SetConfig satisfies the SetConfig function on the base.Base interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
+	t.gcRunningLock.RLock()
+	defer t.gcRunningLock.RUnlock()
 
 	if !t.gcRunning {
 		go t.garbageCollectionLoop()
@@ -189,7 +192,10 @@ func (t *TargetPlugin) garbageCollectionLoop() {
 
 	// Setup the ticker and set that the loop is now running.
 	ticker := time.NewTicker(garbageCollectionSecondInterval * time.Second)
+
+	t.gcRunningLock.Lock()
 	t.gcRunning = true
+	t.gcRunningLock.Unlock()
 
 	for range ticker.C {
 		t.logger.Debug("triggering run of handler garbage collection")

@@ -157,59 +157,73 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
 	for {
+		var (
+			p    *api.ScalingPolicy
+			meta *api.QueryMeta
+			err  error
+		)
+
+		// Perform a blocking query on the Nomad API that returns a scaling
+		// policy. The call is done in a goroutine so we can still listen for
+		// the context closing or a reload request.
+		blockingQueryCompleteCh := make(chan struct{})
+		go func() {
+			p, meta, err = s.nomad.Scaling().GetPolicy(string(req.ID), q)
+			close(blockingQueryCompleteCh)
+		}()
+
 		select {
 		case <-ctx.Done():
 			log.Trace("done with policy monitoring")
 			return
-		default:
-			// Perform a blocking query on the Nomad API that returns a stub list
-			// of scaling policies. If we get an errors at this point, we should
-			// sleep and try again.
-			//
-			// TODO(jrasell) in the future maybe use a better method than sleep.
-			p, meta, err := s.nomad.Scaling().GetPolicy(string(req.ID), q)
-
-			// Return immediately if context is closed.
-			if ctx.Err() != nil {
-				log.Trace("done with policy monitoring")
-				return
-			}
-
-			if err != nil {
-				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
-				time.Sleep(10 * time.Second)
-				continue
-			}
-
-			// If the index has not changed, the query returned because the timeout
-			// was reached, therefore start the next query loop.
-			if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
-				continue
-			}
-
-			// GH-165: update the wait index. After this point there is a
-			// possibility of continuing the loop and without setting the index
-			// we will just fast loop indefinitely.
-			q.WaitIndex = meta.LastIndex
-
-			if err := validateScalingPolicy(p); err != nil {
-				errMsg := "policy validation failed"
-				if _, ok := err.(*multierror.Error); ok {
-					// Add new error message as first error item.
-					err = multierror.Append(fmt.Errorf(errMsg), err)
-				} else {
-					err = fmt.Errorf("%s: %v", errMsg, err)
-				}
-
-				policy.HandleSourceError(s.Name(), err, req.ErrCh)
-				continue
-			}
-
-			autoPolicy := parsePolicy(p)
-			s.canonicalizePolicy(&autoPolicy)
-
-			req.ResultCh <- autoPolicy
+		case <-req.ReloadCh:
+			s.log.Trace("reloading policy monitor")
+			continue
+		case <-blockingQueryCompleteCh:
 		}
+
+		// Return immediately if context is closed.
+		if ctx.Err() != nil {
+			log.Trace("done with policy monitoring")
+			return
+		}
+
+		// If we get an errors at this point, we should sleep and try again.
+		// TODO(jrasell) in the future maybe use a better method than sleep.
+		if err != nil {
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
+		// If the index has not changed, the query returned because the timeout
+		// was reached, therefore start the next query loop.
+		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+			continue
+		}
+
+		// GH-165: update the wait index. After this point there is a
+		// possibility of continuing the loop and without setting the index
+		// we will just fast loop indefinitely.
+		q.WaitIndex = meta.LastIndex
+
+		if err := validateScalingPolicy(p); err != nil {
+			errMsg := "policy validation failed"
+			if _, ok := err.(*multierror.Error); ok {
+				// Add new error message as first error item.
+				err = multierror.Append(fmt.Errorf(errMsg), err)
+			} else {
+				err = fmt.Errorf("%s: %v", errMsg, err)
+			}
+
+			policy.HandleSourceError(s.Name(), err, req.ErrCh)
+			continue
+		}
+
+		autoPolicy := parsePolicy(p)
+		s.canonicalizePolicy(&autoPolicy)
+
+		req.ResultCh <- autoPolicy
 	}
 }
 

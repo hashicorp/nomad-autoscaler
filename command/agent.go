@@ -369,6 +369,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	fileConfig, err := config.LoadPaths(configPath)
 	if err != nil {
+		fmt.Printf("%s\n", err)
 		return nil, configPath
 	}
 

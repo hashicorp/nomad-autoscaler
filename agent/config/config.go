@@ -760,7 +760,7 @@ func LoadPaths(paths []string) (*Agent, error) {
 	for _, path := range paths {
 		current, err := Load(path)
 		if err != nil {
-			return nil, fmt.Errorf("error loading configuration from %s: %s\n", path, err)
+			return nil, fmt.Errorf("error loading configuration from %s: %s", path, err)
 		}
 
 		if err := current.Validate(); err != nil {

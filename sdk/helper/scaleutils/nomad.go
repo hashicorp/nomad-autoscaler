@@ -78,7 +78,7 @@ func (si *ScaleIn) RunPreScaleInTasks(ctx context.Context, req *ScaleInReq) ([]N
 		return nil, errors.New("failed to identify nodes for removal")
 	}
 
-	if err := si.drainNodes(ctx, req.DrainDeadline, nodeIDMap); err != nil {
+	if err := si.drainNodes(ctx, req.IgnoreSystemJobs, req.DrainDeadline, nodeIDMap); err != nil {
 		return nil, err
 	}
 
@@ -232,7 +232,7 @@ func (si *ScaleIn) getRemoteIDMap(nodes []*api.NodeListStub, remoteProvider Remo
 
 // drainNodes iterates the provided nodeID list and performs a drain on each
 // one.
-func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes []NodeID) error {
+func (si *ScaleIn) drainNodes(ctx context.Context, ignoreSystemJobs bool, deadline time.Duration, nodes []NodeID) error {
 
 	// Define a WaitGroup. This allows us to trigger each node drain in a go
 	// routine and then wait for them all to complete before exiting.
@@ -240,7 +240,7 @@ func (si *ScaleIn) drainNodes(ctx context.Context, deadline time.Duration, nodes
 
 	// All nodes to be drained form part of a pool of resource and all should
 	// use the same DrainSpec.
-	drainSpec := api.DrainSpec{Deadline: deadline}
+	drainSpec := api.DrainSpec{Deadline: deadline, IgnoreSystemJobs: ignoreSystemJobs}
 
 	// Define an error to collect errors from each drain routine and a mutex to
 	// provide thread safety when calling multierror.Append.
@@ -293,7 +293,7 @@ func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.Drain
 
 	// Monitor the drain so we output the log messages. An error here indicates
 	// the drain failed to complete successfully.
-	if err := si.monitorNodeDrain(ctx, nodeID, resp.LastIndex); err != nil {
+	if err := si.monitorNodeDrain(ctx, nodeID, resp.LastIndex, spec.IgnoreSystemJobs); err != nil {
 		return fmt.Errorf("context done while monitoring node drain: %v", err)
 	}
 	return nil
@@ -301,11 +301,8 @@ func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.Drain
 
 // monitorNodeDrain follows the drain of a node, logging the messages we
 // receive to their appropriate level.
-//
-// TODO(jrasell): currently the ignoreSys param is hardcoded to false, we will
-//  probably want to expose this to operators in the future.
-func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index uint64) error {
-	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, false) {
+func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) error {
+	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, ignoreSys) {
 		switch msg.Level {
 		case api.MonitorMsgLevelInfo:
 			si.log.Info("received node drain message", "node_id", nodeID, "msg", msg.Message)

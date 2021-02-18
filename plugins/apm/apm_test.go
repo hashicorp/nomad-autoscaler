@@ -20,9 +20,10 @@ var handshake = plugin.HandshakeConfig{
 
 func TestAPMPluginRPCServerSetConfig(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"apm": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-apm"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"apm": &PluginAPM{}},
+		Cmd:              exec.Command("../test/bin/noop-apm"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -39,9 +40,10 @@ func TestAPMPluginRPCServerSetConfig(t *testing.T) {
 
 func TestAPMPluginRPCServerPluginInfo(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"apm": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-apm"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"apm": &PluginAPM{}},
+		Cmd:              exec.Command("../test/bin/noop-apm"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -60,9 +62,10 @@ func TestAPMPluginRPCServerPluginInfo(t *testing.T) {
 
 func TestAPMPluginRPCServerQuery(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"apm": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-apm"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"apm": &PluginAPM{}},
+		Cmd:              exec.Command("../test/bin/noop-apm"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 
@@ -83,9 +86,10 @@ func TestAPMPluginRPCServerQuery(t *testing.T) {
 
 func TestAPMPluginRPCServerQueryMultiple(t *testing.T) {
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: handshake,
-		Plugins:         map[string]plugin.Plugin{"apm": &Plugin{}},
-		Cmd:             exec.Command("../test/bin/noop-apm"),
+		HandshakeConfig:  handshake,
+		Plugins:          map[string]plugin.Plugin{"apm": &PluginAPM{}},
+		Cmd:              exec.Command("../test/bin/noop-apm"),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
 	})
 	defer client.Kill()
 

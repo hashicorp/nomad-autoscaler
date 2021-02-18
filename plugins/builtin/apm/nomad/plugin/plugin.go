@@ -7,6 +7,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad/api"
 )
@@ -19,7 +20,7 @@ const (
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -28,7 +29,7 @@ var (
 
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 )
 

@@ -1,0 +1,16 @@
+version: v1beta1
+build:
+  roots:
+    - .
+
+lint:
+  use:
+    - DEFAULT
+  allow_comment_ignores: true
+  ignore_only:
+    PACKAGE_DIRECTORY_MATCH:
+      - plugins/base/proto/v1/base.proto
+      - plugins/apm/proto/v1/apm.proto
+      - plugins/shared/proto/v1/shared.proto
+      - plugins/strategy/proto/v1/strategy.proto
+      - plugins/target/proto/v1/target.proto

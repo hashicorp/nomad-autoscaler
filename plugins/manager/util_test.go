@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	plugin "github.com/hashicorp/go-plugin"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,20 +18,29 @@ func Test_getPluginMap(t *testing.T) {
 		expectedOutput  map[string]plugin.Plugin
 	}{
 		{
-			inputPluginType: plugins.PluginTypeAPM,
-			expectedOutput:  map[string]plugin.Plugin{plugins.PluginTypeAPM: &apm.Plugin{}},
+			inputPluginType: sdk.PluginTypeAPM,
+			expectedOutput: map[string]plugin.Plugin{
+				sdk.PluginTypeAPM:  &apm.PluginAPM{},
+				sdk.PluginTypeBase: &base.PluginBase{},
+			},
 		},
 		{
-			inputPluginType: plugins.PluginTypeTarget,
-			expectedOutput:  map[string]plugin.Plugin{plugins.PluginTypeTarget: &target.Plugin{}},
+			inputPluginType: sdk.PluginTypeTarget,
+			expectedOutput: map[string]plugin.Plugin{
+				sdk.PluginTypeTarget: &target.PluginTarget{},
+				sdk.PluginTypeBase:   &base.PluginBase{},
+			},
 		},
 		{
-			inputPluginType: plugins.PluginTypeStrategy,
-			expectedOutput:  map[string]plugin.Plugin{plugins.PluginTypeStrategy: &strategy.Plugin{}},
+			inputPluginType: sdk.PluginTypeStrategy,
+			expectedOutput: map[string]plugin.Plugin{
+				sdk.PluginTypeStrategy: &strategy.PluginStrategy{},
+				sdk.PluginTypeBase:     &base.PluginBase{},
+			},
 		},
 		{
 			inputPluginType: "automatic-pizza-delivery",
-			expectedOutput:  map[string]plugin.Plugin{},
+			expectedOutput:  map[string]plugin.Plugin{sdk.PluginTypeBase: &base.PluginBase{}},
 		},
 	}
 

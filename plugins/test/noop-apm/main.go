@@ -21,7 +21,7 @@ const (
 var (
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeAPM,
+		PluginType: sdk.PluginTypeAPM,
 	}
 )
 

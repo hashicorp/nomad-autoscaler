@@ -163,7 +163,7 @@ func (pm *PluginManager) dispensePlugins() error {
 
 		// Perform the SetConfig on the plugin to ensure its state is as the
 		// operator desires.
-		if err := inst.Plugin().(base.Plugin).SetConfig(pInfo.config); err != nil {
+		if err := inst.Plugin().(base.Base).SetConfig(pInfo.config); err != nil {
 			inst.Kill()
 			_ = multierror.Append(&mErr, fmt.Errorf("failed to set config on plugin %s: %v", pID.Name, err))
 			continue
@@ -203,10 +203,11 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 	// the command to execute and also the logger to use. The loggers name is
 	// reset to avoid confusion that the log line is from within the agent.
 	client := plugin.NewClient(&plugin.ClientConfig{
-		HandshakeConfig: plugins.Handshake,
-		Plugins:         getPluginMap(id.PluginType),
-		Cmd:             exec.Command(info.exePath, info.args...),
-		Logger:          pm.logger.ResetNamed("external_plugin"),
+		HandshakeConfig:  plugins.Handshake,
+		Plugins:          getPluginMap(id.PluginType),
+		Cmd:              exec.Command(info.exePath, info.args...),
+		AllowedProtocols: []plugin.Protocol{plugin.ProtocolGRPC},
+		Logger:           pm.logger.ResetNamed("external_plugin"),
 	})
 
 	// Connect via RPC.
@@ -237,7 +238,7 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	// Check that the plugin implements the base plugin interface. As these are
 	// external plugins we need to check this safely, otherwise an incorrect
 	// plugin can cause the core application to panic.
-	b, ok := raw.(base.Plugin)
+	b, ok := raw.(base.Base)
 	if !ok {
 		return nil, fmt.Errorf("plugin %s does not implement base plugin", id.Name)
 	}

@@ -29,7 +29,7 @@ const (
 var (
 	PluginID = plugins.PluginID{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeStrategy,
+		PluginType: sdk.PluginTypeStrategy,
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -38,7 +38,7 @@ var (
 
 	pluginInfo = &base.PluginInfo{
 		Name:       pluginName,
-		PluginType: plugins.PluginTypeStrategy,
+		PluginType: sdk.PluginTypeStrategy,
 	}
 )
 
@@ -60,13 +60,13 @@ func NewTargetValuePlugin(log hclog.Logger) strategy.Strategy {
 	}
 }
 
-// SetConfig satisfies the SetConfig function on the base.Plugin interface.
+// SetConfig satisfies the SetConfig function on the base.Base interface.
 func (s *StrategyPlugin) SetConfig(config map[string]string) error {
 	s.config = config
 	return nil
 }
 
-// PluginInfo satisfies the PluginInfo function on the base.Plugin interface.
+// PluginInfo satisfies the PluginInfo function on the base.Base interface.
 func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 	return pluginInfo, nil
 }

@@ -45,6 +45,10 @@ const (
 	// action of horizontal cluster scaling.
 	TargetConfigKeyDrainDeadline = "node_drain_deadline"
 
+	// TargetConfigKeyIgnoreSystemJobs is the config key which defines whether or not
+	// nomad system jobs are drained during the drain operation
+	TargetConfigKeyIgnoreSystemJobs = "node_drain_ignore_system_jobs"
+
 	// TargetConfigKeyNodePurge is the config key which defines whether or not
 	// Nomad clients are purged from Nomad once they have been terminated
 	// within their provider.

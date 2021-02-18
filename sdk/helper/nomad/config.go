@@ -92,44 +92,104 @@ func HTTPAuthFromString(auth string) *api.HttpBasicAuth {
 	}
 }
 
-// MergeMapWithAgentConfig merges a Nomad map config with an agent config. The
-// config parameters within the map take preference.
-func MergeMapWithAgentConfig(m map[string]string, agentCfg *config.Nomad) {
-	if agentCfg == nil {
+// MergeMapWithAgentConfig merges a Nomad map config with an API config object
+// with the map config taking precedence. This allows users to override only a
+// subset of params, while inheriting the agent configured items which are also
+// derived from Nomad API default and env vars.
+func MergeMapWithAgentConfig(m map[string]string, cfg *api.Config) {
+	if cfg == nil {
 		return
 	}
 
-	if agentCfg.Address != "" && m[configKeyNomadAddress] == "" {
-		m[configKeyNomadAddress] = agentCfg.Address
+	if cfg.Address != "" && m[configKeyNomadAddress] == "" {
+		m[configKeyNomadAddress] = cfg.Address
 	}
-	if agentCfg.Region != "" && m[configKeyNomadRegion] == "" {
-		m[configKeyNomadRegion] = agentCfg.Region
+	if cfg.Region != "" && m[configKeyNomadRegion] == "" {
+		m[configKeyNomadRegion] = cfg.Region
 	}
-	if agentCfg.Namespace != "" && m[configKeyNomadNamespace] == "" {
-		m[configKeyNomadNamespace] = agentCfg.Namespace
+	if cfg.Namespace != "" && m[configKeyNomadNamespace] == "" {
+		m[configKeyNomadNamespace] = cfg.Namespace
 	}
-	if agentCfg.Token != "" && m[configKeyNomadToken] == "" {
-		m[configKeyNomadToken] = agentCfg.Token
+	if cfg.SecretID != "" && m[configKeyNomadToken] == "" {
+		m[configKeyNomadToken] = cfg.SecretID
 	}
-	if agentCfg.CACert != "" && m[configKeyNomadCACert] == "" {
-		m[configKeyNomadCACert] = agentCfg.CACert
+	if cfg.TLSConfig.CACert != "" && m[configKeyNomadCACert] == "" {
+		m[configKeyNomadCACert] = cfg.TLSConfig.CACert
 	}
-	if agentCfg.CAPath != "" && m[configKeyNomadCAPath] == "" {
-		m[configKeyNomadCAPath] = agentCfg.CAPath
+	if cfg.TLSConfig.CAPath != "" && m[configKeyNomadCAPath] == "" {
+		m[configKeyNomadCAPath] = cfg.TLSConfig.CAPath
 	}
-	if agentCfg.ClientCert != "" && m[configKeyNomadClientCert] == "" {
-		m[configKeyNomadClientCert] = agentCfg.ClientCert
+	if cfg.TLSConfig.ClientCert != "" && m[configKeyNomadClientCert] == "" {
+		m[configKeyNomadClientCert] = cfg.TLSConfig.ClientCert
 	}
-	if agentCfg.ClientKey != "" && m[configKeyNomadClientKey] == "" {
-		m[configKeyNomadClientKey] = agentCfg.ClientKey
+	if cfg.TLSConfig.ClientKey != "" && m[configKeyNomadClientKey] == "" {
+		m[configKeyNomadClientKey] = cfg.TLSConfig.ClientKey
 	}
-	if agentCfg.TLSServerName != "" && m[configKeyNomadTLSServerName] == "" {
-		m[configKeyNomadTLSServerName] = agentCfg.TLSServerName
+	if cfg.TLSConfig.TLSServerName != "" && m[configKeyNomadTLSServerName] == "" {
+		m[configKeyNomadTLSServerName] = cfg.TLSConfig.TLSServerName
 	}
-	if agentCfg.SkipVerify && m[configKeyNomadSkipVerify] == "" {
-		m[configKeyNomadSkipVerify] = strconv.FormatBool(agentCfg.SkipVerify)
+	if cfg.TLSConfig.Insecure && m[configKeyNomadSkipVerify] == "" {
+		m[configKeyNomadSkipVerify] = strconv.FormatBool(cfg.TLSConfig.Insecure)
 	}
-	if agentCfg.HTTPAuth != "" && m[configKeyNomadHTTPAuth] == "" {
-		m[configKeyNomadHTTPAuth] = agentCfg.HTTPAuth
+	if cfg.HttpAuth != nil && m[configKeyNomadHTTPAuth] == "" {
+		auth := cfg.HttpAuth.Username
+		if cfg.HttpAuth.Password != "" {
+			auth += ":" + cfg.HttpAuth.Password
+		}
+		m[configKeyNomadHTTPAuth] = auth
 	}
+}
+
+// MergeDefaultWithAgentConfig merges the agent Nomad configuration with the
+// default Nomad API configuration. The Nomad Autoscaler agent config takes
+// precedence over the default config as any user supplied variables should
+// override those configured by default or discovered via env vars within the
+// Nomad API config.
+func MergeDefaultWithAgentConfig(agentCfg *config.Nomad) *api.Config {
+
+	// Use the Nomad API default config which gets populated by defaults and
+	// also checks for environment variables.
+	cfg := api.DefaultConfig()
+
+	// Merge our top level configuration options in.
+	if agentCfg.Address != "" {
+		cfg.Address = agentCfg.Address
+	}
+	if agentCfg.Region != "" {
+		cfg.Region = agentCfg.Region
+	}
+	if agentCfg.Namespace != "" {
+		cfg.Namespace = agentCfg.Namespace
+	}
+	if agentCfg.Token != "" {
+		cfg.SecretID = agentCfg.Token
+	}
+
+	// Merge HTTP auth.
+	if agentCfg.HTTPAuth != "" {
+		cfg.HttpAuth = HTTPAuthFromString(agentCfg.HTTPAuth)
+	}
+
+	// Merge TLS. The default config has an empty TLS object and therefore does
+	// not required a nil check.
+	if agentCfg.CACert != "" {
+		cfg.TLSConfig.CACert = agentCfg.CACert
+	}
+	if agentCfg.CAPath != "" {
+		cfg.TLSConfig.CAPath = agentCfg.CAPath
+	}
+	if agentCfg.ClientCert != "" {
+		cfg.TLSConfig.ClientCert = agentCfg.ClientCert
+	}
+	if agentCfg.ClientKey != "" {
+		cfg.TLSConfig.ClientKey = agentCfg.ClientKey
+	}
+	if agentCfg.TLSServerName != "" {
+		cfg.TLSConfig.TLSServerName = agentCfg.TLSServerName
+	}
+	if agentCfg.SkipVerify {
+		cfg.TLSConfig.Insecure = agentCfg.SkipVerify
+	}
+
+	return cfg
 }

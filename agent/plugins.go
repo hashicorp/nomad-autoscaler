@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 )
 
@@ -28,13 +29,13 @@ func (a *Agent) setupPluginsConfig() map[string][]*config.Plugin {
 	cfg := map[string][]*config.Plugin{}
 
 	if len(a.config.APMs) > 0 {
-		cfg[plugins.PluginTypeAPM] = a.config.APMs
+		cfg[sdk.PluginTypeAPM] = a.config.APMs
 	}
 	if len(a.config.Strategies) > 0 {
-		cfg[plugins.PluginTypeStrategy] = a.config.Strategies
+		cfg[sdk.PluginTypeStrategy] = a.config.Strategies
 	}
 	if len(a.config.Targets) > 0 {
-		cfg[plugins.PluginTypeTarget] = a.config.Targets
+		cfg[sdk.PluginTypeTarget] = a.config.Targets
 	}
 
 	// Iterate the configs and perform the config setup on each. If the
@@ -61,7 +62,7 @@ func (a *Agent) setupPluginConfig(cfg map[string]string) {
 	// Nomad config from the agent. If we do not find it, opt-in by default.
 	val, ok := cfg[plugins.ConfigKeyNomadConfigInherit]
 	if !ok {
-		nomadHelper.MergeMapWithAgentConfig(cfg, a.config.Nomad)
+		nomadHelper.MergeMapWithAgentConfig(cfg, a.nomadCfg)
 		return
 	}
 
@@ -75,7 +76,7 @@ func (a *Agent) setupPluginConfig(cfg map[string]string) {
 		return
 	}
 	if boolVal {
-		nomadHelper.MergeMapWithAgentConfig(cfg, a.config.Nomad)
+		nomadHelper.MergeMapWithAgentConfig(cfg, a.nomadCfg)
 	}
 }
 

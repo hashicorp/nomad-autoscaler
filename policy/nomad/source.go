@@ -37,19 +37,17 @@ type Source struct {
 	nomad           *api.Client
 	policyProcessor *policy.Processor
 
-	// reloadChannels help coordinate reloading the of the MonitorIDs routine.
-	reloadCh         chan struct{}
-	reloadCompleteCh chan struct{}
+	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
+	reloadCh chan struct{}
 }
 
 // NewNomadSource returns a new Nomad policy source.
 func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
 	return &Source{
-		log:              log.ResetNamed("nomad_policy_source"),
-		nomad:            nomad,
-		policyProcessor:  policyProcessor,
-		reloadCh:         make(chan struct{}),
-		reloadCompleteCh: make(chan struct{}),
+		log:             log.ResetNamed("nomad_policy_source"),
+		nomad:           nomad,
+		policyProcessor: policyProcessor,
+		reloadCh:        make(chan struct{}),
 	}
 }
 
@@ -70,7 +68,6 @@ func (s *Source) Name() policy.SourceName {
 // level.
 func (s *Source) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
-	<-s.reloadCompleteCh
 }
 
 // MonitorIDs retrieves a list of policy IDs from a Nomad cluster and sends it
@@ -102,7 +99,6 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			return
 		case <-s.reloadCh:
 			s.log.Trace("reloading policies")
-			s.reloadCompleteCh <- struct{}{}
 			continue
 		case <-blockingQueryCompleteCh:
 		}

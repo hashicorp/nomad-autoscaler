@@ -317,7 +317,10 @@ func (t *TargetPlugin) ensureInstancesTerminate(ctx context.Context, ids []strin
 
 	f := func(ctx context.Context) (bool, error) {
 
-		input := ec2.DescribeInstanceStatusInput{InstanceIds: ids}
+		// Ensure we use IncludeAllInstances otherwise instances in a shutting
+		// down state will not be reported resulting in the function returning
+		// sooner than it should.
+		input := ec2.DescribeInstanceStatusInput{InstanceIds: ids, IncludeAllInstances: aws.Bool(true)}
 
 		resp, err := t.ec2.DescribeInstanceStatusRequest(&input).Send(ctx)
 		if err != nil {

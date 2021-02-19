@@ -3,6 +3,7 @@ package nomad
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -35,6 +36,7 @@ var _ policy.Source = (*Source)(nil)
 type Source struct {
 	log             hclog.Logger
 	nomad           *api.Client
+	nomadLock       sync.RWMutex
 	policyProcessor *policy.Processor
 
 	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
@@ -52,6 +54,8 @@ func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy
 }
 
 func (s *Source) SetNomadClient(nomad *api.Client) {
+	s.nomadLock.Lock()
+	defer s.nomadLock.Unlock()
 	s.nomad = nomad
 }
 
@@ -87,9 +91,18 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			err      error
 		)
 
+		// Perform a blocking query on the Nomad API that returns a stub list
+		// of scaling policies. The call is done in a goroutine so we can
+		// still listen for the context closing or a reload request.
 		blockingQueryCompleteCh := make(chan struct{})
 		go func() {
-			policies, meta, err = s.nomad.Scaling().ListPolicies(q)
+			// Obtain a handler now so we can release the lock before starting
+			// the blocking query.
+			s.nomadLock.RLock()
+			scaling := s.nomad.Scaling()
+			s.nomadLock.RUnlock()
+
+			policies, meta, err = scaling.ListPolicies(q)
 			close(blockingQueryCompleteCh)
 		}()
 
@@ -103,11 +116,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		case <-blockingQueryCompleteCh:
 		}
 
-		// Perform a blocking query on the Nomad API that returns a stub list
-		// of scaling policies. If we get an errors at this point, we should
-		// sleep and try again.
+		// If we get an errors at this point, we should sleep and try again.
 		// TODO(jrasell) in the future maybe use a better method than sleep.
-
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 			time.Sleep(10 * time.Second)
@@ -168,7 +178,13 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		// the context closing or a reload request.
 		blockingQueryCompleteCh := make(chan struct{})
 		go func() {
-			p, meta, err = s.nomad.Scaling().GetPolicy(string(req.ID), q)
+			// Obtain a handler now so we can release the lock before starting
+			// the blocking query.
+			s.nomadLock.RLock()
+			scaling := s.nomad.Scaling()
+			s.nomadLock.RUnlock()
+
+			p, meta, err = scaling.GetPolicy(string(req.ID), q)
 			close(blockingQueryCompleteCh)
 		}()
 

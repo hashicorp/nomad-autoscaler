@@ -117,11 +117,18 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		}
 
 		// If we get an errors at this point, we should sleep and try again.
-		// TODO(jrasell) in the future maybe use a better method than sleep.
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
-			time.Sleep(10 * time.Second)
-			continue
+			select {
+			case <-ctx.Done():
+				s.log.Trace("stopping ID subscription")
+				return
+			case <-s.reloadCh:
+				s.log.Trace("reloading policies")
+				continue
+			case <-time.After(10 * time.Second):
+				continue
+			}
 		}
 
 		// If the index has not changed, the query returned because the timeout
@@ -193,7 +200,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			log.Trace("done with policy monitoring")
 			return
 		case <-req.ReloadCh:
-			s.log.Trace("reloading policy monitor")
+			log.Trace("reloading policy monitor")
 			continue
 		case <-blockingQueryCompleteCh:
 		}
@@ -205,11 +212,18 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		}
 
 		// If we get an errors at this point, we should sleep and try again.
-		// TODO(jrasell) in the future maybe use a better method than sleep.
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
-			time.Sleep(10 * time.Second)
-			continue
+			select {
+			case <-ctx.Done():
+				log.Trace("done with policy monitoring")
+				return
+			case <-req.ReloadCh:
+				log.Trace("reloading policy monitor")
+				continue
+			case <-time.After(10 * time.Second):
+				continue
+			}
 		}
 
 		// If the index has not changed, the query returned because the timeout

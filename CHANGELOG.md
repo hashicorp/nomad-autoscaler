@@ -14,6 +14,7 @@ BUG FIXES:
  * agent: Fix an issue where the Autoscaler could get blocked and stop evaluating policies [[GH-354](https://github.com/hashicorp/nomad-autoscaler/pull/354)]
  * agent: Fix Nomad config merging so that Nomad env vars are used correctly [[GH-381](https://github.com/hashicorp/nomad-autoscaler/pull/381)]
  * helper/scaleutils: Filter nodes to ensure unstable pools do not run evaluations [[GH-378](https://github.com/hashicorp/nomad-autoscaler/pull/378)]
+ * plugins/target/aws-asg: Fix a bug where confirming instance termination would exit prematurely [[GH-392](https://github.com/hashicorp/nomad-autoscaler/pull/392)]
 
 ## 0.2.1 (January 12, 2021)
 

@@ -171,10 +171,12 @@ func (a *Agent) reload() {
 	a.logger.Info("reloading Autoscaler configuration")
 
 	// Reload config files from disk.
+	// Exit on error so operators can detect and correct configuration early.
+	// TODO: revisit this once we have a better mechanism for surfacing errors.
 	newCfg, err := config.LoadPaths(a.configPaths)
 	if err != nil {
 		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
-		return
+		os.Exit(1)
 	}
 
 	a.config = newCfg
@@ -182,7 +184,7 @@ func (a *Agent) reload() {
 
 	if err := a.generateNomadClient(); err != nil {
 		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
-		return
+		os.Exit(1)
 	}
 
 	a.logger.Debug("reloading policy sources")

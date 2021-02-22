@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"sort"
 	"time"
 
@@ -87,7 +86,6 @@ func (w *BaseWorker) Run(ctx context.Context) {
 		// Notify broker that policy eval was successful.
 		if err := w.broker.Ack(eval.ID, token); err != nil {
 			logger.Warn("failed to ACK policy evaluation", "err", err)
-			os.Exit(1)
 		}
 	}
 }

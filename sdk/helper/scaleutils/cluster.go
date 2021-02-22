@@ -163,7 +163,7 @@ func (c *ClusterScaleUtils) identifyScaleInRemoteIDs(nodes []*api.NodeListStub) 
 
 		// Read the full node object from the API which will contain the full
 		// information required to identify the remote provider ID. If we get a
-		// single error here, its likely we won't be able to perform any of the
+		// single error here, it's likely we won't be able to perform any of the
 		// API calls, therefore just exit rather than collect all the errors.
 		nodeInfo, _, err := c.client.Nodes().Info(node.ID, nil)
 		if err != nil {

@@ -111,7 +111,9 @@ func (pm *PluginManager) Reload(newCfg map[string][]*config.Plugin) error {
 
 	for _, pID := range pluginsToStop {
 		// Stop current plugin instance.
-		pm.killPlugin(pID)
+		pm.pluginInstancesLock.Lock()
+		pm.killPluginLocked(pID)
+		pm.pluginInstancesLock.Unlock()
 
 		// And remove its configuration.
 		pm.pluginsLock.Lock()
@@ -154,16 +156,17 @@ func (pm *PluginManager) Reload(newCfg map[string][]*config.Plugin) error {
 
 // KillPlugins calls Kill on all plugins currently dispensed.
 func (pm *PluginManager) KillPlugins() {
+	pm.pluginInstancesLock.Lock()
+	defer pm.pluginInstancesLock.Unlock()
+
 	for id := range pm.pluginInstances {
-		pm.killPlugin(id)
+		pm.killPluginLocked(id)
 	}
 }
 
 // killPlugin stops a specific plugin and removes it from the manager.
-func (pm *PluginManager) killPlugin(pID plugins.PluginID) {
-	pm.pluginInstancesLock.Lock()
-	defer pm.pluginInstancesLock.Unlock()
-
+// A lock for pm.pluginInstancesLock must be acquired before calling this method.
+func (pm *PluginManager) killPluginLocked(pID plugins.PluginID) {
 	p, ok := pm.pluginInstances[pID]
 	if !ok {
 		return

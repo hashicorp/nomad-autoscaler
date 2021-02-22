@@ -8,7 +8,7 @@ job "prometheus" {
       driver = "docker"
 
       config {
-        image = "prom/prometheus:v2.18.1"
+        image = "prom/prometheus:v2.25.0"
 
         args = [
           "--config.file=/etc/prometheus/config/prometheus.yml",

@@ -4,6 +4,22 @@ job "autoscaler" {
   group "autoscaler" {
     count = 1
 
+    service {
+      name = "autoscaler"
+      port = "http"
+
+      check {
+        type     = "http"
+        path     = "/v1/health"
+        interval = "5s"
+        timeout  = "2s"
+      }
+    }
+
+    network {
+      port "http" {}
+    }
+
     task "autoscaler" {
       driver = "docker"
 
@@ -17,11 +33,15 @@ job "autoscaler" {
           "$${NOMAD_TASK_DIR}/config.hcl",
           "-http-bind-address",
           "0.0.0.0",
+          "-http-bind-port",
+          "$${NOMAD_PORT_http}",
           "-log-level",
           "debug",
           "-policy-dir",
           "$${NOMAD_TASK_DIR}/policies/",
         ]
+
+        ports = ["http"]
       }
 
       template {
@@ -98,23 +118,6 @@ EOF
       resources {
         cpu    = 50
         memory = 128
-
-        network {
-          mbits = 10
-          port "http" {}
-        }
-      }
-
-      service {
-        name = "autoscaler"
-        port = "http"
-
-        check {
-          type     = "http"
-          path     = "/v1/health"
-          interval = "5s"
-          timeout  = "2s"
-        }
       }
     }
   }

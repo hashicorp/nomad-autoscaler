@@ -3,20 +3,19 @@ package plugin
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/hashicorp/nomad-autoscaler/sdk"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad/api"
 )
 
 const (
-	defaultRetryInterval = 10 * time.Second
-	defaultRetryLimit    = 15
+	defaultRetryInterval  = 10 * time.Second
+	defaultRetryLimit     = 15
+	nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 )
 
 // setupAWSClients takes the passed config mapping and instantiates the
@@ -94,12 +93,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
 
-	scaleReq, err := t.generateScaleReq(num, config)
-	if err != nil {
-		return fmt.Errorf("failed to generate scale in request: %v", err)
-	}
-
-	ids, err := t.scaleInUtils.RunPreScaleInTasks(ctx, scaleReq)
+	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
 	if err != nil {
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
@@ -109,7 +103,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	var instanceIDs []string
 
 	for _, node := range ids {
-		instanceIDs = append(instanceIDs, node.RemoteID)
+		instanceIDs = append(instanceIDs, node.RemoteResourceID)
 	}
 
 	// Create the event writer and write that the drain event has been
@@ -141,55 +135,11 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	eWriter.write(ctx, scalingEventTerminate)
 
 	// Run any post scale in tasks that are desired.
-	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
+	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
 		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
 	}
 
 	return nil
-}
-
-func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*scaleutils.ScaleInReq, error) {
-
-	// Pull the class key from the config mapping. This is a required value and
-	// we cannot scale without this.
-	class, ok := config[sdk.TargetConfigKeyClass]
-	if !ok {
-		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
-	}
-
-	// The drain_deadline is an optional parameter so define out default and
-	// then attempt to find an operator specified value.
-	drain := scaleutils.DefaultDrainDeadline
-	ignoreSystemJobs := scaleutils.DefaultIgnoreSystemJobs
-
-	if drainString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
-		d, err := time.ParseDuration(drainString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as time duration", drainString)
-		}
-		drain = d
-	}
-
-	if ignoreSystemJobsString, ok := config[sdk.TargetConfigKeyIgnoreSystemJobs]; ok {
-		isj, err := strconv.ParseBool(ignoreSystemJobsString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsString)
-		}
-		ignoreSystemJobs = isj
-	}
-
-	return &scaleutils.ScaleInReq{
-		Num:              int(num),
-		DrainDeadline:    drain,
-		IgnoreSystemJobs: ignoreSystemJobs,
-
-		PoolIdentifier: &scaleutils.PoolIdentifier{
-			IdentifierKey: scaleutils.IdentifierKeyClass,
-			Value:         class,
-		},
-		RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-		NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-	}, nil
 }
 
 func (t *TargetPlugin) detachInstances(ctx context.Context, asgName *string, instanceIDs []string) error {
@@ -362,4 +312,14 @@ func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int6
 	}
 
 	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+}
+
+// awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using
+// the relevant attribute value.
+func awsNodeIDMap(n *api.Node) (string, error) {
+	val, ok := n.Attributes[nodeAttrAWSInstanceID]
+	if !ok || val == "" {
+		return "", fmt.Errorf("attribute %q not found", nodeAttrAWSInstanceID)
+	}
+	return val, nil
 }

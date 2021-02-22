@@ -3,104 +3,48 @@ package plugin
 import (
 	"errors"
 	"testing"
-	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTargetPlugin_generateScaleReq(t *testing.T) {
+func Test_awsNodeIDMap(t *testing.T) {
 	testCases := []struct {
-		inputNum            int64
-		inputConfig         map[string]string
-		expectedOutputReq   *scaleutils.ScaleInReq
+		inputNode           *api.Node
+		expectedOutputID    string
 		expectedOutputError error
 		name                string
 	}{
 		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":          "high-memory",
-				"node_drain_deadline": "5m",
+			inputNode: &api.Node{
+				Attributes: map[string]string{"unique.platform.aws.instance-id": "i-1234567890abcdef0"},
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				DrainDeadline:    5 * time.Minute,
-				IgnoreSystemJobs: false,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
-				},
-				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-			},
+			expectedOutputID:    "i-1234567890abcdef0",
 			expectedOutputError: nil,
-			name:                "valid request with drain_deadline in config",
+			name:                "required attribute found",
 		},
 		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":                    "high-memory",
-				"node_drain_ignore_system_jobs": "true",
+			inputNode: &api.Node{
+				Attributes: map[string]string{},
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				IgnoreSystemJobs: true,
-				DrainDeadline:    15 * time.Minute,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
-				},
-				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-			},
-			expectedOutputError: nil,
-			name:                "valid request with node_drain_ignore_system_jobs in config",
+			expectedOutputID:    "",
+			expectedOutputError: errors.New(`attribute "unique.platform.aws.instance-id" not found`),
+			name:                "required attribute not found",
 		},
 		{
-			inputNum:            2,
-			inputConfig:         map[string]string{},
-			expectedOutputReq:   nil,
-			expectedOutputError: errors.New("required config param \"node_class\" not found"),
-			name:                "no class key found in config",
-		},
-		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class": "high-memory",
+			inputNode: &api.Node{
+				Attributes: map[string]string{"unique.platform.aws.instance-id": ""},
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				IgnoreSystemJobs: false,
-				DrainDeadline:    15 * time.Minute,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
-				},
-				RemoteProvider: scaleutils.RemoteProviderAWSInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-			},
-			expectedOutputError: nil,
-			name:                "drain_deadline not specified within config",
-		},
-		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":          "high-memory",
-				"node_drain_deadline": "time to make a cuppa",
-			},
-			expectedOutputReq:   nil,
-			expectedOutputError: errors.New("failed to parse \"time to make a cuppa\" as time duration"),
-			name:                "malformed drain_deadline config value",
+			expectedOutputID:    "",
+			expectedOutputError: errors.New(`attribute "unique.platform.aws.instance-id" not found`),
+			name:                "required attribute found but empty",
 		},
 	}
 
-	tp := TargetPlugin{}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualReq, actualErr := tp.generateScaleReq(tc.inputNum, tc.inputConfig)
-			assert.Equal(t, tc.expectedOutputReq, actualReq, tc.name)
+			actualID, actualErr := awsNodeIDMap(tc.inputNode)
+			assert.Equal(t, tc.expectedOutputID, actualID, tc.name)
 			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
 		})
 	}

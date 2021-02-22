@@ -8,7 +8,7 @@ job "loki" {
       driver = "docker"
 
       config {
-        image = "grafana/loki:1.5.0"
+        image = "grafana/loki:2.1.0"
 
         args = [
           "--config.file=/etc/loki/config/loki.yml",

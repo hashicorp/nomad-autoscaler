@@ -8,12 +8,18 @@ import (
 )
 
 const (
+	// Deprecated. Please use defaultNodeDrainDeadline.
+	//
 	// DefaultDrainDeadline is the drainSpec deadline used if one is not
 	// specified by an operator.
-	DefaultDrainDeadline    = 15 * time.Minute
+	DefaultDrainDeadline = 15 * time.Minute
+
+	// Deprecated. Please use defaultNodeIgnoreSystemJobs.
 	DefaultIgnoreSystemJobs = false
 )
 
+// Deprecated. Please use NewClusterScaleUtils.
+//
 // ScaleInReq represents an individual cluster scaling request and encompasses
 // all the information needed to perform the pre-termination tasks.
 type ScaleInReq struct {

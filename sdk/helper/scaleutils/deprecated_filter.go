@@ -8,12 +8,16 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// Deprecated. Please use NodeResourceID.
+//
 // NodeID provides a mapping between the Nomad ID of a node and its remote
 // infrastructure provider specific ID.
 type NodeID struct {
 	NomadID, RemoteID string
 }
 
+// Deprecated. Please use nodepool.ClusterNodePoolIdentifier.
+//
 // PoolIdentifier is the information used to identify nodes into pools of
 // resources. This then forms our scalable unit.
 type PoolIdentifier struct {
@@ -42,6 +46,8 @@ func (p *PoolIdentifier) IdentifyNodes(n []*api.NodeListStub) ([]*api.NodeListSt
 	}
 }
 
+// Deprecated. Please use nodepool.ClusterNodePoolIdentifier.
+//
 // IdentifierKey is the identifier to group nodes into a pool of resource and
 // thus forms the scalable object.
 type IdentifierKey string
@@ -50,6 +56,8 @@ type IdentifierKey string
 // resource. This is the default.
 const IdentifierKeyClass IdentifierKey = "class"
 
+// Deprecated. Pleas use ClusterNodeIDLookupFunc.
+//
 // RemoteProvider is infrastructure provider which hosts and therefore manages
 // the Nomad client instances. This is used to understand how to translate the
 // Nomad NodeID to an ID that the provider understands.
@@ -67,6 +75,8 @@ const RemoteProviderAzureInstanceID RemoteProvider = "azure_instance_id"
 
 const RemoteProviderGCEInstanceID RemoteProvider = "gce_instance_id"
 
+// Deprecated. Please use ClusterScaleInNodeIDStrategy.
+//
 // NodeIDStrategy is the strategy used to identify nodes for removal as part of
 // scaling in.
 type NodeIDStrategy string
@@ -172,17 +182,6 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 		return nil, err
 	}
 	return out, nil
-}
-
-// multiErrorFunc is a helper to convert the standard multierror output into
-// something a little more friendly to consoles. This is currently only used by
-// the node filter, but could be more useful elsewhere in the future.
-func multiErrorFunc(err []error) string {
-	points := make([]string, len(err))
-	for i, err := range err {
-		points[i] = err.Error()
-	}
-	return strings.Join(points, ", ")
 }
 
 // nodeIDMapFunc is the function signature used to find the Nomad node's remote

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -19,12 +19,9 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery: "node_percentage-allocated_memory/high-memory/class",
 			expectedOutputQuery: &nodePoolQuery{
-				metric: "memory",
-				poolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: "class",
-					Value:         "high-memory",
-				},
-				operation: "percentage-allocated",
+				metric:         "memory",
+				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory"),
+				operation:      "percentage-allocated",
 			},
 			expectError: nil,
 			name:        "node percentage-allocated memory",
@@ -32,12 +29,9 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery: "node_percentage-allocated_cpu/high-compute/class",
 			expectedOutputQuery: &nodePoolQuery{
-				metric: "cpu",
-				poolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: "class",
-					Value:         "high-compute",
-				},
-				operation: "percentage-allocated",
+				metric:         "cpu",
+				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-compute"),
+				operation:      "percentage-allocated",
 			},
 			expectError: nil,
 			name:        "node percentage-allocated cpu",

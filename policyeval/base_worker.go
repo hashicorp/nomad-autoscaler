@@ -323,6 +323,12 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 		return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
 	}
 
+	if h.logger.IsTrace() {
+		for _, m := range h.checkEval.Metrics {
+			h.logger.Trace("metric result", "ts", m.Timestamp, "value", m.Value)
+		}
+	}
+
 	// Calculate new count using check's Strategy.
 	h.logger.Debug("calculating new count", "count", currentStatus.Count)
 	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)

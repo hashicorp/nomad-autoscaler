@@ -141,8 +141,12 @@ LOOP:
 	// of relying on the deferred statements, otherwise the next iteration of
 	// m.Run would be executed before they are complete.
 	m.stopHandlers()
-	m.handlers = make(map[PolicyID]*Handler)
 	cancel()
+
+	// Make sure we start the next iteration with an empty map of handlers.
+	m.lock.Lock()
+	m.handlers = make(map[PolicyID]*Handler)
+	m.lock.Unlock()
 
 	// Delay the next iteration of m.Run to avoid re-runs to start too often.
 	time.Sleep(10 * time.Second)

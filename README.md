@@ -43,11 +43,11 @@ Documentation is available on the [Nomad project website](https://www.nomadproje
 
 ## Demo
 
-There are both [horizontal application scaling](./demo/vagrant/horizontal-app-scaling/README.md) and
-[dynamic application sizing](./demo/vagrant/dynamic-app-sizing/README.md) based demos available
+There are both [horizontal application scaling](https://github.com/hashicorp/nomad-autoscaler-demos/tree/main/vagrant/horizontal-app-scaling) and
+[dynamic application sizing](https://github.com/hashicorp/nomad-autoscaler-demos/tree/main/vagrant/dynamic-app-sizing) based demos available
 providing guided examples of running the autoscaler.
 
-The [remote provider based demo](./demo/remote/README.md) provides guided examples of running horizontal
+The [cloud provider based demo](https://github.com/hashicorp/nomad-autoscaler-demos/tree/main/cloud) provides guided examples of running horizontal
 application and cluster scaling.
 
 ## Building

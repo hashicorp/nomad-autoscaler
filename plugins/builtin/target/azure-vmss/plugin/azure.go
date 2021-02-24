@@ -5,17 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad/api"
 )
+
+const nodeAttrAzureInstanceID = "unique.platform.azure.name"
 
 // argsOrEnv allows you to pick an environmental variable for a setting if the arg is not set
 func argsOrEnv(args map[string]string, key, env string) string {
@@ -89,14 +88,9 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 // scaleIn drain and delete Scale Set instances to match the Autoscaler has deemed required.
 func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScaleSet string, num int64, config map[string]string) error {
 
-	scaleReq, err := t.generateScaleReq(num, config)
+	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
 	if err != nil {
-		return fmt.Errorf("failed to generate scale in request: %v", err)
-	}
-
-	ids, err := t.scaleInUtils.RunPreScaleInTasks(ctx, scaleReq)
-	if err != nil {
-		return fmt.Errorf("failed to perform Nomad scale in tasks: %v", err)
+		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
 
 	// Grab the instanceIDs once as it is used multiple times throughout the
@@ -107,8 +101,8 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		// RemoteID should be in the format of "{scale-set-name}_{instance-id}"
 		// If RemoteID doesn't start vmScaleSet then assume its not part of this scale set.
 		// https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids#scale-set-vm-names
-		if idx := strings.LastIndex(node.RemoteID, "_"); idx != -1 && strings.EqualFold(node.RemoteID[0:idx], vmScaleSet) {
-			instanceIDs = append(instanceIDs, node.RemoteID[idx+1:])
+		if idx := strings.LastIndex(node.RemoteResourceID, "_"); idx != -1 && strings.EqualFold(node.RemoteResourceID[0:idx], vmScaleSet) {
+			instanceIDs = append(instanceIDs, node.RemoteResourceID[idx+1:])
 		} else {
 			return errors.New("failed to get instance-id from remoteid")
 		}
@@ -137,52 +131,24 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	log.Info("successfully deleted Azure ScaleSet instances")
 
 	// Run any post scale in tasks that are desired.
-	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
+	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
 		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
 	}
 
 	return nil
 }
 
-func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*scaleutils.ScaleInReq, error) {
-
-	// Pull the class key from the config mapping. This is a required value and
-	// we cannot scale without this.
-	class, ok := config[sdk.TargetConfigKeyClass]
-	if !ok {
-		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
+// azureNodeIDMap is used to identify the Azure InstanceID of a Nomad node using
+// the relevant attribute value.
+func azureNodeIDMap(n *api.Node) (string, error) {
+	if val, ok := n.Attributes[nodeAttrAzureInstanceID]; ok {
+		return val, nil
 	}
 
-	// The drain_deadline is an optional parameter so define out default and
-	// then attempt to find an operator specified value.
-	drain := scaleutils.DefaultDrainDeadline
-	ignoreSystemJobs := scaleutils.DefaultIgnoreSystemJobs
-
-	if drainString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
-		d, err := time.ParseDuration(drainString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as time duration", drainString)
-		}
-		drain = d
+	// Fallback to meta tag.
+	if val, ok := n.Meta[nodeAttrAzureInstanceID]; ok {
+		return val, nil
 	}
 
-	if ignoreSystemJobsString, ok := config[sdk.TargetConfigKeyIgnoreSystemJobs]; ok {
-		isj, err := strconv.ParseBool(ignoreSystemJobsString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsString)
-		}
-		ignoreSystemJobs = isj
-	}
-
-	return &scaleutils.ScaleInReq{
-		Num:              int(num),
-		DrainDeadline:    drain,
-		IgnoreSystemJobs: ignoreSystemJobs,
-		PoolIdentifier: &scaleutils.PoolIdentifier{
-			IdentifierKey: scaleutils.IdentifierKeyClass,
-			Value:         class,
-		},
-		RemoteProvider: scaleutils.RemoteProviderAzureInstanceID,
-		NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-	}, nil
+	return "", fmt.Errorf("attribute %q not found", nodeAttrAzureInstanceID)
 }

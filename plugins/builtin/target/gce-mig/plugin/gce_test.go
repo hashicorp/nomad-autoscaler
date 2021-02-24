@@ -3,104 +3,64 @@ package plugin
 import (
 	"errors"
 	"testing"
-	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestTargetPlugin_generateScaleReq(t *testing.T) {
+func Test_gceNodeIDMap(t *testing.T) {
 	testCases := []struct {
-		inputNum            int64
-		inputConfig         map[string]string
-		expectedOutputReq   *scaleutils.ScaleInReq
+		inputNode           *api.Node
+		expectedOutputID    string
 		expectedOutputError error
 		name                string
 	}{
 		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":          "high-memory",
-				"node_drain_deadline": "5m",
-			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				DrainDeadline:    5 * time.Minute,
-				IgnoreSystemJobs: false,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
+			inputNode: &api.Node{
+				Attributes: map[string]string{
+					"platform.gce.zone":            "us-central1-f",
+					"unique.platform.gce.hostname": "instance-1.c.project.internal",
 				},
-				RemoteProvider: scaleutils.RemoteProviderGCEInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
 			},
+			expectedOutputID:    "zones/us-central1-f/instances/instance-1",
 			expectedOutputError: nil,
-			name:                "valid request with drain_deadline in config",
+			name:                "required attributes found",
 		},
 		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":                    "high-memory",
-				"node_drain_ignore_system_jobs": "true",
-			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				DrainDeadline:    15 * time.Minute,
-				IgnoreSystemJobs: true,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
+			inputNode: &api.Node{
+				Attributes: map[string]string{
+					"platform.gce.zone":            "us-central1-f",
+					"unique.platform.gce.hostname": "instance-1",
 				},
-				RemoteProvider: scaleutils.RemoteProviderGCEInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
 			},
+			expectedOutputID:    "zones/us-central1-f/instances/instance-1",
 			expectedOutputError: nil,
-			name:                "valid request with node_drain_ignore_system_jobs in config",
+			name:                "required attributes found with non-split hostname",
 		},
 		{
-			inputNum:            2,
-			inputConfig:         map[string]string{},
-			expectedOutputReq:   nil,
-			expectedOutputError: errors.New("required config param \"node_class\" not found"),
-			name:                "no class key found in config",
-		},
-		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class": "high-memory",
+			inputNode: &api.Node{
+				Attributes: map[string]string{},
 			},
-			expectedOutputReq: &scaleutils.ScaleInReq{
-				Num:              2,
-				DrainDeadline:    15 * time.Minute,
-				IgnoreSystemJobs: false,
-				PoolIdentifier: &scaleutils.PoolIdentifier{
-					IdentifierKey: scaleutils.IdentifierKeyClass,
-					Value:         "high-memory",
+			expectedOutputID:    "",
+			expectedOutputError: errors.New(`attribute "platform.gce.zone" not found`),
+			name:                "required attribute zone not found",
+		},
+		{
+			inputNode: &api.Node{
+				Attributes: map[string]string{
+					"platform.gce.zone": "us-central1-f",
 				},
-				RemoteProvider: scaleutils.RemoteProviderGCEInstanceID,
-				NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
 			},
-			expectedOutputError: nil,
-			name:                "drain_deadline not specified within config",
-		},
-		{
-			inputNum: 2,
-			inputConfig: map[string]string{
-				"node_class":          "high-memory",
-				"node_drain_deadline": "time to make a cuppa",
-			},
-			expectedOutputReq:   nil,
-			expectedOutputError: errors.New("failed to parse \"time to make a cuppa\" as time duration"),
-			name:                "malformed drain_deadline config value",
+			expectedOutputID:    "",
+			expectedOutputError: errors.New(`attribute "unique.platform.gce.hostname" not found`),
+			name:                "required attribute hostname not found",
 		},
 	}
 
-	tp := TargetPlugin{}
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualReq, actualErr := tp.generateScaleReq(tc.inputNum, tc.inputConfig)
-			assert.Equal(t, tc.expectedOutputReq, actualReq, tc.name)
+			actualID, actualErr := gceNodeIDMap(tc.inputNode)
+			assert.Equal(t, tc.expectedOutputID, actualID, tc.name)
 			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
 		})
 	}

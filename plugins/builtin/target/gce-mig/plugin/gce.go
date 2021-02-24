@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/sdk"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/go-homedir"
 	"google.golang.org/api/compute/v1"
 	"google.golang.org/api/option"
@@ -18,6 +17,14 @@ import (
 const (
 	defaultRetryInterval = 10 * time.Second
 	defaultRetryLimit    = 15
+
+	// nodeAttrGCEHostname is the node attribute to use when identifying the
+	// GCE hostname of a node.
+	nodeAttrGCEHostname = "unique.platform.gce.hostname"
+
+	// nodeAttrGCEZone is the node attribute to use when identifying the GCE
+	// zone of a node.
+	nodeAttrGCEZone = "platform.gce.zone"
 )
 
 func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
@@ -62,12 +69,8 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int64, config map[string]string) error {
-	scaleReq, err := t.generateScaleReq(num, config)
-	if err != nil {
-		return fmt.Errorf("failed to generate scale in request: %v", err)
-	}
 
-	ids, err := t.scaleInUtils.RunPreScaleInTasks(ctx, scaleReq)
+	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
 	if err != nil {
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
@@ -76,7 +79,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 	var instanceIDs []string
 
 	for _, node := range ids {
-		instanceIDs = append(instanceIDs, node.RemoteID)
+		instanceIDs = append(instanceIDs, node.RemoteResourceID)
 	}
 
 	// Create a logger for this action to pre-populate useful information we
@@ -100,7 +103,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 	log.Debug("scale in GCE MIG confirmed")
 
 	// Run any post scale in tasks that are desired.
-	if err := t.scaleInUtils.RunPostScaleInTasks(config, ids); err != nil {
+	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
 		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
 	}
 
@@ -119,49 +122,6 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 	}
 
 	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
-}
-
-func (t *TargetPlugin) generateScaleReq(num int64, config map[string]string) (*scaleutils.ScaleInReq, error) {
-
-	// Pull the class key from the config mapping. This is a required value and
-	// we cannot scale without this.
-	class, ok := config[sdk.TargetConfigKeyClass]
-	if !ok {
-		return nil, fmt.Errorf("required config param %q not found", sdk.TargetConfigKeyClass)
-	}
-
-	// The drain_deadline is an optional parameter so define our default and
-	// then attempt to find an operator specified value.
-	drain := scaleutils.DefaultDrainDeadline
-	ignoreSystemJobs := scaleutils.DefaultIgnoreSystemJobs
-
-	if drainString, ok := config[sdk.TargetConfigKeyDrainDeadline]; ok {
-		d, err := time.ParseDuration(drainString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as time duration", drainString)
-		}
-		drain = d
-	}
-
-	if ignoreSystemJobsSting, ok := config[sdk.TargetConfigKeyIgnoreSystemJobs]; ok {
-		isj, err := strconv.ParseBool(ignoreSystemJobsSting)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse %q as boolean", ignoreSystemJobsSting)
-		}
-		ignoreSystemJobs = isj
-	}
-
-	return &scaleutils.ScaleInReq{
-		Num:              int(num),
-		DrainDeadline:    drain,
-		IgnoreSystemJobs: ignoreSystemJobs,
-		PoolIdentifier: &scaleutils.PoolIdentifier{
-			IdentifierKey: scaleutils.IdentifierKeyClass,
-			Value:         class,
-		},
-		RemoteProvider: scaleutils.RemoteProviderGCEInstanceID,
-		NodeIDStrategy: scaleutils.IDStrategyNewestCreateIndex,
-	}, nil
 }
 
 func pathOrContents(poc string) (string, error) {
@@ -187,4 +147,22 @@ func pathOrContents(poc string) (string, error) {
 	}
 
 	return poc, nil
+}
+
+// gceNodeIDMap is used to identify the GCE Instance of a Nomad node using the
+// relevant attribute value.
+func gceNodeIDMap(n *api.Node) (string, error) {
+	zone, ok := n.Attributes[nodeAttrGCEZone]
+	if !ok {
+		return "", fmt.Errorf("attribute %q not found", nodeAttrGCEZone)
+	}
+	hostname, ok := n.Attributes[nodeAttrGCEHostname]
+	if !ok {
+		return "", fmt.Errorf("attribute %q not found", nodeAttrGCEHostname)
+	}
+	if idx := strings.Index(hostname, "."); idx != -1 {
+		return fmt.Sprintf("zones/%s/instances/%s", zone, hostname[0:idx]), nil
+	} else {
+		return fmt.Sprintf("zones/%s/instances/%s", zone, hostname), nil
+	}
 }

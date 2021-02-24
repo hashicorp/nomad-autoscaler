@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"sync"
 	"time"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// Deprecated. Please use ClusterScaleUtils.
 type ScaleIn struct {
 	log   hclog.Logger
 	nomad *api.Client
@@ -27,6 +27,8 @@ type ScaleIn struct {
 	curNodeID string
 }
 
+// Deprecated. Please use NewClusterScaleUtils.
+//
 // NewScaleInUtils returns a new ScaleIn implementation which provides helper
 // functions for performing scaling in operations.
 func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
@@ -38,7 +40,7 @@ func NewScaleInUtils(cfg *api.Config, log hclog.Logger) (*ScaleIn, error) {
 
 	// Identifying the node is best-effort and should not result in a terminal
 	// error when setting up the utils.
-	id, err := identifyAutoscalerNodeID(client)
+	id, err := autoscalerNodeID(client)
 	if err != nil {
 		log.Error("failed to identify Nomad Autoscaler nodeID", "error", err)
 	}
@@ -293,7 +295,7 @@ func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.Drain
 
 	// Monitor the drain so we output the log messages. An error here indicates
 	// the drain failed to complete successfully.
-	if err := si.monitorNodeDrain(ctx, nodeID, resp.LastIndex, spec.IgnoreSystemJobs); err != nil {
+	if err := si.monitorNodeDrain(ctx, nodeID, resp.LastIndex); err != nil {
 		return fmt.Errorf("context done while monitoring node drain: %v", err)
 	}
 	return nil
@@ -301,8 +303,11 @@ func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.Drain
 
 // monitorNodeDrain follows the drain of a node, logging the messages we
 // receive to their appropriate level.
-func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) error {
-	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, ignoreSys) {
+//
+// TODO(jrasell): currently the ignoreSys param is hardcoded to false, we will
+//  probably want to expose this to operators in the future.
+func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index uint64) error {
+	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, false) {
 		switch msg.Level {
 		case api.MonitorMsgLevelInfo:
 			si.log.Info("received node drain message", "node_id", nodeID, "msg", msg.Message)
@@ -315,43 +320,4 @@ func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index ui
 		}
 	}
 	return ctx.Err()
-}
-
-// identifyAutoscalerNodeID identifies the NodeID which the autoscaler is
-// running on.
-//
-// TODO(jrasell) this should be removed once the cluster targets and core
-//  autoscaler components are updated to handle reconciliation.
-func identifyAutoscalerNodeID(client *api.Client) (string, error) {
-
-	envVar := os.Getenv("NOMAD_ALLOC_ID")
-	if envVar == "" {
-		return "", nil
-	}
-
-	allocInfo, _, err := client.Allocations().Info(envVar, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to call Nomad allocations info: %v", err)
-	}
-
-	return allocInfo.NodeID, nil
-}
-
-// TODO(jrasell) this should be removed once the cluster targets and core
-//  autoscaler components are updated to handle reconciliation.
-func filterOutNodeID(n []*api.NodeListStub, id string) []*api.NodeListStub {
-
-	if id == "" {
-		return n
-	}
-
-	var out []*api.NodeListStub
-
-	for _, node := range n {
-		if node.ID == id {
-			continue
-		}
-		out = append(out, node)
-	}
-	return out
 }

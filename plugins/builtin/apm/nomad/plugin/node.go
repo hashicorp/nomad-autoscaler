@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -15,7 +16,7 @@ import (
 // all the information needed to perform a Nomad APM query for a node pool.
 type nodePoolQuery struct {
 	metric         string
-	poolIdentifier *scaleutils.PoolIdentifier
+	poolIdentifier nodepool.ClusterNodePoolIdentifier
 	operation      string
 }
 
@@ -78,7 +79,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 // specified node pool. Any error in calling the Nomad API for details will
 // result in an error. This is because with missing data, we cannot reliably
 // make calculations.
-func (a *APMPlugin) getPoolResources(id *scaleutils.PoolIdentifier) (*nodePoolResources, error) {
+func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*nodePoolResources, error) {
 
 	nodes, _, err := a.client.Nodes().List(nil)
 	if err != nil {
@@ -87,7 +88,7 @@ func (a *APMPlugin) getPoolResources(id *scaleutils.PoolIdentifier) (*nodePoolRe
 
 	// Perform our node filtering so we are left with a list of nodes that form
 	// our pool and that are in the correct state.
-	nodePoolList, err := id.IdentifyNodes(nodes)
+	nodePoolList, err := scaleutils.FilterNodes(nodes, id.IsPoolMember)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify nodes within pool: %v", err)
 	}
@@ -166,10 +167,7 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 	}
 
 	query := nodePoolQuery{
-		poolIdentifier: &scaleutils.PoolIdentifier{
-			IdentifierKey: scaleutils.IdentifierKey(mainParts[2]),
-			Value:         mainParts[1],
-		},
+		poolIdentifier: nodepool.NewNodeClassPoolIdentifier(mainParts[1]),
 	}
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)

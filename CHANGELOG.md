@@ -6,6 +6,7 @@ FEATURES:
 
 IMPROVEMENTS:
  * agent: Read Nomad address and region from environment variables [[GH-365](https://github.com/hashicorp/nomad-autoscaler/pull/365)]
+ * helper/scaleutils: refactored scaleutils to remove burden on horizontal cluster scaling target developers and allow for external plugins without core changes [[GH-395](https://github.com/hashicorp/nomad-autoscaler/pull/395)]
  * plugins: Replace net/rpc plugin subsystem with gRPC implementation [[GH-355](https://github.com/hashicorp/nomad-autoscaler/pull/355)]
  * plugins/apm/prometheus: Update Prometheus client dependency from v1.5.1 to v1.9.0 [[GH-368](https://github.com/hashicorp/nomad-autoscaler/pull/368)]
  * plugins/target: Add cluster scaling configuration to ignore system jobs on drain [[GH-356](https://github.com/hashicorp/nomad-autoscaler/pull/356)]

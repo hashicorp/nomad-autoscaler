@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.0 (February 25, 2021)
 
 FEATURES:
   * __GCP MIG Horizontal Cluster Scaling__: Scale the number of Nomad clients within a GCP Managed Instance Groups [[GH-353](https://github.com/hashicorp/nomad-autoscaler/pull/353)]

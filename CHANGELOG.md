@@ -5,6 +5,7 @@ FEATURES:
   * agent: Add pprof HTTP debug endpoints [[GH-349](https://github.com/hashicorp/nomad-autoscaler/pull/349)]
 
 IMPROVEMENTS:
+ * agent: Update Nomad API dependency to v1.0.4 [[GH-401](https://github.com/hashicorp/nomad-autoscaler/pull/401)]
  * agent: Read Nomad address and region from environment variables [[GH-365](https://github.com/hashicorp/nomad-autoscaler/pull/365)]
  * helper/scaleutils: refactored scaleutils to remove burden on horizontal cluster scaling target developers and allow for external plugins without core changes [[GH-395](https://github.com/hashicorp/nomad-autoscaler/pull/395)]
  * plugins: Replace net/rpc plugin subsystem with gRPC implementation [[GH-355](https://github.com/hashicorp/nomad-autoscaler/pull/355)]

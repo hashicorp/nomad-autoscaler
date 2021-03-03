@@ -49,9 +49,6 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
 	defer m.stopHandlers()
 
-	// Start the metrics reporter.
-	go m.periodicMetricsReporter(ctx, m.metricsInterval)
-
 	policyIDsCh := make(chan IDMessage, 2)
 	policyIDsErrCh := make(chan error, 2)
 
@@ -59,6 +56,9 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// list of policies independently from the parent context.
 	monitorCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	// Start the metrics reporter.
+	go m.periodicMetricsReporter(monitorCtx, m.metricsInterval)
 
 	// Start the policy source and listen for changes in the list of policy IDs
 	for _, s := range m.policySource {

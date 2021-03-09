@@ -51,6 +51,10 @@ type Server struct {
 	mux *http.ServeMux
 	srv *http.Server
 
+	// promEnabled tracks whether Prometheus formatted metrics should be
+	// enabled.
+	promEnabled bool
+
 	// aliveness is used to describe the health response and should be set
 	// atomically using healthAlivenessReady and healthAlivenessUnavailable
 	// const declarations.
@@ -62,12 +66,13 @@ type Server struct {
 }
 
 // NewHTTPServer creates a new agent HTTP server.
-func NewHTTPServer(debug bool, cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
+func NewHTTPServer(debug, prom bool, cfg *config.HTTP, log hclog.Logger, agent AgentHTTP) (*Server, error) {
 
 	srv := &Server{
-		log:   log.Named("http_server"),
-		mux:   http.NewServeMux(),
-		agent: agent,
+		log:         log.Named("http_server"),
+		mux:         http.NewServeMux(),
+		agent:       agent,
+		promEnabled: prom,
 	}
 
 	// Setup our handlers.

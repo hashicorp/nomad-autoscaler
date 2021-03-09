@@ -14,6 +14,7 @@ func TestServer_getMetrics(t *testing.T) {
 		inputWriter          *httptest.ResponseRecorder
 		expectedRespCode     int
 		expectedRespContains string
+		enableProm           bool
 		name                 string
 	}{
 		{
@@ -21,6 +22,7 @@ func TestServer_getMetrics(t *testing.T) {
 			inputWriter:          httptest.NewRecorder(),
 			expectedRespCode:     405,
 			expectedRespContains: "Invalid method",
+			enableProm:           false,
 			name:                 "incorrect request method",
 		},
 		{
@@ -28,27 +30,34 @@ func TestServer_getMetrics(t *testing.T) {
 			inputWriter:          httptest.NewRecorder(),
 			expectedRespCode:     200,
 			expectedRespContains: "Counters\":[],\"Gauges\":[],\"Points\":[],\"Samples\":[]",
+			enableProm:           false,
 			name:                 "correct request for JSON metrics",
 		},
-
 		{
 			inputReq:             httptest.NewRequest("GET", "/v1/metrics?format=prometheus", nil),
 			inputWriter:          httptest.NewRecorder(),
 			expectedRespCode:     200,
 			expectedRespContains: "# TYPE go_goroutines gauge",
+			enableProm:           true,
 			name:                 "correct request for Prometheus formatted metrics",
+		},
+		{
+			inputReq:             httptest.NewRequest("GET", "/v1/metrics?format=prometheus", nil),
+			inputWriter:          httptest.NewRecorder(),
+			expectedRespCode:     415,
+			expectedRespContains: "",
+			enableProm:           false,
+			name:                 "Prometheus format metrics disabled",
 		},
 	}
 
-	// Create our HTTP server.
-	srv, stopSrv := TestServer(t)
-	defer stopSrv()
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			srv, stopSrv := TestServer(t, tc.enableProm)
 			srv.mux.ServeHTTP(tc.inputWriter, tc.inputReq)
 			assert.Equal(t, tc.expectedRespCode, tc.inputWriter.Code, tc.name)
 			assert.Contains(t, tc.inputWriter.Body.String(), tc.expectedRespContains, tc.name)
+			stopSrv()
 		})
 	}
 }

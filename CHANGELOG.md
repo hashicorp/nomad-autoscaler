@@ -1,6 +1,7 @@
 ## UNRELEASED
 
 BUG FIXES:
+ * agent: Only allow querying Prometheus formatted metrics if Prometheus is enabled within the config [[GH-416](https://github.com/hashicorp/nomad-autoscaler/pull/416)]
  * policy: Ensure metric emitters use the correct context and are stopped when appropriate [[GH-408](https://github.com/hashicorp/nomad-autoscaler/pull/408)]
 
 ## 0.3.0 (February 25, 2021)

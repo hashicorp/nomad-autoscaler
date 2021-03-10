@@ -25,6 +25,12 @@ func (s *Server) getMetrics(w http.ResponseWriter, r *http.Request) (interface{}
 	}
 
 	if format := r.URL.Query().Get("format"); format == "prometheus" {
+
+		// Only return Prometheus formatted metrics if the user has enabled
+		// this functionality.
+		if !s.promEnabled {
+			return nil, newCodedError(http.StatusUnsupportedMediaType, "Prometheus is not enabled")
+		}
 		s.getPrometheusMetrics().ServeHTTP(w, r)
 		return nil, nil
 	}

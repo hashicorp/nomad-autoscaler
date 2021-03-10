@@ -8,13 +8,13 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 )
 
-func TestServer(t *testing.T) (*Server, func()) {
+func TestServer(t *testing.T, enableProm bool) (*Server, func()) {
 	cfg := &config.HTTP{
 		BindAddress: "127.0.0.1",
 		BindPort:    0, // Use next available port.
 	}
 
-	s, err := NewHTTPServer(false, cfg, hclog.NewNullLogger(), &agent.MockAgentHTTP{})
+	s, err := NewHTTPServer(false, enableProm, cfg, hclog.NewNullLogger(), &agent.MockAgentHTTP{})
 	if err != nil {
 		t.Fatalf("failed to start test server: %v", err)
 	}

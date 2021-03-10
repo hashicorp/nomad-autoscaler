@@ -26,7 +26,7 @@ func TestServer_agentReload(t *testing.T) {
 		},
 	}
 
-	srv, stopSrv := TestServer(t)
+	srv, stopSrv := TestServer(t, false)
 	defer stopSrv()
 
 	for _, tc := range testCases {

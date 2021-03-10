@@ -41,7 +41,7 @@ func TestServer_getHealth(t *testing.T) {
 	}
 
 	// Create our HTTP server.
-	srv, stopSrv := TestServer(t)
+	srv, stopSrv := TestServer(t, false)
 	defer stopSrv()
 
 	for _, tc := range testCases {

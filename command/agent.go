@@ -268,7 +268,7 @@ func (c *AgentCommand) Run(args []string) int {
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, configPaths, logger)
 	httpServer, err := agentHTTP.NewHTTPServer(
-		parsedConfig.Telemetry.PrometheusMetrics, parsedConfig.EnableDebug, parsedConfig.HTTP, logger, c.agent)
+		parsedConfig.EnableDebug, parsedConfig.Telemetry.PrometheusMetrics, parsedConfig.HTTP, logger, c.agent)
 	if err != nil {
 		logger.Error("failed to setup HTTP getHealth server", "error", err)
 		return 1

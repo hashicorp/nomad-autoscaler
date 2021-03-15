@@ -28,3 +28,20 @@ func TestFuncDurationVar(t *testing.T) {
 	assert.Equal(t, "", sv.String())
 	assert.False(t, sv.IsBoolFlag())
 }
+
+func TestFuncMapStringIntVar(t *testing.T) {
+	var result map[string]int
+
+	sv := FuncMapStringIngVar(func(m map[string]int) error {
+		result = m
+		return nil
+	})
+	err := sv.Set("a:1,b:2")
+
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]int{"a": 1, "b": 2}, result)
+	assert.Equal(t, "", sv.String())
+
+	err = sv.Set("a:invalid")
+	assert.Error(t, err)
+}

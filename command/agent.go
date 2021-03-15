@@ -121,6 +121,18 @@ Policy Options:
     The default evaluation interval that will be applied to all scaling policies
     which do not specify an evaluation interval.
 
+Policy Evaluation Options:
+
+  -policy-eval-ack-timeout=<dur>
+    The time limit that an eval must be ACK'd before being considered NACK'd.
+
+  -policy-eval-delivery-limit=<num>
+    The maximum number of times a policy evaluation can be dequeued from the broker.
+
+  -policy-eval-workers
+    The number of workers to initialize for each queue, formatted as
+    <queue1>:<num>,<queue2>:<num>.
+
 Telemetry Options:
 
   -telemetry-disable-hostname
@@ -223,7 +235,7 @@ func (c *AgentCommand) Run(args []string) int {
 
 	parsedConfig, configPaths := c.readConfig()
 	if parsedConfig == nil {
-		fmt.Println("Run 'nomad-autoscaler --help' for more information.")
+		fmt.Println("Run 'nomad-autoscaler agent --help' for more information.")
 		return 1
 	}
 
@@ -290,10 +302,11 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
-		HTTP:      &config.HTTP{},
-		Nomad:     &config.Nomad{},
-		Policy:    &config.Policy{},
-		Telemetry: &config.Telemetry{},
+		HTTP:       &config.HTTP{},
+		Nomad:      &config.Nomad{},
+		Policy:     &config.Policy{},
+		PolicyEval: &config.PolicyEval{},
+		Telemetry:  &config.Telemetry{},
 	}
 
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
@@ -333,6 +346,17 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		cmdConfig.Policy.DefaultEvaluationInterval = d
 		return nil
 	}), "policy-default-evaluation-interval", "")
+
+	// Specify our Policy Eval flags.
+	flags.IntVar(&cmdConfig.PolicyEval.DeliveryLimit, "policy-eval-delivery-limit", 0, "")
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.PolicyEval.AckTimeout = d
+		return nil
+	}), "policy-eval-ack-timeout", "")
+	flags.Var((flaghelper.FuncMapStringIngVar)(func(m map[string]int) error {
+		cmdConfig.PolicyEval.Workers = m
+		return nil
+	}), "policy-eval-workers", "")
 
 	// Specify our Telemetry CLI flags.
 	flags.BoolVar(&cmdConfig.Telemetry.DisableHostname, "telemetry-disable-hostname", false, "")

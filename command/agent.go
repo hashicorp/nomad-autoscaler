@@ -129,7 +129,7 @@ Policy Evaluation Options:
   -policy-eval-delivery-limit=<num>
     The maximum number of times a policy evaluation can be dequeued from the broker.
 
-  -policy-eval-workers
+  -policy-eval-workers=<key:value>
     The number of workers to initialize for each queue, formatted as
     <queue1>:<num>,<queue2>:<num>.
 

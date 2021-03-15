@@ -290,10 +290,11 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
-		HTTP:      &config.HTTP{},
-		Nomad:     &config.Nomad{},
-		Policy:    &config.Policy{},
-		Telemetry: &config.Telemetry{},
+		DynamicApplicationSizing: &config.DynamicApplicationSizing{},
+		HTTP:                     &config.HTTP{},
+		Nomad:                    &config.Nomad{},
+		Policy:                   &config.Policy{},
+		Telemetry:                &config.Telemetry{},
 	}
 
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
@@ -305,6 +306,22 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
 	flags.BoolVar(&cmdConfig.EnableDebug, "enable-debug", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
+
+	// Specify our Dynamic Application Sizing flags.
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.DynamicApplicationSizing.EvaluateAfter = d
+		return nil
+	}), "das-evaluate-after", "")
+	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+		cmdConfig.DynamicApplicationSizing.MetricsPreloadThreshold = d
+		return nil
+	}), "das-metrics-preload-threshold", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.NamespaceLabel, "das-namespace-label", "", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.JobLabel, "das-job-label", "", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.GroupLabel, "das-group-label", "", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.TaskLabel, "das-task-label", "", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.CPUMetric, "das-cpu-metric", "", "")
+	flags.StringVar(&cmdConfig.DynamicApplicationSizing.MemoryMetric, "das-memory-metric", "", "")
 
 	// Specify our HTTP bind flags.
 	flags.StringVar(&cmdConfig.HTTP.BindAddress, "http-bind-address", "", "")

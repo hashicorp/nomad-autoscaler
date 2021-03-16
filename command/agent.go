@@ -131,7 +131,9 @@ Policy Evaluation Options:
 
   -policy-eval-workers=<key:value>
     The number of workers to initialize for each queue, formatted as
-    <queue1>:<num>,<queue2>:<num>.
+    <queue1>:<num>,<queue2>:<num>. Nomad Autoscaler supports "cluster" and
+	"horizontal" queues. Nomad Autoscaler Enterprise supports additional
+	"vertical_mem" and "vertical_cpu" queues.
 
 Telemetry Options:
 

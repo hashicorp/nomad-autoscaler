@@ -1,6 +1,8 @@
 package flag
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -31,3 +33,30 @@ func (f FuncDurationVar) Set(s string) error {
 }
 func (f FuncDurationVar) String() string   { return "" }
 func (f FuncDurationVar) IsBoolFlag() bool { return false }
+
+// FuncMapStringIngVar is a type of flag that accepts a function, converts the
+// user's value to a map[string]int, and then calls the given function.
+// User input should be in the <k1>:<v1>,<k2>:<v2>,... format.
+type FuncMapStringIngVar func(m map[string]int) error
+
+func (f FuncMapStringIngVar) Set(s string) error {
+	m := make(map[string]int)
+
+	for _, kv := range strings.Split(s, ",") {
+		parts := strings.Split(kv, ":")
+		if len(parts) != 2 {
+			return fmt.Errorf("%q should be in <key>:<value> format", kv)
+		}
+
+		k := parts[0]
+		v, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return fmt.Errorf("%q is not a number", parts[1])
+		}
+
+		m[k] = v
+	}
+	return f(m)
+}
+
+func (f FuncMapStringIngVar) String() string { return "" }

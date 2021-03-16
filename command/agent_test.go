@@ -119,6 +119,24 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			}),
 		},
 		{
+			name: "policy eval flags",
+			args: []string{
+				"-policy-eval-ack-timeout", "30m",
+				"-policy-eval-delivery-limit", "10",
+				"-policy-eval-workers", "horizontal:1,cluster:2",
+			},
+			want: defaultConfig.Merge(&config.Agent{
+				PolicyEval: &config.PolicyEval{
+					DeliveryLimit: 10,
+					AckTimeout:    30 * time.Minute,
+					Workers: map[string]int{
+						"horizontal": 1,
+						"cluster":    2,
+					},
+				},
+			}),
+		},
+		{
 			name: "telemetry flags",
 			args: []string{
 				"-telemetry-disable-hostname",

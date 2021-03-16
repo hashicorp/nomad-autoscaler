@@ -59,5 +59,5 @@ command. This will output the compiled binary to `./bin/nomad-autoscaler`.
 
 As a tech preview, this project is under constant updates, so every day the
 [`nightly` release](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly) is updated
-with binaries built off the latest code in the `master` branch. This should make it easier for you
+with binaries built off the latest code in the `main` branch. This should make it easier for you
 to try new features and bug fixes.

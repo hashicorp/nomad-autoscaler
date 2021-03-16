@@ -246,6 +246,16 @@ func TestAgent_Merge(t *testing.T) {
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)
+
+	// Test merge on nil config.
+	var nilCfg *Agent
+	actualResult = nilCfg.Merge(baseCfg)
+	assert.Equal(t, baseCfg, actualResult)
+
+	// Test merge on empty config.
+	emptyCfg := &Agent{}
+	actualResult = emptyCfg.Merge(baseCfg)
+	assert.Equal(t, baseCfg, actualResult)
 }
 
 func TestAgent_parseFile(t *testing.T) {

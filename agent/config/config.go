@@ -354,6 +354,10 @@ func Default() (*Agent, error) {
 
 // Merge is used to merge two agent configurations.
 func (a *Agent) Merge(b *Agent) *Agent {
+	if a == nil {
+		return b
+	}
+
 	result := *a
 
 	if b.EnableDebug {
@@ -432,6 +436,10 @@ func (a *Agent) Validate() error {
 }
 
 func (h *HTTP) merge(b *HTTP) *HTTP {
+	if h == nil {
+		return b
+	}
+
 	result := *h
 
 	if b.BindAddress != "" {
@@ -445,6 +453,10 @@ func (h *HTTP) merge(b *HTTP) *HTTP {
 }
 
 func (n *Nomad) merge(b *Nomad) *Nomad {
+	if n == nil {
+		return b
+	}
+
 	result := *n
 
 	if b.Address != "" {
@@ -485,6 +497,10 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 }
 
 func (t *Telemetry) merge(b *Telemetry) *Telemetry {
+	if t == nil {
+		return b
+	}
+
 	result := *t
 
 	if b.StatsiteAddr != "" {
@@ -555,6 +571,10 @@ func (t *Telemetry) merge(b *Telemetry) *Telemetry {
 }
 
 func (p *Plugin) merge(o *Plugin) *Plugin {
+	if p == nil {
+		return o
+	}
+
 	m := *p
 
 	if len(o.Name) != 0 {
@@ -571,6 +591,10 @@ func (p *Plugin) merge(o *Plugin) *Plugin {
 }
 
 func (p *Plugin) copy() *Plugin {
+	if p == nil {
+		return nil
+	}
+
 	c := *p
 	if i, err := copystructure.Copy(p.Config); err != nil {
 		panic(err.Error())
@@ -581,6 +605,10 @@ func (p *Plugin) copy() *Plugin {
 }
 
 func (p *Policy) merge(b *Policy) *Policy {
+	if p == nil {
+		return b
+	}
+
 	result := *p
 
 	if b.Dir != "" {
@@ -596,6 +624,10 @@ func (p *Policy) merge(b *Policy) *Policy {
 }
 
 func (pw *PolicyEval) merge(in *PolicyEval) *PolicyEval {
+	if pw == nil {
+		return in
+	}
+
 	result := *pw
 
 	if in.AckTimeout != 0 {

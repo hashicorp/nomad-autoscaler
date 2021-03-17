@@ -2,13 +2,14 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -55,8 +56,7 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 		cfg.Credentials = aws.NewStaticCredentialsProvider(keyID, secretKey, session)
 	}
 
-	// Set up our AWS clients.
-	t.ec2 = ec2.New(cfg)
+	// Set up our AWS client.
 	t.asg = autoscaling.New(cfg)
 
 	return nil
@@ -93,18 +93,36 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
 
-	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
+	// The AWS plugin utilises the individual scaleutils calls due to the way
+	// in which the TerminateInstanceInAutoScalingGroupRequest call works. We
+	// need to ensure the nodes are part of the target ASG before performing
+	// actions, and draining the nodes just to get an error at this phase is
+	// wasteful and means we need reconciliation.
+	if t.clusterUtils.ClusterNodeIDLookupFunc == nil {
+		return errors.New("required ClusterNodeIDLookupFunc not set")
+	}
+
+	nodes, err := t.clusterUtils.IdentifyScaleInNodes(config, int(num))
 	if err != nil {
-		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
+		return err
 	}
 
-	// Grab the instanceIDs once as it is used multiple times throughout the
-	// scale in event.
-	var instanceIDs []string
-
-	for _, node := range ids {
-		instanceIDs = append(instanceIDs, node.RemoteResourceID)
+	nodeResourceIDs, err := t.clusterUtils.IdentifyScaleInRemoteIDs(nodes)
+	if err != nil {
+		return err
 	}
+
+	// Any error received here indicates misconfiguration between the ASG and
+	// the Nomad node pool.
+	instanceIDs, err := instancesBelongToASG(asg, nodeResourceIDs)
+	if err != nil {
+		return err
+	}
+
+	if err := t.clusterUtils.DrainNodes(ctx, config, nodeResourceIDs); err != nil {
+		return err
+	}
+	t.logger.Info("pre scale-in tasks now complete")
 
 	// Create the event writer and write that the drain event has been
 	// completed which is part of the RunPreScaleInTasks() function.
@@ -113,85 +131,130 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName,
-		"instances", instanceIDs)
+	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
 
-	// Detach the desired instances.
-	log.Debug("detaching instances from AutoScaling Group")
+	// Run the termination and log the results.
+	result := t.terminateInstancesInASG(ctx, nodeResourceIDs)
+	result.logResults(log)
 
-	if err := t.detachInstances(ctx, asg.AutoScalingGroupName, instanceIDs); err != nil {
-		return fmt.Errorf("failed to scale in AWS AutoScaling Group: %v", err)
-	}
-	log.Info("successfully detached instances from AutoScaling Group")
-	eWriter.write(ctx, scalingEventDetach)
-
-	// Terminate the detached instances.
-	log.Debug("terminating EC2 instances")
-
-	if err := t.terminateInstances(ctx, instanceIDs); err != nil {
-		return fmt.Errorf("failed to scale in AWS AutoScaling Group: %v", err)
-	}
-	log.Info("successfully terminated EC2 instances")
-	eWriter.write(ctx, scalingEventTerminate)
-
-	// Run any post scale in tasks that are desired.
-	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
-		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
+	// If we have any failures, perform our revert so we don't leave nodes in
+	// an undesired state.
+	if result.lenFailure() > 0 {
+		t.clusterUtils.RunPostScaleInTasksOnFailure(result.failedIDs())
 	}
 
-	return nil
+	// If we had successfully termination from the ASG, track these activities
+	// until completion. A failure here should not fail the scaling activity as
+	// AWS should honour the contract, it could be a case of there being
+	// slowness in the AWS system and us timing out.
+	if result.lenSuccess() > 0 {
+
+		t.logger.Debug("ensuring AWS ASG activities complete")
+
+		if err := t.ensureActivitiesComplete(ctx, *asg.AutoScalingGroupName, result.activityIDs()); err != nil {
+			log.Error("failed to ensure all activities completed", "error", err)
+		} else {
+			t.logger.Debug("confirmed AWS ASG activities completed")
+		}
+		eWriter.write(ctx, scalingEventTerminate)
+
+		// Run any post scale in tasks that are desired.
+		if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, result.successfulIDs()); err != nil {
+			return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
+		}
+	}
+
+	if result.lenFailure() > 0 && result.lenSuccess() > 0 {
+		log.Warn("partial scaling success",
+			"success_num", result.lenSuccess(), "failed_num", result.lenFailure())
+		return nil
+	}
+	return result.errorOrNil()
 }
 
-func (t *TargetPlugin) detachInstances(ctx context.Context, asgName *string, instanceIDs []string) error {
+// instancesBelongToASG checks that all the instances identified for scaling in
+// belong to the target ASG.
+func instancesBelongToASG(asg *autoscaling.AutoScalingGroup, ids []scaleutils.NodeResourceID) ([]string, error) {
 
-	asgInput := autoscaling.DetachInstancesInput{
-		AutoScalingGroupName:           asgName,
-		InstanceIds:                    instanceIDs,
+	// Grab the instanceIDs once as it is used multiple times throughout the
+	// scale in event.
+	var instanceIDs []string
+
+	// isMissing tracks the total number of instance deemed missing from the
+	// ASG to provide some user context.
+	var isMissing int
+
+	for _, node := range ids {
+
+		// found identifies whether this individual node has been located
+		// within the ASG.
+		var found bool
+
+		// Iterate the instance within the ASG, and exit if we identify a
+		// match to continue below.
+		for _, asgIDs := range asg.Instances {
+			if node.RemoteResourceID == *asgIDs.InstanceId {
+				found = true
+				break
+			}
+		}
+
+		if found {
+			instanceIDs = append(instanceIDs, node.RemoteResourceID)
+		} else {
+			isMissing++
+		}
+	}
+
+	if isMissing > 0 {
+		return nil, fmt.Errorf("%v selected nodes are not found within ASG", isMissing)
+	}
+	return instanceIDs, nil
+}
+
+// terminateInstancesInASG handles terminating all instances passed and returns
+// an object detailing the complete status of the performed action.
+func (t *TargetPlugin) terminateInstancesInASG(ctx context.Context, ids []scaleutils.NodeResourceID) instanceTerminationResult {
+
+	var status instanceTerminationResult
+
+	for _, id := range ids {
+		activityID, err := t.terminateInstance(ctx, id.RemoteResourceID)
+		if err != nil {
+			status.appendFailure(instanceFailure{instance: id, err: err})
+			continue
+		}
+		status.appendSuccess(instanceSuccess{instance: id, activityID: activityID})
+	}
+
+	return status
+}
+
+// terminateInstancesInASG terminates a single instance within an AWS
+// AutoScaling Group. It returns any error from the API, along with the
+// activity ID from the scaling event.
+func (t *TargetPlugin) terminateInstance(ctx context.Context, id string) (*string, error) {
+
+	asgInput := autoscaling.TerminateInstanceInAutoScalingGroupInput{
+		InstanceId:                     aws.String(id),
 		ShouldDecrementDesiredCapacity: aws.Bool(true),
 	}
 
-	asgResp, err := t.asg.DetachInstancesRequest(&asgInput).Send(ctx)
+	// The underlying AWS client HTTP request includes backoff and retry in the
+	// event of errors such as timeouts and rate-limiting. There is therefore
+	// no value in retrying requests that fail.
+	resp, err := t.asg.TerminateInstanceInAutoScalingGroupRequest(&asgInput).Send(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to detach intances from Autoscaling Group: %v", err)
+		return nil, err
 	}
 
-	// Identify the activities that were created as a result of the detachment
-	// request so that we can go ahead and track these to completion.
-	var activityIDs []string
-
-	for _, activity := range asgResp.Activities {
-		activityIDs = append(activityIDs, *activity.ActivityId)
+	// It's unknown whether this will ever hit in the event the return error is
+	// nil, but we should protect against a nil pointer error. The ActivityId
+	// is required, therefore if Activity is not nil, this should be there.
+	if resp.Activity == nil {
+		return nil, errors.New("AWS returned nil activity response object")
 	}
-
-	// Confirm that the detachments complete before moving on. I (jrasell) am
-	// not exactly sure what happens if we terminate an instance which is still
-	// detaching from an ASG, but we might as well avoid finding out if we can.
-	err = t.ensureActivitiesComplete(ctx, activityIDs, *asgName)
-	if err != nil {
-		return fmt.Errorf("failed to detached instances from AutoScaling Group: %v", err)
-	}
-	return nil
-}
-
-func (t *TargetPlugin) terminateInstances(ctx context.Context, instanceIDs []string) error {
-
-	ec2Input := ec2.TerminateInstancesInput{InstanceIds: instanceIDs}
-
-	// TODO(jrasell) the response includes information about instance status
-	//  changes which we may want to validate in the future.
-	_, err := t.ec2.TerminateInstancesRequest(&ec2Input).Send(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to terminate EC2 intances: %v", err)
-	}
-
-	// Confirm that the instances have indeed terminated properly. This allows
-	// us to handle reconciliation if the error is transient, or at least
-	// allows operators to see the error and perform manual actions to resolve.
-	err = t.ensureInstancesTerminate(ctx, instanceIDs)
-	if err != nil {
-		return fmt.Errorf("failed to terminate EC2 instances: %v", err)
-	}
-	return nil
+	return resp.Activity.ActivityId, nil
 }
 
 func (t *TargetPlugin) describeASG(ctx context.Context, asgName string) (*autoscaling.AutoScalingGroup, error) {
@@ -232,7 +295,7 @@ func (t *TargetPlugin) describeActivities(ctx context.Context, asgName string, i
 	return resp.Activities, nil
 }
 
-func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, ids []string, asg string) error {
+func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, asg string, ids []string) error {
 
 	f := func(ctx context.Context) (bool, error) {
 
@@ -258,40 +321,6 @@ func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, ids []strin
 			return true, nil
 		}
 		return false, fmt.Errorf("waiting for %v activities to finish", len(ids))
-	}
-
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
-}
-
-func (t *TargetPlugin) ensureInstancesTerminate(ctx context.Context, ids []string) error {
-
-	f := func(ctx context.Context) (bool, error) {
-
-		// Ensure we use IncludeAllInstances otherwise instances in a shutting
-		// down state will not be reported resulting in the function returning
-		// sooner than it should.
-		input := ec2.DescribeInstanceStatusInput{InstanceIds: ids, IncludeAllInstances: aws.Bool(true)}
-
-		resp, err := t.ec2.DescribeInstanceStatusRequest(&input).Send(ctx)
-		if err != nil {
-			return true, err
-		}
-
-		// Reset the instance IDs we want to check so this can be populated again
-		// once we have processed their current status information.
-		ids = []string{}
-
-		for _, instanceStatus := range resp.InstanceStatuses {
-			if instanceStatus.InstanceState.Name != ec2.InstanceStateNameTerminated {
-				ids = append(ids, *instanceStatus.InstanceId)
-			}
-		}
-
-		// If we dont have any remaining IDs to check, we can finish.
-		if len(ids) == 0 {
-			return true, nil
-		}
-		return false, fmt.Errorf("waiting for %v instances to terminate", len(ids))
 	}
 
 	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)

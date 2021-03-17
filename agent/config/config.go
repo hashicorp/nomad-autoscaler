@@ -466,6 +466,8 @@ func (a *Agent) Merge(b *Agent) *Agent {
 func (a *Agent) Validate() error {
 	var result *multierror.Error
 
+	result = multierror.Append(result, a.ValidateEnt())
+
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())
 	}

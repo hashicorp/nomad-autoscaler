@@ -411,6 +411,12 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		return nil, configPath
 	}
 
+	// Validate config values from flags.
+	if err := cmdConfig.Validate(); err != nil {
+		fmt.Printf("%s\n", err)
+		return nil, configPath
+	}
+
 	fileConfig, err := config.LoadPaths(configPath)
 	if err != nil {
 		fmt.Printf("%s\n", err)

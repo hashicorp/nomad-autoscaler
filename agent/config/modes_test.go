@@ -8,15 +8,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestValidateEntSubtree(t *testing.T) {
-	// Inject a slice so we can test it.
-	// TODO: remove this once we have a real slice config.
-	entOnlyConfig = append(entOnlyConfig, "apm -> config")
-
+func TestAgent_validateStructModes(t *testing.T) {
 	testCases := []struct {
 		name            string
 		path            string
 		subtree         interface{}
+		rootMode        mode
 		expectedInvalid []string
 	}{
 		{
@@ -86,6 +83,7 @@ func TestValidateEntSubtree(t *testing.T) {
 			subtree: &DynamicApplicationSizing{
 				MemoryMetric: "my_label",
 			},
+			rootMode: MODE_ENT,
 			expectedInvalid: []string{
 				"dynamic_application_sizing -> memory_metric",
 			},
@@ -102,6 +100,9 @@ func TestValidateEntSubtree(t *testing.T) {
 					},
 				},
 			},
+			// Artificially set root mode requirement so we can test a slice.
+			// TODO: remove this once we have a proper slice with mode requirement.
+			rootMode: MODE_ENT,
 			expectedInvalid: []string{
 				"apm -> config",
 			},
@@ -110,7 +111,7 @@ func TestValidateEntSubtree(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateEntSubtree(tc.path, tc.subtree)
+			err := validateStructModes(tc.path, tc.subtree, tc.rootMode)
 
 			if len(tc.expectedInvalid) == 0 {
 				assert.NoError(t, err)

@@ -40,7 +40,7 @@ type Agent struct {
 
 	// DynamicApplicationSizing is the configuration for the components used
 	// in Dynamic Application Sizing.
-	DynamicApplicationSizing *DynamicApplicationSizing `hcl:"dynamic_application_sizing,block"`
+	DynamicApplicationSizing *DynamicApplicationSizing `hcl:"dynamic_application_sizing,block" modes:"ent"`
 
 	// HTTP is the configuration used to setup the HTTP health server.
 	HTTP *HTTP `hcl:"http,block"`
@@ -466,7 +466,7 @@ func (a *Agent) Merge(b *Agent) *Agent {
 func (a *Agent) Validate() error {
 	var result *multierror.Error
 
-	result = multierror.Append(result, a.ValidateEnt())
+	result = multierror.Append(result, validateStructModes("", a, MODE_NONE))
 
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())

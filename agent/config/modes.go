@@ -153,6 +153,8 @@ func supportedVersionsMsg(modes mode) string {
 		return ""
 	case 1:
 		return names[0]
+	case 2:
+		return fmt.Sprintf("%s and %s", names[0], names[1])
 	default:
 		init := names[0 : len(names)-1]
 		last := names[len(names)-1]

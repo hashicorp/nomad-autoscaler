@@ -58,6 +58,10 @@ func validateEntSubtree(path string, subtree interface{}) error {
 		t = t.Elem()
 	}
 
+	if v.Kind() != reflect.Struct {
+		return nil
+	}
+
 	// Iterate over the subfields.
 	for i := 0; i < v.NumField(); i++ {
 

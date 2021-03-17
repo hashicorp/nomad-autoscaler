@@ -38,6 +38,12 @@ func TestValidateEntSubtree(t *testing.T) {
 			expectedInvalid: []string{},
 		},
 		{
+			name:            "not struct",
+			path:            "",
+			subtree:         "hi",
+			expectedInvalid: []string{},
+		},
+		{
 			name: "no enterprise",
 			path: "",
 			subtree: Agent{

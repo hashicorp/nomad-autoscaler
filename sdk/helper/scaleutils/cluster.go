@@ -64,7 +64,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 		return nil, errors.New("required ClusterNodeIDLookupFunc not set")
 	}
 
-	nodes, err := c.identifyScaleInNodes(cfg, num)
+	nodes, err := c.IdentifyScaleInNodes(cfg, num)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 	// Technically we do not need this information until after the nodes have
 	// been drained. However, this doesn't change cluster state and so do this
 	// first to make sure there are no issues in translating.
-	nodeResourceIDs, err := c.identifyScaleInRemoteIDs(nodes)
+	nodeResourceIDs, err := c.IdentifyScaleInRemoteIDs(nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 	// Drain the nodes.
 	// TODO(jrasell) we should try some reconciliation here, where we identify
 	//  failed nodes and continue with nodes that drained successfully.
-	if err := c.drainNodes(ctx, cfg, nodeResourceIDs); err != nil {
+	if err := c.DrainNodes(ctx, cfg, nodeResourceIDs); err != nil {
 		return nil, err
 	}
 	c.log.Info("pre scale-in tasks now complete")
@@ -88,7 +88,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 	return nodeResourceIDs, nil
 }
 
-func (c *ClusterScaleUtils) identifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
+func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
 	// The Nomad Autoscaler can only handle node class identifiers currently
 	// and therefore we just set that up. In the future if we wish to expand on
@@ -152,7 +152,7 @@ func (c *ClusterScaleUtils) identifyScaleInNodes(cfg map[string]string, num int)
 	return out, nil
 }
 
-func (c *ClusterScaleUtils) identifyScaleInRemoteIDs(nodes []*api.NodeListStub) ([]NodeResourceID, error) {
+func (c *ClusterScaleUtils) IdentifyScaleInRemoteIDs(nodes []*api.NodeListStub) ([]NodeResourceID, error) {
 
 	var (
 		out  []NodeResourceID

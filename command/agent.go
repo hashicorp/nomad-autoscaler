@@ -57,6 +57,34 @@ Options:
     specified, the plugin directory defaults to be that of
     <current-dir>/plugins/.
 
+Dynamic Application Sizing Options (Enterprise-only):
+
+  -das-evaluate-after=<dur>
+    The time limit for how much historical data must be available before the
+    Autoscaler makes recommendations.
+
+  -das-metrics-preload-threshold=<dur>
+    The time limit for how much historical data to preload when the Autoscaler
+    starts.
+
+  -das-namespace-label=<label>
+    The label used by the APM to store the namespace of a job.
+
+  -das-job-label=<label>
+    The label used by the APM to store the ID of a job.
+
+  -das-group-label=<label>
+    The label used by the APM to store the name of a group.
+
+  -das-task-label=<label>
+    The label used by the APM to store the name of a task.
+
+  -das-cpu-metric=<metric>
+    The metric used to query the APM for historical CPU usage.
+
+  -das-memory-metric=<metric>
+    The metric used to query the APM for historical memory usage.
+
 HTTP Options:
 
   -http-bind-address=<addr>

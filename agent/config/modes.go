@@ -156,6 +156,6 @@ func supportedVersionsMsg(modes mode) string {
 	default:
 		init := names[0 : len(names)-1]
 		last := names[len(names)-1]
-		return fmt.Sprintf("%s and %s", strings.Join(init, ", "), last)
+		return fmt.Sprintf("%s, and %s", strings.Join(init, ", "), last)
 	}
 }

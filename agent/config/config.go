@@ -466,7 +466,8 @@ func (a *Agent) Merge(b *Agent) *Agent {
 func (a *Agent) Validate() error {
 	var result *multierror.Error
 
-	result = multierror.Append(result, validateStructModes("", a, MODE_NONE))
+	modeChecker := NewModeChecker()
+	result = multierror.Append(result, modeChecker.ValidateStruct(a))
 
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())

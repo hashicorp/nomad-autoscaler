@@ -340,6 +340,8 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		Telemetry:                &config.Telemetry{},
 	}
 
+	modeChecker := config.NewModeChecker()
+
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
 	flags.Usage = func() { c.Help() }
 
@@ -351,20 +353,36 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
 
 	// Specify our Dynamic Application Sizing flags.
-	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
-		cmdConfig.DynamicApplicationSizing.EvaluateAfter = d
-		return nil
-	}), "das-evaluate-after", "")
-	flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
-		cmdConfig.DynamicApplicationSizing.MetricsPreloadThreshold = d
-		return nil
-	}), "das-metrics-preload-threshold", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.NamespaceLabel, "das-namespace-label", "", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.JobLabel, "das-job-label", "", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.GroupLabel, "das-group-label", "", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.TaskLabel, "das-task-label", "", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.CPUMetric, "das-cpu-metric", "", "")
-	flags.StringVar(&cmdConfig.DynamicApplicationSizing.MemoryMetric, "das-memory-metric", "", "")
+	modeChecker.Flag("das-evaluate-after", []string{"ent"}, func(name string) {
+		flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+			cmdConfig.DynamicApplicationSizing.EvaluateAfter = d
+			return nil
+		}), name, "")
+	})
+	modeChecker.Flag("das-metrics-preload-threshold", []string{"ent"}, func(name string) {
+		flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+			cmdConfig.DynamicApplicationSizing.MetricsPreloadThreshold = d
+			return nil
+		}), name, "")
+	})
+	modeChecker.Flag("das-namespace-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.NamespaceLabel, name, "", "")
+	})
+	modeChecker.Flag("das-job-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.JobLabel, name, "", "")
+	})
+	modeChecker.Flag("das-group-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.GroupLabel, name, "", "")
+	})
+	modeChecker.Flag("das-task-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.TaskLabel, name, "", "")
+	})
+	modeChecker.Flag("das-cpu-metric", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.CPUMetric, name, "", "")
+	})
+	modeChecker.Flag("das-memory-metric", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.MemoryMetric, name, "", "")
+	})
 
 	// Specify our HTTP bind flags.
 	flags.StringVar(&cmdConfig.HTTP.BindAddress, "http-bind-address", "", "")
@@ -436,6 +454,11 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
 	if err := flags.Parse(c.args); err != nil {
+		return nil, configPath
+	}
+
+	if err := modeChecker.ValidateFlags(flags); err != nil {
+		fmt.Printf("%s\n", err)
 		return nil, configPath
 	}
 

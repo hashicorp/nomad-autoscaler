@@ -17,6 +17,8 @@ type TestStruct struct {
 	NestedPro       *TestNestedStruct `hcl:"nested_pro,block" modes:"pro"`
 	NestedProExpert *TestNestedStruct `hcl:"nested_pro_expert,block" modes:"pro,expert"`
 
+	NonPointerNestedEnt TestNestedStruct `hcl:"non_pointer_nested_ent,block" modes:"ent"`
+
 	NestedMultiple []*TestNestedStruct `hcl:"nested_multiple,block"`
 }
 
@@ -40,6 +42,9 @@ func NewTestStruct() *TestStruct {
 			DeepNested: &TestDeepNested{},
 		},
 		NestedProExpert: &TestNestedStruct{
+			DeepNested: &TestDeepNested{},
+		},
+		NonPointerNestedEnt: TestNestedStruct{
 			DeepNested: &TestDeepNested{},
 		},
 		NestedMultiple: []*TestNestedStruct{
@@ -74,6 +79,14 @@ func NewTestStructFull() *TestStruct {
 		},
 
 		NestedProExpert: &TestNestedStruct{
+			NestedField:    true,
+			NestedFieldEnt: true,
+			DeepNested: &TestDeepNested{
+				DeepNestedPro: true,
+			},
+		},
+
+		NonPointerNestedEnt: TestNestedStruct{
 			NestedField:    true,
 			NestedFieldEnt: true,
 			DeepNested: &TestDeepNested{

@@ -75,15 +75,15 @@ func (c *Checker) validateStruct(path string, element interface{}, modesHistory 
 			modeSet := newSet(modesList...)
 
 			// Use a new slice so we don't modify the input.
-			newAncestors := []*set{modeSet}
+			newHistory := []*set{modeSet}
 			for _, s := range modesHistory {
 				if s.len() > 0 {
-					newAncestors = append(newAncestors, s)
+					newHistory = append(newHistory, s)
 				}
 			}
 
 			// Recurse on the field value.
-			mErr = multierror.Append(mErr, c.validateStruct(fullPath, fieldValue.Interface(), newAncestors))
+			mErr = multierror.Append(mErr, c.validateStruct(fullPath, fieldValue.Interface(), newHistory))
 		}
 		return mErr.ErrorOrNil()
 

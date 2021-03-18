@@ -3,17 +3,6 @@ log_json     = true
 enable_debug = true
 plugin_dir   = "./plugin_dir_from_file"
 
-dynamic_application_sizing {
-  metrics_preload_threshold = "3m"
-  evaluate_after            = "1m"
-  namespace_label           = "file_namespace"
-  job_label                 = "file_job"
-  group_label               = "file_group"
-  task_label                = "file_task"
-  cpu_metric                = "file_cpu"
-  memory_metric             = "file_memory"
-}
-
 http {
   bind_address = "10.0.0.2"
   bind_port    = 8888

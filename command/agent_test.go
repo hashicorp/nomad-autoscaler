@@ -37,29 +37,6 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			}),
 		},
 		{
-			name: "das flags",
-			args: []string{
-				"-das-metrics-preload-threshold", "5m",
-				"-das-namespace-label", "my_namespace_label",
-				"-das-job-label", "my_job_label",
-				"-das-group-label", "my_group_label",
-				"-das-task-label", "my_task_label",
-				"-das-cpu-metric", "my_cpu_metric",
-				"-das-memory-metric", "my_memory_metric",
-			},
-			want: defaultConfig.Merge(&config.Agent{
-				DynamicApplicationSizing: &config.DynamicApplicationSizing{
-					MetricsPreloadThreshold: 5 * time.Minute,
-					NamespaceLabel:          "my_namespace_label",
-					JobLabel:                "my_job_label",
-					GroupLabel:              "my_group_label",
-					TaskLabel:               "my_task_label",
-					CPUMetric:               "my_cpu_metric",
-					MemoryMetric:            "my_memory_metric",
-				},
-			}),
-		},
-		{
 			name: "http flags",
 			args: []string{
 				"-http-bind-address", "10.0.0.1",
@@ -200,16 +177,6 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				LogJson:     true,
 				EnableDebug: true,
 				PluginDir:   "./plugin_dir_from_file",
-				DynamicApplicationSizing: &config.DynamicApplicationSizing{
-					MetricsPreloadThreshold: 3 * time.Minute,
-					EvaluateAfter:           time.Minute,
-					NamespaceLabel:          "file_namespace",
-					JobLabel:                "file_job",
-					GroupLabel:              "file_group",
-					TaskLabel:               "file_task",
-					CPUMetric:               "file_cpu",
-					MemoryMetric:            "file_memory",
-				},
 				HTTP: &config.HTTP{
 					BindAddress: "10.0.0.2",
 					BindPort:    8888,
@@ -285,16 +252,6 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				LogJson:     true,
 				EnableDebug: true,
 				PluginDir:   "./plugin_dir_from_file",
-				DynamicApplicationSizing: &config.DynamicApplicationSizing{
-					MetricsPreloadThreshold: 3 * time.Minute,
-					EvaluateAfter:           time.Minute,
-					NamespaceLabel:          "file_namespace",
-					JobLabel:                "file_job",
-					GroupLabel:              "file_group",
-					TaskLabel:               "file_task",
-					CPUMetric:               "file_cpu",
-					MemoryMetric:            "file_memory",
-				},
 				HTTP: &config.HTTP{
 					BindAddress: "10.0.0.2",
 					BindPort:    8888,

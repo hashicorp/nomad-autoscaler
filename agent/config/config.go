@@ -38,6 +38,10 @@ type Agent struct {
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
+	// DynamicApplicationSizing is the configuration for the components used
+	// in Dynamic Application Sizing.
+	DynamicApplicationSizing *DynamicApplicationSizing `hcl:"dynamic_application_sizing,block" modes:"ent"`
+
 	// HTTP is the configuration used to setup the HTTP health server.
 	HTTP *HTTP `hcl:"http,block"`
 
@@ -57,6 +61,39 @@ type Agent struct {
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
+}
+
+// DynamicApplicationSizing contains configuration values to control the
+// components used for Dynamic Application Sizing.
+type DynamicApplicationSizing struct {
+
+	// MetricsPreloadThreshold is the limit for how much historical data to
+	// preload when the Autoscaler starts.
+	MetricsPreloadThreshold    time.Duration
+	MetricsPreloadThresholdHCL string `hcl:"metrics_preload_threshold,optional" json:"-"`
+
+	// EvaluateAfter is the time limit for how much historical data must be
+	// available before the Autoscaler evaluates a policy.
+	EvaluateAfter    time.Duration
+	EvaluateAfterHCL string `hcl:"evaluate_after,optional" json:"-"`
+
+	// NamespaceLabel is the label used by the APM to store the namespace of a job.
+	NamespaceLabel string `hcl:"namespace_label,optional"`
+
+	// JobLabel is the label used by the APM to store the ID of a job.
+	JobLabel string `hcl:"job_label,optional"`
+
+	// GroupLabel is the label used by the APM to store the name of a group.
+	GroupLabel string `hcl:"group_label,optional"`
+
+	// TaskLabel is the label used by the APM to store the name of a task.
+	TaskLabel string `hcl:"task_label,optional"`
+
+	// CPUMetric is the metric used to query historical CPU usage.
+	CPUMetric string `hcl:"cpu_metric,optional"`
+
+	// MemoryMetric is the metric used to query historical memory usage.
+	MemoryMetric string `hcl:"memory_metric,optional"`
 }
 
 // HTTP contains all configuration details for the running of the agent HTTP
@@ -267,11 +304,6 @@ type PolicyEval struct {
 	AckTimeout    time.Duration
 	AckTimeoutHCL string `hcl:"ack_timeout,optional" json:"-"`
 
-	// EvaluateAfter is the time limit for how much historical data must be
-	// available before the Autoscaler evaluates a policy.
-	EvaluateAfter    time.Duration
-	EvaluateAfterHCL string `hcl:"evaluate_after,optional" json:"-"`
-
 	// Workers hold the number of workers to initialize for each queue.
 	Workers map[string]int `hcl:"workers,optional"`
 }
@@ -327,8 +359,9 @@ func Default() (*Agent, error) {
 	}
 
 	return &Agent{
-		LogLevel:  defaultLogLevel,
-		PluginDir: pwd + defaultPluginDirSuffix,
+		LogLevel:                 defaultLogLevel,
+		PluginDir:                pwd + defaultPluginDirSuffix,
+		DynamicApplicationSizing: &DynamicApplicationSizing{},
 		HTTP: &HTTP{
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
@@ -372,6 +405,11 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir
 	}
+
+	if b.DynamicApplicationSizing != nil {
+		result.DynamicApplicationSizing = result.DynamicApplicationSizing.merge(b.DynamicApplicationSizing)
+	}
+
 	if b.HTTP != nil {
 		result.HTTP = result.HTTP.merge(b.HTTP)
 	}
@@ -428,11 +466,49 @@ func (a *Agent) Merge(b *Agent) *Agent {
 func (a *Agent) Validate() error {
 	var result *multierror.Error
 
+	modeChecker := NewModeChecker()
+	result = multierror.Append(result, modeChecker.ValidateStruct(a))
+
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())
 	}
 
 	return result.ErrorOrNil()
+}
+
+func (d *DynamicApplicationSizing) merge(b *DynamicApplicationSizing) *DynamicApplicationSizing {
+	if d == nil {
+		return b
+	}
+
+	result := *d
+
+	if b.MetricsPreloadThreshold != 0 {
+		result.MetricsPreloadThreshold = b.MetricsPreloadThreshold
+	}
+	if b.EvaluateAfter != 0 {
+		result.EvaluateAfter = b.EvaluateAfter
+	}
+	if b.NamespaceLabel != "" {
+		result.NamespaceLabel = b.NamespaceLabel
+	}
+	if b.JobLabel != "" {
+		result.JobLabel = b.JobLabel
+	}
+	if b.GroupLabel != "" {
+		result.GroupLabel = b.GroupLabel
+	}
+	if b.TaskLabel != "" {
+		result.TaskLabel = b.TaskLabel
+	}
+	if b.CPUMetric != "" {
+		result.CPUMetric = b.CPUMetric
+	}
+	if b.MemoryMetric != "" {
+		result.MemoryMetric = b.MemoryMetric
+	}
+
+	return &result
 }
 
 func (h *HTTP) merge(b *HTTP) *HTTP {
@@ -643,10 +719,6 @@ func (pw *PolicyEval) merge(in *PolicyEval) *PolicyEval {
 		result.Workers[k] = v
 	}
 
-	if in.EvaluateAfter != 0 {
-		result.EvaluateAfter = in.EvaluateAfter
-	}
-
 	return &result
 }
 
@@ -764,16 +836,25 @@ func parseFile(file string, cfg *Agent) error {
 		if cfg.PolicyEval.DeliveryLimitPtr != nil {
 			cfg.PolicyEval.DeliveryLimit = *cfg.PolicyEval.DeliveryLimitPtr
 		}
+	}
 
-		if cfg.PolicyEval.EvaluateAfterHCL != "" {
-			t, err := time.ParseDuration(cfg.PolicyEval.EvaluateAfterHCL)
+	if cfg.DynamicApplicationSizing != nil {
+		if cfg.DynamicApplicationSizing.MetricsPreloadThresholdHCL != "" {
+			t, err := time.ParseDuration(cfg.DynamicApplicationSizing.MetricsPreloadThresholdHCL)
 			if err != nil {
 				return err
 			}
-			cfg.PolicyEval.EvaluateAfter = t
+			cfg.DynamicApplicationSizing.MetricsPreloadThreshold = t
+		}
+
+		if cfg.DynamicApplicationSizing.EvaluateAfterHCL != "" {
+			t, err := time.ParseDuration(cfg.DynamicApplicationSizing.EvaluateAfterHCL)
+			if err != nil {
+				return err
+			}
+			cfg.DynamicApplicationSizing.EvaluateAfter = t
 		}
 	}
-
 	return nil
 }
 

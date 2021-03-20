@@ -39,6 +39,9 @@ func TestAgent_Merge(t *testing.T) {
 
 	cfg1 := &Agent{
 		PluginDir: "/opt/nomad-autoscaler/plugins",
+		DynamicApplicationSizing: &DynamicApplicationSizing{
+			MetricsPreloadThreshold: 24 * time.Hour,
+		},
 		HTTP: &HTTP{
 			BindAddress: "scaler.nomad",
 		},
@@ -65,6 +68,16 @@ func TestAgent_Merge(t *testing.T) {
 		LogLevel:    "trace",
 		LogJson:     true,
 		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		DynamicApplicationSizing: &DynamicApplicationSizing{
+			MetricsPreloadThreshold: 12 * time.Hour,
+			EvaluateAfter:           2 * time.Hour,
+			NamespaceLabel:          "my_namespace",
+			JobLabel:                "my_label",
+			GroupLabel:              "my_group",
+			TaskLabel:               "my_task",
+			CPUMetric:               "custom_cpu_metric",
+			MemoryMetric:            "custom_memory_metric",
+		},
 		HTTP: &HTTP{
 			BindPort: 4646,
 		},
@@ -143,6 +156,16 @@ func TestAgent_Merge(t *testing.T) {
 		LogLevel:    "trace",
 		LogJson:     true,
 		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		DynamicApplicationSizing: &DynamicApplicationSizing{
+			MetricsPreloadThreshold: 12 * time.Hour,
+			EvaluateAfter:           2 * time.Hour,
+			NamespaceLabel:          "my_namespace",
+			JobLabel:                "my_label",
+			GroupLabel:              "my_group",
+			TaskLabel:               "my_task",
+			CPUMetric:               "custom_cpu_metric",
+			MemoryMetric:            "custom_memory_metric",
+		},
 		HTTP: &HTTP{
 			BindAddress: "scaler.nomad",
 			BindPort:    4646,
@@ -236,6 +259,7 @@ func TestAgent_Merge(t *testing.T) {
 	actualResult := baseCfg.Merge(cfg1)
 	actualResult = actualResult.Merge(cfg2)
 
+	assert.Equal(t, expectedResult.DynamicApplicationSizing, actualResult.DynamicApplicationSizing)
 	assert.Equal(t, expectedResult.HTTP, actualResult.HTTP)
 	assert.Equal(t, expectedResult.LogJson, actualResult.LogJson)
 	assert.Equal(t, expectedResult.LogLevel, actualResult.LogLevel)

@@ -57,6 +57,34 @@ Options:
     specified, the plugin directory defaults to be that of
     <current-dir>/plugins/.
 
+Dynamic Application Sizing Options (Enterprise-only):
+
+  -das-evaluate-after=<dur>
+    The time limit for how much historical data must be available before the
+    Autoscaler makes recommendations.
+
+  -das-metrics-preload-threshold=<dur>
+    The time limit for how much historical data to preload when the Autoscaler
+    starts.
+
+  -das-namespace-label=<label>
+    The label used by the APM to store the namespace of a job.
+
+  -das-job-label=<label>
+    The label used by the APM to store the ID of a job.
+
+  -das-group-label=<label>
+    The label used by the APM to store the name of a group.
+
+  -das-task-label=<label>
+    The label used by the APM to store the name of a task.
+
+  -das-cpu-metric=<metric>
+    The metric used to query the APM for historical CPU usage.
+
+  -das-memory-metric=<metric>
+    The metric used to query the APM for historical memory usage.
+
 HTTP Options:
 
   -http-bind-address=<addr>
@@ -304,12 +332,15 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	// cmdConfig is used to store any passed CLI flags.
 	cmdConfig := &config.Agent{
-		HTTP:       &config.HTTP{},
-		Nomad:      &config.Nomad{},
-		Policy:     &config.Policy{},
-		PolicyEval: &config.PolicyEval{},
-		Telemetry:  &config.Telemetry{},
+		DynamicApplicationSizing: &config.DynamicApplicationSizing{},
+		HTTP:                     &config.HTTP{},
+		Nomad:                    &config.Nomad{},
+		Policy:                   &config.Policy{},
+		PolicyEval:               &config.PolicyEval{},
+		Telemetry:                &config.Telemetry{},
 	}
+
+	modeChecker := config.NewModeChecker()
 
 	flags := flag.NewFlagSet("agent", flag.ContinueOnError)
 	flags.Usage = func() { c.Help() }
@@ -320,6 +351,38 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
 	flags.BoolVar(&cmdConfig.EnableDebug, "enable-debug", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
+
+	// Specify our Dynamic Application Sizing flags.
+	modeChecker.Flag("das-evaluate-after", []string{"ent"}, func(name string) {
+		flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+			cmdConfig.DynamicApplicationSizing.EvaluateAfter = d
+			return nil
+		}), name, "")
+	})
+	modeChecker.Flag("das-metrics-preload-threshold", []string{"ent"}, func(name string) {
+		flags.Var((flaghelper.FuncDurationVar)(func(d time.Duration) error {
+			cmdConfig.DynamicApplicationSizing.MetricsPreloadThreshold = d
+			return nil
+		}), name, "")
+	})
+	modeChecker.Flag("das-namespace-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.NamespaceLabel, name, "", "")
+	})
+	modeChecker.Flag("das-job-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.JobLabel, name, "", "")
+	})
+	modeChecker.Flag("das-group-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.GroupLabel, name, "", "")
+	})
+	modeChecker.Flag("das-task-label", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.TaskLabel, name, "", "")
+	})
+	modeChecker.Flag("das-cpu-metric", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.CPUMetric, name, "", "")
+	})
+	modeChecker.Flag("das-memory-metric", []string{"ent"}, func(name string) {
+		flags.StringVar(&cmdConfig.DynamicApplicationSizing.MemoryMetric, name, "", "")
+	})
 
 	// Specify our HTTP bind flags.
 	flags.StringVar(&cmdConfig.HTTP.BindAddress, "http-bind-address", "", "")
@@ -391,6 +454,17 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
 	if err := flags.Parse(c.args); err != nil {
+		return nil, configPath
+	}
+
+	if err := modeChecker.ValidateFlags(flags); err != nil {
+		fmt.Printf("%s\n", err)
+		return nil, configPath
+	}
+
+	// Validate config values from flags.
+	if err := cmdConfig.Validate(); err != nil {
+		fmt.Printf("%s\n", err)
 		return nil, configPath
 	}
 

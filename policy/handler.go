@@ -119,6 +119,9 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			// In case of error, log the error message and loop around.
 			// Handlers never stop running unless ctx.Done() or doneCh is
 			// closed.
+			if err == nil {
+				continue
+			}
 
 			// multierror.Error objects are logged differently to allow for a
 			// more structured output.

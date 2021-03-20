@@ -1,7 +1,13 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * agent: Add CLI flags to configure policy evaluation [[GH-421](https://github.com/hashicorp/nomad-autoscaler/pull/421)]
+ * agent (Enterprise): Add CLI flags to configure Dynamic Application Sizing [[GH-422](https://github.com/hashicorp/nomad-autoscaler/pull/422)]
+
 BUG FIXES:
  * agent: Only allow querying Prometheus formatted metrics if Prometheus is enabled within the config [[GH-416](https://github.com/hashicorp/nomad-autoscaler/pull/416)]
+ * agent: Fix an issue that could cause the agent to panic depending on the order configuration files were loaded [[GH-420](https://github.com/hashicorp/nomad-autoscaler/pull/420)]
+ * policy: Prevent panic on policy monitoring [[GH-428](https://github.com/hashicorp/nomad-autoscaler/pull/428)]
  * policy: Ensure metric emitters use the correct context and are stopped when appropriate [[GH-408](https://github.com/hashicorp/nomad-autoscaler/pull/408)]
 
 ## 0.3.0 (February 25, 2021)

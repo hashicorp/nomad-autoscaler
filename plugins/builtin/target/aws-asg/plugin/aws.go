@@ -137,13 +137,16 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	result := t.terminateInstancesInASG(ctx, nodeResourceIDs)
 	result.logResults(log)
 
+	// Capture any post-termination task errors.
+	var failedTaskErr, successTaskErr error
+
 	// If we have any failures, perform our revert so we don't leave nodes in
 	// an undesired state.
 	if result.lenFailure() > 0 {
-		t.clusterUtils.RunPostScaleInTasksOnFailure(result.failedIDs())
+		failedTaskErr = t.clusterUtils.RunPostScaleInTasksOnFailure(result.failedIDs())
 	}
 
-	// If we had successfully termination from the ASG, track these activities
+	// If we had successful terminations from the ASG, track these activities
 	// until completion. A failure here should not fail the scaling activity as
 	// AWS should honour the contract, it could be a case of there being
 	// slowness in the AWS system and us timing out.
@@ -159,15 +162,22 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 		eWriter.write(ctx, scalingEventTerminate)
 
 		// Run any post scale in tasks that are desired.
-		if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, result.successfulIDs()); err != nil {
-			return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
-		}
+		successTaskErr = t.clusterUtils.RunPostScaleInTasks(ctx, config, result.successfulIDs())
 	}
 
+	// The tasks run on nodes that have been successfully terminated should not
+	// cause a failure of the scaling pipeline.
+	if successTaskErr != nil {
+		t.logger.Error("failed to perform post-scale Nomad scale in tasks", "error", successTaskErr)
+	}
+
+	// In the event of a partial failure, we want to understand whether we
+	// managed to reconcile the nodes that were not terminated before failing
+	// the pipeline.
 	if result.lenFailure() > 0 && result.lenSuccess() > 0 {
 		log.Warn("partial scaling success",
 			"success_num", result.lenSuccess(), "failed_num", result.lenFailure())
-		return nil
+		return failedTaskErr
 	}
 	return result.errorOrNil()
 }

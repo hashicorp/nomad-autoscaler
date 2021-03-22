@@ -156,14 +156,20 @@ func (c *ClusterScaleUtils) monitorNodeDrain(ctx context.Context, nodeID string,
 // were unable to be successfully terminated. The current tasks are:
 //
 //   - modify node eligibility to true
-func (c *ClusterScaleUtils) RunPostScaleInTasksOnFailure(nodes []NodeResourceID) {
+func (c *ClusterScaleUtils) RunPostScaleInTasksOnFailure(nodes []NodeResourceID) error {
+
+	var mErr *multierror.Error
+
 	for _, node := range nodes {
 		resp, err := c.client.Nodes().ToggleEligibility(node.NomadNodeID, true, nil)
 		if err != nil {
-			c.log.Error("failed to toggle node eligibility", "error", err)
+			mErr = multierror.Append(mErr, fmt.Errorf("failed to toggle eligibility on node %s: %v",
+				node.NomadNodeID, err))
 			continue
 		}
 		c.log.Info("successfully toggled node eligibility",
 			"node_id", node.NomadNodeID, "evals", resp.EvalIDs)
 	}
+
+	return formattedMultiError(mErr)
 }

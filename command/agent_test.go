@@ -5,12 +5,14 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 )
 
 func TestCommandAgent_readConfig(t *testing.T) {
 	defaultConfig, _ := config.Default()
+	defaultConfig = defaultConfig.Merge(config.DefaultEntConfig())
 
 	testCases := []struct {
 		name string
@@ -292,7 +294,12 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			c := &AgentCommand{args: tc.args}
 			got, _ := c.readConfig()
 
-			if diff := cmp.Diff(tc.want, got); diff != "" {
+			// Sort the list of plugins to avoid flakiness.
+			sortOpt := cmpopts.SortSlices(func(x, y *config.Plugin) bool {
+				return x.Name < y.Name
+			})
+
+			if diff := cmp.Diff(tc.want, got, sortOpt); diff != "" {
 				t.Errorf("readConfig() mismatch (-want +got):\n%s", diff)
 			}
 		})

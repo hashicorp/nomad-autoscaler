@@ -16,7 +16,6 @@ type scalingEvent string
 
 const (
 	scalingEventDrain     scalingEvent = "drain"
-	scalingEventDetach    scalingEvent = "detach"
 	scalingEventTerminate scalingEvent = "terminate"
 )
 

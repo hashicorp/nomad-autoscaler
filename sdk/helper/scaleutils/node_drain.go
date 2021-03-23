@@ -17,10 +17,10 @@ const (
 	defaultNodeIgnoreSystemJobs = false
 )
 
-// drainNodes iterates the provided nodeID list and performs a drain on each
+// DrainNodes iterates the provided nodeID list and performs a drain on each
 // one. Each node drain is monitored and events logged until the context is
 // closed or all drains reach a terminal state.
-func (c *ClusterScaleUtils) drainNodes(ctx context.Context, cfg map[string]string, nodes []NodeResourceID) error {
+func (c *ClusterScaleUtils) DrainNodes(ctx context.Context, cfg map[string]string, nodes []NodeResourceID) error {
 
 	drainSpec, err := drainSpec(cfg)
 	if err != nil {
@@ -150,4 +150,26 @@ func (c *ClusterScaleUtils) monitorNodeDrain(ctx context.Context, nodeID string,
 		}
 	}
 	return ctx.Err()
+}
+
+// RunPostScaleInTasksOnFailure is a utility that runs tasks on nodes which
+// were unable to be successfully terminated. The current tasks are:
+//
+//   - modify node eligibility to true
+func (c *ClusterScaleUtils) RunPostScaleInTasksOnFailure(nodes []NodeResourceID) error {
+
+	var mErr *multierror.Error
+
+	for _, node := range nodes {
+		resp, err := c.client.Nodes().ToggleEligibility(node.NomadNodeID, true, nil)
+		if err != nil {
+			mErr = multierror.Append(mErr, fmt.Errorf("failed to toggle eligibility on node %s: %v",
+				node.NomadNodeID, err))
+			continue
+		}
+		c.log.Info("successfully toggled node eligibility",
+			"node_id", node.NomadNodeID, "evals", resp.EvalIDs)
+	}
+
+	return formattedMultiError(mErr)
 }

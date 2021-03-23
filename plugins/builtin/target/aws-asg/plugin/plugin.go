@@ -6,7 +6,6 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -52,7 +51,6 @@ type TargetPlugin struct {
 	config map[string]string
 	logger hclog.Logger
 	asg    *autoscaling.Client
-	ec2    *ec2.Client
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.

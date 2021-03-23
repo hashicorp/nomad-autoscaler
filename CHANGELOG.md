@@ -3,6 +3,7 @@
 IMPROVEMENTS:
  * agent: Add CLI flags to configure policy evaluation [[GH-421](https://github.com/hashicorp/nomad-autoscaler/pull/421)]
  * agent (Enterprise): Add CLI flags to configure Dynamic Application Sizing [[GH-422](https://github.com/hashicorp/nomad-autoscaler/pull/422)]
+ * plugin/target/aws-asg: use single ASG call rather than split ASG/EC2 on scale-in [[GH-425](https://github.com/hashicorp/nomad-autoscaler/pull/425)]
 
 BUG FIXES:
  * agent: Only allow querying Prometheus formatted metrics if Prometheus is enabled within the config [[GH-416](https://github.com/hashicorp/nomad-autoscaler/pull/416)]

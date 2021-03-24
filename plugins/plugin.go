@@ -23,6 +23,8 @@ const (
 	// InternalAPMPrometheus is the Prometheus APM internal plugin name.
 	InternalAPMPrometheus = "prometheus"
 
+	InternalStrategyNone = "none"
+
 	// InternalStrategyTargetValue is the Target Value Strategy internal plugin
 	// name.
 	InternalStrategyTargetValue = "target-value"

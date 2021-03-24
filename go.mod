@@ -11,7 +11,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
 	github.com/DataDog/datadog-api-client-go v1.0.0-beta.7
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/armon/go-metrics v0.3.3
+	github.com/armon/go-metrics v0.3.6
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
@@ -21,9 +21,11 @@ require (
 	github.com/hashicorp/cronexpr v1.1.1 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v0.12.0
+	github.com/hashicorp/go-immutable-radix v1.3.0 // indirect
 	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-plugin v1.0.1
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl/v2 v2.3.0
 	github.com/hashicorp/nomad/api v0.0.0-20210223222946-149b150fb2d8
 	github.com/kr/pretty v0.2.0 // indirect

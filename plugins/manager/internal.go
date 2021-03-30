@@ -14,7 +14,7 @@ import (
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
-	none "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/none/plugin"
+	passthru "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/passthru/plugin"
 )
 
 // loadInternalPlugin takes the plugin configuration and attempts to load it
@@ -30,9 +30,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetNomad:
 		info.factory = nomadTarget.PluginConfig.Factory
 		info.driver = "nomad-target"
-	case plugins.InternalStrategyNone:
+	case plugins.InternalStrategyPassThru:
 		info.factory = none.PluginConfig.Factory
-		info.driver = "none"
+		info.driver = "pass-thru"
 	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
 		info.driver = "target-value"
@@ -90,7 +90,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 	case plugins.InternalAPMNomad,
 		plugins.InternalTargetNomad,
 		plugins.InternalAPMPrometheus,
-		plugins.InternalStrategyNone,
+		plugins.InternalStrategyPassThru,
 		plugins.InternalStrategyTargetValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,

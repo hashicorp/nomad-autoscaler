@@ -13,7 +13,7 @@ import (
 const (
 	// pluginName is the unique name of the this plugin amongst strategy
 	// plugins.
-	pluginName = "none"
+	pluginName = "pass-thru"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
-		Factory: func(l hclog.Logger) interface{} { return NewTargetValuePlugin(l) },
+		Factory: func(l hclog.Logger) interface{} { return NewPassThruPlugin(l) },
 	}
 
 	pluginInfo = &base.PluginInfo{
@@ -43,7 +43,7 @@ type StrategyPlugin struct {
 
 // NewTargetValuePlugin returns the None implementation of the
 // strategy.Strategy interface.
-func NewTargetValuePlugin(log hclog.Logger) strategy.Strategy {
+func NewPassThruPlugin(log hclog.Logger) strategy.Strategy {
 	return &StrategyPlugin{
 		logger: log,
 	}

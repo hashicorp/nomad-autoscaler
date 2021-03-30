@@ -53,4 +53,29 @@ const (
 	// Nomad clients are purged from Nomad once they have been terminated
 	// within their provider.
 	TargetConfigKeyNodePurge = "node_purge"
+
+	// TargetConfigNodeSelectorStrategy is the optional node target config
+	// option which dictates how the Nomad Autoscaler selects nodes when
+	// scaling in.
+	TargetConfigNodeSelectorStrategy = "node_selector_strategy"
+)
+
+const (
+	// TargetNodeSelectorStrategyLeastBusy is the cluster scale-in node
+	// selection strategy that identifies nodes based on their CPU and Memory
+	// resource allocation. It picks those with lowest values and is the
+	// default strategy.
+	TargetNodeSelectorStrategyLeastBusy = "least_busy"
+
+	// TargetNodeSelectorStrategyNewestCreateIndex is the cluster scale-in node
+	// selection strategy that uses the sorting perform by the SDK. This
+	// sorting is based on the nodes CreateIndex, where nodes with higher
+	// indexes are selected. This is the fastest of the strategies and should
+	// be used if you have performance concerns or do not care about node
+	// selection.
+	TargetNodeSelectorStrategyNewestCreateIndex = "newest_create_index"
+
+	// TargetNodeSelectorStrategyEmpty is the cluster scale-in node selection
+	// strategy that only picks nodes without non-terminal allocations.
+	TargetNodeSelectorStrategyEmpty = "empty"
 )

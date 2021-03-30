@@ -10,6 +10,7 @@ import (
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
+	fixedValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/fixed-value/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
@@ -32,6 +33,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
 		info.driver = "target-value"
+	case plugins.InternalStrategyFixedValue:
+		info.factory = fixedValue.PluginConfig.Factory
+		info.driver = "fixed-value"
 	case plugins.InternalAPMPrometheus:
 		info.factory = prometheus.PluginConfig.Factory
 		info.driver = "prometheus"
@@ -87,6 +91,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetNomad,
 		plugins.InternalAPMPrometheus,
 		plugins.InternalStrategyTargetValue,
+		plugins.InternalStrategyFixedValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,
 		plugins.InternalTargetGCEMIG,

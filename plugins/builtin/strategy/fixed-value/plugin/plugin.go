@@ -17,10 +17,7 @@ const (
 	pluginName = "fixed-value"
 
 	// These are the keys read from the RunRequest.Config map.
-	runConfigKeyFixed    = "fixed"
-
-	RADIX_10 = 10
-
+	runConfigKeyValue    = "value"
 )
 
 var (
@@ -71,19 +68,19 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 
-	// Read and parse target value from req.Config.
-	t := eval.Check.Strategy.Config[runConfigKeyFixed]
+	// Read and parse fixed value from req.Config.
+	t := eval.Check.Strategy.Config[runConfigKeyValue]
 	if t == "" {
-		return nil, fmt.Errorf("missing required field `fixed`")
+		return nil, fmt.Errorf("missing required field `%s`", runConfigKeyValue)
 	}
 
-	fixed, err := strconv.ParseInt(t, RADIX_10, 64)
+	value, err := strconv.ParseInt(t, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("invalid value for `fixed`: %v (%T)", t, t)
+		return nil, fmt.Errorf("invalid value for `%s`: %v (%T)", runConfigKeyValue, t, t)
 	}
 
 	// Identify the direction of scaling, if any.
-	eval.Action.Direction = s.calculateDirection(count, fixed)
+	eval.Action.Direction = s.calculateDirection(count, value)
 	if eval.Action.Direction == sdk.ScaleDirectionNone {
 		return eval, nil
 	}
@@ -92,21 +89,17 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	// helpful in ultra-debugging situations when there is a need to understand
 	// all the calculations made.
 	s.logger.Trace("calculated scaling strategy results",
-		"check_name", eval.Check.Name, "current_count", count, "new_count", fixed,
+		"check_name", eval.Check.Name, "current_count", count, "new_count", value,
 		"direction", eval.Action.Direction)
 
-	eval.Action.Count = fixed
-	eval.Action.Reason = fmt.Sprintf("scaling %s because fixed value is %d", eval.Action.Direction, fixed)
+	eval.Action.Count = value
+	eval.Action.Reason = fmt.Sprintf("scaling %s because fixed value is %d", eval.Action.Direction, value)
 
 	return eval, nil
 }
 
 // calculateDirection is used to calculate the direction of scaling that should
-// occur, if any at all. It takes into account the current task group count in
-// order to correctly account for 0 counts.
-//
-// The input factor value is padded by e, such that no action will be taken if
-// factor is within [1-e; 1+e].
+// occur, if any at all.
 func (s *StrategyPlugin) calculateDirection(count, fixed int64) sdk.ScaleDirection {
 	if count == fixed {
 		return sdk.ScaleDirectionNone

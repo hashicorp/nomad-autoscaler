@@ -41,19 +41,19 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("missing required field `fixed`"),
+			expectedError: fmt.Errorf("missing required field `value`"),
 			name:          "incorrect strategy input config",
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "not-the-int-you're-looking-for"},
+						Config: map[string]string{"value": "not-the-int-you're-looking-for"},
 					},
 				},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("invalid value for `fixed`: not-the-int-you're-looking-for (string)"),
+			expectedError: fmt.Errorf("invalid value for `value`: not-the-int-you're-looking-for (string)"),
 			name:          "incorrect input strategy config fixed value - string",
 		},
 		{
@@ -61,7 +61,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "13"},
+						Config: map[string]string{"value": "13"},
 					},
 				},
 				Action: &sdk.ScalingAction{},
@@ -71,7 +71,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "13"},
+						Config: map[string]string{"value": "13"},
 					},
 				},
 				Action: &sdk.ScalingAction{
@@ -88,7 +88,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 26}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "4"},
+						Config: map[string]string{"value": "4"},
 					},
 				},
 				Action: &sdk.ScalingAction{},
@@ -98,7 +98,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 26}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "4"},
+						Config: map[string]string{"value": "4"},
 					},
 				},
 				Action: &sdk.ScalingAction{
@@ -115,7 +115,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 9}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "10"},
+						Config: map[string]string{"value": "10"},
 					},
 				},
 				Action: &sdk.ScalingAction{},
@@ -125,7 +125,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 9}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"fixed": "10"},
+						Config: map[string]string{"value": "10"},
 					},
 				},
 				Action: &sdk.ScalingAction{

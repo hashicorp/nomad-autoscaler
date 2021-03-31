@@ -30,6 +30,9 @@ const (
 	// name.
 	InternalStrategyTargetValue = "target-value"
 
+	// InternalStrategyFixedValue is the Fixed Value Strategy internal plugin name.
+	InternalStrategyFixedValue = "fixed-value"
+
 	// InternalTargetAWSASG is the Amazon Web Services AutoScaling Group target
 	// plugin.
 	InternalTargetAWSASG = "aws-asg"

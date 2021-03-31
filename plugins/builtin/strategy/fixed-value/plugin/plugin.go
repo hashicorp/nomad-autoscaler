@@ -17,7 +17,7 @@ const (
 	pluginName = "fixed-value"
 
 	// These are the keys read from the RunRequest.Config map.
-	runConfigKeyValue    = "value"
+	runConfigKeyValue = "value"
 )
 
 var (

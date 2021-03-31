@@ -31,7 +31,7 @@ require (
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl/v2 v2.9.1
-	github.com/hashicorp/nomad/api v0.0.0-20210223222946-149b150fb2d8
+	github.com/hashicorp/nomad/api v0.0.0-20210326070337-db3761782bc4
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mitchellh/cli v1.1.2

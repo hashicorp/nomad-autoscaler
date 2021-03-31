@@ -11,6 +11,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodeselector"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -99,8 +100,9 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 		return nil, err
 	}
 
-	// Pull a current list of Nomad nodes from the API.
-	nodes, _, err := c.client.Nodes().List(nil)
+	// Pull a current list of Nomad nodes from the API including populated
+	// resource fields.
+	nodes, _, err := c.client.Nodes().List(&api.QueryOptions{Params: map[string]string{"resources": "true"}})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Nomad nodes from API: %v", err)
 	}
@@ -128,27 +130,26 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 		num = len(filteredNodes)
 	}
 
-	var out []*api.NodeListStub
+	// Setup the node selector used to identify suitable nodes for termination.
+	selector, err := nodeselector.NewSelector(cfg, c.client, c.log)
+	if err != nil {
+		return nil, err
+	}
+	c.log.Debug("performing node selection", "selector_strategy", selector.Name())
 
-	// We currently only support a single ClusterScaleInNodeIDStrategy. If we
-	// expand this in the future, this will likely be pulled from the config
-	// map.
-	strategy := NewestCreateIndexClusterScaleInNodeIDStrategy
-
-	// Depending on which strategy has been chosen, sort the node listing.
-	switch strategy {
-	case NewestCreateIndexClusterScaleInNodeIDStrategy:
-	default:
-		return nil, fmt.Errorf("unsupported scale in node identification strategy: %s", strategy)
+	// It is possible the selector is unable to identify suitable nodes and so
+	// we should return an error to stop additional execution.
+	out := selector.Select(filteredNodes, num)
+	if len(out) < 1 {
+		return nil, fmt.Errorf("no nodes selected using strategy %s", selector.Name())
 	}
 
-	// Iterate through our filtered and sorted list of nodes, selecting the
-	// required number of nodes to scale in.
-	for i := 0; i <= num-1; i++ {
-		c.log.Debug("identified Nomad node for removal", "node_id", filteredNodes[i].ID)
-		out = append(out, filteredNodes[i])
+	// Selection can filter most of the nodes in the filtered list, we should
+	// log about this, but using certain strategies this is to be expected.
+	if len(out) < num {
+		c.log.Info("identified portion of requested nodes for removal",
+			"requested", num, "identified", len(out))
 	}
-
 	return out, nil
 }
 

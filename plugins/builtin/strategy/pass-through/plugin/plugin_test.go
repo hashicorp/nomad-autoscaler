@@ -111,6 +111,31 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			expectedError: nil,
 			name:          "no scaling - current count same as metric",
 		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 10,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Direction: sdk.ScaleDirectionNone,
+				},
+			},
+			expectedError: nil,
+			name:          "no scaling - empty metric timeseries",
+		},
 	}
 
 	for _, tc := range testCases {

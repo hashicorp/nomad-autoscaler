@@ -62,6 +62,12 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 
+	// This shouldn't happen, but check it just in case.
+	if len(eval.Metrics) == 0 {
+		eval.Action.Direction = sdk.ScaleDirectionNone
+		return eval, nil
+	}
+
 	// Use only the latest value for now.
 	metric := eval.Metrics[len(eval.Metrics)-1]
 

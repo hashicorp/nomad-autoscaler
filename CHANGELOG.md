@@ -1,12 +1,20 @@
 ## UNRELEASED
 
+FEATURES:
+ * plugins/target: Horizontal cluster scaling targets can now configure `node_selector_strategy` to control the process which identifies nodes for termination [[GH-435](https://github.com/hashicorp/nomad-autoscaler/pull/435)]
+
 IMPROVEMENTS:
  * agent: Add CLI flags to configure policy evaluation [[GH-421](https://github.com/hashicorp/nomad-autoscaler/pull/421)]
  * agent (Enterprise): Add CLI flags to configure Dynamic Application Sizing [[GH-422](https://github.com/hashicorp/nomad-autoscaler/pull/422)]
- * plugin/target/aws-asg: use single ASG call rather than split ASG/EC2 on scale-in [[GH-425](https://github.com/hashicorp/nomad-autoscaler/pull/425)]
+ * plugins/target/aws-asg: Use single ASG call rather than split ASG/EC2 on scale-in [[GH-425](https://github.com/hashicorp/nomad-autoscaler/pull/425)]
 
 BUG FIXES:
+ * agent: Updated `hashicorp/go-hclog` to v0.15.0 to include several fixes [[GH-434](https://github.com/hashicorp/nomad-autoscaler/pull/434)]
+ * agent: Updated `hashicorp/hcl/v2` to v2.9.1 to include several panic fixes [[GH-434](https://github.com/hashicorp/nomad-autoscaler/pull/434)]
+ * agent: Updated `mitchellh/cli` to v1.1.2 to include a fix to auto-complete [[GH-434](https://github.com/hashicorp/nomad-autoscaler/pull/434)]
+ * agent: Updated `armon/go-metrics` to v0.3.6 to include a fix to the Prometheus sink [[GH-434](https://github.com/hashicorp/nomad-autoscaler/pull/434)]
  * agent: Only allow querying Prometheus formatted metrics if Prometheus is enabled within the config [[GH-416](https://github.com/hashicorp/nomad-autoscaler/pull/416)]
+ * agent: Updated `hashicorp/go-multierror` to v1.1.1 to include a panic fix when using wrapped errors [[GH-434](https://github.com/hashicorp/nomad-autoscaler/pull/434)]
  * agent: Fix an issue that could cause the agent to panic depending on the order configuration files were loaded [[GH-420](https://github.com/hashicorp/nomad-autoscaler/pull/420)]
  * policy: Prevent panic on policy monitoring [[GH-428](https://github.com/hashicorp/nomad-autoscaler/pull/428)]
  * policy: Ensure metric emitters use the correct context and are stopped when appropriate [[GH-408](https://github.com/hashicorp/nomad-autoscaler/pull/408)]

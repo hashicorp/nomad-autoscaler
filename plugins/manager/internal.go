@@ -9,12 +9,12 @@ import (
 	datadog "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/datadog/plugin"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
+	passthrough "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/pass-through/plugin"
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
-	passthru "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/pass-thru/plugin"
 )
 
 // loadInternalPlugin takes the plugin configuration and attempts to load it
@@ -30,9 +30,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetNomad:
 		info.factory = nomadTarget.PluginConfig.Factory
 		info.driver = "nomad-target"
-	case plugins.InternalStrategyPassThru:
-		info.factory = passthru.PluginConfig.Factory
-		info.driver = "pass-thru"
+	case plugins.InternalStrategyPassThrough:
+		info.factory = passthrough.PluginConfig.Factory
+		info.driver = "pass-through"
 	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
 		info.driver = "target-value"
@@ -90,7 +90,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 	case plugins.InternalAPMNomad,
 		plugins.InternalTargetNomad,
 		plugins.InternalAPMPrometheus,
-		plugins.InternalStrategyPassThru,
+		plugins.InternalStrategyPassThrough,
 		plugins.InternalStrategyTargetValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,

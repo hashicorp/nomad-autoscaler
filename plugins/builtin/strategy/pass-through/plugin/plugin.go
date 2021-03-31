@@ -13,7 +13,7 @@ import (
 const (
 	// pluginName is the unique name of the this plugin amongst strategy
 	// plugins.
-	pluginName = "pass-thru"
+	pluginName = "pass-through"
 )
 
 var (
@@ -23,7 +23,7 @@ var (
 	}
 
 	PluginConfig = &plugins.InternalPluginConfig{
-		Factory: func(l hclog.Logger) interface{} { return NewPassThruPlugin(l) },
+		Factory: func(l hclog.Logger) interface{} { return NewPassThroughPlugin(l) },
 	}
 
 	pluginInfo = &base.PluginInfo{
@@ -41,9 +41,9 @@ type StrategyPlugin struct {
 	logger hclog.Logger
 }
 
-// NewTargetValuePlugin returns the None implementation of the
+// NewPassThroughPlugin returns the Pass Through implementation of the
 // strategy.Strategy interface.
-func NewPassThruPlugin(log hclog.Logger) strategy.Strategy {
+func NewPassThroughPlugin(log hclog.Logger) strategy.Strategy {
 	return &StrategyPlugin{
 		logger: log,
 	}
@@ -66,7 +66,6 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	metric := eval.Metrics[len(eval.Metrics)-1]
 
 
-	// TODO: compare count > metric --> direction
 	// Identify the direction of scaling, if any.
 	eval.Action.Direction = s.calculateDirection(count, metric.Value)
 	if eval.Action.Direction == sdk.ScaleDirectionNone {
@@ -81,11 +80,7 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 }
 
 // calculateDirection is used to calculate the direction of scaling that should
-// occur, if any at all. It takes into account the current task group count in
-// order to correctly account for 0 counts.
-//
-// The input factor value is padded by e, such that no action will be taken if
-// factor is within [1-e; 1+e].
+// occur, if any at all.
 func (s *StrategyPlugin) calculateDirection(count int64, metric float64) sdk.ScaleDirection {
 	if metric > float64(count) {
 		return sdk.ScaleDirectionUp

@@ -65,13 +65,11 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	// Use only the latest value for now.
 	metric := eval.Metrics[len(eval.Metrics)-1]
 
-
 	// Identify the direction of scaling, if any.
 	eval.Action.Direction = s.calculateDirection(count, metric.Value)
 	if eval.Action.Direction == sdk.ScaleDirectionNone {
 		return eval, nil
 	}
-
 
 	eval.Action.Count = int64(metric.Value)
 	eval.Action.Reason = fmt.Sprintf("scaling %s because metric is %d", eval.Action.Direction, eval.Action.Count)

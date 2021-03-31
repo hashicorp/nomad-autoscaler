@@ -51,9 +51,9 @@ func TestStrategyPlugin_Run(t *testing.T) {
 					},
 				},
 				Action: &sdk.ScalingAction{
-					Count: 13,
+					Count:     13,
 					Direction: sdk.ScaleDirectionUp,
-					Reason: "scaling up because metric is 13",
+					Reason:    "scaling up because metric is 13",
 				},
 			},
 			expectedError: nil,
@@ -78,9 +78,9 @@ func TestStrategyPlugin_Run(t *testing.T) {
 					},
 				},
 				Action: &sdk.ScalingAction{
-					Count: 0,
+					Count:     0,
 					Direction: sdk.ScaleDirectionDown,
-					Reason: "scaling down because metric is 0",
+					Reason:    "scaling down because metric is 0",
 				},
 			},
 			expectedError: nil,
@@ -111,7 +111,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			expectedError: nil,
 			name:          "no scaling - current count same as metric",
 		},
-		}
+	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

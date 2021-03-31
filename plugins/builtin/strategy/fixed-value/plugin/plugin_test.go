@@ -75,8 +75,8 @@ func TestStrategyPlugin_Run(t *testing.T) {
 					},
 				},
 				Action: &sdk.ScalingAction{
-					Count: 13,
-					Reason: "scaling up because fixed value is 13",
+					Count:     13,
+					Reason:    "scaling up because fixed value is 13",
 					Direction: sdk.ScaleDirectionUp,
 				},
 			},
@@ -103,7 +103,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 				Action: &sdk.ScalingAction{
 					Count:     4,
-					Reason: "scaling down because fixed value is 4",
+					Reason:    "scaling down because fixed value is 4",
 					Direction: sdk.ScaleDirectionDown,
 				},
 			},

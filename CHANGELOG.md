@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.1 (April 01, 2021)
 
 FEATURES:
  * __Fixed Value Strategy__: A strategy plugin that scales to a constant configured value [[GH-436](https://github.com/hashicorp/nomad-autoscaler/pull/436)]

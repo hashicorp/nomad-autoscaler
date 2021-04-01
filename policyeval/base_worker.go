@@ -59,7 +59,7 @@ func (w *BaseWorker) Run(ctx context.Context) {
 
 		eval, token, err := w.broker.Dequeue(ctx, w.queue)
 		if err != nil {
-			w.logger.Warn("failed to dequeue evaluation", "err", err)
+			w.logger.Warn("failed to dequeue evaluation", "error", err)
 			continue
 		}
 
@@ -74,18 +74,18 @@ func (w *BaseWorker) Run(ctx context.Context) {
 			"policy_id", eval.Policy.ID)
 
 		if err := w.handlePolicy(ctx, eval); err != nil {
-			logger.Error("failed to evaluate policy", "err", err)
+			logger.Error("failed to evaluate policy", "error", err)
 
 			// Notify broker that policy eval was not successful.
 			if err := w.broker.Nack(eval.ID, token); err != nil {
-				logger.Warn("failed to NACK policy evaluation", "err", err)
+				logger.Warn("failed to NACK policy evaluation", "error", err)
 			}
 			continue
 		}
 
 		// Notify broker that policy eval was successful.
 		if err := w.broker.Ack(eval.ID, token); err != nil {
-			logger.Warn("failed to ACK policy evaluation", "err", err)
+			logger.Warn("failed to ACK policy evaluation", "error", err)
 		}
 	}
 }
@@ -156,7 +156,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		}
 
 		if err != nil {
-			logger.Warn("failed to run check", "err", err)
+			logger.Warn("failed to run check", "error", err)
 			continue
 		}
 

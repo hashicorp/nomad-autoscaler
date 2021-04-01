@@ -73,6 +73,10 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	if len(eval.Metrics) == 0 {
+		eval.Action.Direction = sdk.ScaleDirectionNone
+		return eval, nil
+	}
 
 	// Read and parse target value from req.Config.
 	t := eval.Check.Strategy.Config[runConfigKeyTarget]
@@ -97,11 +101,6 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	}
 
 	var factor float64
-
-	// This shouldn't happen, but check it just in case.
-	if len(eval.Metrics) == 0 {
-		return nil, nil
-	}
 
 	// Use only the latest value for now.
 	metric := eval.Metrics[len(eval.Metrics)-1]

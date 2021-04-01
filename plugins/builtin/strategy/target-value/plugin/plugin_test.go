@@ -37,9 +37,11 @@ func TestStrategyPlugin_Run(t *testing.T) {
 	}{
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{},
 				},
+				Action: &sdk.ScalingAction{},
 			},
 			expectedResp:  nil,
 			expectedError: fmt.Errorf("missing required field `target`"),
@@ -47,11 +49,13 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "not-the-float-you're-looking-for"},
 					},
 				},
+				Action: &sdk.ScalingAction{},
 			},
 			expectedResp:  nil,
 			expectedError: fmt.Errorf("invalid value for `target`: not-the-float-you're-looking-for (string)"),
@@ -59,6 +63,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
 						Config: map[string]string{"target": "0", "threshold": "not-the-float-you're-looking-for"},
@@ -68,6 +73,31 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			expectedResp:  nil,
 			expectedError: fmt.Errorf("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input strategy config threshold value",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "13"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 2,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "13"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Direction: sdk.ScaleDirectionNone,
+				},
+			},
+			expectedError: nil,
+			name:          "empty metrics",
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{

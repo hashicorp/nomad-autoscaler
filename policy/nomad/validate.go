@@ -5,11 +5,19 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 )
 
 type validatorFunc func(in map[string]interface{}, path string) error
+type validatorWithLabelFunc func(in map[string]interface{}, path string, label string) error
+
+// nonMetricStrategies is a set of strategies that do not require metrics, so
+// the `query` attribute is considered optional.
+var nonMetricStrategies = map[string]bool{
+	plugins.InternalStrategyFixedValue: true,
+}
 
 // validateScalingPolicy validates an api.ScalingPolicy object from the Nomad API
 func validateScalingPolicy(policy *api.ScalingPolicy) error {
@@ -159,7 +167,7 @@ func validateChecks(in map[string]interface{}, path string) error {
 //      }
 //    }
 //  }
-func validateCheck(c map[string]interface{}, path string) error {
+func validateCheck(c map[string]interface{}, path string, label string) error {
 	var result *multierror.Error
 
 	if c == nil {
@@ -168,8 +176,8 @@ func validateCheck(c map[string]interface{}, path string) error {
 
 	// Validate Source, if present.
 	//   1. Source value must be a string if defined.
-	source, ok := c[keySource]
-	if ok {
+	source, sourceOk := c[keySource]
+	if sourceOk {
 		_, ok := source.(string)
 		if !ok {
 			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keySource, source))
@@ -179,8 +187,8 @@ func validateCheck(c map[string]interface{}, path string) error {
 	// Validate Query.
 	//   1. Query must have string value.
 	//   2. Query must not be empty.
-	query, ok := c[keyQuery]
-	if ok {
+	query, queryOk := c[keyQuery]
+	if queryOk {
 		queryStr, ok := query.(string)
 		if !ok {
 			result = multierror.Append(result, fmt.Errorf("%s.%s must be string, found %T", path, keyQuery, query))
@@ -200,11 +208,21 @@ func validateCheck(c map[string]interface{}, path string) error {
 		}
 	}
 
+	// Some strategy plugins do not require an APM
+	var strategyValidator validatorWithLabelFunc
+	if !queryOk && !sourceOk {
+		strategyValidator = validateStrategyWithoutMetric
+	}
+
 	// Validate Strategy.
 	//   1. Strategy key must exist.
 	//   2. Strategy must be a valid block.
 	//   3. Only 1 Strategy allowed.
-	strategyErrs := validateBlocks(c[keyStrategy], path+"."+keyStrategy, validateStrategy)
+	//   4. Strategy block content must pass custom validator function.
+	strategyValidatorWrapper := func(s map[string]interface{}, path string) error {
+		return validateStrategy(s, path, strategyValidator)
+	}
+	strategyErrs := validateBlocks(c[keyStrategy], path+"."+keyStrategy, strategyValidatorWrapper)
 	if strategyErrs != nil {
 		result = multierror.Append(result, strategyErrs)
 	}
@@ -230,8 +248,34 @@ func validateCheck(c map[string]interface{}, path string) error {
 //   1. Only one strategy block.
 //   2. Block must have a label.
 //   3. Block structure should be valid.
-func validateStrategy(s map[string]interface{}, path string) error {
-	return validateLabeledBlocks(s, path, ptr.IntToPtr(1), ptr.IntToPtr(1), nil)
+func validateStrategy(s map[string]interface{}, path string, validator validatorWithLabelFunc) error {
+	return validateLabeledBlocks(s, path, ptr.IntToPtr(1), ptr.IntToPtr(1), validator)
+}
+
+// validateStrategyWithoutMetric validates strategy block contents for strategies
+// that do not require an APM.
+// It is called for checks that do not have `source` nor `query`.
+//
+//  scaling {
+//    policy {
+//      check "check" {
+//        strategy "strategy" {
+//        +---------------+
+//        | key = "value" |
+//        +---------------+
+//        }
+//      }
+//    }
+//  }
+//
+// Validation rules:
+//   1. Strategy does not require source
+//   2. Strategy does not require query
+func validateStrategyWithoutMetric(s map[string]interface{}, path string, label string) error {
+	if _, ok := nonMetricStrategies[label]; ok {
+		return nil
+	}
+	return fmt.Errorf("%s strategy requires a query", path)
 }
 
 // validateDuration validates if the input has a valid time.Duration format.
@@ -378,7 +422,7 @@ func validateBlocks(in interface{}, path string, validator validatorFunc) error 
 //       }
 //     }
 //   }
-func validateLabeledBlocks(b map[string]interface{}, path string, min, max *int, validator validatorFunc) error {
+func validateLabeledBlocks(b map[string]interface{}, path string, min, max *int, validator validatorWithLabelFunc) error {
 	var result *multierror.Error
 
 	if b == nil {
@@ -408,7 +452,13 @@ func validateLabeledBlocks(b map[string]interface{}, path string, min, max *int,
 
 		// Validate block content.
 		//   1. Content must be a block.
-		if err := validateBlock(block, fmt.Sprintf("%s[%s]", path, name), validator); err != nil {
+		validatorWrapper := func(in map[string]interface{}, path string) error {
+			if validator == nil {
+				return nil
+			}
+			return validator(in, path, name)
+		}
+		if err := validateBlock(block, fmt.Sprintf("%s[%s]", path, name), validatorWrapper); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}

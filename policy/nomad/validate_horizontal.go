@@ -49,14 +49,7 @@ func validateChecksHorizontal(in map[string]interface{}, path string) error {
 	return validateLabeledBlocks(in, path, ptr.IntToPtr(1), nil, validateCheckHorizontal)
 }
 
-func validateCheckHorizontal(c map[string]interface{}, path string) error {
-	var result *multierror.Error
-
-	// Validate Query.
-	//   1. Query key must exist.
-	if _, ok := c[keyQuery]; !ok {
-		result = multierror.Append(result, fmt.Errorf("%s.%s is missing", path, keyQuery))
-	}
-
-	return result.ErrorOrNil()
+func validateCheckHorizontal(c map[string]interface{}, path string, label string) error {
+	// Nothing to check at this time
+	return nil
 }

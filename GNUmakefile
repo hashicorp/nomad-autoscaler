@@ -117,52 +117,74 @@ clean: clean-plugins
 	@echo "==> Done"
 
 bin/plugins/nomad-apm:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/apm/nomad && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/nomad-target:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/target/nomad && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/prometheus:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/apm/prometheus && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/target-value:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/strategy/target-value && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/fixed-value:
+	@echo "==> Building $@..."
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/strategy/fixed-value && go build -o ../../../../$@
+	@echo "==> Done"
+
+bin/plugins/pass-through:
+	@echo "==> Building $@..."
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/strategy/pass-through && go build -o ../../../../$@
+	@echo "==> Done"
+
 bin/plugins/aws-asg:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/target/aws-asg && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/datadog:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/apm/datadog && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/azure-vmss:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/target/azure-vmss && go build -o ../../../../$@
 	@echo "==> Done"
 
 bin/plugins/gce-mig:
-	@echo "==> Building $@"
+	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
 	@cd ./plugins/builtin/target/gce-mig && go build -o ../../../../$@
 	@echo "==> Done"
 
 .PHONY: plugins
-plugins: bin/plugins/nomad-apm bin/plugins/nomad-target bin/plugins/prometheus bin/plugins/target-value bin/plugins/aws-asg bin/plugins/datadog bin/plugins/azure-vmss bin/plugins/gce-mig
+plugins: \
+	bin/plugins/nomad-apm \
+	bin/plugins/nomad-target \
+	bin/plugins/prometheus \
+	bin/plugins/target-value \
+	bin/plugins/fixed-value \
+	bin/plugins/pass-through \
+	bin/plugins/aws-asg \
+	bin/plugins/datadog \
+	bin/plugins/azure-vmss \
+	bin/plugins/gce-mig

@@ -148,7 +148,7 @@ type FileDecodePolicyDoc struct {
 type FileDecodePolicyCheckDoc struct {
 	Name           string `hcl:"name,label"`
 	Source         string `hcl:"source,optional"`
-	Query          string `hcl:"query"`
+	Query          string `hcl:"query,optional"`
 	QueryWindow    time.Duration
 	QueryWindowHCL string                 `hcl:"query_window,optional"`
 	Strategy       *ScalingPolicyStrategy `hcl:"strategy,block"`

@@ -1,6 +1,8 @@
 ## UNRELEASED
 
 FEATURES:
+ * __Fixed Value Strategy__: A strategy plugin that scales to a constant configured value [[GH-436](https://github.com/hashicorp/nomad-autoscaler/pull/436)]
+ * __Pass Through Strategy__: A strategy plugin uses the APM metric value as the output desired value [[GH-433](https://github.com/hashicorp/nomad-autoscaler/pull/433)]
  * plugins/target: Horizontal cluster scaling targets can now configure `node_selector_strategy` to control the process which identifies nodes for termination [[GH-435](https://github.com/hashicorp/nomad-autoscaler/pull/435)]
 
 IMPROVEMENTS:

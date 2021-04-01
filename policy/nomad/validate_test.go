@@ -279,6 +279,11 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name:        "policy.check.strategy without metrics",
+			inputFile:   "strategy-without-metric",
+			expectError: false,
+		},
+		{
 			name: "policy.check.strategy.name is empty",
 			input: &api.ScalingPolicy{
 				ID:   "id",

@@ -22,10 +22,6 @@ import (
 // is not ready.
 var errTargetNotReady = errors.New("target not ready")
 
-// metricSentinel is used when the strategy plugin doesn't need metrics
-// TODO: allow plugins to optionally require metrics
-var metricSentinel = sdk.TimestampedMetric{Timestamp:time.Time{}, Value: 0.0}
-
 // Worker is responsible for executing a policy evaluation request.
 type BaseWorker struct {
 	id            string
@@ -314,22 +310,27 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 		return nil, nil
 	case <-apmQueryDoneCh:
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to query source: %v", err)
 	}
 
-	// Make sure metrics are sorted consistently.
-	sort.Sort(h.checkEval.Metrics)
+	if h.checkEval.Metrics != nil {
+		// Make sure metrics are sorted consistently.
+		sort.Sort(h.checkEval.Metrics)
 
-	if len(h.checkEval.Metrics) == 0 {
-		h.logger.Warn("no metrics available")
-		return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
-	}
-
-	if h.logger.IsTrace() && h.checkEval.Check.Query != "" {
-		for _, m := range h.checkEval.Metrics {
-			h.logger.Trace("metric result", "ts", m.Timestamp, "value", m.Value)
+		if len(h.checkEval.Metrics) == 0 {
+			h.logger.Warn("no metrics available")
+			return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
 		}
+
+		if h.logger.IsTrace() {
+			for _, m := range h.checkEval.Metrics {
+				h.logger.Trace("metric result", "ts", m.Timestamp, "value", m.Value)
+			}
+		}
+	} else {
+		h.checkEval.Metrics = sdk.TimestampedMetrics{}
 	}
 
 	// Calculate new count using check's Strategy.
@@ -385,7 +386,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 // runAPMQuery wraps the apm.Query call to provide operational functionality.
 func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (sdk.TimestampedMetrics, error) {
 	if h.checkEval.Check.Query == "" {
-		return sdk.TimestampedMetrics{metricSentinel}, nil
+		return nil, nil
 	}
 
 	h.logger.Debug("querying source", "query", h.checkEval.Check.Query, "source", h.checkEval.Check.Source)

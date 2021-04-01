@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-
 func validateHorizontalPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
 

@@ -69,10 +69,18 @@ func (e *emptyClusterScaleInNodeSelector) nodeHasAllocs(id string) bool {
 	}
 
 	for _, alloc := range allocs {
-		if alloc.ClientTerminalStatus() || alloc.ServerTerminalStatus() {
-			e.log.Debug("selector skipped node with non-terminal allocs", "node_id", id)
-			return true
+		if e.ignoreAlloc(alloc) {
+			continue
 		}
+
+		e.log.Debug("selector skipped node with non-terminal allocs", "node_id", id)
+		return true
 	}
 	return false
+}
+
+func (e *emptyClusterScaleInNodeSelector) ignoreAlloc(alloc *api.Allocation) bool {
+	return alloc.ClientTerminalStatus() ||
+		alloc.ServerTerminalStatus() ||
+		*alloc.Job.Type == api.JobTypeSystem
 }

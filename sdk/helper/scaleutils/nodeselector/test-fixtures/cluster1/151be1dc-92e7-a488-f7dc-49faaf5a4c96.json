@@ -1,0 +1,1083 @@
+[
+  {
+    "ID": "210dcc60-1c5c-ab4c-f08a-ad7d0536a06d",
+    "Namespace": "default",
+    "EvalID": "13c37d31-1f3d-7be4-ac6c-f2c5bae793e7",
+    "Name": "batch_pause_2.batch_pause[0]",
+    "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+    "NodeName": "ip-172-31-0-123",
+    "JobID": "batch_pause_2",
+    "Job": {
+      "Stop": false,
+      "Region": "global",
+      "Namespace": "default",
+      "ID": "batch_pause_2",
+      "ParentID": "",
+      "Name": "batch_pause_2",
+      "Type": "batch",
+      "Priority": 50,
+      "AllAtOnce": false,
+      "Datacenters": [
+        "dc1"
+      ],
+      "Constraints": [
+        {
+          "LTarget": "${node.class}",
+          "RTarget": "batch",
+          "Operand": "="
+        },
+        {
+          "LTarget": "${node.unique.id}",
+          "RTarget": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+          "Operand": "="
+        }
+      ],
+      "Affinities": null,
+      "Spreads": null,
+      "TaskGroups": [
+        {
+          "Name": "batch_pause",
+          "Count": 1,
+          "Update": null,
+          "Migrate": null,
+          "Constraints": null,
+          "Scaling": null,
+          "RestartPolicy": {
+            "Attempts": 3,
+            "Interval": 86400000000000,
+            "Delay": 15000000000,
+            "Mode": "fail"
+          },
+          "Tasks": [
+            {
+              "Name": "batch_pause",
+              "Driver": "docker",
+              "User": "",
+              "Config": {
+                "image": "gcr.io/google_containers/pause-amd64:3.1"
+              },
+              "Env": null,
+              "Services": null,
+              "Vault": null,
+              "Templates": null,
+              "Constraints": null,
+              "Affinities": null,
+              "Resources": {
+                "CPU": 100,
+                "MemoryMB": 256,
+                "DiskMB": 0,
+                "IOPS": 0,
+                "Networks": null,
+                "Devices": null
+              },
+              "RestartPolicy": {
+                "Attempts": 3,
+                "Interval": 86400000000000,
+                "Delay": 15000000000,
+                "Mode": "fail"
+              },
+              "DispatchPayload": null,
+              "Lifecycle": null,
+              "Meta": null,
+              "KillTimeout": 5000000000,
+              "LogConfig": {
+                "MaxFiles": 10,
+                "MaxFileSizeMB": 10
+              },
+              "Artifacts": null,
+              "Leader": false,
+              "ShutdownDelay": 0,
+              "VolumeMounts": null,
+              "ScalingPolicies": null,
+              "KillSignal": "",
+              "Kind": "",
+              "CSIPluginConfig": null
+            }
+          ],
+          "EphemeralDisk": {
+            "Sticky": false,
+            "SizeMB": 300,
+            "Migrate": false
+          },
+          "Meta": null,
+          "ReschedulePolicy": {
+            "Attempts": 1,
+            "Interval": 86400000000000,
+            "Delay": 5000000000,
+            "DelayFunction": "constant",
+            "MaxDelay": 0,
+            "Unlimited": false
+          },
+          "Affinities": null,
+          "Spreads": null,
+          "Networks": null,
+          "Services": null,
+          "Volumes": null,
+          "ShutdownDelay": null,
+          "StopAfterClientDisconnect": null
+        }
+      ],
+      "Update": {
+        "Stagger": 0,
+        "MaxParallel": 0,
+        "HealthCheck": "",
+        "MinHealthyTime": 0,
+        "HealthyDeadline": 0,
+        "ProgressDeadline": 0,
+        "AutoRevert": false,
+        "AutoPromote": false,
+        "Canary": 0
+      },
+      "Multiregion": null,
+      "Periodic": null,
+      "ParameterizedJob": null,
+      "Dispatched": false,
+      "Payload": null,
+      "Meta": null,
+      "ConsulToken": "",
+      "VaultToken": "",
+      "VaultNamespace": "",
+      "NomadTokenID": "",
+      "Status": "pending",
+      "StatusDescription": "",
+      "Stable": false,
+      "Version": 0,
+      "SubmitTime": 1617652120506707000,
+      "CreateIndex": 272,
+      "ModifyIndex": 272,
+      "JobModifyIndex": 272
+    },
+    "TaskGroup": "batch_pause",
+    "Resources": {
+      "CPU": 100,
+      "MemoryMB": 256,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "SharedResources": {
+      "CPU": 0,
+      "MemoryMB": 0,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "TaskResources": {
+      "batch_pause": {
+        "CPU": 100,
+        "MemoryMB": 256,
+        "DiskMB": 0,
+        "IOPS": 0,
+        "Networks": null,
+        "Devices": null
+      }
+    },
+    "AllocatedResources": {
+      "Tasks": {
+        "batch_pause": {
+          "Cpu": {
+            "CpuShares": 100
+          },
+          "Memory": {
+            "MemoryMB": 256
+          },
+          "Networks": null,
+          "Devices": null
+        }
+      },
+      "TaskLifecycles": {
+        "batch_pause": null
+      },
+      "Shared": {
+        "Networks": null,
+        "DiskMB": 300,
+        "Ports": null
+      }
+    },
+    "Metrics": {
+      "NodesEvaluated": 5,
+      "NodesFiltered": 4,
+      "NodesAvailable": {
+        "dc1": 5
+      },
+      "ClassFiltered": {
+        "batch": 3,
+        "platform": 1
+      },
+      "ConstraintFiltered": {
+        "${node.class} = batch": 1,
+        "${node.unique.id} = 151be1dc-92e7-a488-f7dc-49faaf5a4c96": 3
+      },
+      "NodesExhausted": 0,
+      "ClassExhausted": null,
+      "DimensionExhausted": null,
+      "QuotaExhausted": null,
+      "Scores": null,
+      "ScoreMetaData": [
+        {
+          "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+          "Scores": {
+            "binpack": 0.19161888741942829,
+            "job-anti-affinity": 0,
+            "node-reschedule-penalty": 0,
+            "node-affinity": 0
+          },
+          "NormScore": 0.19161888741942829
+        }
+      ],
+      "AllocationTime": 249483,
+      "CoalescedFailures": 0
+    },
+    "DesiredStatus": "run",
+    "ClientStatus": "running",
+    "ClientDescription": "Tasks are running",
+    "TaskStates": {
+      "batch_pause": {
+        "State": "running",
+        "Failed": false,
+        "Restarts": 0,
+        "LastRestart": null,
+        "StartedAt": "2021-04-05T19:48:43.513962335Z",
+        "FinishedAt": null,
+        "Events": [
+          {
+            "Type": "Received",
+            "Time": 1617652120566961000,
+            "Message": "",
+            "DisplayMessage": "Task received by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Task Setup",
+            "Time": 1617652120573515000,
+            "Message": "Building Task Directory",
+            "DisplayMessage": "Building Task Directory",
+            "Details": {
+              "message": "Building Task Directory"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Driver",
+            "Time": 1617652120611137800,
+            "Message": "",
+            "DisplayMessage": "Downloading image",
+            "Details": {
+              "image": "gcr.io/google_containers/pause-amd64:3.1"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "Downloading image",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Started",
+            "Time": 1617652123513958100,
+            "Message": "",
+            "DisplayMessage": "Task started by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          }
+        ]
+      }
+    },
+    "NetworkStatus": {
+      "InterfaceName": "",
+      "Address": "",
+      "DNS": null
+    },
+    "CreateIndex": 273,
+    "ModifyIndex": 276,
+    "AllocModifyIndex": 273,
+    "CreateTime": 1617652120512381700,
+    "ModifyTime": 1617652123620650200
+  },
+  {
+    "ID": "ee1ebbe8-1c1d-d36d-d4c7-72a5d9b30c13",
+    "Namespace": "default",
+    "EvalID": "5522cdd2-5833-10b1-d78f-6c3b853ed18d",
+    "Name": "system_pause.batch_pause[0]",
+    "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+    "NodeName": "ip-172-31-0-123",
+    "JobID": "system_pause",
+    "Job": {
+      "Stop": false,
+      "Region": "global",
+      "Namespace": "default",
+      "ID": "system_pause",
+      "ParentID": "",
+      "Name": "system_pause",
+      "Type": "system",
+      "Priority": 50,
+      "AllAtOnce": false,
+      "Datacenters": [
+        "dc1"
+      ],
+      "Constraints": [
+        {
+          "LTarget": "${node.class}",
+          "RTarget": "batch",
+          "Operand": "="
+        }
+      ],
+      "Affinities": null,
+      "Spreads": null,
+      "TaskGroups": [
+        {
+          "Name": "batch_pause",
+          "Count": 1,
+          "Update": null,
+          "Migrate": null,
+          "Constraints": null,
+          "Scaling": null,
+          "RestartPolicy": {
+            "Attempts": 2,
+            "Interval": 1800000000000,
+            "Delay": 15000000000,
+            "Mode": "fail"
+          },
+          "Tasks": [
+            {
+              "Name": "batch_pause",
+              "Driver": "docker",
+              "User": "",
+              "Config": {
+                "image": "gcr.io/google_containers/pause-amd64:3.1"
+              },
+              "Env": null,
+              "Services": null,
+              "Vault": null,
+              "Templates": null,
+              "Constraints": null,
+              "Affinities": null,
+              "Resources": {
+                "CPU": 100,
+                "MemoryMB": 256,
+                "DiskMB": 0,
+                "IOPS": 0,
+                "Networks": null,
+                "Devices": null
+              },
+              "RestartPolicy": {
+                "Attempts": 2,
+                "Interval": 1800000000000,
+                "Delay": 15000000000,
+                "Mode": "fail"
+              },
+              "DispatchPayload": null,
+              "Lifecycle": null,
+              "Meta": null,
+              "KillTimeout": 5000000000,
+              "LogConfig": {
+                "MaxFiles": 10,
+                "MaxFileSizeMB": 10
+              },
+              "Artifacts": null,
+              "Leader": false,
+              "ShutdownDelay": 0,
+              "VolumeMounts": null,
+              "ScalingPolicies": null,
+              "KillSignal": "",
+              "Kind": "",
+              "CSIPluginConfig": null
+            }
+          ],
+          "EphemeralDisk": {
+            "Sticky": false,
+            "SizeMB": 300,
+            "Migrate": false
+          },
+          "Meta": null,
+          "ReschedulePolicy": null,
+          "Affinities": null,
+          "Spreads": null,
+          "Networks": null,
+          "Services": null,
+          "Volumes": null,
+          "ShutdownDelay": null,
+          "StopAfterClientDisconnect": null
+        }
+      ],
+      "Update": {
+        "Stagger": 0,
+        "MaxParallel": 0,
+        "HealthCheck": "",
+        "MinHealthyTime": 0,
+        "HealthyDeadline": 0,
+        "ProgressDeadline": 0,
+        "AutoRevert": false,
+        "AutoPromote": false,
+        "Canary": 0
+      },
+      "Multiregion": null,
+      "Periodic": null,
+      "ParameterizedJob": null,
+      "Dispatched": false,
+      "Payload": null,
+      "Meta": null,
+      "ConsulToken": "",
+      "VaultToken": "",
+      "VaultNamespace": "",
+      "NomadTokenID": "",
+      "Status": "running",
+      "StatusDescription": "",
+      "Stable": false,
+      "Version": 0,
+      "SubmitTime": 1617661413663912400,
+      "CreateIndex": 504,
+      "ModifyIndex": 504,
+      "JobModifyIndex": 504
+    },
+    "TaskGroup": "batch_pause",
+    "Resources": {
+      "CPU": 100,
+      "MemoryMB": 256,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "SharedResources": {
+      "CPU": 0,
+      "MemoryMB": 0,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "TaskResources": {
+      "batch_pause": {
+        "CPU": 100,
+        "MemoryMB": 256,
+        "DiskMB": 0,
+        "IOPS": 0,
+        "Networks": null,
+        "Devices": null
+      }
+    },
+    "AllocatedResources": {
+      "Tasks": {
+        "batch_pause": {
+          "Cpu": {
+            "CpuShares": 100
+          },
+          "Memory": {
+            "MemoryMB": 256
+          },
+          "Networks": null,
+          "Devices": null
+        }
+      },
+      "TaskLifecycles": {
+        "batch_pause": null
+      },
+      "Shared": {
+        "Networks": null,
+        "DiskMB": 300,
+        "Ports": null
+      }
+    },
+    "Metrics": {
+      "NodesEvaluated": 1,
+      "NodesFiltered": 0,
+      "NodesAvailable": {
+        "dc1": 4
+      },
+      "ClassFiltered": null,
+      "ConstraintFiltered": null,
+      "NodesExhausted": 0,
+      "ClassExhausted": null,
+      "DimensionExhausted": null,
+      "QuotaExhausted": null,
+      "Scores": null,
+      "ScoreMetaData": [
+        {
+          "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+          "Scores": {
+            "binpack": 0.34226418366676525
+          },
+          "NormScore": 0.34226418366676525
+        }
+      ],
+      "AllocationTime": 20537,
+      "CoalescedFailures": 0
+    },
+    "DesiredStatus": "run",
+    "ClientStatus": "running",
+    "ClientDescription": "Tasks are running",
+    "TaskStates": {
+      "batch_pause": {
+        "State": "running",
+        "Failed": false,
+        "Restarts": 0,
+        "LastRestart": null,
+        "StartedAt": "2021-04-05T22:23:34.228881366Z",
+        "FinishedAt": null,
+        "Events": [
+          {
+            "Type": "Received",
+            "Time": 1617661413681500700,
+            "Message": "",
+            "DisplayMessage": "Task received by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Task Setup",
+            "Time": 1617661413684611600,
+            "Message": "Building Task Directory",
+            "DisplayMessage": "Building Task Directory",
+            "Details": {
+              "message": "Building Task Directory"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Started",
+            "Time": 1617661414228877000,
+            "Message": "",
+            "DisplayMessage": "Task started by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          }
+        ]
+      }
+    },
+    "NetworkStatus": {
+      "InterfaceName": "",
+      "Address": "",
+      "DNS": null
+    },
+    "CreateIndex": 505,
+    "ModifyIndex": 511,
+    "AllocModifyIndex": 505,
+    "CreateTime": 1617661413666929200,
+    "ModifyTime": 1617661414293732900
+  },
+  {
+    "ID": "41930d6f-4631-5936-50d6-66a68f6213d4",
+    "Namespace": "default",
+    "EvalID": "e766bea7-8612-ce36-d15a-0130ddc48e94",
+    "Name": "batch_pause_1/dispatch-1617658691-953e00d9.batch_pause[0]",
+    "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+    "NodeName": "ip-172-31-0-123",
+    "JobID": "batch_pause_1/dispatch-1617658691-953e00d9",
+    "Job": {
+      "Stop": false,
+      "Region": "global",
+      "Namespace": "default",
+      "ID": "batch_pause_1/dispatch-1617658691-953e00d9",
+      "ParentID": "batch_pause_1",
+      "Name": "batch_pause_1/dispatch-1617658691-953e00d9",
+      "Type": "batch",
+      "Priority": 50,
+      "AllAtOnce": false,
+      "Datacenters": [
+        "dc1"
+      ],
+      "Constraints": [
+        {
+          "LTarget": "${node.class}",
+          "RTarget": "batch",
+          "Operand": "="
+        }
+      ],
+      "Affinities": null,
+      "Spreads": null,
+      "TaskGroups": [
+        {
+          "Name": "batch_pause",
+          "Count": 1,
+          "Update": null,
+          "Migrate": null,
+          "Constraints": null,
+          "Scaling": null,
+          "RestartPolicy": {
+            "Attempts": 3,
+            "Interval": 86400000000000,
+            "Delay": 15000000000,
+            "Mode": "fail"
+          },
+          "Tasks": [
+            {
+              "Name": "batch_pause",
+              "Driver": "docker",
+              "User": "",
+              "Config": {
+                "args": [
+                  "${NOMAD_META_sleep}"
+                ],
+                "command": "sleep",
+                "image": "alpine:3.13"
+              },
+              "Env": null,
+              "Services": null,
+              "Vault": null,
+              "Templates": null,
+              "Constraints": null,
+              "Affinities": null,
+              "Resources": {
+                "CPU": 100,
+                "MemoryMB": 1500,
+                "DiskMB": 0,
+                "IOPS": 0,
+                "Networks": null,
+                "Devices": null
+              },
+              "RestartPolicy": {
+                "Attempts": 3,
+                "Interval": 86400000000000,
+                "Delay": 15000000000,
+                "Mode": "fail"
+              },
+              "DispatchPayload": null,
+              "Lifecycle": null,
+              "Meta": null,
+              "KillTimeout": 5000000000,
+              "LogConfig": {
+                "MaxFiles": 10,
+                "MaxFileSizeMB": 10
+              },
+              "Artifacts": null,
+              "Leader": false,
+              "ShutdownDelay": 0,
+              "VolumeMounts": null,
+              "ScalingPolicies": null,
+              "KillSignal": "",
+              "Kind": "",
+              "CSIPluginConfig": null
+            }
+          ],
+          "EphemeralDisk": {
+            "Sticky": false,
+            "SizeMB": 300,
+            "Migrate": false
+          },
+          "Meta": null,
+          "ReschedulePolicy": {
+            "Attempts": 1,
+            "Interval": 86400000000000,
+            "Delay": 5000000000,
+            "DelayFunction": "constant",
+            "MaxDelay": 0,
+            "Unlimited": false
+          },
+          "Affinities": null,
+          "Spreads": null,
+          "Networks": null,
+          "Services": null,
+          "Volumes": null,
+          "ShutdownDelay": null,
+          "StopAfterClientDisconnect": null
+        }
+      ],
+      "Update": {
+        "Stagger": 0,
+        "MaxParallel": 0,
+        "HealthCheck": "",
+        "MinHealthyTime": 0,
+        "HealthyDeadline": 0,
+        "ProgressDeadline": 0,
+        "AutoRevert": false,
+        "AutoPromote": false,
+        "Canary": 0
+      },
+      "Multiregion": null,
+      "Periodic": null,
+      "ParameterizedJob": {
+        "Payload": "optional",
+        "MetaRequired": [
+          "sleep"
+        ],
+        "MetaOptional": null
+      },
+      "Dispatched": true,
+      "Payload": "AA==",
+      "Meta": {
+        "sleep": "360"
+      },
+      "ConsulToken": "",
+      "VaultToken": "",
+      "VaultNamespace": "",
+      "NomadTokenID": "",
+      "Status": "pending",
+      "StatusDescription": "",
+      "Stable": false,
+      "Version": 1,
+      "SubmitTime": 1617658691473714000,
+      "CreateIndex": 423,
+      "ModifyIndex": 423,
+      "JobModifyIndex": 423
+    },
+    "TaskGroup": "batch_pause",
+    "Resources": {
+      "CPU": 100,
+      "MemoryMB": 1500,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "SharedResources": {
+      "CPU": 0,
+      "MemoryMB": 0,
+      "DiskMB": 300,
+      "IOPS": 0,
+      "Networks": null,
+      "Devices": null
+    },
+    "TaskResources": {
+      "batch_pause": {
+        "CPU": 100,
+        "MemoryMB": 1500,
+        "DiskMB": 0,
+        "IOPS": 0,
+        "Networks": null,
+        "Devices": null
+      }
+    },
+    "AllocatedResources": {
+      "Tasks": {
+        "batch_pause": {
+          "Cpu": {
+            "CpuShares": 100
+          },
+          "Memory": {
+            "MemoryMB": 1500
+          },
+          "Networks": null,
+          "Devices": null
+        }
+      },
+      "TaskLifecycles": {
+        "batch_pause": null
+      },
+      "Shared": {
+        "Networks": null,
+        "DiskMB": 300,
+        "Ports": null
+      }
+    },
+    "Metrics": {
+      "NodesEvaluated": 2,
+      "NodesFiltered": 1,
+      "NodesAvailable": {
+        "dc1": 2
+      },
+      "ClassFiltered": {
+        "platform": 1
+      },
+      "ConstraintFiltered": {
+        "${node.class} = batch": 1
+      },
+      "NodesExhausted": 0,
+      "ClassExhausted": null,
+      "DimensionExhausted": null,
+      "QuotaExhausted": null,
+      "Scores": null,
+      "ScoreMetaData": [
+        {
+          "NodeID": "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
+          "Scores": {
+            "job-anti-affinity": 0,
+            "node-reschedule-penalty": 0,
+            "node-affinity": 0,
+            "binpack": 0.5765610607433201
+          },
+          "NormScore": 0.5765610607433201
+        }
+      ],
+      "AllocationTime": 514930,
+      "CoalescedFailures": 0
+    },
+    "DesiredStatus": "run",
+    "ClientStatus": "complete",
+    "ClientDescription": "All tasks have completed",
+    "TaskStates": {
+      "batch_pause": {
+        "State": "dead",
+        "Failed": false,
+        "Restarts": 0,
+        "LastRestart": null,
+        "StartedAt": "2021-04-05T21:38:12.887833686Z",
+        "FinishedAt": "2021-04-05T21:44:13.075815767Z",
+        "Events": [
+          {
+            "Type": "Received",
+            "Time": 1617658691527784200,
+            "Message": "",
+            "DisplayMessage": "Task received by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Task Setup",
+            "Time": 1617658691530978300,
+            "Message": "Building Task Directory",
+            "DisplayMessage": "Building Task Directory",
+            "Details": {
+              "message": "Building Task Directory"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Driver",
+            "Time": 1617658691565882400,
+            "Message": "",
+            "DisplayMessage": "Downloading image",
+            "Details": {
+              "image": "alpine:3.13"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "Downloading image",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Started",
+            "Time": 1617658692887829000,
+            "Message": "",
+            "DisplayMessage": "Task started by client",
+            "Details": {},
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          },
+          {
+            "Type": "Terminated",
+            "Time": 1617659053061108200,
+            "Message": "",
+            "DisplayMessage": "Exit Code: 0",
+            "Details": {
+              "oom_killed": "false",
+              "exit_code": "0",
+              "signal": "0"
+            },
+            "FailsTask": false,
+            "RestartReason": "",
+            "SetupError": "",
+            "DriverError": "",
+            "ExitCode": 0,
+            "Signal": 0,
+            "KillTimeout": 0,
+            "KillError": "",
+            "KillReason": "",
+            "StartDelay": 0,
+            "DownloadError": "",
+            "ValidationError": "",
+            "DiskLimit": 0,
+            "FailedSibling": "",
+            "VaultError": "",
+            "TaskSignalReason": "",
+            "TaskSignal": "",
+            "DriverMessage": "",
+            "GenericSource": ""
+          }
+        ]
+      }
+    },
+    "NetworkStatus": {
+      "InterfaceName": "",
+      "Address": "",
+      "DNS": null
+    },
+    "CreateIndex": 425,
+    "ModifyIndex": 462,
+    "AllocModifyIndex": 425,
+    "CreateTime": 1617658691494968300,
+    "ModifyTime": 1617659053184361700
+  }
+]

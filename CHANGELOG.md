@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.2 (April 06, 2021)
 
 FEATURES:
  * plugins/target: Add `empty_ignore_system` node selector strategy [[GH-450](https://github.com/hashicorp/nomad-autoscaler/pull/450)]

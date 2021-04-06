@@ -11,23 +11,28 @@ import (
 // if they do not have any non-terminal allocations, and therefore can be
 // classed as empty.
 type emptyClusterScaleInNodeSelector struct {
-	client *api.Client
-	log    hclog.Logger
+	client           *api.Client
+	log              hclog.Logger
+	ignoreSystemJobs bool
 }
 
 // newEmptyClusterScaleInNodeSelector returns a new
 // emptyClusterScaleInNodeSelector implementation of the
 // ClusterScaleInNodeSelector interface.
-func newEmptyClusterScaleInNodeSelector(c *api.Client, log hclog.Logger) ClusterScaleInNodeSelector {
+func newEmptyClusterScaleInNodeSelector(c *api.Client, log hclog.Logger, ignoreSystemJobs bool) ClusterScaleInNodeSelector {
 	return &emptyClusterScaleInNodeSelector{
-		client: c,
-		log:    log,
+		client:           c,
+		log:              log,
+		ignoreSystemJobs: ignoreSystemJobs,
 	}
 }
 
 // Name satisfies the Name function on the ClusterScaleInNodeSelector
 // interface.
 func (e *emptyClusterScaleInNodeSelector) Name() string {
+	if e.ignoreSystemJobs {
+		return sdk.TargetNodeSelectorStrategyEmptyIgnoreSystemJobs
+	}
 	return sdk.TargetNodeSelectorStrategyEmpty
 }
 
@@ -69,7 +74,7 @@ func (e *emptyClusterScaleInNodeSelector) nodeHasAllocs(id string) bool {
 	}
 
 	for _, alloc := range allocs {
-		if e.ignoreAlloc(alloc) {
+		if e.shouldIgnoreAlloc(alloc) {
 			continue
 		}
 
@@ -79,8 +84,16 @@ func (e *emptyClusterScaleInNodeSelector) nodeHasAllocs(id string) bool {
 	return false
 }
 
-func (e *emptyClusterScaleInNodeSelector) ignoreAlloc(alloc *api.Allocation) bool {
-	return alloc.ClientTerminalStatus() ||
-		alloc.ServerTerminalStatus() ||
-		*alloc.Job.Type == api.JobTypeSystem
+func (e *emptyClusterScaleInNodeSelector) shouldIgnoreAlloc(alloc *api.Allocation) bool {
+	ignore := false
+
+	// Ignore alloc if it's in a terminal state.
+	ignore = ignore || (alloc.ClientTerminalStatus() || alloc.ServerTerminalStatus())
+
+	// Ignore system jobs if requested.
+	if e.ignoreSystemJobs {
+		ignore = ignore || *alloc.Job.Type == api.JobTypeSystem
+	}
+
+	return ignore
 }

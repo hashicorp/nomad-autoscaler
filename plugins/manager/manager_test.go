@@ -24,7 +24,7 @@ func TestLoad(t *testing.T) {
 			name:      "internal plugin",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"apm": []*config.Plugin{
+				"apm": {
 					&config.Plugin{
 						Name:   "nomad",
 						Driver: "nomad-apm",
@@ -37,13 +37,13 @@ func TestLoad(t *testing.T) {
 						},
 					},
 				},
-				"target": []*config.Plugin{
+				"target": {
 					&config.Plugin{
 						Name:   "nomad",
 						Driver: "nomad-target",
 					},
 				},
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "target-value",
 						Driver: "target-value",
@@ -56,7 +56,7 @@ func TestLoad(t *testing.T) {
 			name:      "external plugin",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "noop-strategy",
@@ -69,7 +69,7 @@ func TestLoad(t *testing.T) {
 			name:      "plugin doesnt exist",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "invalid-binary",
@@ -82,7 +82,7 @@ func TestLoad(t *testing.T) {
 			name:      "plugin doesnt exist",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "noop-fake-strategy",
@@ -120,7 +120,7 @@ func TestDispense(t *testing.T) {
 			name:      "internal plugin",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"apm": []*config.Plugin{
+				"apm": {
 					&config.Plugin{
 						Name:   "nomad",
 						Driver: "nomad-apm",
@@ -133,13 +133,13 @@ func TestDispense(t *testing.T) {
 						},
 					},
 				},
-				"target": []*config.Plugin{
+				"target": {
 					&config.Plugin{
 						Name:   "nomad",
 						Driver: "nomad-target",
 					},
 				},
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "target-value",
 						Driver: "target-value",
@@ -151,19 +151,19 @@ func TestDispense(t *testing.T) {
 			name:      "external plugin",
 			pluginDir: "../test/bin",
 			cfg: map[string][]*config.Plugin{
-				"apm": []*config.Plugin{
+				"apm": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "noop-apm",
 					},
 				},
-				"strategy": []*config.Plugin{
+				"strategy": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "noop-strategy",
 					},
 				},
-				"target": []*config.Plugin{
+				"target": {
 					&config.Plugin{
 						Name:   "noop",
 						Driver: "noop-target",

@@ -1,0 +1,29 @@
+package nodeselector
+
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func NodeAllocsTestServer(t *testing.T, cluster string) (*httptest.Server, func()) {
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		// Extract node ID from path.
+		path := strings.TrimPrefix(r.URL.Path, "/v1/node/")
+		nodeID := strings.TrimSuffix(path, "/allocations")
+
+		// Read file from test-fixtures/empty folder.
+		fileName := fmt.Sprintf("test-fixtures/%s/%s.json", cluster, nodeID)
+		nodeStatus, err := ioutil.ReadFile(fileName)
+		if err != nil {
+			t.Errorf("failed to read file: %v", err)
+		}
+
+		fmt.Fprint(w, string(nodeStatus))
+	}
+	ts := httptest.NewServer(http.HandlerFunc(handler))
+	return httptest.NewServer(http.HandlerFunc(handler)), func() { ts.Close() }
+}

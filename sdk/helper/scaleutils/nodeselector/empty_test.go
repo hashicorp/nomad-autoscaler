@@ -14,7 +14,7 @@ func Test_emptyClusterScaleInNodeSelectorName(t *testing.T) {
 	assert.Equal(t, "empty_ignore_system", newEmptyClusterScaleInNodeSelector(nil, nil, true).Name())
 }
 
-func Test_emptyClusterScaleInNodeSelectSelect(t *testing.T) {
+func Test_emptyClusterScaleInNodeSelectorSelect(t *testing.T) {
 	// Start a test server that reads node allocations from disk.
 	ts, tsClose := NodeAllocsTestServer(t, "cluster1")
 	defer tsClose()
@@ -103,16 +103,10 @@ func Test_emptyClusterScaleInNodeSelectSelect(t *testing.T) {
 
 	for _, tc := range testCases {
 		for _, ignoreSystem := range []bool{true, false} {
-			prefix := "empty"
-			if ignoreSystem {
-				prefix = "empty_ignore_system"
-			}
-			name := fmt.Sprintf("%s/%s", prefix, tc.name)
-
+			// Create a `empty` selector instance.
+			selector := newEmptyClusterScaleInNodeSelector(client, hclog.NewNullLogger(), ignoreSystem)
+			name := fmt.Sprintf("%s/%s", selector.Name(), tc.name)
 			t.Run(name, func(t *testing.T) {
-				// Create a `empty` selector instance.
-				selector := newEmptyClusterScaleInNodeSelector(client, hclog.NewNullLogger(), ignoreSystem)
-
 				expectedIDs := tc.expectedIDs
 				if ignoreSystem {
 					expectedIDs = tc.expectedIDsIgnoreSystem

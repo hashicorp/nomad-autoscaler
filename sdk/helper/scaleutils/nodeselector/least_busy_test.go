@@ -87,7 +87,7 @@ func Test_leastBusyClusterScaleInNodeSelectorSelect(t *testing.T) {
 			},
 			num: 1,
 			expectedIDs: []string{
-				"b2d5bbb6-a61d-ee1f-a896-cbc6efe4f7fe",
+				"b535e699-1112-c379-c020-ebd80fdd9f09",
 			},
 		},
 		{
@@ -97,10 +97,10 @@ func Test_leastBusyClusterScaleInNodeSelectorSelect(t *testing.T) {
 					ID: "151be1dc-92e7-a488-f7dc-49faaf5a4c96",
 					NodeResources: &api.NodeResources{
 						Cpu: api.NodeCpuResources{
-							CpuShares: 250000,
+							CpuShares: 25000000,
 						},
 						Memory: api.NodeMemoryResources{
-							MemoryMB: 1985000,
+							MemoryMB: 198500000,
 						},
 					},
 				},
@@ -115,17 +115,7 @@ func Test_leastBusyClusterScaleInNodeSelectorSelect(t *testing.T) {
 						},
 					},
 				},
-				{
-					ID: "b535e699-1112-c379-c020-ebd80fdd9f09",
-					NodeResources: &api.NodeResources{
-						Cpu: api.NodeCpuResources{
-							CpuShares: 2500,
-						},
-						Memory: api.NodeMemoryResources{
-							MemoryMB: 1985,
-						},
-					},
-				},
+				// Ignore b535e699 since it doesn't have any load.
 			},
 			num: 1,
 			expectedIDs: []string{
@@ -272,7 +262,7 @@ func Test_leastBusyClusterScaleInNodeSelectorSelect(t *testing.T) {
 			for _, n := range got {
 				gotIDs = append(gotIDs, n.ID)
 			}
-			assert.ElementsMatch(t, tc.expectedIDs, gotIDs)
+			assert.ElementsMatch(t, tc.expectedIDs, gotIDs, "expected A, got B")
 		})
 	}
 }

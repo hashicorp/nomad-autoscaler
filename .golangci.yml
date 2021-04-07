@@ -1,6 +1,6 @@
 run:
   deadline: 10m
-  tests: false
+  tests: true
 
 # output configuration options
 output:

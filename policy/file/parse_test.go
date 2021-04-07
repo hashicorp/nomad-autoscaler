@@ -18,7 +18,7 @@ func Test_decodeFile(t *testing.T) {
 		{
 			inputFile: "./test-fixtures/full-cluster-policy.hcl",
 			expectedOutputPolicies: map[string]*sdk.ScalingPolicy{
-				"full-cluster-policy": &sdk.ScalingPolicy{
+				"full-cluster-policy": {
 					ID:                 "",
 					Type:               sdk.ScalingPolicyTypeCluster,
 					Enabled:            true,
@@ -67,7 +67,7 @@ func Test_decodeFile(t *testing.T) {
 		{
 			inputFile: "./test-fixtures/full-task-group-policy.hcl",
 			expectedOutputPolicies: map[string]*sdk.ScalingPolicy{
-				"full-task-group-policy": &sdk.ScalingPolicy{
+				"full-task-group-policy": {
 					ID:                 "",
 					Type:               sdk.ScalingPolicyTypeHorizontal,
 					Enabled:            true,

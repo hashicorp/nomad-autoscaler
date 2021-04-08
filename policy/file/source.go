@@ -143,7 +143,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 	// helpful to have the file path logged with the policyID otherwise there
 	// is no way to understand the ID->File mapping.
 	log := s.log.With("policy_id", req.ID, "file", file, "name", name)
-	log.Debug("starting file policy monitor")
+	log.Info("starting file policy monitor")
 
 	for {
 		select {

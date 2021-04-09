@@ -166,7 +166,7 @@ type Consul struct {
 	Addr string `hcl:"address"`
 
 	// TimeoutHCL is used by Consul HTTP Client
-	TimeoutHCL string        `hcl:"timeout" json:"-"`
+	TimeoutHCL string `hcl:"timeout" json:"-"`
 
 	// Token is used to provide a per-request ACL token. This options overrides
 	// the agent's default token

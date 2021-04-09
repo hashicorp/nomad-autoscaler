@@ -12,10 +12,8 @@ import (
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/hclsimple"
-
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
-
 	"github.com/mitchellh/copystructure"
 )
 
@@ -212,9 +210,6 @@ func (c *Consul) MergeWithDefault() (*consulapi.Config, error) {
 	}
 
 	cfg := consulapi.DefaultConfig()
-
-	if c.TimeoutHCL != "" {
-	}
 
 	if c.Addr != "" {
 		cfg.Address = c.Addr

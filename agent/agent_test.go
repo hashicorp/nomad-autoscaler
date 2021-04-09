@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 )
 

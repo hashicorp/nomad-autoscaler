@@ -194,7 +194,6 @@ func (a *Agent) generateConsulClient() error {
 	return nil
 }
 
-
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
 func (a *Agent) reload() {

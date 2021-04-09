@@ -4,10 +4,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/hashicorp/nomad-autoscaler/agent/config"
 )
 
 func TestAgent_generateNomadClient(t *testing.T) {
@@ -30,7 +30,7 @@ func TestAgent_generateNomadClient(t *testing.T) {
 				},
 			},
 			expectedOutputEr: errors.New(`failed to instantiate Nomad client: invalid address '	': parse "\t": net/url: invalid control character in URL`),
-			name:             "invalid input Nomad address", //nolint
+			name: "invalid input Nomad address", //nolint
 		},
 	}
 

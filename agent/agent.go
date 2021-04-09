@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	metrics "github.com/armon/go-metrics"
+	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
@@ -18,7 +19,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad/api"
-	consulapi "github.com/hashicorp/consul/api"
 )
 
 type Agent struct {
@@ -176,7 +176,7 @@ func (a *Agent) generateNomadClient() error {
 func (a *Agent) generateConsulClient() error {
 	if a.config.Consul == nil {
 		a.consulClient = nil
-		return  nil
+		return nil
 	}
 
 	cfg, err := a.config.Consul.MergeWithDefault()

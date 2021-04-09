@@ -197,7 +197,7 @@ type Consul struct {
 
 	// Namespace sets the Consul namespace used for all calls against the
 	// Consul API. If this is unset, then we don't specify a consul namespace.
-	Namespace  string `hcl:"namespace"`
+	Namespace string `hcl:"namespace"`
 
 	// Datacenter sets the Consul datacenter used for all calls against the
 	// Consul API. If this is unset, then we don't specify a consul datacenter.
@@ -533,7 +533,7 @@ func Default() (*Agent, error) {
 			BindPort:    defaultHTTPBindPort,
 		},
 		Consul: nil,
-		Nomad: &Nomad{},
+		Nomad:  &Nomad{},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,
 		},

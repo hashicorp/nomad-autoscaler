@@ -2,11 +2,14 @@ package config
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
+	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -57,6 +60,9 @@ type Agent struct {
 
 	// Telemetry is the configuration used to setup metrics collection.
 	Telemetry *Telemetry `hcl:"telemetry,block"`
+
+	// Consul is used to configure a consul API client
+	Consul *Consul `hcl:"consul,block"`
 
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
@@ -147,6 +153,166 @@ type Nomad struct {
 
 	// SkipVerify enables or disables SSL verification.
 	SkipVerify bool `hcl:"skip_verify,optional"`
+}
+
+// Consul contains the configuration information necessary to
+// communicate with a Consul server.
+type Consul struct {
+	// Addr is the HTTP endpoint address of the local Consul agent
+	//
+	// Uses Consul's default and env var.
+	Addr string `hcl:"address"`
+
+	// TimeoutHCL is used by Consul HTTP Client
+	TimeoutHCL string `hcl:"timeout" json:"-"`
+
+	// Token is used to provide a per-request ACL token. This options overrides
+	// the agent's default token
+	Token string `hcl:"token"`
+
+	// Auth is the information to use for http access to Consul agent
+	Auth string `hcl:"auth"`
+
+	// EnableSSL sets the transport scheme to talk to the Consul agent as https
+	//
+	// Uses Consul's default and env var.
+	EnableSSL *bool `hcl:"ssl"`
+
+	// VerifySSL enables or disables SSL verification when the transport scheme
+	// for the consul api client is https
+	//
+	// Uses Consul's default and env var.
+	VerifySSL *bool `hcl:"verify_ssl"`
+
+	// CAFile is the path to the ca certificate used for Consul communication.
+	//
+	// Uses Consul's default and env var.
+	CAFile string `hcl:"ca_file"`
+
+	// CertFile is the path to the certificate for Consul communication
+	CertFile string `hcl:"cert_file"`
+
+	// KeyFile is the path to the private key for Consul communication
+	KeyFile string `hcl:"key_file"`
+
+	// Namespace sets the Consul namespace used for all calls against the
+	// Consul API. If this is unset, then we don't specify a consul namespace.
+	Namespace string `hcl:"namespace"`
+
+	// Datacenter sets the Consul datacenter used for all calls against the
+	// Consul API. If this is unset, then we don't specify a consul datacenter.
+	Datacenter string `hcl:"datacenter"`
+}
+
+func (c *Consul) MergeWithDefault() (*consulapi.Config, error) {
+	if c == nil {
+		return nil, nil
+	}
+
+	cfg := consulapi.DefaultConfig()
+
+	if c.Addr != "" {
+		cfg.Address = c.Addr
+	}
+	if c.Token != "" {
+		cfg.Token = c.Token
+	}
+	if c.TimeoutHCL != "" {
+		d, err := time.ParseDuration(c.TimeoutHCL)
+		if err != nil {
+			return nil, fmt.Errorf("consul->timeout can't parse time duration %s", c.TimeoutHCL)
+		}
+		// Create a custom Client to set the timeout
+		if cfg.HttpClient == nil {
+			cfg.HttpClient = &http.Client{}
+		}
+		cfg.HttpClient.Timeout = d
+		cfg.HttpClient.Transport = cfg.Transport
+	}
+	if c.Auth != "" {
+		var username, password string
+		if strings.Contains(c.Auth, ":") {
+			split := strings.SplitN(c.Auth, ":", 2)
+			username = split[0]
+			password = split[1]
+		} else {
+			username = c.Auth
+		}
+
+		cfg.HttpAuth = &consulapi.HttpBasicAuth{
+			Username: username,
+			Password: password,
+		}
+	}
+	if c.EnableSSL != nil && *c.EnableSSL {
+		cfg.Scheme = "https"
+		cfg.TLSConfig = consulapi.TLSConfig{
+			Address:  cfg.Address,
+			CAFile:   c.CAFile,
+			CertFile: c.CertFile,
+			KeyFile:  c.KeyFile,
+		}
+		if c.VerifySSL != nil {
+			cfg.TLSConfig.InsecureSkipVerify = !*c.VerifySSL
+		}
+		tlsConfig, err := consulapi.SetupTLSConfig(&cfg.TLSConfig)
+		if err != nil {
+			return nil, err
+		}
+		cfg.Transport.TLSClientConfig = tlsConfig
+	}
+	if c.Namespace != "" {
+		cfg.Namespace = c.Namespace
+	}
+	if c.Datacenter != "" {
+		cfg.Datacenter = c.Datacenter
+	}
+
+	return cfg, nil
+}
+
+func (c *Consul) merge(b *Consul) *Consul {
+	if c == nil {
+		return b
+	}
+
+	result := *c
+
+	if b.Addr != "" {
+		result.Addr = b.Addr
+	}
+	if b.TimeoutHCL != "" {
+		result.TimeoutHCL = b.TimeoutHCL
+	}
+	if b.Datacenter != "" {
+		result.Datacenter = b.Datacenter
+	}
+	if b.Namespace != "" {
+		result.Namespace = b.Namespace
+	}
+	if b.Token != "" {
+		result.Token = b.Token
+	}
+	if b.Auth != "" {
+		result.Auth = b.Auth
+	}
+	if b.CAFile != "" {
+		result.CAFile = b.CAFile
+	}
+	if b.CertFile != "" {
+		result.CertFile = b.CertFile
+	}
+	if b.KeyFile != "" {
+		result.KeyFile = b.KeyFile
+	}
+	if b.EnableSSL != nil {
+		result.EnableSSL = b.EnableSSL
+	}
+	if b.VerifySSL != nil {
+		result.VerifySSL = b.VerifySSL
+	}
+
+	return &result
 }
 
 // Telemetry holds the user specified configuration for metrics collection.
@@ -366,7 +532,8 @@ func Default() (*Agent, error) {
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
 		},
-		Nomad: &Nomad{},
+		Consul: nil,
+		Nomad:  &Nomad{},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,
 		},
@@ -416,6 +583,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.Nomad != nil {
 		result.Nomad = result.Nomad.merge(b.Nomad)
+	}
+
+	if b.Consul != nil {
+		result.Consul = result.Consul.merge(b.Consul)
 	}
 
 	if b.Telemetry != nil {

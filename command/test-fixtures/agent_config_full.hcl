@@ -22,8 +22,22 @@ nomad {
   skip_verify     = true
 }
 
+consul {
+  address = "https://consul_from_file.example.com:8500"
+  timeout = "2m"
+  token = "TOKEN_FROM_FILE"
+  auth = "user:file"
+  ssl =  true
+  verify_ssl = true
+  ca_file = "./ca-from-file.pem"
+  cert_file = "./cert-from-file.pem"
+  key_file = "./key-from-file.pem"
+  namespace = "namespace-from-file"
+  datacenter = "datacenter-from-file"
+}
+
 policy {
-  dir                         = "./policy-dir-from-file"
+dir                         = "./policy-dir-from-file"
   default_cooldown            = "12s"
   default_evaluation_interval = "50m"
 }

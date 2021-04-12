@@ -81,6 +81,7 @@ func TestAgent_Merge(t *testing.T) {
 		HTTP: &HTTP{
 			BindPort: 4646,
 		},
+		Consul: &Consul{},
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
@@ -170,6 +171,7 @@ func TestAgent_Merge(t *testing.T) {
 			BindAddress: "scaler.nomad",
 			BindPort:    4646,
 		},
+		Consul: &Consul{},
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
@@ -264,6 +266,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.LogJson, actualResult.LogJson)
 	assert.Equal(t, expectedResult.LogLevel, actualResult.LogLevel)
 	assert.Equal(t, expectedResult.Nomad, actualResult.Nomad)
+	assert.Equal(t, expectedResult.Consul, actualResult.Consul)
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.Equal(t, expectedResult.PolicyEval, actualResult.PolicyEval)

@@ -4,8 +4,10 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAgent_generateNomadClient(t *testing.T) {
@@ -28,7 +30,7 @@ func TestAgent_generateNomadClient(t *testing.T) {
 				},
 			},
 			expectedOutputEr: errors.New(`failed to instantiate Nomad client: invalid address '	': parse "\t": net/url: invalid control character in URL`),
-			name:             "invalid input Nomad address", //nolint
+			name: "invalid input Nomad address", //nolint
 		},
 	}
 
@@ -39,4 +41,26 @@ func TestAgent_generateNomadClient(t *testing.T) {
 			assert.Equal(t, tc.inputAgent.nomadCfg.Address, tc.inputAgent.nomadClient.Address(), tc.name)
 		}
 	}
+}
+
+func TestAgent_generateConsulClient(t *testing.T) {
+	require := require.New(t)
+	agent := Agent{
+		config: &config.Agent{
+			Consul: nil,
+		},
+	}
+
+	// nil config => no consul client
+	require.NoError(agent.generateConsulClient())
+	require.Nil(agent.consulClient, "client should be nil because config was nil")
+
+	// empty config => default consul client
+	agent.config.Consul = &config.Consul{}
+	require.NoError(agent.generateConsulClient())
+	require.NotNil(agent.consulClient)
+
+	// explicit config overrides defaults, can throw errors
+	agent.config.Consul.Addr = "bad://1234"
+	require.EqualError(agent.generateConsulClient(), "failed to instantiate Consul client: Unknown protocol scheme: bad")
 }

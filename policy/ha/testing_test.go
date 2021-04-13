@@ -130,5 +130,4 @@ func (t *testSource) Name() policy.SourceName {
 
 // ReloadIDsMonitor is a no-op
 func (t *testSource) ReloadIDsMonitor() {
-	return
 }

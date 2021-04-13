@@ -46,6 +46,8 @@ type Source interface {
 	ReloadIDsMonitor()
 }
 
+// PolicyID contains identifying information about a policy, as returned by
+// policy.Source.MonitorIDs()
 type PolicyID string
 
 // String satisfies the Stringer interface.
@@ -65,6 +67,9 @@ const (
 
 	// SourceNameFile is the source for policies that are loaded from disk.
 	SourceNameFile SourceName = "file"
+
+	// SourceNameFiltered is the source for HA policy sources
+	SourceNameHA SourceName = "ha"
 )
 
 // HandleSourceError provides common functionality when a policy source

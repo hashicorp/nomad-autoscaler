@@ -27,13 +27,13 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
 	outputCh := make(chan policy.IDMessage)
 	outputErrCh := make(chan error)
-	monitorExited := false
+	monitorExited := make(chan bool)
 	go func() {
 		source.MonitorIDs(monitorCtx, policy.MonitorIDsReq{
 			ErrCh:    outputErrCh,
 			ResultCh: outputCh,
 		})
-		monitorExited = true
+		monitorExited <- true
 	}()
 
 	// send the message from the upstream
@@ -83,9 +83,12 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 
 	// check that MonitorIDs returns on context cancel
 	monitorCancel()
-	require.Eventually(func() bool {
-		return monitorExited
-	}, 5*time.Second, 1*time.Second)
+	select {
+	case exited := <-monitorExited:
+		require.True(exited)
+	case <-time.After(2 * time.Second):
+		require.Fail("timed out waiting for monitor to exit")
+	}
 }
 
 // TestFilteredSource_MonitorIDs_Errors tests that MonitorIDs

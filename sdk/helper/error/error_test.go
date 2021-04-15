@@ -1,4 +1,4 @@
-package scaleutils
+package error
 
 import (
 	"errors"
@@ -32,7 +32,7 @@ func Test_multiErrorFunc(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expectedOutput, multiErrorFunc(tc.inputErr), tc.name)
+			assert.Equal(t, tc.expectedOutput, MultiErrorFunc(tc.inputErr), tc.name)
 		})
 	}
 }
@@ -56,7 +56,7 @@ func Test_formattedMultiError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			output := formattedMultiError(tc.inputErr)
+			output := FormattedMultiError(tc.inputErr)
 			if tc.inputErr != nil {
 				assert.NotNil(t, output, tc.name)
 			} else {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -132,7 +133,7 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 		// avoids error logs messages which are extremely long and potentially
 		// unsuitable for log aggregators.
 		if err != nil && err.Len() >= 10 {
-			err.ErrorFormat = multiErrorFunc
+			err.ErrorFormat = errHelper.MultiErrorFunc
 			return nil, err
 		}
 
@@ -178,7 +179,7 @@ func filterByClass(n []*api.NodeListStub, id string) ([]*api.NodeListStub, error
 	// Be choosy with our returns to avoid sending a large list to the caller
 	// that will just get ignored.
 	if err != nil {
-		err.ErrorFormat = multiErrorFunc
+		err.ErrorFormat = errHelper.MultiErrorFunc
 		return nil, err
 	}
 	return out, nil

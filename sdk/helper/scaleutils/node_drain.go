@@ -9,6 +9,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -63,7 +64,7 @@ func (c *ClusterScaleUtils) DrainNodes(ctx context.Context, cfg map[string]strin
 
 	wg.Wait()
 
-	return formattedMultiError(result)
+	return errHelper.FormattedMultiError(result)
 }
 
 // drainSpec generates the Nomad API node drain specification based on the user
@@ -104,7 +105,7 @@ func drainSpec(cfg map[string]string) (*api.DrainSpec, error) {
 	// Check whether we have found errors, and return these in a nicely
 	// formatted way.
 	if mErr != nil {
-		return nil, formattedMultiError(mErr)
+		return nil, errHelper.FormattedMultiError(mErr)
 	}
 
 	return &api.DrainSpec{
@@ -171,5 +172,5 @@ func (c *ClusterScaleUtils) RunPostScaleInTasksOnFailure(nodes []NodeResourceID)
 			"node_id", node.NomadNodeID, "evals", resp.EvalIDs)
 	}
 
-	return formattedMultiError(mErr)
+	return errHelper.FormattedMultiError(mErr)
 }

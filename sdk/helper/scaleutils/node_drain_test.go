@@ -6,6 +6,7 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -45,7 +46,7 @@ func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 			expectedOutputSpec: nil,
 			expectedOutputError: &multierror.Error{
 				Errors:      []error{errors.New(`time: unknown unit "mm" in duration "10mm"`)},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "config deadline parse error",
 		},
@@ -56,7 +57,7 @@ func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 			expectedOutputSpec: nil,
 			expectedOutputError: &multierror.Error{
 				Errors:      []error{errors.New(`strconv.ParseBool: parsing "maybe": invalid syntax`)},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "config ignore system jobs parse error",
 		},
@@ -71,7 +72,7 @@ func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 					errors.New(`time: unknown unit "mm" in duration "10mm"`),
 					errors.New(`strconv.ParseBool: parsing "maybe": invalid syntax`),
 				},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "multi config params parse error",
 		},

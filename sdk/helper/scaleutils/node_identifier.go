@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	multierror "github.com/hashicorp/go-multierror"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -60,7 +61,7 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 		// avoids error logs messages which are extremely long and potentially
 		// unsuitable for log aggregators.
 		if err != nil && err.Len() >= 10 {
-			return nil, formattedMultiError(err)
+			return nil, errHelper.FormattedMultiError(err)
 		}
 
 		// Filter out all nodes which do not match the target first.
@@ -101,7 +102,7 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 	// Be choosy with our returns to avoid sending a large list to the caller
 	// that will just get ignored.
 	if err != nil {
-		return nil, formattedMultiError(err)
+		return nil, errHelper.FormattedMultiError(err)
 	}
 	return out, nil
 }

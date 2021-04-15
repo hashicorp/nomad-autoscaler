@@ -68,7 +68,7 @@ const (
 	// SourceNameFile is the source for policies that are loaded from disk.
 	SourceNameFile SourceName = "file"
 
-	// SourceNameFiltered is the source for HA policy sources
+	// SourceNameHA is the source for HA policy sources
 	SourceNameHA SourceName = "ha"
 )
 

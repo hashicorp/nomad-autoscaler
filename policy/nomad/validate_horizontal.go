@@ -1,7 +1,7 @@
 package nomad
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
@@ -18,21 +18,21 @@ func validateHorizontalPolicy(policy *api.ScalingPolicy) error {
 	//   4. Max must not be nil.
 	//   5. Min must be smaller than Max.
 	if policy.Min == nil {
-		result = multierror.Append(result, fmt.Errorf("scaling.min is missing"))
+		result = multierror.Append(result, errors.New("scaling.min is missing"))
 	} else if policy.Max == nil {
-		result = multierror.Append(result, fmt.Errorf("scaling.max is missing"))
+		result = multierror.Append(result, errors.New("scaling.max is missing"))
 	} else {
 		min := *policy.Min
 		if min < 0 {
-			result = multierror.Append(result, fmt.Errorf("scaling.min can't be negative"))
+			result = multierror.Append(result, errors.New("scaling.min can't be negative"))
 		}
 
 		if min > *policy.Max {
-			result = multierror.Append(result, fmt.Errorf("scaling.min must be smaller than scaling.max"))
+			result = multierror.Append(result, errors.New("scaling.min must be smaller than scaling.max"))
 		}
 
 		if *policy.Max < 0 {
-			result = multierror.Append(result, fmt.Errorf("scaling.max can't be negative"))
+			result = multierror.Append(result, errors.New("scaling.max can't be negative"))
 		}
 	}
 

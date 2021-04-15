@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -41,7 +41,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("missing required field `value`"),
+			expectedError: errors.New("missing required field `value`"),
 			name:          "incorrect strategy input config",
 		},
 		{
@@ -53,7 +53,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("invalid value for `value`: not-the-int-you're-looking-for (string)"),
+			expectedError: errors.New("invalid value for `value`: not-the-int-you're-looking-for (string)"),
 			name:          "incorrect input strategy config fixed value - string",
 		},
 		{

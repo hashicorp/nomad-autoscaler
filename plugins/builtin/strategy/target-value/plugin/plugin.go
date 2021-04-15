@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -81,7 +82,7 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	// Read and parse target value from req.Config.
 	t := eval.Check.Strategy.Config[runConfigKeyTarget]
 	if t == "" {
-		return nil, fmt.Errorf("missing required field `target`")
+		return nil, errors.New("missing required field `target`")
 	}
 
 	target, err := strconv.ParseFloat(t, 64)

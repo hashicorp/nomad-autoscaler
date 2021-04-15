@@ -1,7 +1,7 @@
 package nomad
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -33,10 +33,10 @@ func Test_jobStateHandler_status(t *testing.T) {
 		name           string
 	}{
 		{
-			inputJSH:       &jobScaleStatusHandler{scaleStatusError: fmt.Errorf("this is an error message")},
+			inputJSH:       &jobScaleStatusHandler{scaleStatusError: errors.New("this is an error message")},
 			inputGroup:     "test",
 			expectedReturn: nil,
-			expectedError:  fmt.Errorf("this is an error message"),
+			expectedError:  errors.New("this is an error message"),
 			name:           "job status response currently in error",
 		},
 		{
@@ -54,7 +54,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 			},
 			inputGroup:     "this-doesnt-exist",
 			expectedReturn: nil,
-			expectedError:  fmt.Errorf("task group \"this-doesnt-exist\" not found"),
+			expectedError:  errors.New("task group \"this-doesnt-exist\" not found"),
 			name:           "job group not found within scale status task groups",
 		},
 		{
@@ -125,9 +125,9 @@ func Test_jobStateHandler_updateStatusState(t *testing.T) {
 	assert.Greater(t, newTimestamp, int64(0))
 
 	// Write a second update and ensure it is persisted.
-	jsh.updateStatusState(nil, fmt.Errorf("oh no, something went wrong"))
+	jsh.updateStatusState(nil, errors.New("oh no, something went wrong"))
 	assert.Greater(t, jsh.lastUpdated, newTimestamp)
-	assert.Equal(t, fmt.Errorf("oh no, something went wrong"), jsh.scaleStatusError)
+	assert.Equal(t, errors.New("oh no, something went wrong"), jsh.scaleStatusError)
 	assert.Nil(t, jsh.scaleStatus)
 }
 

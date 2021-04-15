@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,17 +25,17 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
 
 	if policy == nil {
-		return multierror.Append(result, fmt.Errorf("ScalingPolicy is nil"))
+		return multierror.Append(result, errors.New("ScalingPolicy is nil"))
 	}
 
 	// Validate ID.
 	if policy.ID == "" {
-		result = multierror.Append(result, fmt.Errorf("ID is empty"))
+		result = multierror.Append(result, errors.New("ID is empty"))
 	}
 
 	// Validate Target.
 	if policy.Target == nil {
-		result = multierror.Append(result, fmt.Errorf("Target is nil")) //lint:ignore ST1005 Target is a field value
+		result = multierror.Append(result, errors.New("Target is nil")) //lint:ignore ST1005 Target is a field value
 	}
 
 	// Validate Policy.

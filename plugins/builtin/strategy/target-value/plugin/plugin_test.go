@@ -1,7 +1,7 @@
 package plugin
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -44,7 +44,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Action: &sdk.ScalingAction{},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("missing required field `target`"),
+			expectedError: errors.New("missing required field `target`"),
 			name:          "incorrect strategy input config",
 		},
 		{
@@ -58,7 +58,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				Action: &sdk.ScalingAction{},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("invalid value for `target`: not-the-float-you're-looking-for (string)"),
+			expectedError: errors.New("invalid value for `target`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input strategy config target value",
 		},
 		{
@@ -71,7 +71,7 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 			},
 			expectedResp:  nil,
-			expectedError: fmt.Errorf("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
+			expectedError: errors.New("invalid value for `threshold`: not-the-float-you're-looking-for (string)"),
 			name:          "incorrect input strategy config threshold value",
 		},
 		{

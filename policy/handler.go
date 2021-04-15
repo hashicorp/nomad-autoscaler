@@ -2,6 +2,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -245,7 +246,7 @@ func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEva
 	if policy == nil {
 		// Initial ticker ticked without a policy being set, assume we are not able
 		// to retrieve the policy and exit.
-		return nil, fmt.Errorf("timeout: failed to read policy in time")
+		return nil, errors.New("timeout: failed to read policy in time")
 	}
 
 	// Exit early if the policy is not enabled.

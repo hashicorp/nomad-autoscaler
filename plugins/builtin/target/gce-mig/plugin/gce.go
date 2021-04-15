@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -117,7 +118,7 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		if stable || err != nil {
 			return true, err
 		} else {
-			return false, fmt.Errorf("waiting for instance group to become stable")
+			return false, errors.New("waiting for instance group to become stable")
 		}
 	}
 

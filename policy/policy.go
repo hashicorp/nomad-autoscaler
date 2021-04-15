@@ -1,6 +1,7 @@
 package policy
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -51,16 +52,16 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 	var mErr *multierror.Error
 
 	if p.ID == "" {
-		mErr = multierror.Append(mErr, fmt.Errorf("policy ID is empty"))
+		mErr = multierror.Append(mErr, errors.New("policy ID is empty"))
 	}
 	if p.Min < 0 {
-		mErr = multierror.Append(mErr, fmt.Errorf("policy Min can't be negative"))
+		mErr = multierror.Append(mErr, errors.New("policy Min can't be negative"))
 	}
 	if p.Max < 0 {
-		mErr = multierror.Append(mErr, fmt.Errorf("policy Max can't be negative"))
+		mErr = multierror.Append(mErr, errors.New("policy Max can't be negative"))
 	}
 	if p.Min > p.Max {
-		mErr = multierror.Append(mErr, fmt.Errorf("policy Min must not be greater Max"))
+		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
 	}
 
 	return mErr.ErrorOrNil()

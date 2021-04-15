@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/stretchr/testify/require"
-
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/stretchr/testify/require"
 )
 
 // TestFilteredSource_MonitorIDs_FilterInput tests that MonitorIDs

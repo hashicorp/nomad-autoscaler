@@ -14,7 +14,7 @@ type MonitorFilterRequest struct {
 // PolicyFilter defines the interface for policy filters
 // used by the autoscaler's HA capability.
 type PolicyFilter interface {
-	// MonitorFilter accepts a context and a channel for informing the caller
+	// MonitorFilterUpdates accepts a context and a channel for informing the caller
 	// of asynchronous updates to the underlying filter.
 	MonitorFilterUpdates(ctx context.Context, req MonitorFilterRequest)
 	// ReloadFilterMonitor indicates that the filter should be reloaded

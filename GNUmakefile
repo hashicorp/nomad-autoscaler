@@ -68,7 +68,7 @@ check-sdk: ## Checks the SDK pkg is isolated
 		exit 1; fi
 	@echo "==> Done"
 
-.PHONEY: check-root-mod
+.PHONY: check-root-mod
 check-root-mod: ## Checks the root Go mod is tidy
 	@echo "==> Checking Go mod and Go sum..."
 	@GO111MODULE=on go mod tidy
@@ -79,7 +79,7 @@ check-root-mod: ## Checks the root Go mod is tidy
 		exit 1; fi
 	@echo "==> Done"
 
-.PHONEY: check-tools-mod
+.PHONY: check-tools-mod
 check-tools-mod: ## Checks the tools Go mod is tidy
 	@echo "==> Checking tools Go mod and Go sum..."
 	@GO111MODULE=on cd tools && go mod tidy
@@ -90,7 +90,7 @@ check-tools-mod: ## Checks the tools Go mod is tidy
 		exit 1; fi
 	@echo "==> Done"
 
-.PHONEY: check-protobuf
+.PHONY: check-protobuf
 check-protobuf: ## Checks the protobuf files are in-sync
 	@$(MAKE) generate-proto
 	@echo "==> Checking proto files are in-sync..."
@@ -176,6 +176,12 @@ bin/plugins/gce-mig:
 	@cd ./plugins/builtin/target/gce-mig && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/hcloud-server:
+	@echo "==> Building $@..."
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/hcloud-server && go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
 plugins: \
 	bin/plugins/nomad-apm \
@@ -187,4 +193,5 @@ plugins: \
 	bin/plugins/aws-asg \
 	bin/plugins/datadog \
 	bin/plugins/azure-vmss \
-	bin/plugins/gce-mig
+	bin/plugins/gce-mig \
+	bin/plugins/hcloud-server

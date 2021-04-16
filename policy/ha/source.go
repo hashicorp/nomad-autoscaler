@@ -108,8 +108,14 @@ func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req policy.MonitorP
 }
 
 // Name satisfies the Name function of the policy.Source interface.
+// There needs to be a match between:
+// * the name reported by the policy source during MonitorIDs
+// * this method
+// * the key for the map of sources in the policy Manager
+// * and maybe other stuff as well.
+// Therefore, we'll continue to use the existing name.
 func (fs *FilteredSource) Name() policy.SourceName {
-	return policy.SourceNameHA
+	return fs.upstreamSource.Name()
 }
 
 // ReloadIDsMonitor implements policy.Source by calling the appropriate

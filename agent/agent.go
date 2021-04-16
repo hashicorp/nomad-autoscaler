@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
+	"github.com/hashicorp/nomad-autoscaler/policy/ha"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -135,6 +136,22 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	}
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
+	var wrapSource func(s policy.Source) policy.Source
+	// TODO: this got pretty long and gnarly
+	if a.config.HA != nil && a.config.HA.Enabled && a.consulClient != nil && a.config.Consul != nil && a.config.Consul.ServiceName != "" {
+		consulDiscovery := ha.NewConsulDiscovery(ha.NewDefaultConsulCatalog(a.consulClient), a.config.Consul.ServiceName)
+		hashFilter := ha.NewConsistentHashPolicyFilter(consulDiscovery)
+		wrapSource = func(s policy.Source) policy.Source {
+			return ha.NewFilteredSource(
+				a.logger.Named(fmt.Sprintf("filtered_policy_source(%s)", s.Name())),
+				s, hashFilter)
+		}
+	} else {
+		wrapSource = func(s policy.Source) policy.Source {
+			return s
+		}
+	}
+
 	// Setup our initial default policy source which is Nomad.
 	sources := map[policy.SourceName]policy.Source{
 		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor),
@@ -144,6 +161,10 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	// then setup the file source.
 	if a.config.Policy.Dir != "" {
 		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
+	}
+
+	for k, v := range sources {
+		sources[k] = wrapSource(v)
 	}
 
 	a.policySources = sources
@@ -222,10 +243,14 @@ func (a *Agent) reload() {
 	}
 
 	a.logger.Debug("reloading policy sources")
-	// Set new Nomad client in the Nomad policy source.
-	ps, ok := a.policySources[policy.SourceNameNomad]
-	if ok {
-		ps.(*nomadPolicy.Source).SetNomadClient(a.nomadClient)
+	// Set new Nomad and Consul clients in policy sources
+	for _, s := range a.policySources {
+		if n, ok := s.(policy.NomadClientUser); ok {
+			n.SetNomadClient(a.nomadClient)
+		}
+		if c, ok := s.(policy.ConsulClientUser); ok {
+			c.SetConsulClient(a.consulClient)
+		}
 	}
 	a.policyManager.ReloadSources()
 

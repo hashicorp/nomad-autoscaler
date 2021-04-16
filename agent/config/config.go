@@ -68,6 +68,7 @@ type Agent struct {
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
+	HA         *HA       `hcl:"ha,block"`
 }
 
 // DynamicApplicationSizing contains configuration values to control the
@@ -156,6 +157,13 @@ type Nomad struct {
 	SkipVerify bool `hcl:"skip_verify,optional"`
 }
 
+// HA contains the configuration information necessary for highly-available
+// deployments of the autoscaler
+type HA struct {
+	// Enabled indicates support for HA
+	Enabled bool `hcl:"enabled"`
+}
+
 // Consul contains the configuration information necessary to
 // communicate with a Consul server.
 type Consul struct {
@@ -203,6 +211,10 @@ type Consul struct {
 	// Datacenter sets the Consul datacenter used for all calls against the
 	// Consul API. If this is unset, then we don't specify a consul datacenter.
 	Datacenter string `hcl:"datacenter"`
+
+	// ServiceName is the name used for registering and querying
+	// the service catalog for other autoscaler agents for HA
+	ServiceName string `hcl:"service_name,optional"`
 }
 
 func (c *Consul) MergeWithDefault() (*consulapi.Config, error) {

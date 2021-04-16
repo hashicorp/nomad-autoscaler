@@ -20,16 +20,15 @@ const (
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
-	configKeyToken        = "hcloud_token"
-	configKeyDatacenter   = "hcloud_datacenter"
-	configKeyLocation     = "hcloud_location"
-	configKeyImage        = "hcloud_image"
-	configKeyUserData     = "hcloud_user_data"
-	configKeyUserDataFile = "hcloud_user_data_file"
-	configKeySSHKeys      = "hcloud_ssh_keys"
-	configKeyLabels       = "hcloud_labels"
-	configKeyServerType   = "hcloud_server_type"
-	configKeyNamePrefix   = "hcloud_name_prefix"
+	configKeyToken      = "hcloud_token"
+	configKeyDatacenter = "hcloud_datacenter"
+	configKeyLocation   = "hcloud_location"
+	configKeyImage      = "hcloud_image"
+	configKeyUserData   = "hcloud_user_data"
+	configKeySSHKeys    = "hcloud_ssh_keys"
+	configKeyLabels     = "hcloud_labels"
+	configKeyServerType = "hcloud_server_type"
+	configKeyNamePrefix = "hcloud_name_prefix"
 )
 
 var (

@@ -45,6 +45,9 @@ const (
 	// plugin.
 	InternalTargetGCEMIG = "gce-mig"
 
+	// InternalTargetHCloudServer is the Hetzner Cloud Server target plugin.
+	InternalTargetHCloudServer = "hcloud-server"
+
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
 )

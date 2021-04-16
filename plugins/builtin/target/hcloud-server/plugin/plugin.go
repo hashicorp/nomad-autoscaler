@@ -93,7 +93,7 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
 
-	// AWS can't support dry-run like Nomad, so just exit.
+	// Hetzner Cloud can't support dry-run like Nomad, so just exit.
 	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		return nil
 	}
@@ -145,9 +145,6 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 // Status satisfies the Status function on the target.Target interface.
 func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, error) {
 
-	// Perform our check of the Nomad node pool. If the pool is not ready, we
-	// can exit here and avoid calling the AWS API as it won't affect the
-	// outcome.
 	ready, err := t.clusterUtils.IsPoolReady(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run Nomad node readiness check: %v", err)

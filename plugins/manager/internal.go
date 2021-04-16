@@ -15,6 +15,7 @@ import (
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
+	hcloudServer "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/hcloud-server/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
@@ -52,6 +53,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetGCEMIG:
 		info.factory = gceMIG.PluginConfig.Factory
 		info.driver = "gce-mig"
+	case plugins.InternalTargetHCloudServer:
+		info.factory = hcloudServer.PluginConfig.Factory
+		info.driver = "hcloud-server"
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
@@ -100,6 +104,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,
 		plugins.InternalTargetGCEMIG,
+		plugins.InternalTargetHCloudServer,
 		plugins.InternalAPMDatadog:
 		return true
 	default:

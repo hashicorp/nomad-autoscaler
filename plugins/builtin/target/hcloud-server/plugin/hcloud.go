@@ -52,15 +52,15 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, servers []*hcloud.Server, c
 
 	opts := hcloud.ServerCreateOpts{}
 
-	datacenter, ok := config[configKeyDatacenter]
+	location, ok := config[configKeyLocation]
 	if !ok {
-		return fmt.Errorf("required config param %s not found", configKeyDatacenter)
+		return fmt.Errorf("required config param %s not found", configKeyLocation)
 	} else {
-		opts.Datacenter = &hcloud.Datacenter{Name: datacenter}
+		opts.Location = &hcloud.Location{Name: location}
 	}
 
-	if location, ok := config[configKeyLocation]; ok {
-		opts.Location = &hcloud.Location{Name: location}
+	if datacenter, ok := config[configKeyDatacenter]; ok {
+		opts.Datacenter = &hcloud.Datacenter{Name: datacenter}
 	}
 
 	imageName, ok := config[configKeyImage]

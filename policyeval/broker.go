@@ -3,7 +3,7 @@ package policyeval
 import (
 	"container/heap"
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 
@@ -263,15 +263,15 @@ func (b *Broker) Ack(evalID, token string) error {
 	// Lookup the unack'd eval.
 	unack, ok := b.unack[evalID]
 	if !ok {
-		return fmt.Errorf("evaluation ID not found")
+		return errors.New("evaluation ID not found")
 	}
 	if unack.Token != token {
-		return fmt.Errorf("token does not match for evaluation ID")
+		return errors.New("token does not match for evaluation ID")
 	}
 
 	// Ensure we were able to stop the timer.
 	if !unack.NackTimer.Stop() {
-		return fmt.Errorf("evaluation ID Ack'd after Nack timer expiration")
+		return errors.New("evaluation ID Ack'd after Nack timer expiration")
 	}
 
 	// Cleanup.
@@ -295,10 +295,10 @@ func (b *Broker) Nack(evalID, token string) error {
 	// Lookup the unack'd eval
 	unack, ok := b.unack[evalID]
 	if !ok {
-		return fmt.Errorf("evaluation ID not found")
+		return errors.New("evaluation ID not found")
 	}
 	if unack.Token != token {
-		return fmt.Errorf("token does not match for evaluation ID")
+		return errors.New("token does not match for evaluation ID")
 	}
 
 	logger = logger.With("policy_id", unack.Eval.Policy.ID)

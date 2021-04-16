@@ -2,6 +2,7 @@ package nomad
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -241,7 +242,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			errMsg := "policy validation failed"
 			if _, ok := err.(*multierror.Error); ok {
 				// Add new error message as first error item.
-				err = multierror.Append(fmt.Errorf(errMsg), err)
+				err = multierror.Append(errors.New(errMsg), err)
 			} else {
 				err = fmt.Errorf("%s: %v", errMsg, err)
 			}

@@ -1,6 +1,7 @@
 package nomad
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"testing"
@@ -551,7 +552,7 @@ func Test_validateBlock(t *testing.T) {
 				},
 			},
 			validator: func(in map[string]interface{}, path string) error {
-				return fmt.Errorf("error from validator")
+				return errors.New("error from validator")
 			},
 			expectError: true,
 		},
@@ -561,7 +562,7 @@ func Test_validateBlock(t *testing.T) {
 				"key": "value",
 			},
 			validator: func(in map[string]interface{}, path string) error {
-				return fmt.Errorf("error from validator")
+				return errors.New("error from validator")
 			},
 			expectError: true,
 		},

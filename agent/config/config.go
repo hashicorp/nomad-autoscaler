@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -898,7 +899,7 @@ func (pw *PolicyEval) validate() *multierror.Error {
 	prefix := "policy_workers ->"
 
 	if pw.DeliveryLimitPtr != nil && pw.DeliveryLimit <= 0 {
-		result = multierror.Append(result, fmt.Errorf("delivery_limit must be bigger than 0"))
+		result = multierror.Append(result, errors.New("delivery_limit must be bigger than 0"))
 	}
 
 	for k, v := range pw.Workers {

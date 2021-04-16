@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	multierror "github.com/hashicorp/go-multierror"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -185,7 +186,7 @@ func Test_filterByClass(t *testing.T) {
 			expectedOutputList: nil,
 			expectedOutputError: &multierror.Error{
 				Errors:      []error{errors.New("node node2 is initializing")},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "filter of single class input for named class with initializing error",
 		},
@@ -210,7 +211,7 @@ func Test_filterByClass(t *testing.T) {
 			expectedOutputList: nil,
 			expectedOutputError: &multierror.Error{
 				Errors:      []error{errors.New("node node2 is draining")},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "filter of single class input for named class with draining error",
 		},
@@ -235,7 +236,7 @@ func Test_filterByClass(t *testing.T) {
 			expectedOutputList: nil,
 			expectedOutputError: &multierror.Error{
 				Errors:      []error{errors.New("node node2 is ineligible")},
-				ErrorFormat: multiErrorFunc,
+				ErrorFormat: errHelper.MultiErrorFunc,
 			},
 			name: "filter of single class input for named class with ineligible error",
 		},

@@ -10,6 +10,7 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodeselector"
 	"github.com/hashicorp/nomad/api"
@@ -186,7 +187,7 @@ func (c *ClusterScaleUtils) IdentifyScaleInRemoteIDs(nodes []*api.NodeListStub) 
 	}
 
 	if mErr != nil {
-		return nil, formattedMultiError(mErr)
+		return nil, errHelper.FormattedMultiError(mErr)
 	}
 	return out, nil
 }
@@ -237,7 +238,7 @@ func (c *ClusterScaleUtils) RunPostScaleInTasks(_ context.Context, cfg map[strin
 		}
 	}
 
-	return formattedMultiError(mErr)
+	return errHelper.FormattedMultiError(mErr)
 }
 
 // IsPoolReady provides a method for understanding whether the node pool is in

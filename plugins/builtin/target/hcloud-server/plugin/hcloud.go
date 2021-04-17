@@ -50,35 +50,48 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, servers []*hcloud.Server, c
 	log := t.logger.With("action", "scale_out", "hcloud_name_prefix", namePrefix,
 		"desired_count", count)
 
-	opts := hcloud.ServerCreateOpts{}
-
 	location, ok := config[configKeyLocation]
 	if !ok {
 		return fmt.Errorf("required config param %s not found", configKeyLocation)
-	} else {
-		opts.Location = &hcloud.Location{Name: location}
-	}
-
-	if datacenter, ok := config[configKeyDatacenter]; ok {
-		opts.Datacenter = &hcloud.Datacenter{Name: datacenter}
 	}
 
 	imageName, ok := config[configKeyImage]
 	if !ok {
 		return fmt.Errorf("required config param %s not found", configKeyImage)
-	} else {
-		image, _, err := t.hcloud.Image.Get(ctx, imageName)
-		if err != nil {
-			return fmt.Errorf("couldn't retrieve HCloud image: %v", err)
-		}
-		opts.Image = image
+	}
+
+	image, _, err := t.hcloud.Image.Get(ctx, imageName)
+	if err != nil {
+		return fmt.Errorf("couldn't retrieve HCloud image: %v", err)
+	}
+
+	if image == nil {
+		return fmt.Errorf("couldn't retrieve HCloud image: %s", imageName)
 	}
 
 	userData, ok := config[configKeyUserData]
 	if !ok {
 		return fmt.Errorf("required config param %s not found", configKeyUserData)
-	} else {
-		opts.UserData = userData
+	}
+
+	serverType, ok := config[configKeyServerType]
+	if !ok {
+		return fmt.Errorf("required config param %s not found", configKeyServerType)
+	}
+
+	opts := hcloud.ServerCreateOpts{
+		ServerType: &hcloud.ServerType{
+			Name: serverType,
+		},
+		UserData: userData,
+		Image:    image,
+		Location: &hcloud.Location{
+			Name: location,
+		},
+	}
+
+	if datacenter, ok := config[configKeyDatacenter]; ok {
+		opts.Datacenter = &hcloud.Datacenter{Name: datacenter}
 	}
 
 	sshKeys, ok := config[configKeySSHKeys]
@@ -118,9 +131,10 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, servers []*hcloud.Server, c
 			opts.Name = fmt.Sprintf("%s-%s", namePrefix, suffix)
 			result, _, err := t.hcloud.Server.Create(ctx, opts)
 			if err != nil {
-				log.Error("failed to create an HCloud server: %v", err)
+				log.Error("failed to create an HCloud server", err)
 			}
 			results = append(results, result)
+			counter++
 		}
 		var actionIDs []int
 		for _, result := range results {
@@ -130,7 +144,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, servers []*hcloud.Server, c
 		}
 		_, _, err := t.ensureActionsComplete(ctx, actionIDs)
 		if err != nil {
-			log.Error("failed to wait till all HCloud create actions are ready: %v", err)
+			log.Error("failed to wait till all HCloud create actions are ready", err)
 		}
 		servers, err = t.getServers(ctx, labels)
 		if err != nil {
@@ -185,7 +199,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, servers []*hcloud.Server, co
 
 	var failedIDs, successfulIDs []scaleutils.NodeResourceID
 	f := func(ctx context.Context) (bool, error) {
-		var actionIDs map[int]scaleutils.NodeResourceID
+		actionIDs := make(map[int]scaleutils.NodeResourceID)
 		for _, node := range nodeResourceIDs {
 			var id int
 			for _, server := range servers {
@@ -226,7 +240,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, servers []*hcloud.Server, co
 
 		successfulActions, failedActions, err := t.ensureActionsComplete(ctx, actionIDsKeys)
 		if err != nil {
-			t.logger.Error("failed to wait till all HCloud delete actions are complete: %v", err)
+			t.logger.Error("failed to wait till all HCloud delete actions are complete", err)
 		}
 
 		for _, successfulAction := range successfulActions {
@@ -316,7 +330,7 @@ func (t *TargetPlugin) getServers(ctx context.Context, labelSelector string) ([]
 	}
 	servers, err := t.hcloud.Server.AllWithOpts(ctx, opts)
 	if err != nil {
-		t.logger.Error("error retrieving server: %s\n", err)
+		t.logger.Error("error retrieving server", err)
 		return nil, err
 	}
 	return servers, nil
@@ -331,7 +345,7 @@ func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []int) (su
 	f := func(ctx context.Context) (bool, error) {
 		currentActions, _, err := t.hcloud.Action.List(ctx, opts)
 		if err != nil {
-			return true, err
+			return false, err
 		}
 
 		// Reset the action IDs we are waiting to complete so we can
@@ -345,7 +359,7 @@ func (t *TargetPlugin) ensureActionsComplete(ctx context.Context, ids []int) (su
 				ids = append(ids, action.ID)
 			} else if action.Status == hcloud.ActionStatusError {
 				failedActions = append(failedActions, action.ID)
-				t.logger.Error("Hetzner cloud action id %v failed with code %v: %v", action.ID, action.ErrorCode, action.ErrorMessage)
+				t.logger.Error("Hetzner cloud action id", action.ID, "failed with code", action.ErrorCode, "error", action.ErrorMessage)
 			} else if action.Status == hcloud.ActionStatusSuccess {
 				successfulActions = append(successfulActions, action.ID)
 			}
@@ -373,7 +387,7 @@ func hcloudNodeIDMap(n *api.Node) (string, error) {
 }
 
 func extractLabels(labelsStr string) (map[string]string, error) {
-	var labels map[string]string
+	labels := make(map[string]string)
 	labelStrs := strings.Split(labelsStr, ",")
 	for _, labelStr := range labelStrs {
 		labelValues := strings.Split(labelStr, "=")

@@ -167,9 +167,9 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	serverCount := int64(len(servers))
 
 	// Set our initial status. The asg.Status field is only set when the ASG is
-	// being deleted.
+	// being deleted
 	resp := sdk.TargetStatus{
-		Ready: serverCount > 0,
+		Ready: true,
 		Count: serverCount,
 		Meta:  make(map[string]string),
 	}

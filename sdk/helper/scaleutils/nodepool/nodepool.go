@@ -1,6 +1,11 @@
 package nodepool
 
-import "github.com/hashicorp/nomad/api"
+import (
+	"fmt"
+
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad/api"
+)
 
 // ClusterNodePoolIdentifier is the interface that defines how nodes are
 // classed into pools of resources.
@@ -17,4 +22,18 @@ type ClusterNodePoolIdentifier interface {
 	// Value returns the pool identifier value that nodes are being filtered
 	// by.
 	Value() string
+}
+
+// NewClusterNodePoolIdentifier generates a new ClusterNodePoolIdentifier based
+// on the provided configuration. If a valid option is not found, an error will
+// be returned.
+func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentifier, error) {
+
+	if class, ok := cfg[sdk.TargetConfigKeyClass]; ok {
+		return NewNodeClassPoolIdentifier(class), nil
+	}
+	if dc, ok := cfg[sdk.TargetConfigKeyDatacenter]; ok {
+		return NewNodeDatacenterPoolIdentifier(dc), nil
+	}
+	return nil, fmt.Errorf("node pool identification method required")
 }

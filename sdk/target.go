@@ -35,10 +35,15 @@ const (
 	// scaling to identify the Nomad job group targeted for autoscaling.
 	TargetConfigKeyTaskGroup = "Group"
 
-	// TargetConfigKeyClass is the config key used with horizontal cluster
-	// scaling to identify Nomad clients as part of a pool of resources. This
-	// pool of resources forms the scalable target.
+	// TargetConfigKeyClass is the horizontal cluster scaling target
+	// config key which identifies nodes as part of a pool of resources using
+	// the clients node_class configuration param.
 	TargetConfigKeyClass = "node_class"
+
+	// TargetConfigKeyDatacenter is the horizontal cluster scaling target
+	// config key which identifies nodes as part of a pool of resources using
+	// the agents datacenter configuration param.
+	TargetConfigKeyDatacenter = "datacenter"
 
 	// TargetConfigKeyDrainDeadline is the config key which defines the
 	// override value to use when draining a Nomad client during the scale in
@@ -84,3 +89,8 @@ const (
 	// allocations, without considering system jobs.
 	TargetNodeSelectorStrategyEmptyIgnoreSystemJobs = "empty_ignore_system"
 )
+
+// TargetConfigConflictingClusterParams is a list containing horizontal cluster
+// scaling target configuration options which conflict. This makes it easier to
+// create error messages.
+var TargetConfigConflictingClusterParams = []string{TargetConfigKeyDatacenter, TargetConfigKeyClass}

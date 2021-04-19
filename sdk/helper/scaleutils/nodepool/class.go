@@ -21,7 +21,7 @@ func NewNodeClassPoolIdentifier(id string) ClusterNodePoolIdentifier {
 	}
 }
 
-// NodeIsPoolMember satisfies the NodeIsPoolMember function on the
+// IsPoolMember satisfies the IsPoolMember function on the
 // ClusterNodePoolIdentifier interface.
 func (n nodeClassClusterPoolIdentifier) IsPoolMember(node *api.NodeListStub) bool {
 	return node.NodeClass != "" && node.NodeClass == n.id ||

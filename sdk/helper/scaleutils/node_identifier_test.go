@@ -6,6 +6,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -313,7 +314,7 @@ func Test_FilterNodes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			idFn, err := classClusterPoolIdentifier(tc.inputIDCfg)
+			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
 			assert.NotNil(t, idFn, tc.name)
 			assert.Nil(t, err, tc.name)
 

@@ -1,6 +1,9 @@
 package nodepool
 
-import "github.com/hashicorp/nomad/api"
+import (
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad/api"
+)
 
 type nodeDatacenterClusterPoolIdentifier struct {
 	id string
@@ -22,7 +25,7 @@ func (n nodeDatacenterClusterPoolIdentifier) IsPoolMember(node *api.NodeListStub
 }
 
 // Key satisfies the Key function on the ClusterNodePoolIdentifier interface.
-func (n nodeDatacenterClusterPoolIdentifier) Key() string { return "datacenter" }
+func (n nodeDatacenterClusterPoolIdentifier) Key() string { return sdk.TargetConfigKeyDatacenter }
 
 // Value satisfies the Value function on the ClusterNodePoolIdentifier
 // interface.

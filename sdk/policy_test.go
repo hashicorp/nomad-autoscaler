@@ -7,6 +7,42 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestScalingPolicyTarget_IsNodePoolTarget(t *testing.T) {
+	testCases := []struct {
+		inputScalingPolicyTarget *ScalingPolicyTarget
+		expectedOutput           bool
+		name                     string
+	}{
+		{
+			inputScalingPolicyTarget: &ScalingPolicyTarget{
+				Config: map[string]string{"Job": "example", "Group": "cache"},
+			},
+			expectedOutput: false,
+			name:           "job input target",
+		},
+		{
+			inputScalingPolicyTarget: &ScalingPolicyTarget{
+				Config: map[string]string{"node_class": "high-memory"},
+			},
+			expectedOutput: true,
+			name:           "node_class input target",
+		},
+		{
+			inputScalingPolicyTarget: &ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "dc1"},
+			},
+			expectedOutput: true,
+			name:           "datacenter input target",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedOutput, tc.inputScalingPolicyTarget.IsNodePoolTarget(), tc.name)
+		})
+	}
+}
+
 func TestFileDecodePolicy_Translate(t *testing.T) {
 	testCases := []struct {
 		inputFileDecodePolicy *FileDecodeScalingPolicy

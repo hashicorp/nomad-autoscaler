@@ -92,14 +92,11 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 
 func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
-	// The Nomad Autoscaler can only handle node class identifiers currently
-	// and therefore we just set that up. In the future if we wish to expand on
-	// this, it will need live within scaleutils otherwise it would be tied to
-	// an external plugin and will utilise filtering of the config keys.
-	poolID, err := classClusterPoolIdentifier(cfg)
+	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
 	if err != nil {
 		return nil, err
 	}
+	c.log.Debug("performing node pool filtering", poolID.Key(), poolID.Value())
 
 	// Pull a current list of Nomad nodes from the API including populated
 	// resource fields.
@@ -247,11 +244,7 @@ func (c *ClusterScaleUtils) RunPostScaleInTasks(_ context.Context, cfg map[strin
 // there was a problem performing the check.
 func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 
-	// The Nomad Autoscaler can only handle node class identifiers currently
-	// and therefore we just set that up. In the future if we wish to expand on
-	// this, it will need live within scaleutils otherwise it would be tied to
-	// an external plugin and will utilise filtering of the config keys.
-	poolID, err := classClusterPoolIdentifier(cfg)
+	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
 	if err != nil {
 		return false, err
 	}
@@ -266,19 +259,6 @@ func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 		return false, nil
 	}
 	return true, nil
-}
-
-// classClusterPoolIdentifier generates a new
-// nodepool.ClusterNodePoolIdentifier based on the passed operator config. In
-// the event the config key is not found, an error will be returned.
-func classClusterPoolIdentifier(cfg map[string]string) (nodepool.ClusterNodePoolIdentifier, error) {
-
-	class, ok := cfg[sdk.TargetConfigKeyClass]
-	if !ok || class == "" {
-		return nil, fmt.Errorf("required config param %q not set", sdk.TargetConfigKeyClass)
-	}
-
-	return nodepool.NewNodeClassPoolIdentifier(class), nil
 }
 
 // autoscalerNodeID identifies the NodeID which the Nomad Autoscaler is running

@@ -115,8 +115,12 @@ func (t *ScalingPolicyTarget) IsJobTaskGroupTarget() bool {
 // IsNodePoolTarget identifies whether the ScalingPolicyTarget relates to Nomad
 // client nodes and therefore horizontal cluster scaling.
 func (t *ScalingPolicyTarget) IsNodePoolTarget() bool {
-	_, ok := t.Config[TargetConfigKeyClass]
-	return ok
+	if t == nil || t.Config == nil {
+		return false
+	}
+	_, classOK := t.Config[TargetConfigKeyClass]
+	_, dcOK := t.Config[TargetConfigKeyDatacenter]
+	return classOK || dcOK
 }
 
 type FileDecodeScalingPolicies struct {

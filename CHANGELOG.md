@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+ * plugins/target: Horizontal cluster scaling can now use the node `datacenter` parameter to group nodes [[GH-468](https://github.com/hashicorp/nomad-autoscaler/pull/468)]
+
 ## 0.3.2 (April 06, 2021)
 
 FEATURES:

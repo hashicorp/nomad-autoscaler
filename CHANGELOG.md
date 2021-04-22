@@ -3,6 +3,9 @@
 FEATURES:
  * plugins/target: Horizontal cluster scaling can now use the node `datacenter` parameter to group nodes [[GH-468](https://github.com/hashicorp/nomad-autoscaler/pull/468)]
 
+BUG FIXES:
+ * plugins/target/aws-asg: Ensure user provided `aws_region` config option overrides AWS client region discovery [[GH-474](https://github.com/hashicorp/nomad-autoscaler/pull/474)]
+
 ## 0.3.2 (April 06, 2021)
 
 FEATURES:

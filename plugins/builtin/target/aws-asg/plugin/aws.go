@@ -30,17 +30,18 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 		return fmt.Errorf("failed to load default AWS config: %v", err)
 	}
 
-	// Check for a configured region and set the value to our internal default
-	// if nothing is found.
+	// If the operator has provided a configuration region, overwrite that set
+	// by the AWS client.
 	region, ok := config[configKeyRegion]
-	if !ok {
-		region = configValueRegionDefault
+	if ok {
+		t.logger.Debug("setting AWS region for client", "region", region)
+		cfg.Region = region
 	}
 
-	// If the default config is empty, update it.
+	// In the situation where the plugin is not running on an EC2 instance, nor
+	// has the operator set an parameter, set the region to the default.
 	if cfg.Region == "" {
-		t.logger.Trace("setting AWS region for client", "region", region)
-		cfg.Region = region
+		cfg.Region = configValueRegionDefault
 	}
 
 	// Attempt to pull access credentials for the AWS client from the user

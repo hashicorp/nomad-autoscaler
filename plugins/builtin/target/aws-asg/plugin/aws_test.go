@@ -2,14 +2,55 @@ package plugin
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestTargetPlugin_SetConfig_NonAWS(t *testing.T) {
+	if os.Getenv("NOMAD_AUTOSCALER_AWS") != "" {
+		t.Skip("skipping aws-asg non-aws environment test, NOMAD_AUTOSCALER_AWS set")
+	}
+
+	testCases := []struct {
+		inputCfg          map[string]string
+		expectedOutputErr error
+		name              string
+	}{
+		{
+			inputCfg:          map[string]string{},
+			expectedOutputErr: nil,
+			name:              "empty input config",
+		},
+		{
+			inputCfg: map[string]string{
+				"aws_region": "ap-southeast-2",
+			},
+			expectedOutputErr: nil,
+			name:              "input config with region",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			awsPlugin := NewAWSASGPlugin(hclog.NewNullLogger())
+			actualOutputErr := awsPlugin.SetConfig(tc.inputCfg)
+			assert.Equal(t, tc.expectedOutputErr, actualOutputErr, tc.name)
+
+			region := tc.inputCfg["aws_region"]
+			if region == "" {
+				region = "us-east-1"
+			}
+			assert.Equal(t, region, awsPlugin.asg.Config.Region, tc.name)
+		})
+	}
+}
 
 func Test_instancesBelongToASG(t *testing.T) {
 	testCases := []struct {

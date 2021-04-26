@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -29,10 +30,13 @@ type Agent struct {
 	nomadClient   *api.Client
 	consulClient  *consulapi.Client
 	pluginManager *manager.PluginManager
-	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
+
+	//
+	policySources map[policy.SourceName]policy.Source
+	haWait        func()
 
 	// nomadCfg is the merged Nomad API configuration that should be used when
 	// setting up all clients. It is the result of the Nomad api.DefaultConfig
@@ -66,10 +70,18 @@ func (a *Agent) Run() error {
 		return err
 	}
 
+	//
+	policyEvalCh, err := a.setupPolicyManager(ctx)
+	if err != nil {
+		return err
+	}
+
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
 		return fmt.Errorf("failed to setup plugins: %v", err)
 	}
+
+	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Setup the telemetry sinks.
 	inMem, err := a.setupTelemetry(a.config.Telemetry)
@@ -77,9 +89,6 @@ func (a *Agent) Run() error {
 		return fmt.Errorf("failed to setup telemetry: %v", err)
 	}
 	a.inMemSink = inMem
-
-	policyEvalCh := a.setupPolicyManager()
-	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
 	a.evalBroker = policyeval.NewBroker(
@@ -126,7 +135,7 @@ func (a *Agent) initWorkers(ctx context.Context) {
 	}
 }
 
-func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
+func (a *Agent) setupPolicyManager(ctx context.Context) (chan *sdk.ScalingEvaluation, error) {
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
@@ -136,19 +145,36 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	}
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
-	var wrapSource func(s policy.Source) policy.Source
-	// TODO: this got pretty long and gnarly
-	if a.config.HA != nil && a.config.HA.Enabled && a.consulClient != nil && a.config.Consul != nil && a.config.Consul.ServiceName != "" {
-		consulDiscovery := ha.NewConsulDiscovery(ha.NewDefaultConsulCatalog(a.consulClient), a.config.Consul.ServiceName)
-		hashFilter := ha.NewConsistentHashPolicyFilter(consulDiscovery)
+	// The default, non-ha wrapped source is a pass-through.
+	wrapSource := func(s policy.Source) policy.Source { return s }
+
+	// Check whether HA has been enabled and set this up if so wrapping the
+	// policy source.
+	if a.config.HA != nil && a.config.HA.Enabled {
+
+		// HA is not possible without a Consul client. If additional HA
+		// backends are added in the future, this will need to be updated.
+		if a.consulClient == nil {
+			return nil, errors.New("no Consul client configured")
+		}
+
+		consulDiscovery := ha.NewConsulDiscovery(
+			ha.NewDefaultConsulCatalog(a.consulClient), a.config.Consul.ServiceName, a.config.HTTP.BindAddress, a.config.HTTP.BindPort)
+
+		if err := consulDiscovery.RegisterAgent(ctx); err != nil {
+			return nil, err
+		}
+
+		// Set the agent logging context so HA deploys are easier to debug.
+		a.logger = a.logger.With("agent_id", consulDiscovery.AgentID())
+
+		a.haWait = consulDiscovery.WaitForExit
+
+		// Override the default wrapped source.
 		wrapSource = func(s policy.Source) policy.Source {
 			return ha.NewFilteredSource(
-				a.logger.Named(fmt.Sprintf("filtered_policy_source(%s)", s.Name())),
-				s, hashFilter)
-		}
-	} else {
-		wrapSource = func(s policy.Source) policy.Source {
-			return s
+				a.logger.Named(fmt.Sprintf("filtered_policy_source_%s", s.Name())),
+				s, ha.NewConsistentHashPolicyFilter(consulDiscovery))
 		}
 	}
 
@@ -170,13 +196,17 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	a.policySources = sources
 	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
-	return make(chan *sdk.ScalingEvaluation, 10)
+	return make(chan *sdk.ScalingEvaluation, 10), nil
 }
 
 func (a *Agent) stop() {
 	// Kill all the plugins.
 	if a.pluginManager != nil {
 		a.pluginManager.KillPlugins()
+	}
+
+	if a.haWait != nil {
+		a.haWait()
 	}
 }
 

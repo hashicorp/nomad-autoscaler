@@ -170,47 +170,47 @@ type Consul struct {
 	// Addr is the HTTP endpoint address of the local Consul agent
 	//
 	// Uses Consul's default and env var.
-	Addr string `hcl:"address"`
+	Addr string `hcl:"address,optional"`
 
 	// TimeoutHCL is used by Consul HTTP Client
-	TimeoutHCL string `hcl:"timeout" json:"-"`
+	TimeoutHCL string `hcl:"timeout,optional" json:"-"`
 
 	// Token is used to provide a per-request ACL token. This options overrides
 	// the agent's default token
-	Token string `hcl:"token"`
+	Token string `hcl:"token,optional"`
 
 	// Auth is the information to use for http access to Consul agent
-	Auth string `hcl:"auth"`
+	Auth string `hcl:"auth,optional"`
 
 	// EnableSSL sets the transport scheme to talk to the Consul agent as https
 	//
 	// Uses Consul's default and env var.
-	EnableSSL *bool `hcl:"ssl"`
+	EnableSSL *bool `hcl:"ssl,optional"`
 
 	// VerifySSL enables or disables SSL verification when the transport scheme
 	// for the consul api client is https
 	//
 	// Uses Consul's default and env var.
-	VerifySSL *bool `hcl:"verify_ssl"`
+	VerifySSL *bool `hcl:"verify_ssl,optional"`
 
 	// CAFile is the path to the ca certificate used for Consul communication.
 	//
 	// Uses Consul's default and env var.
-	CAFile string `hcl:"ca_file"`
+	CAFile string `hcl:"ca_file,optional"`
 
 	// CertFile is the path to the certificate for Consul communication
-	CertFile string `hcl:"cert_file"`
+	CertFile string `hcl:"cert_file,optional"`
 
 	// KeyFile is the path to the private key for Consul communication
-	KeyFile string `hcl:"key_file"`
+	KeyFile string `hcl:"key_file,optional"`
 
 	// Namespace sets the Consul namespace used for all calls against the
 	// Consul API. If this is unset, then we don't specify a consul namespace.
-	Namespace string `hcl:"namespace"`
+	Namespace string `hcl:"namespace,optional"`
 
 	// Datacenter sets the Consul datacenter used for all calls against the
 	// Consul API. If this is unset, then we don't specify a consul datacenter.
-	Datacenter string `hcl:"datacenter"`
+	Datacenter string `hcl:"datacenter,optional"`
 
 	// ServiceName is the name used for registering and querying
 	// the service catalog for other autoscaler agents for HA
@@ -220,6 +220,11 @@ type Consul struct {
 func (c *Consul) MergeWithDefault() (*consulapi.Config, error) {
 	if c == nil {
 		return nil, nil
+	}
+
+	// If the user didn't set a custom service name, set our default.
+	if c.ServiceName == "" {
+		c.ServiceName = "nomad-autoscaler-agent"
 	}
 
 	cfg := consulapi.DefaultConfig()
@@ -541,6 +546,7 @@ func Default() (*Agent, error) {
 		LogLevel:                 defaultLogLevel,
 		PluginDir:                pwd + defaultPluginDirSuffix,
 		DynamicApplicationSizing: &DynamicApplicationSizing{},
+		HA:                       nil,
 		HTTP: &HTTP{
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
@@ -592,6 +598,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.HTTP != nil {
 		result.HTTP = result.HTTP.merge(b.HTTP)
+	}
+
+	if b.HA != nil {
+		result.HA = result.HA.merge(b.HA)
 	}
 
 	if b.Nomad != nil {
@@ -707,6 +717,20 @@ func (h *HTTP) merge(b *HTTP) *HTTP {
 	}
 	if b.BindPort != 0 {
 		result.BindPort = b.BindPort
+	}
+
+	return &result
+}
+
+func (h *HA) merge(b *HA) *HA {
+	if h == nil {
+		return b
+	}
+
+	result := *h
+
+	if b.Enabled {
+		result.Enabled = b.Enabled
 	}
 
 	return &result

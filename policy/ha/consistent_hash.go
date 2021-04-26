@@ -5,14 +5,19 @@ import (
 	"fmt"
 
 	consulapi "github.com/hashicorp/consul/api"
-	"github.com/hashicorp/nomad/api"
-
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad/api"
 )
 
 type ConsistentHashPolicyFilter struct {
 	discovery   PoolDiscovery
-	currentPool []AgentID
+	currentPool []agentID
+}
+
+func NewConsistentHashPolicyFilter(discovery PoolDiscovery) PolicyFilter {
+	return &ConsistentHashPolicyFilter{
+		discovery: discovery,
+	}
 }
 
 func (ch *ConsistentHashPolicyFilter) SetNomadClient(nomad *api.Client) {
@@ -28,12 +33,11 @@ func (ch *ConsistentHashPolicyFilter) SetConsulClient(consul *consulapi.Client) 
 }
 
 func (ch *ConsistentHashPolicyFilter) MonitorFilterUpdates(ctx context.Context, req MonitorFilterRequest) {
-	updateCh := make(chan []AgentID)
+	updateCh := make(chan []agentID)
 	errCh := make(chan error)
-	go ch.discovery.MonitorPool(ctx, DiscoveryRequest{
-		updateCh: updateCh,
-		errCh:    errCh,
-	})
+
+	go ch.discovery.MonitorPool(ctx, discoveryRequest{updateCh: updateCh, errCh: errCh})
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -56,13 +60,7 @@ func (ch *ConsistentHashPolicyFilter) FilterPolicies(policyIDs []policy.PolicyID
 	return chPartition(ch.discovery.AgentID(), ch.currentPool, policyIDs)
 }
 
-func chPartition(myAgentID string, pool []AgentID, policies []policy.PolicyID) []policy.PolicyID {
+func chPartition(myAgentID string, pool []agentID, policies []policy.PolicyID) []policy.PolicyID {
 	// FINISH: implement consistent hashing :P
 	return nil
-}
-
-func NewConsistentHashPolicyFilter(discovery PoolDiscovery) PolicyFilter {
-	return &ConsistentHashPolicyFilter{
-		discovery: discovery,
-	}
 }

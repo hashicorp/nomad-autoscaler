@@ -312,7 +312,6 @@ func generateCheckID(serviceID string, reg api.AgentCheckRegistration) string {
 	// 8 bytes vs hex. Since these hashes are used in Consul URLs it's nice
 	// to have a reasonably compact URL-safe representation.
 	return b32.EncodeToString(h.Sum(nil))
-
 }
 
 func hashString(h hash.Hash, s string) { _, _ = io.WriteString(h, s) }

@@ -12,7 +12,7 @@ require (
 	github.com/DataDog/datadog-api-client-go v1.0.0-beta.7
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
-	github.com/armon/go-metrics v0.3.6
+	github.com/armon/go-metrics v0.3.7
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect

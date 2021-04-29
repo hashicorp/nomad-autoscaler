@@ -276,9 +276,9 @@ func (d *defaultConsulCatalog) RegisterAgent(service, agentID, addr string, port
 		Name:      "nomad-autoscaler-agent",
 		ServiceID: serviceReg.ID,
 	}
-	checkReg.ID = generateCheckID(id, checkReg)
 	checkReg.TCP = net.JoinHostPort(addr, strconv.Itoa(port))
 	checkReg.Interval = "10s"
+	checkReg.ID = generateCheckID(id, checkReg)
 
 	// Register and format the errors to provide clearer feedback.
 	if err := d.consulClient.Agent().ServiceRegister(&serviceReg); err != nil {

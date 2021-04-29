@@ -28,7 +28,7 @@ func TestConsistentRing_Update(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.inputConsistentRing.Update(tc.inputUpdateMembers)
-			assert.Len(t, tc.inputConsistentRing.keys, len(tc.inputUpdateMembers), tc.name)
+			assert.Len(t, tc.inputConsistentRing.memberKeys, len(tc.inputUpdateMembers), tc.name)
 			assert.Len(t, tc.inputConsistentRing.ring, len(tc.inputUpdateMembers), tc.name)
 
 			for _, member := range tc.inputUpdateMembers {

@@ -14,7 +14,7 @@ require (
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/armon/go-metrics v0.3.6
 	github.com/aws/aws-sdk-go-v2 v0.23.0
-	github.com/cespare/xxhash v1.1.0
+	github.com/cespare/xxhash/v2 v2.1.1
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/golang/protobuf v1.4.3

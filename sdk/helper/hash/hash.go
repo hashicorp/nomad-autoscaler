@@ -1,6 +1,6 @@
 package hash
 
-import "github.com/cespare/xxhash"
+import "github.com/cespare/xxhash/v2"
 
 // Hasher is responsible for generating unsigned, 64 bit hash of provided byte
 // array.

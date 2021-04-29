@@ -30,7 +30,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-plugin v1.0.1
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/hcl/v2 v2.9.1
+	github.com/hashicorp/hcl/v2 v2.10.0
 	github.com/hashicorp/nomad/api v0.0.0-20210326070337-db3761782bc4
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/mitchellh/cli v1.1.2
@@ -41,9 +41,10 @@ require (
 	github.com/prometheus/client_golang v1.9.0
 	github.com/prometheus/common v0.15.0
 	github.com/stretchr/testify v1.6.1
-	github.com/zclconf/go-cty v1.8.1 // indirect
+	github.com/zclconf/go-cty v1.8.2 // indirect
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
+	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/api v0.36.0
 	google.golang.org/genproto v0.0.0-20210119180700-e258113e47cc // indirect
 	google.golang.org/grpc v1.35.0

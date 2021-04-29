@@ -112,6 +112,12 @@ func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEval
 func (a *Agent) initWorkers(ctx context.Context) {
 	policyEvalLogger := a.logger.ResetNamed("policy_eval")
 
+	workersCount := []interface{}{}
+	for k, v := range a.config.PolicyEval.Workers {
+		workersCount = append(workersCount, k, v)
+	}
+	policyEvalLogger.Info("starting workers", workersCount...)
+
 	for i := 0; i < a.config.PolicyEval.Workers["horizontal"]; i++ {
 		w := policyeval.NewBaseWorker(
 			policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "horizontal")

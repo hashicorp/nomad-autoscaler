@@ -123,7 +123,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	if err := t.clusterUtils.DrainNodes(ctx, config, nodeResourceIDs); err != nil {
 		return err
 	}
-	t.logger.Info("pre scale-in tasks now complete")
+	t.logger.Debug("pre scale-in tasks now complete")
 
 	// Create the event writer and write that the drain event has been
 	// completed which is part of the RunPreScaleInTasks() function.

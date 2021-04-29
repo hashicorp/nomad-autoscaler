@@ -34,7 +34,7 @@ require (
 	github.com/hashicorp/nomad/api v0.0.0-20210326070337-db3761782bc4
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/mitchellh/cli v1.1.2
-	github.com/mitchellh/copystructure v1.1.1
+	github.com/mitchellh/copystructure v1.1.2
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
@@ -42,7 +42,7 @@ require (
 	github.com/prometheus/common v0.15.0
 	github.com/stretchr/testify v1.6.1
 	github.com/zclconf/go-cty v1.8.2 // indirect
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/sys v0.0.0-20210426230700-d19ff857e887 // indirect
 	golang.org/x/text v0.3.6 // indirect
 	google.golang.org/api v0.36.0

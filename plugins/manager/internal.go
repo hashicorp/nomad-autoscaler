@@ -12,6 +12,7 @@ import (
 	fixedValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/fixed-value/plugin"
 	passthrough "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/pass-through/plugin"
 	targetValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/target-value/plugin"
+	threshold "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/threshold/plugin"
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
@@ -37,6 +38,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalStrategyTargetValue:
 		info.factory = targetValue.PluginConfig.Factory
 		info.driver = "target-value"
+	case plugins.InternalStrategyThreshold:
+		info.factory = threshold.PluginConfig.Factory
+		info.driver = "threshold"
 	case plugins.InternalStrategyFixedValue:
 		info.factory = fixedValue.PluginConfig.Factory
 		info.driver = "fixed-value"
@@ -96,6 +100,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalAPMPrometheus,
 		plugins.InternalStrategyPassThrough,
 		plugins.InternalStrategyTargetValue,
+		plugins.InternalStrategyThreshold,
 		plugins.InternalStrategyFixedValue,
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,

@@ -30,6 +30,9 @@ const (
 	// name.
 	InternalStrategyTargetValue = "target-value"
 
+	// InternalStrategyThreshold is the Threshold Strategy internal plugin name.
+	InternalStrategyThreshold = "threshold"
+
 	// InternalStrategyFixedValue is the Fixed Value Strategy internal plugin name.
 	InternalStrategyFixedValue = "fixed-value"
 

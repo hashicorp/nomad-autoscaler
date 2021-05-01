@@ -18,9 +18,16 @@ const (
 	pluginName = "threshold"
 
 	// These are the keys read from the RunRequest.Config map.
-	runConfigKeyUpperBound    = "upper-bound"
-	runConfigKeyLowerBound = "lower-bound"
-	runConfigKeyDelta = "delta"
+	runConfigKeyUpperBound          = "upper_bound"
+	runConfigKeyLowerBound          = "lower_bound"
+	runConfigKeyDelta               = "delta"
+	runConfigKeyPercentage          = "percentage"
+	runConfigKeyValue               = "value"
+	runConfigKeyWithinBoundsTrigger = "within_bounds_trigger"
+
+	// defaultWithinBoundsTrigger is the default value for the
+	// within_bounds_trigger check run config.
+	defaultWithinBoundsTrigger = 5
 )
 
 var (
@@ -39,13 +46,21 @@ var (
 	}
 )
 
+// thresholdPluginRunConfig are the parsed values for a threshold plugin run.
+type thresholdPluginRunConfig struct {
+	upperBound          float64
+	lowerBound          float64
+	actionType          string
+	actionValue         float64
+	withinboundsTrigger int
+}
+
 // Assert that StrategyPlugin meets the strategy.Strategy interface.
 var _ strategy.Strategy = (*StrategyPlugin)(nil)
 
 // StrategyPlugin is the Threshold implementation of the strategy.Strategy
 // interface.
 type StrategyPlugin struct {
-	config map[string]string
 	logger hclog.Logger
 }
 
@@ -58,8 +73,7 @@ func NewThresholdPlugin(log hclog.Logger) strategy.Strategy {
 }
 
 // SetConfig satisfies the SetConfig function on the base.Base interface.
-func (s *StrategyPlugin) SetConfig(config map[string]string) error {
-	s.config = config
+func (s *StrategyPlugin) SetConfig(_ map[string]string) error {
 	return nil
 }
 
@@ -70,110 +84,213 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
-
-	// Read and parse threshold bounds from req.Config.
-	upperbound := eval.Check.Strategy.Config[runConfigKeyUpperBound]
-	lowerbound := eval.Check.Strategy.Config[runConfigKeyLowerBound]
-	if upperbound == "" && lowerbound == "" {
-		return nil, fmt.Errorf("missing required fields, must have either `lower-bound` or `upper-bound`")
-	}
-
-	//var upper, lower float64
-	//if upperbound != "" {
-		upper, err := strconv.ParseFloat(upperbound, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for `upper-bound`: %v (%T)", upperbound, upperbound)
-		}
-	//}
-	//if lowerbound != "" {
-		lower, err := strconv.ParseFloat(lowerbound, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid value for `lower-bound`: %v (%T)", lowerbound, lowerbound)
-		}
-	//}
-
-	// Read and parse threshold value from req.Config.
-	d := eval.Check.Strategy.Config[runConfigKeyDelta]
-	if d == "" {
-		return nil, fmt.Errorf("missing required fields `delta`")
-	}
-
-	delta, err := strconv.ParseFloat(d, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid value for `delta`: %v (%T)", d, d)
-	}
-
-	var factor float64
-
-	// This shouldn't happen, but check it just in case.
 	if len(eval.Metrics) == 0 {
+		s.logger.Trace("no metrics available")
 		return nil, nil
 	}
 
-	// Use only the latest value for now.
-	metric := eval.Metrics[len(eval.Metrics)-1]
+	// Parse check config.
+	config, err := parseConfig(eval.Check.Strategy.Config)
+	if err != nil {
+		return nil, err
+	}
 
-	// Identify the direction of scaling, if any.
-	eval.Action.Direction = s.calculateDirection(count, upper, lower)
+	logger := s.logger.With("check_name", eval.Check.Name, "current_count", count,
+		"lower_bound", config.lowerBound, "upper_bound", config.upperBound,
+		"actionType", config.actionType)
+
+	// Check if we have enough data points within bounds.
+	if !withinBounds(logger, eval.Metrics, config) {
+		logger.Trace("not enough data points within bounds")
+		return nil, nil
+	}
+
+	// Calculate new count.
+	logger.Trace("calculating new count")
+
+	var newCount int64
+	switch config.actionType {
+	case runConfigKeyDelta:
+		newCount = runDelta(count, config.actionValue)
+	case runConfigKeyPercentage:
+		newCount = runPercentage(count, config.actionValue)
+	case runConfigKeyValue:
+		newCount = runValue(count, config.actionValue)
+	}
+
+	logger = logger.With("new_count", newCount)
+
+	// Identify the direction of scaling, and exit early if none.
+	eval.Action.Direction = calculateDirection(count, newCount)
 	if eval.Action.Direction == sdk.ScaleDirectionNone {
 		return eval, nil
 	}
 
-	var newCount int64
-
-	// Handle cases were users wish to scale from 0. If the current count is 0,
-	// then just use the factor as the new count to target. Otherwise use our
-	// standard calculation.
-	switch count {
-	case 0:
-		newCount = int64(math.Ceil(delta))
-	default:
-		if metric.Value > upper {
-			newCount = int64(math.Ceil(float64(count) + delta))
-		} else if metric.Value < lower {
-			newCount = int64(math.Ceil(float64(count) + delta))
-		}
-	}
-
-	// Log at trace level the details of the strategy calculation. This is
-	// helpful in ultra-debugging situations when there is a need to understand
-	// all the calculations made.
-	s.logger.Trace("calculated scaling strategy results",
-		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
-		"metric_value", metric.Value, "metric_time", metric.Timestamp, "factor", factor,
-		"direction", eval.Action.Direction)
-
-	// If the calculated newCount is the same as the current count, we do not
-	// need to scale so return an empty response.
-	if newCount == count {
-		eval.Action.Direction = sdk.ScaleDirectionNone
-		return eval, nil
-	}
+	logger = logger.With("direction", eval.Action.Direction)
+	logger.Trace("calculated scaling strategy results")
 
 	eval.Action.Count = newCount
-	eval.Action.Reason = fmt.Sprintf("scaling %s because metric passed threshold", eval.Action.Direction)
+	eval.Action.Reason = fmt.Sprintf("scaling %s because metric is within bounds", eval.Action.Direction)
 
 	return eval, nil
 }
 
-// calculateDirection is used to calculate the direction of scaling that should
-// occur, if any at all. It takes into account the current task group count in
-// order to correctly account for 0 counts.
-//
-// The input factor value is padded by e, such that no action will be taken if
-// factor is within [1-e; 1+e].
-func (s *StrategyPlugin) calculateDirection(count int64, upper, lower float64) sdk.ScaleDirection {
-	switch count {
-	case 0:
-		return sdk.ScaleDirectionUp
-	default:
-		c := float64(count)
-		if c < lower {
-			return sdk.ScaleDirectionDown
-		} else if c > upper {
-			return sdk.ScaleDirectionUp
-		} else {
-			return sdk.ScaleDirectionNone
+// parseConfig parses and validates the policy check config.
+func parseConfig(config map[string]string) (*thresholdPluginRunConfig, error) {
+	c := &thresholdPluginRunConfig{}
+
+	// Read and parse threshold bounds from check config.
+	upperStr := config[runConfigKeyUpperBound]
+	lowerStr := config[runConfigKeyLowerBound]
+	if upperStr == "" && lowerStr == "" {
+		return nil, fmt.Errorf("missing required field, must have either %q or %q", runConfigKeyLowerBound, runConfigKeyUpperBound)
+	}
+
+	upper, err := parseBound(runConfigKeyUpperBound, upperStr)
+	if err != nil {
+		return nil, err
+	}
+	c.upperBound = upper
+
+	lower, err := parseBound(runConfigKeyLowerBound, lowerStr)
+	if err != nil {
+		return nil, err
+	}
+	c.lowerBound = lower
+
+	// Read and parse within bounds trigger from check config.
+	triggerStr := config[runConfigKeyWithinBoundsTrigger]
+
+	trigger := defaultWithinBoundsTrigger
+	if triggerStr != "" {
+		t, err := strconv.ParseInt(triggerStr, 10, 0)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for %q: %v (%T)", runConfigKeyWithinBoundsTrigger, triggerStr, triggerStr)
 		}
+		trigger = int(t)
+	}
+	c.withinboundsTrigger = trigger
+
+	// Read and validate action type from check config.
+	deltaStr := config[runConfigKeyDelta]
+	percentageStr := config[runConfigKeyPercentage]
+	valueStr := config[runConfigKeyValue]
+
+	nonEmpty := 0
+	for _, s := range []string{deltaStr, percentageStr, valueStr} {
+		if s != "" {
+			nonEmpty++
+		}
+	}
+	if nonEmpty == 0 {
+		return nil, fmt.Errorf("missing required field, must have either %q, %q or %q", runConfigKeyDelta, runConfigKeyPercentage, runConfigKeyValue)
+	}
+	if nonEmpty != 1 {
+		return nil, fmt.Errorf("only one of %q, %q or %q must be provided", runConfigKeyDelta, runConfigKeyPercentage, runConfigKeyValue)
+	}
+
+	if deltaStr != "" {
+		// Delta must be an interger.
+		d, err := strconv.ParseInt(deltaStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%q value %v is not an interger", runConfigKeyDelta, deltaStr)
+		}
+
+		c.actionType = runConfigKeyDelta
+		c.actionValue = float64(d)
+	}
+
+	if percentageStr != "" {
+		// Percentage must be a float.
+		p, err := strconv.ParseFloat(percentageStr, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%q value %v is not a number", runConfigKeyPercentage, percentageStr)
+		}
+
+		c.actionType = runConfigKeyPercentage
+		c.actionValue = p
+	}
+
+	if valueStr != "" {
+		// Value must be a positive interger.
+		v, err := strconv.ParseInt(valueStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("%q value %v is not an interger", runConfigKeyValue, valueStr)
+		}
+		if v < 0 {
+			return nil, fmt.Errorf("%q value %v is negative", runConfigKeyValue, valueStr)
+		}
+
+		c.actionType = runConfigKeyValue
+		c.actionValue = float64(v)
+	}
+
+	return c, nil
+}
+
+// parseBound parses and validates the value for a bound.
+func parseBound(bound string, input string) (float64, error) {
+	var defaultValue float64
+
+	switch bound {
+	case runConfigKeyLowerBound:
+		defaultValue = -math.MaxFloat64
+	case runConfigKeyUpperBound:
+		defaultValue = math.MaxFloat64
+	}
+
+	if input == "" {
+		return defaultValue, nil
+	}
+
+	value, err := strconv.ParseFloat(input, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid value for %q: %v (%T)", bound, input, input)
+	}
+
+	return value, nil
+}
+
+// withinBounds returns true if the metric result is considered within bounds.
+func withinBounds(logger hclog.Logger, metrics sdk.TimestampedMetrics, config *thresholdPluginRunConfig) bool {
+	logger.Trace("checking how many data points are within bounds")
+
+	withinBoundsCounter := 0
+	for _, metric := range metrics {
+		if metric.Value >= config.lowerBound && metric.Value < config.upperBound {
+			withinBoundsCounter++
+		}
+	}
+
+	logger.Trace(fmt.Sprintf("found %d data points within bounds", withinBoundsCounter))
+	return withinBoundsCounter >= config.withinboundsTrigger
+}
+
+// runDelta returns the next count for a delta check.
+func runDelta(count int64, d float64) int64 {
+	return count + int64(d)
+}
+
+// runPercentage returns the next count for a percentage check.
+func runPercentage(count int64, pct float64) int64 {
+	newCount := float64(count) * (1 + pct/100)
+	return int64(math.Ceil(newCount))
+}
+
+// runValue returns the next count for a value check.
+func runValue(count int64, v float64) int64 {
+	return int64(v)
+}
+
+// calculateDirection is used to calculate the direction of scaling that should
+// occur, if any at all.
+func calculateDirection(currentCount, newCount int64) sdk.ScaleDirection {
+	switch {
+	case newCount > currentCount:
+		return sdk.ScaleDirectionUp
+	case newCount < currentCount:
+		return sdk.ScaleDirectionDown
+	default:
+		return sdk.ScaleDirectionNone
 	}
 }

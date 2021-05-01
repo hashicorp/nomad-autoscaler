@@ -152,6 +152,12 @@ bin/plugins/pass-through:
 	@cd ./plugins/builtin/strategy/pass-through && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/threshold:
+	@echo "==> Building $@..."
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/strategy/threshold && go build -o ../../../../$@
+	@echo "==> Done"
+
 bin/plugins/aws-asg:
 	@echo "==> Building $@..."
 	@mkdir -p $$(dirname $@)
@@ -184,6 +190,7 @@ plugins: \
 	bin/plugins/target-value \
 	bin/plugins/fixed-value \
 	bin/plugins/pass-through \
+	bin/plugins/threshold \
 	bin/plugins/aws-asg \
 	bin/plugins/datadog \
 	bin/plugins/azure-vmss \

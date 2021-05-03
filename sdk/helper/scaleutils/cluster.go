@@ -85,7 +85,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 	if err := c.DrainNodes(ctx, cfg, nodeResourceIDs); err != nil {
 		return nil, err
 	}
-	c.log.Info("pre scale-in tasks now complete")
+	c.log.Debug("pre scale-in tasks now complete")
 
 	return nodeResourceIDs, nil
 }

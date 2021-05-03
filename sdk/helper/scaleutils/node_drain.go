@@ -58,7 +58,7 @@ func (c *ClusterScaleUtils) DrainNodes(ctx context.Context, cfg map[string]strin
 				result = multierror.Append(result, err)
 				resultLock.Unlock()
 			}
-			c.log.Info("node drain complete", "node_id", n.NomadNodeID)
+			c.log.Debug("node drain complete", "node_id", n.NomadNodeID)
 		}()
 	}
 

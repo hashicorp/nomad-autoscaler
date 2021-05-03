@@ -47,12 +47,12 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 }
 
 func (w *BaseWorker) Run(ctx context.Context) {
-	w.logger.Info("starting worker")
+	w.logger.Debug("starting worker")
 
 	for {
 		select {
 		case <-ctx.Done():
-			w.logger.Info("stopping worker")
+			w.logger.Debug("stopping worker")
 			return
 		default:
 		}
@@ -217,7 +217,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
 		return fmt.Errorf("failed to scale target: %v", err)
 	} else {
-		logger.Info("successfully submitted scaling action to target",
+		logger.Debug("successfully submitted scaling action to target",
 			"desired_count", winningAction.Count)
 		metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 	}
@@ -225,7 +225,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// Enforce the cooldown after a successful scaling event.
 	w.policyManager.EnforceCooldown(eval.Policy.ID, eval.Policy.Cooldown)
 
-	logger.Info("policy evaluation complete")
+	logger.Debug("policy evaluation complete")
 	return nil
 }
 

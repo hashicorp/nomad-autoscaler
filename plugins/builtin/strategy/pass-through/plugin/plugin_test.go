@@ -121,18 +121,8 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 				Action: &sdk.ScalingAction{},
 			},
-			inputCount: 10,
-			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metrics: sdk.TimestampedMetrics{},
-				Check: &sdk.ScalingPolicyCheck{
-					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{},
-					},
-				},
-				Action: &sdk.ScalingAction{
-					Direction: sdk.ScaleDirectionNone,
-				},
-			},
+			inputCount:    10,
+			expectedResp:  nil,
 			expectedError: nil,
 			name:          "no scaling - empty metric timeseries",
 		},

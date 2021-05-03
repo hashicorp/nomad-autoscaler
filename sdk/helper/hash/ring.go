@@ -109,7 +109,7 @@ func (cr *ConsistentRing) GetMemberAssignment(key string) RingMember {
 	return member
 }
 
-func (cr *ConsistentRing) GetLoadStats() {
+func (cr *ConsistentRing) EmitLoadStats() {
 	cr.mu.RLock()
 	defer cr.mu.RUnlock()
 

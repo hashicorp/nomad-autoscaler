@@ -62,6 +62,7 @@ func Test_instancesBelongToASG(t *testing.T) {
 	}{
 		{
 			inputASG: &autoscaling.AutoScalingGroup{
+				AutoScalingGroupName: aws.String("test"),
 				Instances: []autoscaling.Instance{
 					{InstanceId: aws.String("i-08d2c60605d210f51")},
 					{InstanceId: aws.String("i-08d2c60605d210f52")},
@@ -83,6 +84,7 @@ func Test_instancesBelongToASG(t *testing.T) {
 		},
 		{
 			inputASG: &autoscaling.AutoScalingGroup{
+				AutoScalingGroupName: aws.String("test"),
 				Instances: []autoscaling.Instance{
 					{InstanceId: aws.String("i-08d2c60605d210f51")},
 					{InstanceId: aws.String("i-08d2c60605d210f52")},
@@ -104,7 +106,8 @@ func Test_instancesBelongToASG(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualList, actualErr := instancesBelongToASG(tc.inputASG, tc.inputIDs)
+			p := NewAWSASGPlugin(hclog.NewNullLogger())
+			actualList, actualErr := p.instancesBelongToASG(tc.inputASG, tc.inputIDs)
 			assert.Equal(t, tc.expectedOutputList, actualList, tc.name)
 			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
 		})

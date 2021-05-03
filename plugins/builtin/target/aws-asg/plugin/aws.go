@@ -115,7 +115,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 
 	// Any error received here indicates misconfiguration between the ASG and
 	// the Nomad node pool.
-	instanceIDs, err := instancesBelongToASG(asg, nodeResourceIDs)
+	instanceIDs, err := t.instancesBelongToASG(asg, nodeResourceIDs)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 
 // instancesBelongToASG checks that all the instances identified for scaling in
 // belong to the target ASG.
-func instancesBelongToASG(asg *autoscaling.AutoScalingGroup, ids []scaleutils.NodeResourceID) ([]string, error) {
+func (t *TargetPlugin) instancesBelongToASG(asg *autoscaling.AutoScalingGroup, ids []scaleutils.NodeResourceID) ([]string, error) {
 
 	// Grab the instanceIDs once as it is used multiple times throughout the
 	// scale in event.
@@ -213,6 +213,8 @@ func instancesBelongToASG(asg *autoscaling.AutoScalingGroup, ids []scaleutils.No
 		if found {
 			instanceIDs = append(instanceIDs, node.RemoteResourceID)
 		} else {
+			t.logger.Error("selected node not found in ASG",
+				"asg_name", *asg.AutoScalingGroupName, "instance_id", node.RemoteResourceID)
 			isMissing++
 		}
 	}

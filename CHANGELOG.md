@@ -1,9 +1,8 @@
 ## UNRELEASED
 
 FEATURES:
-
- * plugins/target: Horizontal cluster scaling can now use the node `datacenter` parameter to group nodes [[GH-468](https://github.com/hashicorp/nomad-autoscaler/pull/468)]
  * **Threshold Strategy**: A strategy plugin that allows for different scaling actions based on a set of tiers defined by upper and lower bound metric values [[GH-483](https://github.com/hashicorp/nomad-autoscaler/pull/483)]
+ * plugins/target: Horizontal cluster scaling can now use the node `datacenter` parameter to group nodes [[GH-468](https://github.com/hashicorp/nomad-autoscaler/pull/468)]
 
 BUG FIXES:
  * agent: Updated `hashicorp/hcl/v2` to v2.10.0 to include several fixes [[GH-481](https://github.com/hashicorp/nomad-autoscaler/pull/481)]

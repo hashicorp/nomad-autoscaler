@@ -75,8 +75,7 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 	if len(eval.Metrics) == 0 {
-		eval.Action.Direction = sdk.ScaleDirectionNone
-		return eval, nil
+		return nil, nil
 	}
 
 	// Read and parse target value from req.Config.

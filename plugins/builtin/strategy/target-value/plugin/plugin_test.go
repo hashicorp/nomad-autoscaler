@@ -84,18 +84,8 @@ func TestStrategyPlugin_Run(t *testing.T) {
 				},
 				Action: &sdk.ScalingAction{},
 			},
-			inputCount: 2,
-			expectedResp: &sdk.ScalingCheckEvaluation{
-				Metrics: sdk.TimestampedMetrics{},
-				Check: &sdk.ScalingPolicyCheck{
-					Strategy: &sdk.ScalingPolicyStrategy{
-						Config: map[string]string{"target": "13"},
-					},
-				},
-				Action: &sdk.ScalingAction{
-					Direction: sdk.ScaleDirectionNone,
-				},
-			},
+			inputCount:    2,
+			expectedResp:  nil,
 			expectedError: nil,
 			name:          "empty metrics",
 		},

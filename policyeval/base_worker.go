@@ -339,6 +339,10 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute strategy: %v", err)
 	}
+	if runResp == nil {
+		return nil, nil
+	}
+
 	h.checkEval = runResp
 
 	if h.checkEval.Action.Direction == sdk.ScaleDirectionNone {

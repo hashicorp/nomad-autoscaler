@@ -4,6 +4,10 @@ FEATURES:
  * plugins/target: Horizontal cluster scaling can now use the node `datacenter` parameter to group nodes [[GH-468](https://github.com/hashicorp/nomad-autoscaler/pull/468)]
 
 BUG FIXES:
+ * agent: Updated `hashicorp/hcl/v2` to v2.10.0 to include several fixes [[GH-481](https://github.com/hashicorp/nomad-autoscaler/pull/481)]
+ * agent: Updated `mitchellh/copystructure` to v1.1.2 to include several fixes [[GH-481](https://github.com/hashicorp/nomad-autoscaler/pull/481)]
+ * agent: Updated `hashicorp/go-hclog` to v0.16.0 to include a fix to log rendering [[GH-481](https://github.com/hashicorp/nomad-autoscaler/pull/481)]
+ * agent: Updated `armon/go-metrics` to v0.3.7 to include a fix to Prometheus metrics expiry [[GH-481](https://github.com/hashicorp/nomad-autoscaler/pull/481)]
  * plugins/target/aws-asg: Ensure user provided `aws_region` config option overrides AWS client region discovery [[GH-474](https://github.com/hashicorp/nomad-autoscaler/pull/474)]
 
 ## 0.3.2 (April 06, 2021)

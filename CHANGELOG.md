@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.3 (May 03, 2021)
 
 FEATURES:
  * **Threshold Strategy**: A strategy plugin that allows for different scaling actions based on a set of tiers defined by upper and lower bound metric values [[GH-483](https://github.com/hashicorp/nomad-autoscaler/pull/483)]

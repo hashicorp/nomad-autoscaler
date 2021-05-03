@@ -115,10 +115,8 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	case runConfigKeyPercentage:
 		newCount = runPercentage(count, config.actionValue)
 	case runConfigKeyValue:
-		newCount = runValue(count, config.actionValue)
+		newCount = runValue(config.actionValue)
 	}
-
-	logger = logger.With("new_count", newCount)
 
 	// Identify the direction of scaling, and exit early if none.
 	eval.Action.Direction = calculateDirection(count, newCount)
@@ -126,8 +124,8 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		return eval, nil
 	}
 
-	logger = logger.With("direction", eval.Action.Direction)
-	logger.Trace("calculated scaling strategy results")
+	logger.Trace("calculated scaling strategy results",
+		"new_count", newCount, "direction", eval.Action.Direction)
 
 	eval.Action.Count = newCount
 	eval.Action.Reason = fmt.Sprintf("scaling %s because metric is within bounds", eval.Action.Direction)
@@ -278,7 +276,7 @@ func runPercentage(count int64, pct float64) int64 {
 }
 
 // runValue returns the next count for a value check.
-func runValue(count int64, v float64) int64 {
+func runValue(v float64) int64 {
 	return int64(v)
 }
 

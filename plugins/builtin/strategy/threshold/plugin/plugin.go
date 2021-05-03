@@ -64,7 +64,7 @@ type StrategyPlugin struct {
 	logger hclog.Logger
 }
 
-// NewTargetValuePlugin returns the Threshold implementation of the
+// NewThresholdPlugin returns the Threshold implementation of the
 // strategy.Strategy interface.
 func NewThresholdPlugin(log hclog.Logger) strategy.Strategy {
 	return &StrategyPlugin{
@@ -188,7 +188,7 @@ func parseConfig(config map[string]string) (*thresholdPluginRunConfig, error) {
 	}
 
 	if deltaStr != "" {
-		// Delta must be an interger.
+		// Delta must be an integer.
 		d, err := strconv.ParseInt(deltaStr, 10, 64)
 		if err != nil {
 			return nil, fmt.Errorf("%q value %v is not an interger", runConfigKeyDelta, deltaStr)

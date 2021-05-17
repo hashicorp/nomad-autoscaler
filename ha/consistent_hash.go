@@ -11,10 +11,10 @@ import (
 
 type ConsistentHashPolicyFilter struct {
 	discovery   PoolDiscovery
-	currentPool []agentID
+	currentPool []AgentID
 }
 
-func NewConsistentHashPolicyFilter(discovery PoolDiscovery) PolicyFilter {
+func NewConsistentHashPolicyFilter(discovery PoolDiscovery) policy.PolicyFilter {
 	return &ConsistentHashPolicyFilter{
 		discovery: discovery,
 	}
@@ -32,11 +32,11 @@ func (ch *ConsistentHashPolicyFilter) SetConsulClient(consul *consulapi.Client) 
 	}
 }
 
-func (ch *ConsistentHashPolicyFilter) MonitorFilterUpdates(ctx context.Context, req MonitorFilterRequest) {
-	updateCh := make(chan []agentID)
+func (ch *ConsistentHashPolicyFilter) MonitorFilterUpdates(ctx context.Context, req policy.MonitorFilterRequest) {
+	updateCh := make(chan []AgentID)
 	errCh := make(chan error)
 
-	go ch.discovery.MonitorPool(ctx, discoveryRequest{updateCh: updateCh, errCh: errCh})
+	go ch.discovery.MonitorPool(ctx, DiscoveryRequest{UpdateCh: updateCh, ErrCh: errCh})
 
 	for {
 		select {
@@ -60,7 +60,7 @@ func (ch *ConsistentHashPolicyFilter) FilterPolicies(policyIDs []policy.PolicyID
 	return chPartition(ch.discovery.AgentID(), ch.currentPool, policyIDs)
 }
 
-func chPartition(myAgentID string, pool []agentID, policies []policy.PolicyID) []policy.PolicyID {
+func chPartition(myAgentID string, pool []AgentID, policies []policy.PolicyID) []policy.PolicyID {
 	// FINISH: implement consistent hashing :P
 	return nil
 }

@@ -12,10 +12,11 @@ import (
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	"github.com/hashicorp/nomad-autoscaler/consul"
+	"github.com/hashicorp/nomad-autoscaler/ha"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
-	"github.com/hashicorp/nomad-autoscaler/policy/ha"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -28,7 +29,7 @@ type Agent struct {
 	config        *config.Agent
 	configPaths   []string
 	nomadClient   *api.Client
-	consulClient  *consulapi.Client
+	consul        *consul.Consul
 	pluginManager *manager.PluginManager
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
@@ -146,7 +147,7 @@ func (a *Agent) setupPolicyManager(ctx context.Context) (chan *sdk.ScalingEvalua
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
 	// The default, non-ha wrapped source is a pass-through.
-	wrapSource := func(s policy.Source) policy.Source { return s }
+	wrapSource := policy.PassThoroughFilter
 
 	// Check whether HA has been enabled and set this up if so wrapping the
 	// policy source.
@@ -154,27 +155,24 @@ func (a *Agent) setupPolicyManager(ctx context.Context) (chan *sdk.ScalingEvalua
 
 		// HA is not possible without a Consul client. If additional HA
 		// backends are added in the future, this will need to be updated.
-		if a.consulClient == nil {
+		if a.consul == nil {
 			return nil, errors.New("no Consul client configured")
 		}
 
-		consulDiscovery := ha.NewConsulDiscovery(
-			ha.NewDefaultConsulCatalog(a.consulClient), a.config.Consul.ServiceName, a.config.HTTP.BindAddress, a.config.HTTP.BindPort)
-
-		if err := consulDiscovery.RegisterAgent(ctx); err != nil {
+		if err := a.consul.RegisterAgent(ctx); err != nil {
 			return nil, err
 		}
 
 		// Set the agent logging context so HA deploys are easier to debug.
-		a.logger = a.logger.With("agent_id", consulDiscovery.AgentID())
+		a.logger = a.logger.With("agent_id", a.consul.AgentID())
 
-		a.haWait = consulDiscovery.WaitForExit
+		a.haWait = a.consul.WaitForExit
 
 		// Override the default wrapped source.
 		wrapSource = func(s policy.Source) policy.Source {
-			return ha.NewFilteredSource(
+			return policy.NewFilteredSource(
 				a.logger.Named(fmt.Sprintf("filtered_policy_source_%s", s.Name())),
-				s, ha.NewConsistentHashPolicyFilter(consulDiscovery))
+				s, ha.NewConsistentHashPolicyFilter(a.consul))
 		}
 	}
 
@@ -226,7 +224,7 @@ func (a *Agent) generateNomadClient() error {
 // generateConsulClient creates a Consul client for use within the agent.
 func (a *Agent) generateConsulClient() error {
 	if a.config.Consul == nil {
-		a.consulClient = nil
+		a.consul = nil
 		return nil
 	}
 
@@ -240,7 +238,17 @@ func (a *Agent) generateConsulClient() error {
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Consul client: %v", err)
 	}
-	a.consulClient = client
+
+	a.consul, err = consul.NewConsul(
+		a.logger.ResetNamed("consul"),
+		client,
+		a.config.Consul.ServiceName,
+		a.config.HTTP.BindAddress,
+		a.config.HTTP.BindPort,
+	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -278,9 +286,9 @@ func (a *Agent) reload() {
 		if n, ok := s.(policy.NomadClientUser); ok {
 			n.SetNomadClient(a.nomadClient)
 		}
-		if c, ok := s.(policy.ConsulClientUser); ok {
-			c.SetConsulClient(a.consulClient)
-		}
+		//if c, ok := s.(policy.ConsulClientUser); ok {
+		//	c.SetConsulClient(a.consulClient)
+		//}
 	}
 	a.policyManager.ReloadSources()
 

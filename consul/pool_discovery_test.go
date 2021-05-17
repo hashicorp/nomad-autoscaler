@@ -1,4 +1,4 @@
-package ha
+package consul
 
 import (
 	"errors"

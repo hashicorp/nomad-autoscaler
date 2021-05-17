@@ -1,4 +1,4 @@
-package ha
+package policy
 
 import (
 	"context"
@@ -6,12 +6,39 @@ import (
 	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/policy"
 )
+
+type MonitorFilterRequest struct {
+	ErrCh    chan<- error
+	UpdateCh chan<- struct{}
+}
+
+// PolicyFilter defines the interface for policy filters used by the
+// autoscaler's HA capability.
+type PolicyFilter interface {
+
+	// MonitorFilterUpdates accepts a context and a channel for informing the
+	// caller of asynchronous updates to the underlying filter.
+	MonitorFilterUpdates(ctx context.Context, req MonitorFilterRequest)
+
+	// ReloadFilterMonitor indicates that the filter should be reloaded due to
+	// potential changes to configuration and/or clients.
+	ReloadFilterMonitor()
+
+	// FilterPolicies should return a list of policies appropriate for this
+	// autoscaler agent; policies for other autoscaler agents in the HA pool
+	// should be neglected from the returned slice.
+	FilterPolicies(policyIDs []PolicyID) []PolicyID
+}
+
+// PassThoroughFilter returns the policy source without any extra logic.
+func PassThoroughFilter(s Source) Source {
+	return s
+}
 
 // NewFilteredSource accepts an upstream policy.Source and an ha.PolicyFilter
 // and constructs a FilteredSource
-func NewFilteredSource(log hclog.Logger, upstreamSource policy.Source, filter PolicyFilter) policy.Source {
+func NewFilteredSource(log hclog.Logger, upstreamSource Source, filter PolicyFilter) Source {
 	return &FilteredSource{
 		log:            log,
 		upstreamSource: upstreamSource,
@@ -24,27 +51,31 @@ func NewFilteredSource(log hclog.Logger, upstreamSource policy.Source, filter Po
 // policy.Source and filters them through an ha.PolicyFilter
 type FilteredSource struct {
 	log            hclog.Logger
-	upstreamSource policy.Source
+	upstreamSource Source
 	policyFilter   PolicyFilter
 	filterCond     *sync.Cond
 }
 
+func (fs *FilteredSource) Source() Source {
+	return fs
+}
+
 // MonitorIDs calls the same method on the configured upstream policy.Source,
 // and filters the discovered policy IDs using the configured PolicyFilter.
-func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
+func (fs *FilteredSource) MonitorIDs(ctx context.Context, req MonitorIDsReq) {
 	if fs.upstreamSource == nil || fs.policyFilter == nil {
 		return
 	}
 
 	// buffer both of these channels, to prevent the goroutines below from
 	// blocking on send between checks of ctx.Done()
-	upstreamPolicyCh := make(chan policy.IDMessage, 1)
+	upstreamPolicyCh := make(chan IDMessage, 1)
 	filterUpdateCh := make(chan struct{}, 1)
 	// create separate error channels just for augmenting the log messages
 	policyErrCh := make(chan error, 1)
 	filterErrCh := make(chan error, 1)
 
-	go fs.upstreamSource.MonitorIDs(ctx, policy.MonitorIDsReq{
+	go fs.upstreamSource.MonitorIDs(ctx, MonitorIDsReq{
 		ErrCh:    policyErrCh,
 		ResultCh: upstreamPolicyCh,
 	})
@@ -54,7 +85,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 	})
 
 	// keep track of the previous policyIDs, in case the filter updates
-	var policyIDs []policy.PolicyID
+	var policyIDs []PolicyID
 	// don't emit policy IDs until both the  filter and the upstream policy
 	// source have sent their first update
 	haveFirstPolicies, haveFirstFilter := false, false
@@ -92,7 +123,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 
 		newPolicyIDs := fs.policyFilter.FilterPolicies(policyIDs)
 		fs.log.Trace("filtered policies", "original_len", len(policyIDs), "filtered_len", len(newPolicyIDs))
-		req.ResultCh <- policy.IDMessage{
+		req.ResultCh <- IDMessage{
 			IDs:    newPolicyIDs,
 			Source: fs.Name(),
 		}
@@ -102,7 +133,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 // MonitorPolicy calls the same method on the configured policy.Source.
 // This method doesn't need to worry about the policy filter, because the policy.Manager
 // will close the context if the corresponding policy is removed.
-func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req MonitorPolicyReq) {
 	fs.log.Trace("delegating MonitorPolicy", "policy_id", req.ID)
 	fs.upstreamSource.MonitorPolicy(ctx, req)
 }
@@ -114,7 +145,7 @@ func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req policy.MonitorP
 // * the key for the map of sources in the policy Manager
 // * and maybe other stuff as well.
 // Therefore, we'll continue to use the existing name.
-func (fs *FilteredSource) Name() policy.SourceName {
+func (fs *FilteredSource) Name() SourceName {
 	return fs.upstreamSource.Name()
 }
 

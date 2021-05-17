@@ -224,7 +224,7 @@ func (c *Consul) MergeWithDefault() (*consulapi.Config, error) {
 
 	// If the user didn't set a custom service name, set our default.
 	if c.ServiceName == "" {
-		c.ServiceName = "nomad-autoscaler-agent"
+		c.ServiceName = "nomad-autoscaler"
 	}
 
 	cfg := consulapi.DefaultConfig()
@@ -551,7 +551,7 @@ func Default() (*Agent, error) {
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
 		},
-		Consul: nil,
+		Consul: &Consul{},
 		Nomad:  &Nomad{},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,

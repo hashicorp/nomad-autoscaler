@@ -136,7 +136,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 				}
 				h.log.Error(errors[0], "errors", errors[1:])
 			} else {
-				h.log.Error(err.Error())
+				h.log.Error("encountered an error monitoring policy", "error", err)
 			}
 			continue
 

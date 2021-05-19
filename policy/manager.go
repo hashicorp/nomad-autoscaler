@@ -74,7 +74,7 @@ LOOP:
 			return
 
 		case err := <-policyIDsErrCh:
-			m.log.Error(err.Error())
+			m.log.Error("encountered an error monitoring policy IDs", "error", err)
 			if isUnrecoverableError(err) {
 				break LOOP
 			}

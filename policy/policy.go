@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"strings"
 
+	consulapi "github.com/hashicorp/consul/api"
 	multierror "github.com/hashicorp/go-multierror"
+	nomadapi "github.com/hashicorp/nomad/api"
+
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -137,4 +140,12 @@ func isShortQuery(q string) bool {
 	opMetric := strings.SplitN(q, "_", 2)
 	hasSlash := strings.Contains(q, "/")
 	return len(opMetric) == 2 && !hasSlash
+}
+
+type NomadClientUser interface {
+	SetNomadClient(nomad *nomadapi.Client)
+}
+
+type ConsulClientUser interface {
+	SetConsulClient(consul *consulapi.Client)
 }

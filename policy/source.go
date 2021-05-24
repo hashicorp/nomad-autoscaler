@@ -67,9 +67,6 @@ const (
 
 	// SourceNameFile is the source for policies that are loaded from disk.
 	SourceNameFile SourceName = "file"
-
-	// SourceNameHA is the source for HA policy sources
-	SourceNameHA SourceName = "ha"
 )
 
 // HandleSourceError provides common functionality when a policy source

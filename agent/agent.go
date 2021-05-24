@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,6 +12,8 @@ import (
 	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	"github.com/hashicorp/nomad-autoscaler/consul"
+	"github.com/hashicorp/nomad-autoscaler/ha"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
@@ -26,12 +29,15 @@ type Agent struct {
 	config        *config.Agent
 	configPaths   []string
 	nomadClient   *api.Client
-	consulClient  *consulapi.Client
+	consul        *consul.Consul
 	pluginManager *manager.PluginManager
-	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
+
+	//
+	policySources map[policy.SourceName]policy.Source
+	haWait        func()
 
 	// nomadCfg is the merged Nomad API configuration that should be used when
 	// setting up all clients. It is the result of the Nomad api.DefaultConfig
@@ -65,10 +71,18 @@ func (a *Agent) Run() error {
 		return err
 	}
 
+	//
+	policyEvalCh, err := a.setupPolicyManager(ctx)
+	if err != nil {
+		return err
+	}
+
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
 		return fmt.Errorf("failed to setup plugins: %v", err)
 	}
+
+	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Setup the telemetry sinks.
 	inMem, err := a.setupTelemetry(a.config.Telemetry)
@@ -76,9 +90,6 @@ func (a *Agent) Run() error {
 		return fmt.Errorf("failed to setup telemetry: %v", err)
 	}
 	a.inMemSink = inMem
-
-	policyEvalCh := a.setupPolicyManager()
-	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
 	a.evalBroker = policyeval.NewBroker(
@@ -125,7 +136,7 @@ func (a *Agent) initWorkers(ctx context.Context) {
 	}
 }
 
-func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
+func (a *Agent) setupPolicyManager(ctx context.Context) (chan *sdk.ScalingEvaluation, error) {
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
@@ -134,6 +145,36 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 		DefaultCooldown:           a.config.Policy.DefaultCooldown,
 	}
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
+
+	// The default, non-ha wrapped source is a pass-through.
+	wrapSource := policy.PassThoroughFilter
+
+	// Check whether HA has been enabled and set this up if so wrapping the
+	// policy source.
+	if a.config.HA != nil && a.config.HA.Enabled {
+
+		// HA is not possible without a Consul client. If additional HA
+		// backends are added in the future, this will need to be updated.
+		if a.consul == nil {
+			return nil, errors.New("no Consul client configured")
+		}
+
+		if err := a.consul.RegisterAgent(ctx); err != nil {
+			return nil, err
+		}
+
+		// Set the agent logging context so HA deploys are easier to debug.
+		a.logger = a.logger.With("agent_id", a.consul.AgentID())
+
+		a.haWait = a.consul.WaitForExit
+
+		// Override the default wrapped source.
+		wrapSource = func(s policy.Source) policy.Source {
+			return policy.NewFilteredSource(
+				a.logger.Named(fmt.Sprintf("filtered_policy_source_%s", s.Name())),
+				s, ha.NewPolicyFilter(a.consul))
+		}
+	}
 
 	// Setup our initial default policy source which is Nomad.
 	sources := map[policy.SourceName]policy.Source{
@@ -146,16 +187,24 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
 	}
 
+	for k, v := range sources {
+		sources[k] = wrapSource(v)
+	}
+
 	a.policySources = sources
 	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
-	return make(chan *sdk.ScalingEvaluation, 10)
+	return make(chan *sdk.ScalingEvaluation, 10), nil
 }
 
 func (a *Agent) stop() {
 	// Kill all the plugins.
 	if a.pluginManager != nil {
 		a.pluginManager.KillPlugins()
+	}
+
+	if a.haWait != nil {
+		a.haWait()
 	}
 }
 
@@ -175,7 +224,7 @@ func (a *Agent) generateNomadClient() error {
 // generateConsulClient creates a Consul client for use within the agent.
 func (a *Agent) generateConsulClient() error {
 	if a.config.Consul == nil {
-		a.consulClient = nil
+		a.consul = nil
 		return nil
 	}
 
@@ -189,7 +238,17 @@ func (a *Agent) generateConsulClient() error {
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Consul client: %v", err)
 	}
-	a.consulClient = client
+
+	a.consul, err = consul.NewConsul(
+		a.logger.ResetNamed("consul"),
+		client,
+		a.config.Consul.ServiceName,
+		a.config.HTTP.BindAddress,
+		a.config.HTTP.BindPort,
+	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -222,10 +281,14 @@ func (a *Agent) reload() {
 	}
 
 	a.logger.Debug("reloading policy sources")
-	// Set new Nomad client in the Nomad policy source.
-	ps, ok := a.policySources[policy.SourceNameNomad]
-	if ok {
-		ps.(*nomadPolicy.Source).SetNomadClient(a.nomadClient)
+	// Set new Nomad and Consul clients in policy sources
+	for _, s := range a.policySources {
+		if n, ok := s.(policy.NomadClientUser); ok {
+			n.SetNomadClient(a.nomadClient)
+		}
+		//if c, ok := s.(policy.ConsulClientUser); ok {
+		//	c.SetConsulClient(a.consulClient)
+		//}
 	}
 	a.policyManager.ReloadSources()
 

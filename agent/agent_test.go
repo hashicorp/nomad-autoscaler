@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
@@ -30,7 +31,7 @@ func TestAgent_generateNomadClient(t *testing.T) {
 				},
 			},
 			expectedOutputEr: errors.New(`failed to instantiate Nomad client: invalid address '	': parse "\t": net/url: invalid control character in URL`),
-			name: "invalid input Nomad address", //nolint
+			name:             "invalid input Nomad address", //nolint
 		},
 	}
 
@@ -46,19 +47,24 @@ func TestAgent_generateNomadClient(t *testing.T) {
 func TestAgent_generateConsulClient(t *testing.T) {
 	require := require.New(t)
 	agent := Agent{
+		logger: hclog.NewNullLogger(),
 		config: &config.Agent{
+			HTTP: &config.HTTP{
+				BindAddress: "127.0.0.1",
+				BindPort:    1066,
+			},
 			Consul: nil,
 		},
 	}
 
 	// nil config => no consul client
 	require.NoError(agent.generateConsulClient())
-	require.Nil(agent.consulClient, "client should be nil because config was nil")
+	require.Nil(agent.consul, "client should be nil because config was nil")
 
 	// empty config => default consul client
 	agent.config.Consul = &config.Consul{}
 	require.NoError(agent.generateConsulClient())
-	require.NotNil(agent.consulClient)
+	require.NotNil(agent.consul)
 
 	// explicit config overrides defaults, can throw errors
 	agent.config.Consul.Addr = "bad://1234"

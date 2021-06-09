@@ -17,6 +17,11 @@ var defaultLabels atomic.Value
 // importing both packages when emitting metrics.
 type Label = m.Label
 
+// init ensures the defaultLabels value is an empty list rather than nil. This
+// ensures that anything calling these functions are protected no matter how
+// they setup default labels; if at all.
+func init() { SetDefaultLabels([]Label{}) }
+
 // SetDefaultLabels sets defaultLabels with the configured default set of
 // labels.
 func SetDefaultLabels(labels []Label) { defaultLabels.Store(labels) }

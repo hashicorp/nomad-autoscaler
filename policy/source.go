@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/armon/go-metrics"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/metrics"
 )
 
 // DefaultQueryWindow is the value used if `query_window` is not specified in

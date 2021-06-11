@@ -7,7 +7,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
@@ -15,6 +14,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/metrics"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
 )
 

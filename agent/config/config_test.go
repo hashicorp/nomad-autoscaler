@@ -31,6 +31,8 @@ func Test_Default(t *testing.T) {
 	assert.Len(t, def.Strategies, 1)
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
+	assert.Nil(t, def.HA)
+	assert.Nil(t, def.Consul)
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -108,6 +110,9 @@ func TestAgent_Merge(t *testing.T) {
 				"cluster":    8,
 				"horizontal": 7,
 			},
+		},
+		HA: &HA{
+			Enabled: true,
 		},
 		Telemetry: &Telemetry{
 			StatsiteAddr:                       "some-address",
@@ -223,6 +228,9 @@ func TestAgent_Merge(t *testing.T) {
 			CirconusCheckDisplayName:           "some-name",
 			CirconusBrokerID:                   "some-id",
 			CirconusBrokerSelectTag:            "some-other-tag",
+		},
+		HA: &HA{
+			Enabled: true,
 		},
 		APMs: []*Plugin{
 			{

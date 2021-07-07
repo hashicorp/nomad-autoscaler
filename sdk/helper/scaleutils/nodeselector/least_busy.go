@@ -67,7 +67,7 @@ func (l *leastBusyClusterScaleInNodeSelector) Select(nodes []*api.NodeListStub, 
 			// Update the node to include the resource object.
 			node.NodeResources = nodeInfo.NodeResources
 
-			if node.NodeResources == nil && nodeInfo.ReservedResources != nil {
+			if node.ReservedResources == nil && nodeInfo.ReservedResources != nil {
 				node.ReservedResources = nodeInfo.ReservedResources
 			}
 		}

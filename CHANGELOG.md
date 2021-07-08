@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+ * scaleutils: Fixed `least_busy` node selector on clusters running servers older than v1.0.0 [[GH-508](https://github.com/hashicorp/nomad-autoscaler/pull/508)]
+
 ## 0.3.3 (May 03, 2021)
 
 FEATURES:

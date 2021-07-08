@@ -48,6 +48,30 @@ func (l *leastBusyClusterScaleInNodeSelector) Select(nodes []*api.NodeListStub, 
 
 	for i, node := range nodes {
 
+		// The NodeResources object is only available within the Nomad
+		// api.NodeListStub from v1.0.0 onwards. Therefore in clusters running
+		// clients on lower versions, we need additional API calls to discover
+		// this information.
+		if node.NodeResources == nil {
+
+			nodeInfo, _, err := l.client.Nodes().Info(node.ID, nil)
+			if err != nil {
+				l.log.Error("failed to call node info for resource detail", "error", err)
+				return nil
+			}
+			if nodeInfo.NodeResources == nil {
+				l.log.Error("node object does not contain resource info", "node_id", node.ID)
+				return nil
+			}
+
+			// Update the node to include the resource object.
+			node.NodeResources = nodeInfo.NodeResources
+
+			if node.ReservedResources == nil && nodeInfo.ReservedResources != nil {
+				node.ReservedResources = nodeInfo.ReservedResources
+			}
+		}
+
 		// In the event of an API error, we are unable to ensure the selected
 		// nodes are the least busy. Therefore we must exit. In the future we
 		// could consider adding a threshold, configurable by the operator to

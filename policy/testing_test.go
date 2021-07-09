@@ -1,16 +1,14 @@
-package ha
+package policy
 
 import (
 	"context"
 	"strings"
 	"sync"
-
-	"github.com/hashicorp/nomad-autoscaler/policy"
 )
 
 // filterFunc is a simple function to return a list of desired PolicyID
 // from a larger list
-type filterFunc func(policies []policy.PolicyID) []policy.PolicyID
+type filterFunc func(policies []PolicyID) []PolicyID
 
 // testFilter implements ha.PolicyFilter for the purpose of testing.
 // It adds a method UpdateFilter which persists the provided
@@ -67,7 +65,7 @@ func (f *testFilter) ReloadFilterMonitor() {
 
 // FilterPolicies implements ha.PolicyFilter by applying the specified
 // filterFunc to the provided policies.
-func (f *testFilter) FilterPolicies(policyIDs []policy.PolicyID) []policy.PolicyID {
+func (f *testFilter) FilterPolicies(policyIDs []PolicyID) []PolicyID {
 	f.filterLock.RLock()
 	defer f.filterLock.RUnlock()
 	if f.filter == nil {
@@ -79,8 +77,8 @@ func (f *testFilter) FilterPolicies(policyIDs []policy.PolicyID) []policy.Policy
 // startsWith is a filterFunc which accepts any PolicyID which starts with the
 // configured string.
 func startsWith(prefix string) filterFunc {
-	return func(input []policy.PolicyID) []policy.PolicyID {
-		output := make([]policy.PolicyID, 0)
+	return func(input []PolicyID) []PolicyID {
+		output := make([]PolicyID, 0)
 		for _, pid := range input {
 			if strings.HasPrefix(pid.String(), prefix) {
 				output = append(output, pid)
@@ -93,21 +91,21 @@ func startsWith(prefix string) filterFunc {
 // testSource is a test implementation of source.Policy, which simply passes
 // messages/errors from input channels to output channels.
 type testSource struct {
-	inputCh chan policy.IDMessage
+	inputCh chan IDMessage
 	errCh   chan error
 }
 
 // NewTestSource returns a policy.Source for testing, which simply echoes
 // policy.IDMessage messages from the inputCh to the result channel on
 // MonitorIDs
-func NewTestSource(inputCh chan policy.IDMessage, errCh chan error) policy.Source {
+func NewTestSource(inputCh chan IDMessage, errCh chan error) Source {
 	return &testSource{
 		inputCh: inputCh,
 		errCh:   errCh,
 	}
 }
 
-func (t *testSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
+func (t *testSource) MonitorIDs(ctx context.Context, req MonitorIDsReq) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -120,11 +118,11 @@ func (t *testSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	}
 }
 
-func (t *testSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (t *testSource) MonitorPolicy(ctx context.Context, req MonitorPolicyReq) {
 	panic("implement me")
 }
 
-func (t *testSource) Name() policy.SourceName {
+func (t *testSource) Name() SourceName {
 	return "test-source"
 }
 

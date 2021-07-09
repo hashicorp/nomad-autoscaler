@@ -1,4 +1,4 @@
-package ha
+package policy
 
 import (
 	"context"
@@ -6,8 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,17 +17,17 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 
 	monitorCtx, monitorCancel := context.WithCancel(context.Background())
 
-	inputCh := make(chan policy.IDMessage)
+	inputCh := make(chan IDMessage)
 	errCh := make(chan error)
 	testFilter := NewTesterFilter(nil)
 	testSource := NewTestSource(inputCh, errCh)
 
 	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
-	outputCh := make(chan policy.IDMessage)
+	outputCh := make(chan IDMessage)
 	outputErrCh := make(chan error)
 	monitorExited := make(chan bool)
 	go func() {
-		source.MonitorIDs(monitorCtx, policy.MonitorIDsReq{
+		source.MonitorIDs(monitorCtx, MonitorIDsReq{
 			ErrCh:    outputErrCh,
 			ResultCh: outputCh,
 		})
@@ -36,18 +35,18 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	}()
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
+	expected := []PolicyID{
 		"abcde",
 		"a1234",
 		"aaaaa",
 	}
-	unexpected := []policy.PolicyID{
+	unexpected := []PolicyID{
 		"badbad",
 		"zzzzzz",
 		"123456",
 	}
 	go func() {
-		inputCh <- policy.IDMessage{
+		inputCh <- IDMessage{
 			IDs:    append(expected, unexpected...),
 			Source: "test",
 		}
@@ -75,7 +74,7 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	testFilter.UpdateFilter(startsWith("z"))
 	select {
 	case results := <-outputCh:
-		require.ElementsMatch([]policy.PolicyID{"zzzzzz"}, results.IDs)
+		require.ElementsMatch([]PolicyID{"zzzzzz"}, results.IDs)
 	case <-time.After(2 * time.Second):
 		require.Fail("timed out waiting for output message")
 	}
@@ -99,13 +98,13 @@ func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
 	filterErrCh := make(chan error)
 	testFilter := NewTesterFilter(filterErrCh)
 	upstreamErrCh := make(chan error)
-	testSource := NewTestSource(make(chan policy.IDMessage), upstreamErrCh)
+	testSource := NewTestSource(make(chan IDMessage), upstreamErrCh)
 
 	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
 	outputErrCh := make(chan error)
-	go source.MonitorIDs(context.Background(), policy.MonitorIDsReq{
+	go source.MonitorIDs(context.Background(), MonitorIDsReq{
 		ErrCh:    outputErrCh,
-		ResultCh: make(chan policy.IDMessage),
+		ResultCh: make(chan IDMessage),
 	})
 
 	// set the filter to anything
@@ -143,32 +142,32 @@ func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
 func TestFilteredSource_Reload(t *testing.T) {
 	require := require.New(t)
 
-	inputCh := make(chan policy.IDMessage)
+	inputCh := make(chan IDMessage)
 	errCh := make(chan error)
 	testFilter := NewTesterFilter(nil)
 	testSource := NewTestSource(inputCh, errCh)
 
 	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
-	outputCh := make(chan policy.IDMessage)
+	outputCh := make(chan IDMessage)
 	outputErrCh := make(chan error)
-	go source.MonitorIDs(context.Background(), policy.MonitorIDsReq{
+	go source.MonitorIDs(context.Background(), MonitorIDsReq{
 		ErrCh:    outputErrCh,
 		ResultCh: outputCh,
 	})
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
+	expected := []PolicyID{
 		"abcde",
 		"a1234",
 		"aaaaa",
 	}
-	unexpected := []policy.PolicyID{
+	unexpected := []PolicyID{
 		"badbad",
 		"zzzzzz",
 		"123456",
 	}
 	go func() {
-		inputCh <- policy.IDMessage{
+		inputCh <- IDMessage{
 			IDs:    append(expected, unexpected...),
 			Source: "test",
 		}

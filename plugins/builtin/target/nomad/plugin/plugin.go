@@ -211,6 +211,7 @@ func (t *TargetPlugin) garbageCollect() {
 
 	// Iterate all the handlers, ensuring we lock for safety.
 	t.statusHandlersLock.Lock()
+	defer t.statusHandlersLock.Unlock()
 
 	for jobID, handle := range t.statusHandlers {
 
@@ -226,6 +227,4 @@ func (t *TargetPlugin) garbageCollect() {
 			t.logger.Debug("removed inactive job status handler", "job_id", jobID)
 		}
 	}
-
-	t.statusHandlersLock.Unlock()
 }

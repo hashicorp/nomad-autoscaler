@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -309,6 +310,12 @@ func (h *Handler) updateHandler(current, next *sdk.ScalingPolicy) {
 	// policy's evaluation interval has changed.
 	if current == nil || current.EvaluationInterval != next.EvaluationInterval {
 		h.ticker.Stop()
+
+		// Add a small random delay to spread the first evaluation of policies
+		// that are evaluated at the same time.
+		splayNs := rand.Intn(30) * 100 * 1000 * 1000
+		time.Sleep(time.Duration(splayNs))
+
 		h.ticker = time.NewTicker(next.EvaluationInterval)
 	}
 }

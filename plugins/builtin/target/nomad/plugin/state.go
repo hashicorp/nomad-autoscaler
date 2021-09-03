@@ -120,7 +120,7 @@ func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error
 
 // start runs the blocking query loop that processes changes from the API and
 // reflects the status internally.
-func (jsh *jobScaleStatusHandler) start() {
+func (jsh *jobScaleStatusHandler) start(doneCh <-chan struct{}) {
 
 	// Log that we are starting, useful for debugging.
 	jsh.logger.Debug("starting job status handler")
@@ -133,8 +133,16 @@ func (jsh *jobScaleStatusHandler) start() {
 	}
 
 	for {
+		select {
+		case <-doneCh:
+			jsh.setStopState()
+			return
+		default:
+		}
+
 		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
 		if err != nil {
+			jsh.logger.Debug("failed to read job scale status, retrying", "error", err)
 
 			// If the job is not found on the cluster, stop the handlers loop
 			// process and set terminal state. It is still possible to read the
@@ -167,26 +175,25 @@ func (jsh *jobScaleStatusHandler) start() {
 		// Update the handlers state.
 		jsh.updateStatusState(status, nil)
 
-		// Mark the handler as initialized and notify initialDone channel.
-		if !jsh.initialized {
-			jsh.handleFirstRun()
-			jsh.initialized = true
-		}
-
 		// Modify the wait index on the QueryOptions so the blocking query
 		// is using the latest index value.
 		q.WaitIndex = meta.LastIndex
 	}
 }
 
-// handleFirstRun is a helper function which responds to channel listeners that
-// the first run of the blocking query has completed and therefore data is
-// available for querying.
-func (jsh *jobScaleStatusHandler) handleFirstRun() { jsh.initialDone <- true }
-
 // updateStatusState takes the API responses and updates the internal state
 // along with a timestamp.
 func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusResponse, err error) {
+
+	// Mark the handler as initialized and notify initialDone channel.
+	if !jsh.initialized {
+		jsh.initialized = true
+
+		// Close channel so we don't block waiting for readers.
+		// jsh.initialized should only be set once to avoid closing this twice.
+		close(jsh.initialDone)
+	}
+
 	jsh.scaleStatus = status
 	jsh.scaleStatusError = err
 	jsh.lastUpdated = time.Now().UTC().UnixNano()

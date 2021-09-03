@@ -48,6 +48,11 @@ var (
 		Name:       pluginName,
 		PluginType: sdk.PluginTypeTarget,
 	}
+
+	// statusHandlerInitTimeout is the time limit a status handler must
+	// initialize before considering the operation a failure.
+	// Declare it as a var instead of a const so we can overwrite in tests.
+	statusHandlerInitTimeout = 30 * time.Second
 )
 
 // Assert that TargetPlugin meets the target.Target interface.
@@ -178,8 +183,20 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// If the handler is not in a running state, start it and wait for the
 	// first run to finish.
 	if !t.statusHandlers[nsID].isRunning {
-		go t.statusHandlers[nsID].start()
-		<-t.statusHandlers[nsID].initialDone
+
+		// doneCh is used to stop the goroutine in case it fails to initialize
+		// before the timeout.
+		doneCh := make(chan struct{})
+		go t.statusHandlers[nsID].start(doneCh)
+
+		// Set a timeout to make sure we don't block statusHandlers.Lock.
+		select {
+		case <-t.statusHandlers[nsID].initialDone:
+		case <-time.After(statusHandlerInitTimeout):
+			close(doneCh)
+			delete(t.statusHandlers, nsID)
+			return nil, fmt.Errorf("timeout while waiting for job scale status")
+		}
 	}
 
 	// Return the status data from the handler to the caller.

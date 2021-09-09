@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -42,6 +43,19 @@ var (
 	}
 )
 
+type addHeaderTransport struct {
+	headers map[string]string
+
+	T http.RoundTripper
+}
+
+func (adt *addHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	for header, value := range adt.headers {
+		req.Header.Add(header, value)
+	}
+	return adt.T.RoundTrip(req)
+}
+
 type APMPlugin struct {
 	client api.Client
 	config map[string]string
@@ -66,8 +80,12 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
+	addHeaderTransport := new(addHeaderTransport)
+	addHeaderTransport.headers = map[string]string{"X-Scope-OrgID": "*"}
+
 	promCfg := api.Config{
-		Address: addr,
+		Address:      addr,
+		RoundTripper: addHeaderTransport,
 	}
 
 	// create Prometheus client

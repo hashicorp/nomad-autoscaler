@@ -1,7 +1,8 @@
-log_level    = "TRACE"
-log_json     = true
-enable_debug = true
-plugin_dir   = "./plugin_dir_from_file"
+log_level            = "TRACE"
+log_json             = true
+enable_debug         = true
+disable_nomad_source = true
+plugin_dir           = "./plugin_dir_from_file"
 
 http {
   bind_address = "10.0.0.2"

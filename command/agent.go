@@ -52,6 +52,9 @@ Options:
   -enable-debug
     Enable the agent debugging HTTP endpoints. The default is false.
 
+  -disable-nomad-source
+    Disable the sourcing of policies from nomad. The default is false.
+
   -plugin-dir=<path>
     The plugin directory is used to discover Nomad Autoscaler plugins. If not
     specified, the plugin directory defaults to be that of
@@ -350,6 +353,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.LogLevel, "log-level", "", "")
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
 	flags.BoolVar(&cmdConfig.EnableDebug, "enable-debug", false, "")
+	flags.BoolVar(&cmdConfig.DisableNomadSource, "disable-nomad-source", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
 
 	// Specify our Dynamic Application Sizing flags.

@@ -31,6 +31,7 @@ func Test_Default(t *testing.T) {
 	assert.Len(t, def.Strategies, 1)
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
+	assert.False(t, def.DisableNomadSource, "ensure nomad source is enabled by default")
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -64,10 +65,11 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	cfg2 := &Agent{
-		EnableDebug: true,
-		LogLevel:    "trace",
-		LogJson:     true,
-		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug:        true,
+		DisableNomadSource: true,
+		LogLevel:           "trace",
+		LogJson:            true,
+		PluginDir:          "/var/lib/nomad-autoscaler/plugins",
 		DynamicApplicationSizing: &DynamicApplicationSizing{
 			MetricsPreloadThreshold: 12 * time.Hour,
 			EvaluateAfter:           2 * time.Hour,
@@ -153,10 +155,11 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	expectedResult := &Agent{
-		EnableDebug: true,
-		LogLevel:    "trace",
-		LogJson:     true,
-		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug:        true,
+		DisableNomadSource: true,
+		LogLevel:           "trace",
+		LogJson:            true,
+		PluginDir:          "/var/lib/nomad-autoscaler/plugins",
 		DynamicApplicationSizing: &DynamicApplicationSizing{
 			MetricsPreloadThreshold: 12 * time.Hour,
 			EvaluateAfter:           2 * time.Hour,

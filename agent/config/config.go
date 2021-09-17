@@ -39,6 +39,9 @@ type Agent struct {
 	// EnableDebug is used to enable debugging HTTP endpoints.
 	EnableDebug bool `hcl:"enable_debug,optional"`
 
+	// DisableNomadSource is used to disable the sourcing of policies from nomad
+	DisableNomadSource bool `hcl:"disable_nomad_source,optional"`
+
 	// PluginDir is the directory that holds the autoscaler plugin binaries.
 	PluginDir string `hcl:"plugin_dir,optional"`
 
@@ -563,6 +566,9 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.EnableDebug {
 		result.EnableDebug = true
+	}
+	if b.DisableNomadSource {
+		result.DisableNomadSource = true
 	}
 	if b.LogLevel != "" {
 		result.LogLevel = b.LogLevel

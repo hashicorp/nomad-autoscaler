@@ -142,8 +142,9 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
 	// Setup our initial default policy source which is Nomad.
-	sources := map[policy.SourceName]policy.Source{
-		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor),
+	sources := map[policy.SourceName]policy.Source{}
+	if !a.config.DisableNomadSource {
+		sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor)
 	}
 
 	// If the operators has configured a scaling policy directory to read from

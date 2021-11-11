@@ -36,6 +36,9 @@ type Handler struct {
 	// is responsible for.
 	policySource Source
 
+	// mutators is a list of mutations to apply to policies.
+	mutators []Mutator
+
 	// ticker controls the frequency the policy is sent for evaluation.
 	ticker *time.Ticker
 
@@ -68,11 +71,14 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 		log:           log.Named("policy_handler").With("policy_id", ID),
 		pluginManager: pm,
 		policySource:  ps,
-		ch:            make(chan sdk.ScalingPolicy),
-		errCh:         make(chan error),
-		doneCh:        make(chan struct{}),
-		cooldownCh:    make(chan time.Duration),
-		reloadCh:      make(chan struct{}),
+		mutators: []Mutator{
+			NomadAPMMutator{},
+		},
+		ch:         make(chan sdk.ScalingPolicy),
+		errCh:      make(chan error),
+		doneCh:     make(chan struct{}),
+		cooldownCh: make(chan time.Duration),
+		reloadCh:   make(chan struct{}),
 	}
 }
 
@@ -141,6 +147,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			continue
 
 		case p := <-h.ch:
+			h.applyMutators(&p)
 			h.updateHandler(currentPolicy, &p)
 			currentPolicy = &p
 
@@ -347,4 +354,14 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complet
 // no cooldown period is required.
 func (h *Handler) calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Duration {
 	return cd - time.Duration(ts-lastEvent)
+}
+
+// applyMutators applies the mutators registered with the handler in order and
+// log any modification that was performed.
+func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
+	for _, m := range h.mutators {
+		for _, mutation := range m.MutatePolicy(p) {
+			h.log.Info("policy modified", "modification", mutation)
+		}
+	}
 }

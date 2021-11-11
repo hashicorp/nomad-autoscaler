@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * policy: Prevent scaling cluster to zero when using the Nomad APM [[GH-534](https://github.com/hashicorp/nomad-autoscaler/pull/534)]
+
 BUG FIXES:
  * scaleutils: Fixed `least_busy` node selector on clusters running servers older than v1.0.0 [[GH-508](https://github.com/hashicorp/nomad-autoscaler/pull/508)]
 

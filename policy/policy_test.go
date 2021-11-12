@@ -169,7 +169,7 @@ func TestProcessor_validateHorizontalClusterPolicy(t *testing.T) {
 					Config: map[string]string{"datacenter": "eu-west-13", "node_class": "puppy"},
 				},
 			},
-			expectedOutputErr: errors.New(`target config must contain only one of datacenter, node_class`),
+			expectedOutputErr: nil,
 			name:              "datacenter and node_class configured target policy",
 		},
 	}

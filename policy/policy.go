@@ -84,16 +84,8 @@ func (pr *Processor) validateHorizontalClusterPolicy(p *sdk.ScalingPolicy) error
 		return nil
 	}
 
+	// There are no extra validation needed at this point.
 	var mErr *multierror.Error
-
-	class := p.Target.Config[sdk.TargetConfigKeyClass]
-	dc := p.Target.Config[sdk.TargetConfigKeyDatacenter]
-
-	if class != "" && dc != "" {
-		mErr = multierror.Append(mErr, fmt.Errorf("target config must contain only one of %s",
-			strings.Join(sdk.TargetConfigConflictingClusterParams, ", ")))
-	}
-
 	return errHelper.FormattedMultiError(mErr)
 }
 

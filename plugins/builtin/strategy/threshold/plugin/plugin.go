@@ -102,7 +102,8 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 	// Check if we have enough data points within bounds.
 	if !withinBounds(logger, eval.Metrics, config) {
 		logger.Trace("not enough data points within bounds")
-		return nil, nil
+		eval.Action.Direction = sdk.ScaleDirectionNone
+		return eval, nil
 	}
 
 	// Calculate new count.

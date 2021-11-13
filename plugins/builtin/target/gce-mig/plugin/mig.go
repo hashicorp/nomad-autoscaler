@@ -2,12 +2,14 @@ package plugin
 
 import (
 	"context"
+
 	"google.golang.org/api/compute/v1"
 )
 
 type instanceGroup interface {
 	getName() string
 	status(ctx context.Context, service *compute.Service) (bool, int64, error)
+	listInstances(ctx context.Context, service *compute.Service) ([]*compute.ManagedInstance, error)
 	resize(ctx context.Context, service *compute.Service, num int64) error
 	deleteInstance(ctx context.Context, service *compute.Service, instanceIDs []string) error
 }
@@ -36,6 +38,14 @@ func (z *zonalInstanceGroup) status(ctx context.Context, service *compute.Servic
 	return mig.Status.IsStable, mig.TargetSize, nil
 }
 
+func (z *zonalInstanceGroup) listInstances(ctx context.Context, service *compute.Service) ([]*compute.ManagedInstance, error) {
+	instances, err := service.InstanceGroupManagers.ListManagedInstances(z.project, z.zone, z.name).Context(ctx).Do()
+	if err != nil {
+		return nil, err
+	}
+	return instances.ManagedInstances, nil
+}
+
 func (z *zonalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {
 	_, err := service.InstanceGroupManagers.Resize(z.project, z.zone, z.name, num).Context(ctx).Do()
 	return err
@@ -60,6 +70,14 @@ func (r *regionalInstanceGroup) status(ctx context.Context, service *compute.Ser
 		return false, -1, err
 	}
 	return mig.Status.IsStable, mig.TargetSize, nil
+}
+
+func (r *regionalInstanceGroup) listInstances(ctx context.Context, service *compute.Service) ([]*compute.ManagedInstance, error) {
+	instances, err := service.RegionInstanceGroupManagers.ListManagedInstances(r.project, r.region, r.name).Context(ctx).Do()
+	if err != nil {
+		return nil, err
+	}
+	return instances.ManagedInstances, nil
 }
 
 func (r *regionalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {

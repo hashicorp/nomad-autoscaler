@@ -94,40 +94,24 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
 
-	// The AWS plugin utilises the individual scaleutils calls due to the way
-	// in which the TerminateInstanceInAutoScalingGroupRequest call works. We
-	// need to ensure the nodes are part of the target ASG before performing
-	// actions, and draining the nodes just to get an error at this phase is
-	// wasteful and means we need reconciliation.
-	if t.clusterUtils.ClusterNodeIDLookupFunc == nil {
-		return errors.New("required ClusterNodeIDLookupFunc not set")
+	// Find instance IDs in the target ASG and perform pre-scale tasks.
+	remoteIDs := []string{}
+	for _, inst := range asg.Instances {
+		remoteIDs = append(remoteIDs, *inst.InstanceId)
 	}
 
-	nodes, err := t.clusterUtils.IdentifyScaleInNodes(config, int(num))
+	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
-
-	nodeResourceIDs, err := t.clusterUtils.IdentifyScaleInRemoteIDs(nodes)
-	if err != nil {
-		return err
-	}
-
-	// Any error received here indicates misconfiguration between the ASG and
-	// the Nomad node pool.
-	instanceIDs, err := t.instancesBelongToASG(asg, nodeResourceIDs)
-	if err != nil {
-		return err
-	}
-
-	if err := t.clusterUtils.DrainNodes(ctx, config, nodeResourceIDs); err != nil {
-		return err
-	}
-	t.logger.Debug("pre scale-in tasks now complete")
 
 	// Create the event writer and write that the drain event has been
-	// completed which is part of the RunPreScaleInTasks() function.
-	eWriter := newEventWriter(t.logger, t.asg, instanceIDs, *asg.AutoScalingGroupName)
+	// completed.
+	selectedRemoteIDs := []string{}
+	for _, id := range ids {
+		selectedRemoteIDs = append(selectedRemoteIDs, id.RemoteResourceID)
+	}
+	eWriter := newEventWriter(t.logger, t.asg, selectedRemoteIDs, *asg.AutoScalingGroupName)
 	eWriter.write(ctx, scalingEventDrain)
 
 	// Create a logger for this action to pre-populate useful information we
@@ -135,7 +119,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
 
 	// Run the termination and log the results.
-	result := t.terminateInstancesInASG(ctx, nodeResourceIDs)
+	result := t.terminateInstancesInASG(ctx, ids)
 	result.logResults(log)
 
 	// Capture any post-termination task errors.
@@ -181,48 +165,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 		return failedTaskErr
 	}
 	return result.errorOrNil()
-}
-
-// instancesBelongToASG checks that all the instances identified for scaling in
-// belong to the target ASG.
-func (t *TargetPlugin) instancesBelongToASG(asg *autoscaling.AutoScalingGroup, ids []scaleutils.NodeResourceID) ([]string, error) {
-
-	// Grab the instanceIDs once as it is used multiple times throughout the
-	// scale in event.
-	var instanceIDs []string
-
-	// isMissing tracks the total number of instance deemed missing from the
-	// ASG to provide some user context.
-	var isMissing int
-
-	for _, node := range ids {
-
-		// found identifies whether this individual node has been located
-		// within the ASG.
-		var found bool
-
-		// Iterate the instance within the ASG, and exit if we identify a
-		// match to continue below.
-		for _, asgIDs := range asg.Instances {
-			if node.RemoteResourceID == *asgIDs.InstanceId {
-				found = true
-				break
-			}
-		}
-
-		if found {
-			instanceIDs = append(instanceIDs, node.RemoteResourceID)
-		} else {
-			t.logger.Error("selected node not found in ASG",
-				"asg_name", *asg.AutoScalingGroupName, "instance_id", node.RemoteResourceID)
-			isMissing++
-		}
-	}
-
-	if isMissing > 0 {
-		return nil, fmt.Errorf("%v selected nodes are not found within ASG", isMissing)
-	}
-	return instanceIDs, nil
 }
 
 // terminateInstancesInASG handles terminating all instances passed and returns

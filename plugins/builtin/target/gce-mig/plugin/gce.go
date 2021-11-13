@@ -71,7 +71,18 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int64, config map[string]string) error {
 
-	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
+	// Find instance IDs in the target ASG and perform pre-scale tasks.
+	instances, err := group.listInstances(ctx, t.service)
+	if err != nil {
+		return fmt.Errorf("failed to list GCE MIG instances: %v", err)
+	}
+
+	remoteIDs := []string{}
+	for _, inst := range instances {
+		remoteIDs = append(remoteIDs, fmt.Sprintf("%d", inst.Id))
+	}
+
+	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}

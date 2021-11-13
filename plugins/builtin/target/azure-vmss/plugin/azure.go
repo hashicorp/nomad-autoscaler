@@ -55,6 +55,13 @@ func (t *TargetPlugin) setupAzureClient(config map[string]string) error {
 	vmss.Authorizer = authorizer
 
 	t.vmss = vmss
+
+	vmssVMs := compute.NewVirtualMachineScaleSetVMsClient(subscriptionID)
+	vmssVMs.Sender = autorest.CreateSender()
+	vmssVMs.Authorizer = authorizer
+
+	t.vmssVMs = vmssVMs
+
 	return nil
 }
 
@@ -88,7 +95,25 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 // scaleIn drain and delete Scale Set instances to match the Autoscaler has deemed required.
 func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScaleSet string, num int64, config map[string]string) error {
 
-	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
+	// Find instance IDs in the target VMSS and perform pre-scale tasks.
+	pager, err := t.vmssVMs.List(ctx, resourceGroup, vmScaleSet, "startswith(instanceView/statuses/code, 'PowerState') eq true", "instanceView", "instanceView")
+	if err != nil {
+		return fmt.Errorf("failed to query VMSS instances: %v", err)
+	}
+
+	remoteIDs := []string{}
+	for pager.NotDone() {
+		err := pager.NextWithContext(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to list instances in VMSS: %v", err)
+		}
+
+		for _, vm := range pager.Values() {
+			remoteIDs = append(remoteIDs, *vm.InstanceID)
+		}
+	}
+
+	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}

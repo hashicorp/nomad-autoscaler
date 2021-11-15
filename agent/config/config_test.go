@@ -28,7 +28,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, defaultPolicyEvalWorkers, def.PolicyEval.Workers)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
-	assert.Len(t, def.Strategies, 1)
+	assert.Len(t, def.Strategies, 4)
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
 }
@@ -248,8 +248,20 @@ func TestAgent_Merge(t *testing.T) {
 		},
 		Strategies: []*Plugin{
 			{
+				Name:   "fixed-value",
+				Driver: "fixed-value",
+			},
+			{
+				Name:   "pass-through",
+				Driver: "pass-through",
+			},
+			{
 				Name:   "target-value",
 				Driver: "target-value",
+			},
+			{
+				Name:   "threshold",
+				Driver: "threshold",
 			},
 			{
 				Name:   "pid",

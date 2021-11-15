@@ -547,9 +547,14 @@ func Default() (*Agent, error) {
 			AckTimeout:    defaultPolicyEvalAckTimeout,
 			Workers:       defaultPolicyEvalWorkers,
 		},
-		APMs:       []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
-		Strategies: []*Plugin{{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue}},
-		Targets:    []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
+		APMs: []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
+		Strategies: []*Plugin{
+			{Name: plugins.InternalStrategyFixedValue, Driver: plugins.InternalStrategyFixedValue},
+			{Name: plugins.InternalStrategyPassThrough, Driver: plugins.InternalStrategyPassThrough},
+			{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue},
+			{Name: plugins.InternalStrategyThreshold, Driver: plugins.InternalStrategyThreshold},
+		},
+		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
 	}, nil
 }
 

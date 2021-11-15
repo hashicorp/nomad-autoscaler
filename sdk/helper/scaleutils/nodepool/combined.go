@@ -63,7 +63,7 @@ func (c *combinedClusterPoolIdentifier) Key() string {
 func (c *combinedClusterPoolIdentifier) Value() string {
 	values := make([]string, 0, len(c.poolIdentifiers))
 	for _, identifier := range c.poolIdentifiers {
-		values = append(values, fmt.Sprintf("%s is %s", identifier.Key(), identifier.Value()))
+		values = append(values, fmt.Sprintf("%s:%s", identifier.Key(), identifier.Value()))
 	}
 	return strings.Join(values, fmt.Sprintf(" %s ", c.mode))
 }

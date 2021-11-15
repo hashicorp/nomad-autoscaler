@@ -28,7 +28,7 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 				},
 				CombinedClusterPoolIdentifierAnd,
 			),
-			expectedValue: "node_class is test-class",
+			expectedValue: "node_class:test-class",
 		},
 		{
 			name: "multiple identifiers with and",
@@ -40,7 +40,7 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 				},
 				CombinedClusterPoolIdentifierAnd,
 			),
-			expectedValue: "node_class is test-class and datacenter is test-dc and mock_identifier is mock_value",
+			expectedValue: "node_class:test-class and datacenter:test-dc and mock_identifier:mock_value",
 		},
 		{
 			name: "multiple identifiers with or",
@@ -52,7 +52,7 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 				},
 				CombinedClusterPoolIdentifierOr,
 			),
-			expectedValue: "node_class is test-class or datacenter is test-dc or mock_identifier is mock_value",
+			expectedValue: "node_class:test-class or datacenter:test-dc or mock_identifier:mock_value",
 		},
 	}
 

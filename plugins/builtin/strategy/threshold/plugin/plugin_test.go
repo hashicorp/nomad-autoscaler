@@ -143,7 +143,9 @@ func TestThresholdPlugin(t *testing.T) {
 				"upper_bound": "20",
 				"delta":       "1",
 			},
-			expectedAction: nil,
+			expectedAction: &sdk.ScalingAction{
+				Direction: sdk.ScaleDirectionNone,
+			},
 		},
 		{
 			name:    "custom trigger value",

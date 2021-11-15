@@ -114,64 +114,6 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 	}
 }
 
-func TestProcessor_validateHorizontalClusterPolicy(t *testing.T) {
-	testCases := []struct {
-		inputPolicy       *sdk.ScalingPolicy
-		expectedOutputErr error
-		name              string
-	}{
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"Job": "example", "Group": "cache"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "non-horizontal cluster scaling policy target",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"node_class": "puppy"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "node_class target policy",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"datacenter": "eu-west-13"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "datacenter target policy",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"datacenter": "eu-west-13", "node_class": "puppy"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "datacenter and node_class configured target policy",
-		},
-	}
-
-	pr := Processor{}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			actualOutputErr := pr.validateHorizontalClusterPolicy(tc.inputPolicy)
-			if tc.expectedOutputErr != nil {
-				assert.EqualError(t, tc.expectedOutputErr, actualOutputErr.Error(), tc.name)
-			} else {
-				assert.Nil(t, actualOutputErr)
-			}
-		})
-	}
-}
-
 func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 	testCases := []struct {
 		inputCheck          *sdk.ScalingPolicyCheck

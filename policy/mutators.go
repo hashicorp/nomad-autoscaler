@@ -8,7 +8,7 @@ import (
 // by a mutator.
 type Mutations []string
 
-// Mutator is an interface used to apply
+// Mutator is an interface used to apply changes to a scaling policy.
 type Mutator interface {
 	MutatePolicy(*sdk.ScalingPolicy) Mutations
 }

@@ -43,6 +43,13 @@ func Test_NewClusterNodePoolIdentifier(t *testing.T) {
 			expectedOutputErr:   nil,
 			name:                "node_class configured in config",
 		},
+		{
+			inputCfg:            map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "node_class:high-memory and datacenter:dc1",
+			expectedOutputErr:   nil,
+			name:                "node_class and datacenter are configured in config",
+		},
 	}
 
 	for _, tc := range testCases {

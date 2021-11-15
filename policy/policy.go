@@ -9,7 +9,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
-	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 )
 
 // Processor helps process policies and perform common actions on them when
@@ -65,36 +64,7 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
 	}
 
-	if err := pr.validateHorizontalClusterPolicy(p); err != nil {
-		mErr = multierror.Append(mErr, err)
-	}
-
 	return mErr.ErrorOrNil()
-}
-
-// validateHorizontalClusterPolicy validates that the target config for a
-// horizontal cluster scaling policy is valid. Calling this function is safe in
-// situations where it is not known whether the policy is a horizontal cluster
-// target or not.
-func (pr *Processor) validateHorizontalClusterPolicy(p *sdk.ScalingPolicy) error {
-
-	// Protect against the policy not targeting a horizontal cluster target so
-	// callers don't have to perform this.
-	if !p.Target.IsNodePoolTarget() {
-		return nil
-	}
-
-	var mErr *multierror.Error
-
-	class := p.Target.Config[sdk.TargetConfigKeyClass]
-	dc := p.Target.Config[sdk.TargetConfigKeyDatacenter]
-
-	if class != "" && dc != "" {
-		mErr = multierror.Append(mErr, fmt.Errorf("target config must contain only one of %s",
-			strings.Join(sdk.TargetConfigConflictingClusterParams, ", ")))
-	}
-
-	return errHelper.FormattedMultiError(mErr)
 }
 
 // CanonicalizeCheck sets standardised values on fields.

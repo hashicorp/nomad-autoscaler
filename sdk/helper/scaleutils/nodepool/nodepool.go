@@ -28,12 +28,23 @@ type ClusterNodePoolIdentifier interface {
 // on the provided configuration. If a valid option is not found, an error will
 // be returned.
 func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentifier, error) {
+	class, hasClass := cfg[sdk.TargetConfigKeyClass]
+	dc, hasDC := cfg[sdk.TargetConfigKeyDatacenter]
 
-	if class, ok := cfg[sdk.TargetConfigKeyClass]; ok {
+	switch {
+	case hasClass && hasDC:
+		return NewCombinedClusterPoolIdentifier(
+			[]ClusterNodePoolIdentifier{
+				NewNodeClassPoolIdentifier(class),
+				NewNodeDatacenterPoolIdentifier(dc),
+			},
+			CombinedClusterPoolIdentifierAnd,
+		), nil
+	case hasClass:
 		return NewNodeClassPoolIdentifier(class), nil
-	}
-	if dc, ok := cfg[sdk.TargetConfigKeyDatacenter]; ok {
+	case hasDC:
 		return NewNodeDatacenterPoolIdentifier(dc), nil
 	}
+
 	return nil, fmt.Errorf("node pool identification method required")
 }

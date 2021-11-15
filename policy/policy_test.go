@@ -102,22 +102,6 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			expectedOutput: nil,
 			name:           "valid node_class horizontal cluster scaling policy",
 		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
-				Min: 1,
-				Max: 10,
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"node_class": "puppy", "datacenter": "eu-east-17"},
-				},
-			},
-			expectedOutput: &multierror.Error{
-				Errors: []error{
-					errors.New("target config must contain only one of datacenter, node_class"),
-				},
-			},
-			name: "invalid horizontal cluster scaling policy target config",
-		},
 	}
 
 	pr := Processor{}
@@ -126,64 +110,6 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := pr.ValidatePolicy(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
-		})
-	}
-}
-
-func TestProcessor_validateHorizontalClusterPolicy(t *testing.T) {
-	testCases := []struct {
-		inputPolicy       *sdk.ScalingPolicy
-		expectedOutputErr error
-		name              string
-	}{
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"Job": "example", "Group": "cache"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "non-horizontal cluster scaling policy target",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"node_class": "puppy"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "node_class target policy",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"datacenter": "eu-west-13"},
-				},
-			},
-			expectedOutputErr: nil,
-			name:              "datacenter target policy",
-		},
-		{
-			inputPolicy: &sdk.ScalingPolicy{
-				Target: &sdk.ScalingPolicyTarget{
-					Config: map[string]string{"datacenter": "eu-west-13", "node_class": "puppy"},
-				},
-			},
-			expectedOutputErr: errors.New(`target config must contain only one of datacenter, node_class`),
-			name:              "datacenter and node_class configured target policy",
-		},
-	}
-
-	pr := Processor{}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			actualOutputErr := pr.validateHorizontalClusterPolicy(tc.inputPolicy)
-			if tc.expectedOutputErr != nil {
-				assert.EqualError(t, tc.expectedOutputErr, actualOutputErr.Error(), tc.name)
-			} else {
-				assert.Nil(t, actualOutputErr)
-			}
 		})
 	}
 }

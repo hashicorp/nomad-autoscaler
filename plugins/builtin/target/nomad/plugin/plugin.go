@@ -135,7 +135,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		&q)
 
 	if err != nil {
-		return fmt.Errorf("failed to scale group %s/%s: %v", config["job_id"], config["group"], err)
+		return fmt.Errorf("failed to scale group %s/%s: %v", config[configKeyJobID], config[configKeyGroup], err)
 	}
 	return nil
 }

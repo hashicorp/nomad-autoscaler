@@ -190,31 +190,6 @@ func Test_FilterNodes(t *testing.T) {
 				{
 					ID:                    "node1",
 					NodeClass:             "lionel",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingEligible,
-					Status:                api.NodeStatusReady,
-				},
-				{
-					ID:                    "node2",
-					NodeClass:             "lionel",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingIneligible,
-					Status:                api.NodeStatusReady,
-				},
-			},
-			inputIDCfg:          map[string]string{"node_class": "lionel"},
-			expectedOutputNodes: nil,
-			expectedOutputError: &multierror.Error{
-				Errors:      []error{errors.New("node node2 is ineligible")},
-				ErrorFormat: errHelper.MultiErrorFunc,
-			},
-			name: "filter of single class input for named class with ineligible error",
-		},
-		{
-			inputNodeList: []*api.NodeListStub{
-				{
-					ID:                    "node1",
-					NodeClass:             "lionel",
 					Drain:                 true,
 					SchedulingEligibility: api.NodeSchedulingIneligible,
 					Status:                api.NodeStatusReady,

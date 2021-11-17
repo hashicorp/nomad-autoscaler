@@ -149,6 +149,8 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 			"requested", num, "available", len(filteredNodes))
 	}
 
+	// Select which nodes to drain and terminate based on the policy's
+	// node selector strategy.
 	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
 	selectedResourceIDs := []NodeResourceID{}
 	for _, n := range selectedNodes {

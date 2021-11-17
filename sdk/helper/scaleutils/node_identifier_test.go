@@ -138,6 +138,57 @@ func Test_FilterNodes(t *testing.T) {
 		{
 			inputNodeList: []*api.NodeListStub{
 				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-down-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusDown,
+				},
+				{
+					ID:                    "node-down-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusDown,
+				},
+			},
+			inputIDCfg: map[string]string{"node_class": "lionel"},
+			expectedOutputNodes: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			expectedOutputError: nil,
+			name:                "filter of nodes that are ready",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
 					ID:                    "node1",
 					NodeClass:             "lionel",
 					Drain:                 false,

@@ -129,6 +129,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 	for _, id := range nodeResourceIDs {
 		for _, remoteID := range remoteIDs {
 			if id.RemoteResourceID == remoteID {
+				c.log.Debug("node is part of the policy target", "node_id", id.NomadNodeID, "remote_id", id.RemoteResourceID)
 				filteredNodes = append(filteredNodes, nodesMap[id.NomadNodeID])
 				break
 			}
@@ -151,6 +152,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
 	selectedResourceIDs := []NodeResourceID{}
 	for _, n := range selectedNodes {
+		c.log.Debug("node selected for removal", "node_id", n.ID, "remote_id", nodesResourceIDsMap[n.ID].RemoteResourceID)
 		selectedResourceIDs = append(selectedResourceIDs, nodesResourceIDsMap[n.ID])
 	}
 
@@ -180,6 +182,13 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 		return nil, fmt.Errorf("failed to list Nomad nodes from API: %v", err)
 	}
 
+	if c.log.IsDebug() {
+		for _, n := range nodes {
+			c.log.Debug("found node", "node_id", n.ID, "datacenter", n.Datacenter, "node_class", n.NodeClass,
+				"status", n.Status, "eligibility", n.SchedulingEligibility, "draining", n.Drain)
+		}
+	}
+
 	// Filter our nodes to select only those within our identified pool.
 	filteredNodes, err := FilterNodes(nodes, poolID.IsPoolMember)
 	if err != nil {
@@ -188,6 +197,12 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 
 	// Filter out the Nomad node ID where this autoscaler instance is running.
 	filteredNodes = filterOutNodeID(filteredNodes, c.curNodeID)
+
+	if c.log.IsDebug() {
+		for _, n := range filteredNodes {
+			c.log.Debug("node passed filter criteria", "node_id", n.ID)
+		}
+	}
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {

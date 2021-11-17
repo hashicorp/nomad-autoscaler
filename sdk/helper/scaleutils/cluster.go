@@ -215,7 +215,6 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 	if num > len(filteredNodes) {
 		c.log.Warn("can only identify portion of requested nodes for removal",
 			"requested", num, "available", len(filteredNodes))
-		num = len(filteredNodes)
 	}
 
 	return filteredNodes, nil

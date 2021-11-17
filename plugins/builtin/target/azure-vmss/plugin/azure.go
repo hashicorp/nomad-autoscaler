@@ -94,22 +94,37 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 
 // scaleIn drain and delete Scale Set instances to match the Autoscaler has deemed required.
 func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScaleSet string, num int64, config map[string]string) error {
+	// Create a logger for this action to pre-populate useful information we
+	// would like on all log lines.
+	log := t.logger.With("action", "scale_in", "resource_group", resourceGroup, "vmss_name", vmScaleSet)
 
 	// Find instance IDs in the target VMSS and perform pre-scale tasks.
-	pager, err := t.vmssVMs.List(ctx, resourceGroup, vmScaleSet, "startswith(instanceView/statuses/code, 'PowerState') eq true", "instanceView", "instanceView")
+	pager, err := t.vmssVMs.List(ctx, resourceGroup, vmScaleSet,
+		"startswith(instanceView/statuses/code, 'PowerState') eq true",
+		"instanceView/statuses", "instanceView")
 	if err != nil {
 		return fmt.Errorf("failed to query VMSS instances: %v", err)
 	}
 
 	remoteIDs := []string{}
 	for pager.NotDone() {
+		for _, vm := range pager.Values() {
+			for _, s := range *vm.VirtualMachineScaleSetVMProperties.InstanceView.Statuses {
+				if strings.HasPrefix(*s.Code, "PowerState/") {
+					if *s.Code == "PowerState/running" {
+						log.Debug("found healthy instance", "id", *vm.ID, "instance_id", *vm.InstanceID)
+						remoteIDs = append(remoteIDs, fmt.Sprintf("%s_%s", vmScaleSet, *vm.InstanceID))
+					} else {
+						log.Debug("skipping instance", "id", *vm.ID, "instance_id", *vm.InstanceID, "code", *s.Code)
+					}
+					break
+				}
+			}
+		}
+
 		err := pager.NextWithContext(ctx)
 		if err != nil {
 			return fmt.Errorf("failed to list instances in VMSS: %v", err)
-		}
-
-		for _, vm := range pager.Values() {
-			remoteIDs = append(remoteIDs, *vm.InstanceID)
 		}
 	}
 
@@ -133,13 +148,8 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		}
 	}
 
-	// Create a logger for this action to pre-populate useful information we
-	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "resource_group", resourceGroup,
-		"vmss_name", vmScaleSet, "instances", instanceIDs)
-
 	// Terminate the detached instances.
-	log.Debug("deleting Azure ScaleSet instances")
+	log.Debug("deleting Azure ScaleSet instances", "instances", instanceIDs)
 
 	future, err := t.vmss.DeleteInstances(ctx, resourceGroup, vmScaleSet, compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
 		InstanceIds: ptr.StringArrToPtr(instanceIDs),

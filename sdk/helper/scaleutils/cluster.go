@@ -135,6 +135,19 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 		}
 	}
 
+	// Ensure we have not filtered out all the available nodes.
+	if len(filteredNodes) == 0 {
+		return nil, fmt.Errorf("no nodes identified for scaling in action")
+	}
+
+	// If the caller has requested more nodes than we have available once
+	// filtered, adjust the value. This shouldn't cause the whole scaling
+	// action to fail, but we should warn.
+	if num > len(filteredNodes) {
+		c.log.Warn("can only identify portion of requested nodes for removal",
+			"requested", num, "available", len(filteredNodes))
+	}
+
 	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
 	selectedResourceIDs := []NodeResourceID{}
 	for _, n := range selectedNodes {

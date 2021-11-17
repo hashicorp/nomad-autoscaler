@@ -93,11 +93,19 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
+	// Create a logger for this action to pre-populate useful information we
+	// would like on all log lines.
+	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
 
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
 	for _, inst := range asg.Instances {
-		remoteIDs = append(remoteIDs, *inst.InstanceId)
+		if *inst.HealthStatus == "Healthy" && inst.LifecycleState == autoscaling.LifecycleStateInService {
+			log.Debug("found healthy instance", "instance_id", *inst.InstanceId)
+			remoteIDs = append(remoteIDs, *inst.InstanceId)
+		} else {
+			log.Debug("skipping instance", "instance_id", *inst.InstanceId, "health_status", *inst.HealthStatus, "lifecycle_state", inst.LifecycleState)
+		}
 	}
 
 	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
@@ -113,10 +121,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	}
 	eWriter := newEventWriter(t.logger, t.asg, selectedRemoteIDs, *asg.AutoScalingGroupName)
 	eWriter.write(ctx, scalingEventDrain)
-
-	// Create a logger for this action to pre-populate useful information we
-	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
 
 	// Run the termination and log the results.
 	result := t.terminateInstancesInASG(ctx, ids)

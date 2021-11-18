@@ -51,7 +51,7 @@ var (
 
 	// statusHandlerInitTimeout is the time limit a status handler must
 	// initialize before considering the operation a failure.
-	// Declare it as a var instead of a const so we can overwrite in tests.
+	// Declare it as a var instead of a const so we can overwrite it in tests.
 	statusHandlerInitTimeout = 30 * time.Second
 )
 

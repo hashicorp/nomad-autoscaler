@@ -111,7 +111,10 @@ func Test_jobStateHandler_status(t *testing.T) {
 }
 
 func Test_jobStateHandler_updateStatusState(t *testing.T) {
-	jsh := &jobScaleStatusHandler{}
+	c, err := api.NewClient(api.DefaultConfig())
+	assert.Nil(t, err)
+
+	jsh := newJobScaleStatusHandler(c, "", "", hclog.NewNullLogger())
 
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.

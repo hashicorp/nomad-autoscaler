@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -31,6 +32,9 @@ type jobScaleStatusHandler struct {
 
 	namespace string
 	jobID     string
+
+	// lock is used to synchronize access to the status variables below.
+	lock sync.RWMutex
 
 	// scaleStatus is the internal reflection of the response objects from the
 	// job scale status API.
@@ -63,6 +67,8 @@ func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog
 
 // status returns the cached scaling status of the passed group.
 func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error) {
+	jsh.lock.RLock()
+	defer jsh.lock.RUnlock()
 
 	// If the last status response included an error, just return this to the
 	// caller.
@@ -124,7 +130,10 @@ func (jsh *jobScaleStatusHandler) start(doneCh <-chan struct{}) {
 
 	// Log that we are starting, useful for debugging.
 	jsh.logger.Debug("starting job status handler")
+
+	jsh.lock.Lock()
 	jsh.isRunning = true
+	jsh.lock.Unlock()
 
 	q := &api.QueryOptions{
 		Namespace: jsh.namespace,
@@ -184,6 +193,8 @@ func (jsh *jobScaleStatusHandler) start(doneCh <-chan struct{}) {
 // updateStatusState takes the API responses and updates the internal state
 // along with a timestamp.
 func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusResponse, err error) {
+	jsh.lock.Lock()
+	defer jsh.lock.Unlock()
 
 	// Mark the handler as initialized and notify initialDone channel.
 	if !jsh.initialized {
@@ -202,6 +213,9 @@ func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusRe
 // setStopState handles updating state when the job status handler is going to
 // stop.
 func (jsh *jobScaleStatusHandler) setStopState() {
+	jsh.lock.Lock()
+	defer jsh.lock.Unlock()
+
 	jsh.isRunning = false
 	jsh.scaleStatus = nil
 	jsh.scaleStatusError = nil

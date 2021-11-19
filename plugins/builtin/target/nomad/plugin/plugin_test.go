@@ -3,12 +3,14 @@ package nomad
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTargetPlugin_garbageCollect(t *testing.T) {
@@ -43,8 +45,49 @@ func TestTargetPlugin_garbageCollect(t *testing.T) {
 	})
 }
 
-func TestTargetPlugin_statusTimeout(t *testing.T) {
+func TestTargetPlugin_Status(t *testing.T) {
 	nomadMock := httptest.NewServer(http.HandlerFunc(scaleStatusHandler))
+	defer nomadMock.Close()
+
+	plugin := PluginConfig.Factory(hclog.NewNullLogger()).(*TargetPlugin)
+	plugin.SetConfig(map[string]string{
+		"nomad_address": nomadMock.URL,
+	})
+
+	expected := &sdk.TargetStatus{
+		Ready: true,
+		Count: 0,
+		Meta: map[string]string{
+			"nomad_autoscaler.target.nomad.example.stopped": "false",
+		},
+	}
+	got, err := plugin.Status(map[string]string{
+		"Job":       "example",
+		"Group":     "cache",
+		"Namespace": "default",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, expected, got)
+
+	// Call Status multiple times concurrently to test for data races.
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, err := plugin.Status(map[string]string{
+				"Job":       "example",
+				"Group":     "cache",
+				"Namespace": "default",
+			})
+			assert.NoError(t, err)
+		}()
+	}
+	wg.Wait()
+}
+
+func TestTargetPlugin_statusTimeout(t *testing.T) {
+	nomadMock := httptest.NewServer(http.HandlerFunc(scaleStatusErrorHandler))
 	defer nomadMock.Close()
 
 	statusHandlerInitTimeout = 3 * time.Second
@@ -77,5 +120,27 @@ func TestTargetPlugin_statusTimeout(t *testing.T) {
 }
 
 func scaleStatusHandler(w http.ResponseWriter, r *http.Request) {
+	respBody := `
+{
+  "JobCreateIndex": 10,
+  "JobID": "example",
+  "Namespace": "default",
+  "JobModifyIndex": 18,
+  "JobStopped": false,
+  "TaskGroups": {
+    "cache": {
+      "Desired": 1,
+      "Events": null,
+      "Healthy": 1,
+      "Placed": 1,
+      "Running": 0,
+      "Unhealthy": 0
+    }
+  }
+}`
+	w.Write([]byte(respBody))
+}
+
+func scaleStatusErrorHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusInternalServerError)
 }

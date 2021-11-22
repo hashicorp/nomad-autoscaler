@@ -2,6 +2,7 @@ package nomad
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -135,6 +136,12 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		&q)
 
 	if err != nil {
+		// Active deployments errors are fairly common and usually not
+		// impactful to the target's eventual end state, so special case them
+		// to return a no-op error instead.
+		if strings.Contains(err.Error(), "job scaling blocked due to active deployment") {
+			return sdk.NewTargetScalingNoOpError("skipping scaling group %s/%s due to active deployment", config[configKeyJobID], config[configKeyGroup])
+		}
 		return fmt.Errorf("failed to scale group %s/%s: %v", config[configKeyJobID], config[configKeyGroup], err)
 	}
 	return nil

@@ -1,5 +1,29 @@
 package sdk
 
+import (
+	"fmt"
+)
+
+// TargetScalingNoOp is a special error type that can be used by target plugins
+// to indicate that a scaling request didn't result in any action, but didn't
+// fail either.
+// This can be used to avoid post-scaling actions such as placing the policy in
+// cooldown.
+type TargetScalingNoOpError struct {
+	Err error
+}
+
+// NewTargetScalingNoOpError returns a new target scaling no-op error with the
+// provided formatted message.
+func NewTargetScalingNoOpError(msg string, args ...interface{}) *TargetScalingNoOpError {
+	return &TargetScalingNoOpError{Err: fmt.Errorf(msg, args...)}
+}
+
+// Error implements the error interface.
+func (n *TargetScalingNoOpError) Error() string {
+	return n.Err.Error()
+}
+
 // TargetStatus is the response object when performing the Status call of the
 // target plugin interface. The response details key information about the
 // current state of the target.

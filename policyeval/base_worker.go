@@ -214,6 +214,11 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// handler understand what do to.
 	err = w.runTargetScale(targetInst, eval.Policy, *winningAction)
 	if err != nil {
+		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
+			logger.Info("scaling action skipped", "reason", err)
+			return nil
+		}
+
 		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
 		return fmt.Errorf("failed to scale target: %v", err)
 	} else {

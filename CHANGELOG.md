@@ -9,6 +9,7 @@ BUG FIXES:
  * scaleutils: Fixed `least_busy` node selector on clusters running servers older than v1.0.0 [[GH-508](https://github.com/hashicorp/nomad-autoscaler/pull/508)]
  * plugins/strategy/threshold: Fixed an issue where the wrong scaling action was taken even when the threshold was no met [[GH-537](https://github.com/hashicorp/nomad-autoscaler/pull/537)]
  * plugins/target/nomad: Fixed an issue where a particular error message would not display the proper policy information [[GH-538](https://github.com/hashicorp/nomad-autoscaler/pull/538)]
+ * policy: Prevent panic when a non-vertical scaling policy uses a DAS plugin [[GH-543](https://github.com/hashicorp/nomad-autoscaler/pull/543)]
 
 ## 0.3.3 (May 03, 2021)
 

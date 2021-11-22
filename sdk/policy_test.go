@@ -7,6 +7,63 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestScalingPolicy_Validate(t *testing.T) {
+	testCases := []struct {
+		name          string
+		policy        *ScalingPolicy
+		expectedError string
+	}{
+		{
+			name: "DAS plugin with non-vertical policy",
+			policy: &ScalingPolicy{
+				Type: "horizontal",
+				Checks: []*ScalingPolicyCheck{
+					{
+						Name: "invalid",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "app-sizing-max",
+						},
+					},
+					{
+						Name: "valid",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "target-value",
+						},
+					},
+				},
+			},
+			expectedError: "can only be used with Dynamic Application Sizing",
+		},
+		{
+			name: "valid policy",
+			policy: &ScalingPolicy{
+				Type: "horizontal",
+				Checks: []*ScalingPolicyCheck{
+					{
+						Name: "valid",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "target-value",
+						},
+					},
+				},
+			},
+			expectedError: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.policy.Validate()
+			if tc.expectedError != "" {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestScalingPolicyTarget_IsNodePoolTarget(t *testing.T) {
 	testCases := []struct {
 		inputScalingPolicyTarget *ScalingPolicyTarget

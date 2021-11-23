@@ -24,6 +24,15 @@ const (
 	// configKeyAddress is the accepted configuration key which holds the
 	// address param.
 	configKeyAddress = "address"
+
+	// configKeyBasicAuthUser and configKeyBasicAuthPassword are the
+	// configuration keys used to set the Prometheus client basic auth.
+	configKeyBasicAuthUser     = "basic_auth_user"
+	configKeyBasicAuthPassword = "basic_auth_password"
+
+	// configKeyHeadersPrefix is the prefix used to indicate that a
+	// configuration value should be set as an HTTP header.
+	configKeyHeadersPrefix = "header_"
 )
 
 var (
@@ -67,7 +76,8 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	}
 
 	promCfg := api.Config{
-		Address: addr,
+		Address:      addr,
+		RoundTripper: newPluginRoudTripper(a.config),
 	}
 
 	// create Prometheus client

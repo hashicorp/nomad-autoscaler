@@ -4,9 +4,9 @@ import (
 	"fmt"
 )
 
-// TargetScalingNoOp is a special error type that can be used by target plugins
-// to indicate that a scaling request didn't result in any action, but didn't
-// fail either.
+// TargetScalingNoOpError is a special error type that can be used by target
+// plugins to indicate that a scaling request didn't result in any action, but
+// didn't fail either.
 // This can be used to avoid post-scaling actions such as placing the policy in
 // cooldown.
 type TargetScalingNoOpError struct {

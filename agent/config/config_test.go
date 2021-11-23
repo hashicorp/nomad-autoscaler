@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Default(t *testing.T) {
@@ -26,6 +27,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, defaultPolicyEvalDeliveryLimit, def.PolicyEval.DeliveryLimit)
 	assert.Equal(t, defaultPolicyEvalAckTimeout, def.PolicyEval.AckTimeout)
 	assert.Equal(t, defaultPolicyEvalWorkers, def.PolicyEval.Workers)
+	assert.Len(t, def.PolicySources, 2)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 	assert.Len(t, def.Strategies, 4)
@@ -52,6 +54,13 @@ func TestAgent_Merge(t *testing.T) {
 			Workers: map[string]int{
 				"horizontal": 5,
 				"some-other": 3,
+			},
+		},
+		PolicySources: []*PolicySource{
+			{
+				Name:       "nomad",
+				EnabledPtr: ptr.BoolToPtr(false),
+				Enabled:    false,
 			},
 		},
 		APMs: []*Plugin{
@@ -131,6 +140,18 @@ func TestAgent_Merge(t *testing.T) {
 			CirconusCheckDisplayName:           "some-name",
 			CirconusBrokerID:                   "some-id",
 			CirconusBrokerSelectTag:            "some-other-tag",
+		},
+		PolicySources: []*PolicySource{
+			{
+				Name:       "file",
+				EnabledPtr: ptr.BoolToPtr(false),
+				Enabled:    false,
+			},
+			{
+				Name:       "nomad",
+				EnabledPtr: ptr.BoolToPtr(true),
+				Enabled:    true,
+			},
 		},
 		APMs: []*Plugin{
 			{
@@ -224,6 +245,18 @@ func TestAgent_Merge(t *testing.T) {
 			CirconusBrokerID:                   "some-id",
 			CirconusBrokerSelectTag:            "some-other-tag",
 		},
+		PolicySources: []*PolicySource{
+			{
+				Name:       "file",
+				EnabledPtr: ptr.BoolToPtr(false),
+				Enabled:    false,
+			},
+			{
+				Name:       "nomad",
+				EnabledPtr: ptr.BoolToPtr(true),
+				Enabled:    true,
+			},
+		},
 		APMs: []*Plugin{
 			{
 				Name:   "nomad-apm",
@@ -282,6 +315,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.Equal(t, expectedResult.PolicyEval, actualResult.PolicyEval)
+	assert.ElementsMatch(t, expectedResult.PolicySources, actualResult.PolicySources)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)
@@ -395,4 +429,97 @@ func TestAgent_loadDir(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "trace", cfg.LogLevel)
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+}
+
+func TestAgent_policySources(t *testing.T) {
+	defaultConfig, err := Default()
+	require.NoError(t, err)
+
+	// Create a temporary file for use.
+	fh, err := ioutil.TempFile("", "nomad-autoscaler*.hcl")
+	require.NoError(t, err)
+	defer os.RemoveAll(fh.Name())
+
+	// Enabled by default if block is present.
+	cfg := &Agent{}
+	nomadSourceCfg := `source "nomad" {}`
+
+	_, err = fh.WriteString(nomadSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	expected := []*PolicySource{
+		{
+			Name:       "nomad",
+			EnabledPtr: nil,
+			Enabled:    true,
+		},
+	}
+	assert.ElementsMatch(t, expected, cfg.PolicySources)
+
+	// Disable "nomad" policy source.
+	cfg = &Agent{}
+
+	noNomadSourceCfg := `
+source "nomad" {
+  enabled = false
+}`
+
+	// Reset the test file.
+	err = fh.Truncate(0)
+	require.NoError(t, err)
+	_, err = fh.Seek(0, 0)
+	require.NoError(t, err)
+
+	_, err = fh.WriteString(noNomadSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	result := defaultConfig.Merge(cfg)
+	expected = []*PolicySource{
+		{
+			Name:       "file",
+			EnabledPtr: nil,
+			Enabled:    true,
+		},
+		{
+			Name:       "nomad",
+			EnabledPtr: ptr.BoolToPtr(false),
+			Enabled:    false,
+		},
+	}
+	assert.ElementsMatch(t, expected, result.PolicySources)
+
+	// Disable "file" policy source.
+	cfg = &Agent{}
+
+	noFileSourceCfg := `
+source "file" {
+  enabled = false
+}`
+
+	// Reset the test file.
+	err = fh.Truncate(0)
+	require.NoError(t, err)
+	_, err = fh.Seek(0, 0)
+	require.NoError(t, err)
+
+	_, err = fh.WriteString(noFileSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	result = defaultConfig.Merge(cfg)
+	expected = []*PolicySource{
+		{
+			Name:       "file",
+			EnabledPtr: ptr.BoolToPtr(false),
+			Enabled:    false,
+		},
+		{
+			Name:       "nomad",
+			EnabledPtr: nil,
+			Enabled:    true,
+		},
+	}
+	assert.ElementsMatch(t, expected, result.PolicySources)
 }

@@ -116,6 +116,19 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			}),
 		},
 		{
+			name: "policy source flags",
+			args: []string{
+				"-policy-source-disable-file",
+				"-policy-source-disable-nomad",
+			},
+			want: defaultConfig.Merge(&config.Agent{
+				PolicySources: []*config.PolicySource{
+					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+				},
+			}),
+		},
+		{
 			name: "telemetry flags",
 			args: []string{
 				"-telemetry-disable-hostname",
@@ -223,6 +236,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"horizontal": 1,
 					},
 				},
+				PolicySources: []*config.PolicySource{
+					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+				},
 			}),
 		},
 		{
@@ -311,6 +328,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"horizontal": 1,
 					},
 				},
+				PolicySources: []*config.PolicySource{
+					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+				},
 			}),
 		},
 	}
@@ -321,11 +342,16 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			got, _ := c.readConfig()
 
 			// Sort the list of plugins to avoid flakiness.
-			sortOpt := cmpopts.SortSlices(func(x, y *config.Plugin) bool {
+			pluginsSortOpt := cmpopts.SortSlices(func(x, y *config.Plugin) bool {
 				return x.Name < y.Name
 			})
 
-			if diff := cmp.Diff(tc.want, got, sortOpt); diff != "" {
+			// Sort the list of policy sources to avoid flakiness.
+			policySourcesSortOpt := cmpopts.SortSlices(func(x, y *config.PolicySource) bool {
+				return x.Name < y.Name
+			})
+
+			if diff := cmp.Diff(tc.want, got, pluginsSortOpt, policySourcesSortOpt); diff != "" {
 				t.Errorf("readConfig() mismatch (-want +got):\n%s", diff)
 			}
 		})

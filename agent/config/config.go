@@ -65,9 +65,10 @@ type Agent struct {
 	// Consul is used to configure a consul API client
 	Consul *Consul `hcl:"consul,block"`
 
-	APMs       []*Plugin `hcl:"apm,block"`
-	Targets    []*Plugin `hcl:"target,block"`
-	Strategies []*Plugin `hcl:"strategy,block"`
+	PolicySources []*PolicySource `hcl:"source,block"`
+	APMs          []*Plugin       `hcl:"apm,block"`
+	Targets       []*Plugin       `hcl:"target,block"`
+	Strategies    []*Plugin       `hcl:"strategy,block"`
 }
 
 // DynamicApplicationSizing contains configuration values to control the
@@ -475,6 +476,13 @@ type PolicyEval struct {
 	Workers map[string]int `hcl:"workers,optional"`
 }
 
+// PolicySource is an individual configured policy source.
+type PolicySource struct {
+	Name       string `hcl:"name,label"`
+	EnabledPtr *bool  `hcl:"enabled,optional"`
+	Enabled    bool
+}
+
 const (
 	// defaultLogLevel is the default log level used for the Autoscaler agent.
 	defaultLogLevel = "info"
@@ -508,6 +516,17 @@ const (
 	// defaultPolicyWorkerAckTimeout is the default time limit that a policy
 	// eval must be ACK'd.
 	defaultPolicyEvalAckTimeout = 5 * time.Minute
+)
+
+// TODO: there's an unexpected import cycle that prevents us from using the
+// values defined in policy/source.go.
+const (
+	// policySourceFile is the source for policies that are loaded from disk.
+	policySourceFile = "file"
+
+	// policySourceNomad is the source for policies that originate from the
+	// Nomad scaling policies API.
+	policySourceNomad = "nomad"
 )
 
 var defaultPolicyEvalWorkers = map[string]int{
@@ -547,14 +566,22 @@ func Default() (*Agent, error) {
 			AckTimeout:    defaultPolicyEvalAckTimeout,
 			Workers:       defaultPolicyEvalWorkers,
 		},
-		APMs: []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
+		PolicySources: []*PolicySource{
+			{Name: policySourceFile, Enabled: true},
+			{Name: policySourceNomad, Enabled: true},
+		},
+		APMs: []*Plugin{
+			{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad},
+		},
 		Strategies: []*Plugin{
 			{Name: plugins.InternalStrategyFixedValue, Driver: plugins.InternalStrategyFixedValue},
 			{Name: plugins.InternalStrategyPassThrough, Driver: plugins.InternalStrategyPassThrough},
 			{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue},
 			{Name: plugins.InternalStrategyThreshold, Driver: plugins.InternalStrategyThreshold},
 		},
-		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
+		Targets: []*Plugin{
+			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
+		},
 	}, nil
 }
 
@@ -607,6 +634,16 @@ func (a *Agent) Merge(b *Agent) *Agent {
 		result.PolicyEval = result.PolicyEval.merge(b.PolicyEval)
 	}
 
+	if len(result.PolicySources) == 0 && len(b.PolicySources) != 0 {
+		sourceCopy := make([]*PolicySource, len(b.PolicySources))
+		for i, v := range b.PolicySources {
+			sourceCopy[i] = v.copy()
+		}
+		result.PolicySources = sourceCopy
+	} else if len(b.PolicySources) != 0 {
+		result.PolicySources = policySourceConfigSetMerge(result.PolicySources, b.PolicySources)
+	}
+
 	if len(result.APMs) == 0 && len(b.APMs) != 0 {
 		apmCopy := make([]*Plugin, len(b.APMs))
 		for i, v := range b.APMs {
@@ -648,6 +685,10 @@ func (a *Agent) Validate() error {
 
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())
+	}
+
+	for _, s := range a.PolicySources {
+		result = multierror.Append(result, s.validate())
 	}
 
 	return result.ErrorOrNil()
@@ -921,6 +962,56 @@ func (pw *PolicyEval) validate() *multierror.Error {
 	}
 	return result
 }
+func (s *PolicySource) copy() *PolicySource {
+	if s == nil {
+		return nil
+	}
+
+	return &PolicySource{
+		Name:       s.Name,
+		EnabledPtr: s.EnabledPtr,
+		Enabled:    s.Enabled,
+	}
+}
+
+func (s *PolicySource) merge(b *PolicySource) *PolicySource {
+	if s == nil {
+		return b
+	}
+
+	result := *s
+
+	if len(b.Name) != 0 {
+		result.Name = b.Name
+	}
+	if b.EnabledPtr != nil {
+		result.EnabledPtr = b.EnabledPtr
+		result.Enabled = b.Enabled
+	}
+
+	return &result
+}
+
+func (s *PolicySource) validate() *multierror.Error {
+	var result *multierror.Error
+	prefix := fmt.Sprintf("source[%s] ->", s.Name)
+
+	validSources := map[string]bool{
+		policySourceNomad: true,
+		policySourceFile:  true,
+	}
+	if _, ok := validSources[s.Name]; !ok {
+		result = multierror.Append(result, fmt.Errorf("invalid source %q", s.Name))
+	}
+
+	// Prefix all errors.
+	if result != nil {
+		for i, err := range result.Errors {
+			result.Errors[i] = multierror.Prefix(err, prefix)
+		}
+	}
+	return result
+}
 
 // pluginConfigSetMerge merges two sets of plugin configs. For plugins with the
 // same name, the configs are merged.
@@ -956,6 +1047,43 @@ func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
 		}
 
 		out = append(out, plugin)
+	}
+
+	return out
+}
+
+func policySourceConfigSetMerge(first, second []*PolicySource) []*PolicySource {
+	findex := make(map[string]*PolicySource, len(first))
+	for _, p := range first {
+		findex[p.Name] = p
+	}
+
+	sindex := make(map[string]*PolicySource, len(second))
+	for _, p := range second {
+		sindex[p.Name] = p
+	}
+
+	var out []*PolicySource
+
+	// Go through the first set and merge any value that exist in both
+	for sourceName, original := range findex {
+		second, ok := sindex[sourceName]
+		if !ok {
+			out = append(out, original.copy())
+			continue
+		}
+
+		out = append(out, original.merge(second))
+	}
+
+	// Go through the second set and add any value that didn't exist in both
+	for sourceName, source := range sindex {
+		_, ok := findex[sourceName]
+		if ok {
+			continue
+		}
+
+		out = append(out, source)
 	}
 
 	return out
@@ -1030,6 +1158,15 @@ func parseFile(file string, cfg *Agent) error {
 				return err
 			}
 			cfg.DynamicApplicationSizing.EvaluateAfter = t
+		}
+	}
+
+	for _, source := range cfg.PolicySources {
+		if source.EnabledPtr != nil {
+			source.Enabled = *source.EnabledPtr
+		} else {
+			// Default to true if source block is defined.
+			source.Enabled = true
 		}
 	}
 	return nil

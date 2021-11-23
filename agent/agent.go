@@ -77,7 +77,11 @@ func (a *Agent) Run() error {
 	}
 	a.inMemSink = inMem
 
-	policyEvalCh := a.setupPolicyManager()
+	// Setup policy manager.
+	policyEvalCh, err := a.setupPolicyManager()
+	if err != nil {
+		return fmt.Errorf("failed to setup policy manager: %v", err)
+	}
 	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
@@ -131,7 +135,7 @@ func (a *Agent) initWorkers(ctx context.Context) {
 	}
 }
 
-func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
+func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
@@ -142,20 +146,34 @@ func (a *Agent) setupPolicyManager() chan *sdk.ScalingEvaluation {
 	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
 
 	// Setup our initial default policy source which is Nomad.
-	sources := map[policy.SourceName]policy.Source{
-		policy.SourceNameNomad: nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor),
+	sources := map[policy.SourceName]policy.Source{}
+	for _, s := range a.config.PolicySources {
+		if !s.Enabled {
+			continue
+		}
+
+		switch policy.SourceName(s.Name) {
+		case policy.SourceNameNomad:
+			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor)
+		case policy.SourceNameFile:
+			// Only setup the file source if operators have configured a
+			// scaling policy directory to read from.
+			if a.config.Policy.Dir != "" {
+				sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
+			}
+		}
 	}
 
-	// If the operators has configured a scaling policy directory to read from
-	// then setup the file source.
-	if a.config.Policy.Dir != "" {
-		sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
+	// TODO: Once full policy source reload is implemented this should probably
+	// be just a warning.
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no policy source available")
 	}
 
 	a.policySources = sources
 	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
-	return make(chan *sdk.ScalingEvaluation, 10)
+	return make(chan *sdk.ScalingEvaluation, 10), nil
 }
 
 func (a *Agent) stop() {

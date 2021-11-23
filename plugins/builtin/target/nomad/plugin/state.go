@@ -74,7 +74,7 @@ func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog
 	go jsh.start()
 
 	// Wait for initial status data to be loaded.
-	// Set a timeout to make sure callers are not blocked indefinetely.
+	// Set a timeout to make sure callers are not blocked indefinitely.
 	select {
 	case <-jsh.initialDone:
 	case <-time.After(statusHandlerInitTimeout):

@@ -152,6 +152,14 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			currentPolicy = &p
 
 		case <-h.ticker.C:
+			// Validate policy on ticker so any validation errors are
+			// resurfaced periodically.
+			err := currentPolicy.Validate()
+			if err != nil {
+				h.log.Error("invalid policy", "errors", err)
+				continue
+			}
+
 			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
 				if err == context.Canceled {

@@ -1,6 +1,13 @@
 package sdk
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+
+	multierror "github.com/hashicorp/go-multierror"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
+)
 
 const (
 	ScalingPolicyTypeCluster    = "cluster"
@@ -52,6 +59,22 @@ type ScalingPolicy struct {
 	// Target identifies the scaling target which the autoscaler will interact
 	// with to ensure it meets the desired state as determined by the Checks.
 	Target *ScalingPolicyTarget
+}
+
+// Validate applies validation rules that are independent of policy source.
+func (p *ScalingPolicy) Validate() error {
+	var result *multierror.Error
+
+	if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {
+		for _, c := range p.Checks {
+			if strings.HasPrefix(c.Strategy.Name, "app-sizing") {
+				err := fmt.Errorf("invalid strategy in check %s: plugin %s can only be used with Dynamic Application Sizing", c.Name, c.Strategy.Name)
+				result = multierror.Append(result, err)
+			}
+		}
+	}
+
+	return errHelper.FormattedMultiError(result)
 }
 
 // ScalingPolicyCheck is an individual check within a scaling policy.This check

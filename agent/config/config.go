@@ -65,10 +65,9 @@ type Agent struct {
 	// Consul is used to configure a consul API client
 	Consul *Consul `hcl:"consul,block"`
 
-	PolicySources []*PolicySource `hcl:"source,block"`
-	APMs          []*Plugin       `hcl:"apm,block"`
-	Targets       []*Plugin       `hcl:"target,block"`
-	Strategies    []*Plugin       `hcl:"strategy,block"`
+	APMs       []*Plugin `hcl:"apm,block"`
+	Targets    []*Plugin `hcl:"target,block"`
+	Strategies []*Plugin `hcl:"strategy,block"`
 }
 
 // DynamicApplicationSizing contains configuration values to control the
@@ -458,6 +457,9 @@ type Policy struct {
 	// `evaluation_interval` is not defined in a policy.
 	DefaultEvaluationInterval    time.Duration
 	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
+
+	// Sources store configuration for policy sources.
+	Sources []*PolicySource `hcl:"source,block"`
 }
 
 // PolicyEval holds the configuration related to the policy evaluation process.
@@ -560,15 +562,15 @@ func Default() (*Agent, error) {
 		Policy: &Policy{
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
+			Sources: []*PolicySource{
+				{Name: policySourceFile, Enabled: true},
+				{Name: policySourceNomad, Enabled: true},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimit: defaultPolicyEvalDeliveryLimit,
 			AckTimeout:    defaultPolicyEvalAckTimeout,
 			Workers:       defaultPolicyEvalWorkers,
-		},
-		PolicySources: []*PolicySource{
-			{Name: policySourceFile, Enabled: true},
-			{Name: policySourceNomad, Enabled: true},
 		},
 		APMs: []*Plugin{
 			{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad},
@@ -634,16 +636,6 @@ func (a *Agent) Merge(b *Agent) *Agent {
 		result.PolicyEval = result.PolicyEval.merge(b.PolicyEval)
 	}
 
-	if len(result.PolicySources) == 0 && len(b.PolicySources) != 0 {
-		sourceCopy := make([]*PolicySource, len(b.PolicySources))
-		for i, v := range b.PolicySources {
-			sourceCopy[i] = v.copy()
-		}
-		result.PolicySources = sourceCopy
-	} else if len(b.PolicySources) != 0 {
-		result.PolicySources = policySourceConfigSetMerge(result.PolicySources, b.PolicySources)
-	}
-
 	if len(result.APMs) == 0 && len(b.APMs) != 0 {
 		apmCopy := make([]*Plugin, len(b.APMs))
 		for i, v := range b.APMs {
@@ -687,8 +679,10 @@ func (a *Agent) Validate() error {
 		result = multierror.Append(result, a.PolicyEval.validate())
 	}
 
-	for _, s := range a.PolicySources {
-		result = multierror.Append(result, s.validate())
+	if a.Policy != nil {
+		for _, s := range a.Policy.Sources {
+			result = multierror.Append(result, s.validate())
+		}
 	}
 
 	return result.ErrorOrNil()
@@ -914,6 +908,17 @@ func (p *Policy) merge(b *Policy) *Policy {
 	if b.DefaultEvaluationInterval != 0 {
 		result.DefaultEvaluationInterval = b.DefaultEvaluationInterval
 	}
+
+	if len(result.Sources) == 0 && len(b.Sources) != 0 {
+		sourceCopy := make([]*PolicySource, len(b.Sources))
+		for i, v := range b.Sources {
+			sourceCopy[i] = v.copy()
+		}
+		result.Sources = sourceCopy
+	} else if len(b.Sources) != 0 {
+		result.Sources = policySourceConfigSetMerge(result.Sources, b.Sources)
+	}
+
 	return &result
 }
 
@@ -1110,6 +1115,15 @@ func parseFile(file string, cfg *Agent) error {
 			}
 			cfg.Policy.DefaultEvaluationInterval = d
 		}
+
+		for _, source := range cfg.Policy.Sources {
+			if source.EnabledPtr != nil {
+				source.Enabled = *source.EnabledPtr
+			} else {
+				// Default to true if source block is defined.
+				source.Enabled = true
+			}
+		}
 	}
 
 	if cfg.Telemetry != nil {
@@ -1161,14 +1175,6 @@ func parseFile(file string, cfg *Agent) error {
 		}
 	}
 
-	for _, source := range cfg.PolicySources {
-		if source.EnabledPtr != nil {
-			source.Enabled = *source.EnabledPtr
-		} else {
-			// Default to true if source block is defined.
-			source.Enabled = true
-		}
-	}
 	return nil
 }
 

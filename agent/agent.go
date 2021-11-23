@@ -147,7 +147,7 @@ func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
 
 	// Setup our initial default policy source which is Nomad.
 	sources := map[policy.SourceName]policy.Source{}
-	for _, s := range a.config.PolicySources {
+	for _, s := range a.config.Policy.Sources {
 		if !s.Enabled {
 			continue
 		}

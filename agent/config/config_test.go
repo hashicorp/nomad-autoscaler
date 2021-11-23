@@ -24,10 +24,10 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
 	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
+	assert.Len(t, def.Policy.Sources, 2)
 	assert.Equal(t, defaultPolicyEvalDeliveryLimit, def.PolicyEval.DeliveryLimit)
 	assert.Equal(t, defaultPolicyEvalAckTimeout, def.PolicyEval.AckTimeout)
 	assert.Equal(t, defaultPolicyEvalWorkers, def.PolicyEval.Workers)
-	assert.Len(t, def.PolicySources, 2)
 	assert.Len(t, def.APMs, 1)
 	assert.Len(t, def.Targets, 1)
 	assert.Len(t, def.Strategies, 4)
@@ -56,11 +56,13 @@ func TestAgent_Merge(t *testing.T) {
 				"some-other": 3,
 			},
 		},
-		PolicySources: []*PolicySource{
-			{
-				Name:       "nomad",
-				EnabledPtr: ptr.BoolToPtr(false),
-				Enabled:    false,
+		Policy: &Policy{
+			Sources: []*PolicySource{
+				{
+					Name:       "nomad",
+					EnabledPtr: ptr.BoolToPtr(false),
+					Enabled:    false,
+				},
 			},
 		},
 		APMs: []*Plugin{
@@ -108,6 +110,18 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+			Sources: []*PolicySource{
+				{
+					Name:       "file",
+					EnabledPtr: ptr.BoolToPtr(false),
+					Enabled:    false,
+				},
+				{
+					Name:       "nomad",
+					EnabledPtr: ptr.BoolToPtr(true),
+					Enabled:    true,
+				},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimitPtr: ptr.IntToPtr(10),
@@ -140,18 +154,6 @@ func TestAgent_Merge(t *testing.T) {
 			CirconusCheckDisplayName:           "some-name",
 			CirconusBrokerID:                   "some-id",
 			CirconusBrokerSelectTag:            "some-other-tag",
-		},
-		PolicySources: []*PolicySource{
-			{
-				Name:       "file",
-				EnabledPtr: ptr.BoolToPtr(false),
-				Enabled:    false,
-			},
-			{
-				Name:       "nomad",
-				EnabledPtr: ptr.BoolToPtr(true),
-				Enabled:    true,
-			},
 		},
 		APMs: []*Plugin{
 			{
@@ -210,6 +212,18 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+			Sources: []*PolicySource{
+				{
+					Name:       "file",
+					EnabledPtr: ptr.BoolToPtr(false),
+					Enabled:    false,
+				},
+				{
+					Name:       "nomad",
+					EnabledPtr: ptr.BoolToPtr(true),
+					Enabled:    true,
+				},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimitPtr: ptr.IntToPtr(10),
@@ -244,18 +258,6 @@ func TestAgent_Merge(t *testing.T) {
 			CirconusCheckDisplayName:           "some-name",
 			CirconusBrokerID:                   "some-id",
 			CirconusBrokerSelectTag:            "some-other-tag",
-		},
-		PolicySources: []*PolicySource{
-			{
-				Name:       "file",
-				EnabledPtr: ptr.BoolToPtr(false),
-				Enabled:    false,
-			},
-			{
-				Name:       "nomad",
-				EnabledPtr: ptr.BoolToPtr(true),
-				Enabled:    true,
-			},
 		},
 		APMs: []*Plugin{
 			{
@@ -315,7 +317,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.Equal(t, expectedResult.PolicyEval, actualResult.PolicyEval)
-	assert.ElementsMatch(t, expectedResult.PolicySources, actualResult.PolicySources)
+	assert.ElementsMatch(t, expectedResult.Policy.Sources, actualResult.Policy.Sources)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)
@@ -442,7 +444,10 @@ func TestAgent_policySources(t *testing.T) {
 
 	// Enabled by default if block is present.
 	cfg := &Agent{}
-	nomadSourceCfg := `source "nomad" {}`
+	nomadSourceCfg := `
+policy {
+  source "nomad" {}
+}`
 
 	_, err = fh.WriteString(nomadSourceCfg)
 	require.NoError(t, err)
@@ -455,14 +460,16 @@ func TestAgent_policySources(t *testing.T) {
 			Enabled:    true,
 		},
 	}
-	assert.ElementsMatch(t, expected, cfg.PolicySources)
+	assert.ElementsMatch(t, expected, cfg.Policy.Sources)
 
 	// Disable "nomad" policy source.
 	cfg = &Agent{}
 
 	noNomadSourceCfg := `
-source "nomad" {
-  enabled = false
+policy {
+  source "nomad" {
+    enabled = false
+  }
 }`
 
 	// Reset the test file.
@@ -488,14 +495,16 @@ source "nomad" {
 			Enabled:    false,
 		},
 	}
-	assert.ElementsMatch(t, expected, result.PolicySources)
+	assert.ElementsMatch(t, expected, result.Policy.Sources)
 
 	// Disable "file" policy source.
 	cfg = &Agent{}
 
 	noFileSourceCfg := `
-source "file" {
-  enabled = false
+policy {
+  source "file" {
+    enabled = false
+  }
 }`
 
 	// Reset the test file.
@@ -521,5 +530,5 @@ source "file" {
 			Enabled:    true,
 		},
 	}
-	assert.ElementsMatch(t, expected, result.PolicySources)
+	assert.ElementsMatch(t, expected, result.Policy.Sources)
 }

@@ -40,6 +40,14 @@ policy {
   dir                         = "./policy-dir-from-file"
   default_cooldown            = "12s"
   default_evaluation_interval = "50m"
+
+  source "file" {
+    enabled = false
+  }
+
+  source "nomad" {
+    enabled = false
+  }
 }
 
 policy_eval {
@@ -50,12 +58,4 @@ policy_eval {
     cluster    = 3
     horizontal = 1
   }
-}
-
-source "file" {
-  enabled = false
-}
-
-source "nomad" {
-  enabled = false
 }

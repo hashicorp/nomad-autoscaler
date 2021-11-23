@@ -122,9 +122,11 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				"-policy-source-disable-nomad",
 			},
 			want: defaultConfig.Merge(&config.Agent{
-				PolicySources: []*config.PolicySource{
-					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+				Policy: &config.Policy{
+					Sources: []*config.PolicySource{
+						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					},
 				},
 			}),
 		},
@@ -226,6 +228,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					Dir:                       "./policy-dir-from-file",
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
+					Sources: []*config.PolicySource{
+						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
@@ -235,10 +241,6 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"cluster":    3,
 						"horizontal": 1,
 					},
-				},
-				PolicySources: []*config.PolicySource{
-					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
 				},
 			}),
 		},
@@ -318,6 +320,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					Dir:                       "./policy-dir-from-file",
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
+					Sources: []*config.PolicySource{
+						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
@@ -327,10 +333,6 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"cluster":    3,
 						"horizontal": 1,
 					},
-				},
-				PolicySources: []*config.PolicySource{
-					{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-					{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
 				},
 			}),
 		},

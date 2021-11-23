@@ -345,10 +345,11 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		DynamicApplicationSizing: &config.DynamicApplicationSizing{},
 		HTTP:                     &config.HTTP{},
 		Nomad:                    &config.Nomad{},
-		Policy:                   &config.Policy{},
-		PolicyEval:               &config.PolicyEval{},
-		Telemetry:                &config.Telemetry{},
-		PolicySources:            []*config.PolicySource{},
+		Policy: &config.Policy{
+			Sources: []*config.PolicySource{},
+		},
+		PolicyEval: &config.PolicyEval{},
+		Telemetry:  &config.Telemetry{},
 	}
 
 	var disableFileSource bool
@@ -481,13 +482,13 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	}
 
 	if disableFileSource {
-		cmdConfig.PolicySources = append(cmdConfig.PolicySources, &config.PolicySource{
+		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
 			Name:       string(policy.SourceNameFile),
 			EnabledPtr: ptr.BoolToPtr(false),
 		})
 	}
 	if disableNomadSource {
-		cmdConfig.PolicySources = append(cmdConfig.PolicySources, &config.PolicySource{
+		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
 			Name:       string(policy.SourceNameNomad),
 			EnabledPtr: ptr.BoolToPtr(false),
 		})

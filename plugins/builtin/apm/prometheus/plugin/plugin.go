@@ -30,6 +30,8 @@ const (
 	configKeyBasicAuthUser     = "basic_auth_user"
 	configKeyBasicAuthPassword = "basic_auth_password"
 
+	// configKeyHeadersPrefix is the prefix used to indicate that a
+	// configuration value should be set as an HTTP header.
 	configKeyHeadersPrefix = "header_"
 )
 

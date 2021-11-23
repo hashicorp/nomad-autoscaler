@@ -172,17 +172,14 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// Create a handler for the job if one does not currently exist.
 	if _, ok := t.statusHandlers[nsID]; !ok {
-		t.statusHandlers[nsID] = newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
+		jsh, err := newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
+		if err != nil {
+			return nil, err
+		}
+
+		t.statusHandlers[nsID] = jsh
 	}
 
-	// If the handler is not in a running state, start it and wait for the
-	// first run to finish.
-	if !t.statusHandlers[nsID].isRunning {
-		go t.statusHandlers[nsID].start()
-		<-t.statusHandlers[nsID].initialDone
-	}
-
-	// Return the status data from the handler to the caller.
 	return t.statusHandlers[nsID].status(group)
 }
 
@@ -211,21 +208,12 @@ func (t *TargetPlugin) garbageCollect() {
 
 	// Iterate all the handlers, ensuring we lock for safety.
 	t.statusHandlersLock.Lock()
+	defer t.statusHandlersLock.Unlock()
 
 	for jobID, handle := range t.statusHandlers {
-
-		// If the handler is running, there is no need to GC.
-		if handle.isRunning {
-			continue
-		}
-
-		// If the last updated time is before our threshold, the handler should
-		// be removed. Goodbye old friend.
-		if handle.lastUpdated < threshold {
+		if handle.shouldGC(threshold) {
 			delete(t.statusHandlers, jobID)
 			t.logger.Debug("removed inactive job status handler", "job_id", jobID)
 		}
 	}
-
-	t.statusHandlersLock.Unlock()
 }

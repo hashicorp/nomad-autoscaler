@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -22,6 +23,13 @@ const (
 	metaKeyJobStoppedSuffix = ".stopped"
 )
 
+var (
+	// statusHandlerInitTimeout is the time limit a status handler must
+	// initialize before considering the operation a failure.
+	// Declared as a var instead of a const to allow overwriting it in tests.
+	statusHandlerInitTimeout = 30 * time.Second
+)
+
 // jobScaleStatusHandler is an individual handler on the /v1/job/<job>/scale
 // GET endpoint. It provides methods for obtaining the current scaling state of
 // a job and task group.
@@ -31,6 +39,9 @@ type jobScaleStatusHandler struct {
 
 	namespace string
 	jobID     string
+
+	// lock is used to synchronize access to the status variables below.
+	lock sync.RWMutex
 
 	// scaleStatus is the internal reflection of the response objects from the
 	// job scale status API.
@@ -51,18 +62,33 @@ type jobScaleStatusHandler struct {
 	lastUpdated int64
 }
 
-func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog.Logger) *jobScaleStatusHandler {
-	return &jobScaleStatusHandler{
+func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog.Logger) (*jobScaleStatusHandler, error) {
+	jsh := &jobScaleStatusHandler{
 		client:      client,
 		initialDone: make(chan bool),
 		jobID:       jobID,
 		namespace:   ns,
 		logger:      logger.With(configKeyJobID, jobID),
 	}
+
+	go jsh.start()
+
+	// Wait for initial status data to be loaded.
+	// Set a timeout to make sure callers are not blocked indefinitely.
+	select {
+	case <-jsh.initialDone:
+	case <-time.After(statusHandlerInitTimeout):
+		jsh.setStopState()
+		return nil, fmt.Errorf("timeout while waiting for job scale status handler")
+	}
+
+	return jsh, nil
 }
 
 // status returns the cached scaling status of the passed group.
 func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error) {
+	jsh.lock.RLock()
+	defer jsh.lock.RUnlock()
 
 	// If the last status response included an error, just return this to the
 	// caller.
@@ -124,7 +150,10 @@ func (jsh *jobScaleStatusHandler) start() {
 
 	// Log that we are starting, useful for debugging.
 	jsh.logger.Debug("starting job status handler")
+
+	jsh.lock.Lock()
 	jsh.isRunning = true
+	jsh.lock.Unlock()
 
 	q := &api.QueryOptions{
 		Namespace: jsh.namespace,
@@ -134,7 +163,12 @@ func (jsh *jobScaleStatusHandler) start() {
 
 	for {
 		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
+
+		// Update the handlers state.
+		jsh.updateStatusState(status, err)
+
 		if err != nil {
+			jsh.logger.Debug("failed to read job scale status, retrying", "error", err)
 
 			// If the job is not found on the cluster, stop the handlers loop
 			// process and set terminal state. It is still possible to read the
@@ -143,7 +177,6 @@ func (jsh *jobScaleStatusHandler) start() {
 				jsh.setStopState()
 				return
 			}
-			jsh.updateStatusState(status, err)
 
 			// Reset query WaitIndex to zero so we can get the job status
 			// immediately in the next request instead of blocking and having
@@ -156,21 +189,23 @@ func (jsh *jobScaleStatusHandler) start() {
 			continue
 		}
 
+		// Read handler state into local variables so we don't starve the lock.
+		jsh.lock.RLock()
+		isRunning := jsh.isRunning
+		scaleStatus := jsh.scaleStatus
+		jsh.lock.RUnlock()
+
+		// Stop loop if handler is not running anymore.
+		if !isRunning {
+			return
+		}
+
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
 		// The index could also be the same when a reconnect happens, in which
 		// case the handler state needs to be updated regardless of the index.
-		if jsh.scaleStatus != nil && !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+		if scaleStatus != nil && !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
 			continue
-		}
-
-		// Update the handlers state.
-		jsh.updateStatusState(status, nil)
-
-		// Mark the handler as initialized and notify initialDone channel.
-		if !jsh.initialized {
-			jsh.handleFirstRun()
-			jsh.initialized = true
 		}
 
 		// Modify the wait index on the QueryOptions so the blocking query
@@ -179,14 +214,21 @@ func (jsh *jobScaleStatusHandler) start() {
 	}
 }
 
-// handleFirstRun is a helper function which responds to channel listeners that
-// the first run of the blocking query has completed and therefore data is
-// available for querying.
-func (jsh *jobScaleStatusHandler) handleFirstRun() { jsh.initialDone <- true }
-
 // updateStatusState takes the API responses and updates the internal state
 // along with a timestamp.
 func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusResponse, err error) {
+	jsh.lock.Lock()
+	defer jsh.lock.Unlock()
+
+	// Mark the handler as initialized and notify initialDone channel.
+	if !jsh.initialized {
+		jsh.initialized = true
+
+		// Close channel so we don't block waiting for readers.
+		// jsh.initialized should only be set once to avoid closing this twice.
+		close(jsh.initialDone)
+	}
+
 	jsh.scaleStatus = status
 	jsh.scaleStatusError = err
 	jsh.lastUpdated = time.Now().UTC().UnixNano()
@@ -195,8 +237,19 @@ func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusRe
 // setStopState handles updating state when the job status handler is going to
 // stop.
 func (jsh *jobScaleStatusHandler) setStopState() {
+	jsh.lock.Lock()
+	defer jsh.lock.Unlock()
+
 	jsh.isRunning = false
 	jsh.scaleStatus = nil
 	jsh.scaleStatusError = nil
 	jsh.lastUpdated = time.Now().UTC().UnixNano()
+}
+
+// shouldGC returns true if the handler is not considered as active anymore.
+func (jsh *jobScaleStatusHandler) shouldGC(threshold int64) bool {
+	jsh.lock.RLock()
+	defer jsh.lock.RUnlock()
+
+	return !jsh.isRunning && jsh.lastUpdated < threshold
 }

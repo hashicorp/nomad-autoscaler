@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_newJobStateHandler(t *testing.T) {
@@ -17,7 +18,9 @@ func Test_newJobStateHandler(t *testing.T) {
 	assert.Nil(t, err)
 
 	// Create the new handler and perform assertions.
-	jsh := newJobScaleStatusHandler(c, "default", "test", hclog.NewNullLogger())
+	jsh, err := newJobScaleStatusHandler(c, "default", "test", hclog.NewNullLogger())
+	require.NoError(t, err)
+
 	assert.NotNil(t, jsh.client)
 	assert.Equal(t, "test", jsh.jobID)
 	assert.NotNil(t, jsh.initialDone)
@@ -112,6 +115,7 @@ func Test_jobStateHandler_status(t *testing.T) {
 
 func Test_jobStateHandler_updateStatusState(t *testing.T) {
 	jsh := &jobScaleStatusHandler{}
+	jsh.initialDone = make(chan bool)
 
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.

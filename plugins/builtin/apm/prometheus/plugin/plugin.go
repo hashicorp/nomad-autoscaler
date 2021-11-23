@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -25,6 +24,13 @@ const (
 	// configKeyAddress is the accepted configuration key which holds the
 	// address param.
 	configKeyAddress = "address"
+
+	// configKeyBasicAuthUser and configKeyBasicAuthPassword are the
+	// configuration keys used to set the Prometheus client basic auth.
+	configKeyBasicAuthUser     = "basic_auth_user"
+	configKeyBasicAuthPassword = "basic_auth_password"
+
+	configKeyHeadersPrefix = "header_"
 )
 
 var (
@@ -42,19 +48,6 @@ var (
 		PluginType: sdk.PluginTypeAPM,
 	}
 )
-
-type addHeaderTransport struct {
-	headers map[string]string
-
-	T http.RoundTripper
-}
-
-func (adt *addHeaderTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	for header, value := range adt.headers {
-		req.Header.Add(header, value)
-	}
-	return adt.T.RoundTrip(req)
-}
 
 type APMPlugin struct {
 	client api.Client
@@ -80,12 +73,9 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
-	addHeaderTransport := new(addHeaderTransport)
-	addHeaderTransport.headers = map[string]string{"X-Scope-OrgID": "*"}
-
 	promCfg := api.Config{
 		Address:      addr,
-		RoundTripper: addHeaderTransport,
+		RoundTripper: newPluginRoudTripper(a.config),
 	}
 
 	// create Prometheus client

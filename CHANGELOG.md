@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
  * agent: Dispense `fixed-value`, `pass-through`, and `threshold` strategy plugins by default [[GH-536](https://github.com/hashicorp/nomad-autoscaler/pull/536)]
+ * plugins/target/nomad: Reduce log level for active deployments error messages [[GH-542](https://github.com/hashicorp/nomad-autoscaler/pull/542)]
  * policy: Prevent scaling cluster to zero when using the Nomad APM [[GH-534](https://github.com/hashicorp/nomad-autoscaler/pull/534)]
  * scaleutils: Add combined filter to allow filtering by node class and datacenter [[GH-535](https://github.com/hashicorp/nomad-autoscaler/pull/535)]
 

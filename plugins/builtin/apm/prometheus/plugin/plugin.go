@@ -168,7 +168,6 @@ func generateTLSConfig(config map[string]string) (*tls.Config, error) {
 
 	// Load the CA certificate if present.
 	caCertPath := config[configKeyCACert]
-	fmt.Println(caCertPath)
 	if caCertPath != "" {
 		caCert, err := ioutil.ReadFile(caCertPath)
 		if err != nil {

@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.4 (November 24, 2021)
 
 IMPROVEMENTS:
  * agent: Allow disabling specific policy sources [[GH-544](https://github.com/hashicorp/nomad-autoscaler/pull/544)]

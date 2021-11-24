@@ -11,7 +11,9 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
+	"github.com/hashicorp/nomad-autoscaler/policy"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/version"
 )
 
@@ -162,6 +164,14 @@ Policy Evaluation Options:
     <queue1>:<num>,<queue2>:<num>. Nomad Autoscaler supports "cluster" and
 	"horizontal" queues. Nomad Autoscaler Enterprise supports additional
 	"vertical_mem" and "vertical_cpu" queues.
+
+Policy Source Options:
+
+  -policy-source-disable-file
+    Disable the sourcing of policies from disk.
+
+  -policy-source-disable-nomad
+    Disable the sourcing of policies from the Nomad API.
 
 Telemetry Options:
 
@@ -335,10 +345,15 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		DynamicApplicationSizing: &config.DynamicApplicationSizing{},
 		HTTP:                     &config.HTTP{},
 		Nomad:                    &config.Nomad{},
-		Policy:                   &config.Policy{},
-		PolicyEval:               &config.PolicyEval{},
-		Telemetry:                &config.Telemetry{},
+		Policy: &config.Policy{
+			Sources: []*config.PolicySource{},
+		},
+		PolicyEval: &config.PolicyEval{},
+		Telemetry:  &config.Telemetry{},
 	}
+
+	var disableFileSource bool
+	var disableNomadSource bool
 
 	modeChecker := config.NewModeChecker()
 
@@ -423,6 +438,10 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		return nil
 	}), "policy-eval-workers", "")
 
+	// Specify our Policy Sources flags.
+	flags.BoolVar(&disableFileSource, "policy-source-disable-file", false, "")
+	flags.BoolVar(&disableNomadSource, "policy-source-disable-nomad", false, "")
+
 	// Specify our Telemetry CLI flags.
 	flags.BoolVar(&cmdConfig.Telemetry.DisableHostname, "telemetry-disable-hostname", false, "")
 	flags.BoolVar(&cmdConfig.Telemetry.EnableHostnameLabel, "telemetry-enable-hostname-label", false, "")
@@ -460,6 +479,19 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	if err := modeChecker.ValidateFlags(flags); err != nil {
 		fmt.Printf("%s\n", err)
 		return nil, configPath
+	}
+
+	if disableFileSource {
+		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
+			Name:    string(policy.SourceNameFile),
+			Enabled: ptr.BoolToPtr(false),
+		})
+	}
+	if disableNomadSource {
+		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
+			Name:    string(policy.SourceNameNomad),
+			Enabled: ptr.BoolToPtr(false),
+		})
 	}
 
 	// Validate config values from flags.

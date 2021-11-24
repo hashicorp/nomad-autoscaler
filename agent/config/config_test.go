@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Default(t *testing.T) {
@@ -23,6 +24,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
 	assert.Equal(t, 8080, def.HTTP.BindPort)
 	assert.Equal(t, def.Policy.DefaultCooldown, 5*time.Minute)
+	assert.Len(t, def.Policy.Sources, 2)
 	assert.Equal(t, defaultPolicyEvalDeliveryLimit, def.PolicyEval.DeliveryLimit)
 	assert.Equal(t, defaultPolicyEvalAckTimeout, def.PolicyEval.AckTimeout)
 	assert.Equal(t, defaultPolicyEvalWorkers, def.PolicyEval.Workers)
@@ -52,6 +54,14 @@ func TestAgent_Merge(t *testing.T) {
 			Workers: map[string]int{
 				"horizontal": 5,
 				"some-other": 3,
+			},
+		},
+		Policy: &Policy{
+			Sources: []*PolicySource{
+				{
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(false),
+				},
 			},
 		},
 		APMs: []*Plugin{
@@ -99,6 +109,16 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+			Sources: []*PolicySource{
+				{
+					Name:    "file",
+					Enabled: ptr.BoolToPtr(false),
+				},
+				{
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(true),
+				},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimitPtr: ptr.IntToPtr(10),
@@ -189,6 +209,16 @@ func TestAgent_Merge(t *testing.T) {
 			Dir:                       "/etc/scaling/policies",
 			DefaultCooldown:           20 * time.Minute,
 			DefaultEvaluationInterval: 10 * time.Second,
+			Sources: []*PolicySource{
+				{
+					Name:    "file",
+					Enabled: ptr.BoolToPtr(false),
+				},
+				{
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(true),
+				},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimitPtr: ptr.IntToPtr(10),
@@ -282,6 +312,7 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.Equal(t, expectedResult.PolicyEval, actualResult.PolicyEval)
+	assert.ElementsMatch(t, expectedResult.Policy.Sources, actualResult.Policy.Sources)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)
@@ -395,4 +426,99 @@ func TestAgent_loadDir(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "trace", cfg.LogLevel)
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+}
+
+func TestAgent_policySources(t *testing.T) {
+	defaultConfig, err := Default()
+	require.NoError(t, err)
+
+	// Create a temporary file for use.
+	fh, err := ioutil.TempFile("", "nomad-autoscaler*.hcl")
+	require.NoError(t, err)
+	defer os.RemoveAll(fh.Name())
+
+	// Enabled by default if block is present.
+	cfg := &Agent{}
+	nomadSourceCfg := `
+policy {
+  source "nomad" {}
+}`
+
+	_, err = fh.WriteString(nomadSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	expected := []*PolicySource{
+		{
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(true),
+		},
+	}
+	assert.ElementsMatch(t, expected, cfg.Policy.Sources)
+
+	// Disable "nomad" policy source.
+	cfg = &Agent{}
+
+	noNomadSourceCfg := `
+policy {
+  source "nomad" {
+    enabled = false
+  }
+}`
+
+	// Reset the test file.
+	err = fh.Truncate(0)
+	require.NoError(t, err)
+	_, err = fh.Seek(0, 0)
+	require.NoError(t, err)
+
+	_, err = fh.WriteString(noNomadSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	result := defaultConfig.Merge(cfg)
+	expected = []*PolicySource{
+		{
+			Name:    "file",
+			Enabled: ptr.BoolToPtr(true),
+		},
+		{
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(false),
+		},
+	}
+	assert.ElementsMatch(t, expected, result.Policy.Sources)
+
+	// Disable "file" policy source.
+	cfg = &Agent{}
+
+	noFileSourceCfg := `
+policy {
+  source "file" {
+    enabled = false
+  }
+}`
+
+	// Reset the test file.
+	err = fh.Truncate(0)
+	require.NoError(t, err)
+	_, err = fh.Seek(0, 0)
+	require.NoError(t, err)
+
+	_, err = fh.WriteString(noFileSourceCfg)
+	require.NoError(t, err)
+	require.NoError(t, parseFile(fh.Name(), cfg))
+
+	result = defaultConfig.Merge(cfg)
+	expected = []*PolicySource{
+		{
+			Name:    "file",
+			Enabled: ptr.BoolToPtr(false),
+		},
+		{
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(true),
+		},
+	}
+	assert.ElementsMatch(t, expected, result.Policy.Sources)
 }

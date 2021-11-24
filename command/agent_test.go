@@ -116,6 +116,21 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			}),
 		},
 		{
+			name: "policy source flags",
+			args: []string{
+				"-policy-source-disable-file",
+				"-policy-source-disable-nomad",
+			},
+			want: defaultConfig.Merge(&config.Agent{
+				Policy: &config.Policy{
+					Sources: []*config.PolicySource{
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+					},
+				},
+			}),
+		},
+		{
 			name: "telemetry flags",
 			args: []string{
 				"-telemetry-disable-hostname",
@@ -213,6 +228,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					Dir:                       "./policy-dir-from-file",
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
+					Sources: []*config.PolicySource{
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
@@ -301,6 +320,10 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					Dir:                       "./policy-dir-from-file",
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
+					Sources: []*config.PolicySource{
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
@@ -321,11 +344,16 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			got, _ := c.readConfig()
 
 			// Sort the list of plugins to avoid flakiness.
-			sortOpt := cmpopts.SortSlices(func(x, y *config.Plugin) bool {
+			pluginsSortOpt := cmpopts.SortSlices(func(x, y *config.Plugin) bool {
 				return x.Name < y.Name
 			})
 
-			if diff := cmp.Diff(tc.want, got, sortOpt); diff != "" {
+			// Sort the list of policy sources to avoid flakiness.
+			policySourcesSortOpt := cmpopts.SortSlices(func(x, y *config.PolicySource) bool {
+				return x.Name < y.Name
+			})
+
+			if diff := cmp.Diff(tc.want, got, pluginsSortOpt, policySourcesSortOpt); diff != "" {
 				t.Errorf("readConfig() mismatch (-want +got):\n%s", diff)
 			}
 		})

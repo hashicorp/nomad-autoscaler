@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/mitchellh/copystructure"
 )
 
@@ -457,6 +458,9 @@ type Policy struct {
 	// `evaluation_interval` is not defined in a policy.
 	DefaultEvaluationInterval    time.Duration
 	DefaultEvaluationIntervalHCL string `hcl:"default_evaluation_interval,optional" json:"-"`
+
+	// Sources store configuration for policy sources.
+	Sources []*PolicySource `hcl:"source,block"`
 }
 
 // PolicyEval holds the configuration related to the policy evaluation process.
@@ -473,6 +477,12 @@ type PolicyEval struct {
 
 	// Workers hold the number of workers to initialize for each queue.
 	Workers map[string]int `hcl:"workers,optional"`
+}
+
+// PolicySource is an individual configured policy source.
+type PolicySource struct {
+	Name    string `hcl:"name,label"`
+	Enabled *bool  `hcl:"enabled,optional"`
 }
 
 const (
@@ -510,6 +520,17 @@ const (
 	defaultPolicyEvalAckTimeout = 5 * time.Minute
 )
 
+// TODO: there's an unexpected import cycle that prevents us from using the
+// values defined in policy/source.go.
+const (
+	// policySourceFile is the source for policies that are loaded from disk.
+	policySourceFile = "file"
+
+	// policySourceNomad is the source for policies that originate from the
+	// Nomad scaling policies API.
+	policySourceNomad = "nomad"
+)
+
 var defaultPolicyEvalWorkers = map[string]int{
 	"cluster":    10,
 	"horizontal": 10,
@@ -541,20 +562,28 @@ func Default() (*Agent, error) {
 		Policy: &Policy{
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
+			Sources: []*PolicySource{
+				{Name: policySourceFile, Enabled: ptr.BoolToPtr(true)},
+				{Name: policySourceNomad, Enabled: ptr.BoolToPtr(true)},
+			},
 		},
 		PolicyEval: &PolicyEval{
 			DeliveryLimit: defaultPolicyEvalDeliveryLimit,
 			AckTimeout:    defaultPolicyEvalAckTimeout,
 			Workers:       defaultPolicyEvalWorkers,
 		},
-		APMs: []*Plugin{{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad}},
+		APMs: []*Plugin{
+			{Name: plugins.InternalAPMNomad, Driver: plugins.InternalAPMNomad},
+		},
 		Strategies: []*Plugin{
 			{Name: plugins.InternalStrategyFixedValue, Driver: plugins.InternalStrategyFixedValue},
 			{Name: plugins.InternalStrategyPassThrough, Driver: plugins.InternalStrategyPassThrough},
 			{Name: plugins.InternalStrategyTargetValue, Driver: plugins.InternalStrategyTargetValue},
 			{Name: plugins.InternalStrategyThreshold, Driver: plugins.InternalStrategyThreshold},
 		},
-		Targets: []*Plugin{{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad}},
+		Targets: []*Plugin{
+			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
+		},
 	}, nil
 }
 
@@ -648,6 +677,12 @@ func (a *Agent) Validate() error {
 
 	if a.PolicyEval != nil {
 		result = multierror.Append(result, a.PolicyEval.validate())
+	}
+
+	if a.Policy != nil {
+		for _, s := range a.Policy.Sources {
+			result = multierror.Append(result, s.validate())
+		}
 	}
 
 	return result.ErrorOrNil()
@@ -873,6 +908,17 @@ func (p *Policy) merge(b *Policy) *Policy {
 	if b.DefaultEvaluationInterval != 0 {
 		result.DefaultEvaluationInterval = b.DefaultEvaluationInterval
 	}
+
+	if len(result.Sources) == 0 && len(b.Sources) != 0 {
+		sourceCopy := make([]*PolicySource, len(b.Sources))
+		for i, v := range b.Sources {
+			sourceCopy[i] = v.copy()
+		}
+		result.Sources = sourceCopy
+	} else if len(b.Sources) != 0 {
+		result.Sources = policySourceConfigSetMerge(result.Sources, b.Sources)
+	}
+
 	return &result
 }
 
@@ -911,6 +957,59 @@ func (pw *PolicyEval) validate() *multierror.Error {
 		if v < 0 {
 			result = multierror.Append(result, fmt.Errorf("number of workers for %q must be positive", k))
 		}
+	}
+
+	// Prefix all errors.
+	if result != nil {
+		for i, err := range result.Errors {
+			result.Errors[i] = multierror.Prefix(err, prefix)
+		}
+	}
+	return result
+}
+func (s *PolicySource) copy() *PolicySource {
+	if s == nil {
+		return nil
+	}
+
+	var enabled *bool
+	if s.Enabled != nil {
+		enabled = ptr.BoolToPtr(*s.Enabled)
+	}
+
+	return &PolicySource{
+		Name:    s.Name,
+		Enabled: enabled,
+	}
+}
+
+func (s *PolicySource) merge(b *PolicySource) *PolicySource {
+	if s == nil {
+		return b
+	}
+
+	result := *s
+
+	if len(b.Name) != 0 {
+		result.Name = b.Name
+	}
+	if b.Enabled != nil {
+		result.Enabled = b.Enabled
+	}
+
+	return &result
+}
+
+func (s *PolicySource) validate() *multierror.Error {
+	var result *multierror.Error
+	prefix := fmt.Sprintf("source[%s] ->", s.Name)
+
+	validSources := map[string]bool{
+		policySourceNomad: true,
+		policySourceFile:  true,
+	}
+	if _, ok := validSources[s.Name]; !ok {
+		result = multierror.Append(result, fmt.Errorf("invalid source %q", s.Name))
 	}
 
 	// Prefix all errors.
@@ -961,6 +1060,43 @@ func pluginConfigSetMerge(first, second []*Plugin) []*Plugin {
 	return out
 }
 
+func policySourceConfigSetMerge(first, second []*PolicySource) []*PolicySource {
+	findex := make(map[string]*PolicySource, len(first))
+	for _, p := range first {
+		findex[p.Name] = p
+	}
+
+	sindex := make(map[string]*PolicySource, len(second))
+	for _, p := range second {
+		sindex[p.Name] = p
+	}
+
+	var out []*PolicySource
+
+	// Go through the first set and merge any value that exist in both
+	for sourceName, original := range findex {
+		second, ok := sindex[sourceName]
+		if !ok {
+			out = append(out, original.copy())
+			continue
+		}
+
+		out = append(out, original.merge(second))
+	}
+
+	// Go through the second set and add any value that didn't exist in both
+	for sourceName, source := range sindex {
+		_, ok := findex[sourceName]
+		if ok {
+			continue
+		}
+
+		out = append(out, source)
+	}
+
+	return out
+}
+
 func parseFile(file string, cfg *Agent) error {
 	if err := hclsimple.DecodeFile(file, nil, cfg); err != nil {
 		return err
@@ -981,6 +1117,13 @@ func parseFile(file string, cfg *Agent) error {
 				return err
 			}
 			cfg.Policy.DefaultEvaluationInterval = d
+		}
+
+		for _, source := range cfg.Policy.Sources {
+			if source.Enabled == nil {
+				// Default to true if source block is defined.
+				source.Enabled = ptr.BoolToPtr(true)
+			}
 		}
 	}
 
@@ -1032,6 +1175,7 @@ func parseFile(file string, cfg *Agent) error {
 			cfg.DynamicApplicationSizing.EvaluateAfter = t
 		}
 	}
+
 	return nil
 }
 

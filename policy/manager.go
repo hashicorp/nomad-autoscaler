@@ -62,6 +62,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 	// Start the policy source and listen for changes in the list of policy IDs
 	for _, s := range m.policySource {
+		m.log.Info("starting policy source", "source", s.Name())
 		req := MonitorIDsReq{ErrCh: policyIDsErrCh, ResultCh: policyIDsCh}
 		go s.MonitorIDs(monitorCtx, req)
 	}

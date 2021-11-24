@@ -70,8 +70,30 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int64, config map[string]string) error {
+	// Create a logger for this action to pre-populate useful information we
+	// would like on all log lines.
+	log := t.logger.With("action", "scale_in", "instance_group", group.getName())
 
-	ids, err := t.clusterUtils.RunPreScaleInTasks(ctx, config, int(num))
+	// Find instance IDs in the target instance group and perform pre-scale tasks.
+	instances, err := group.listInstances(ctx, t.service)
+	if err != nil {
+		return fmt.Errorf("failed to list GCE MIG instances: %v", err)
+	}
+
+	remoteIDs := []string{}
+	for _, inst := range instances {
+		if inst.InstanceStatus == "RUNNING" && inst.CurrentAction == "NONE" {
+			log.Debug("found healthy instance", "instance_id", inst.Id, "instance", inst.Instance)
+
+			// Use the partial URL since that's what gceNodeIDMap returns.
+			idx := strings.Index(inst.Instance, "/zones/")
+			remoteIDs = append(remoteIDs, inst.Instance[idx+1:])
+		} else {
+			log.Debug("skipping instance", "instance_id", inst.Id, "instance", inst.Instance, "instance_status", inst.InstanceStatus, "current_action", inst.CurrentAction)
+		}
+	}
+
+	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
 	}
@@ -83,13 +105,9 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 		instanceIDs = append(instanceIDs, node.RemoteResourceID)
 	}
 
-	// Create a logger for this action to pre-populate useful information we
-	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "instance_group", group.getName(), "instances", ids)
-
 	// Delete the instances from the Managed Instance Groups. The targetSize of the MIG is will be reduced by the
 	// number of instances that are deleted.
-	log.Debug("deleting GCE MIG instances")
+	log.Debug("deleting GCE MIG instances", "instances", ids)
 
 	if err := group.deleteInstance(ctx, t.service, instanceIDs); err != nil {
 		return fmt.Errorf("failed to delete instances: %v", err)

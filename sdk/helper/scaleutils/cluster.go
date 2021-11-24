@@ -58,6 +58,7 @@ func NewClusterScaleUtils(cfg *api.Config, log hclog.Logger) (*ClusterScaleUtils
 
 // RunPreScaleInTasks triggers all the tasks, including node identification and
 // draining, required before terminating the nodes in the remote provider.
+// COMPAT(0.4)
 func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[string]string, num int) ([]NodeResourceID, error) {
 
 	// Check that the ClusterNodeIDLookupFunc has been set, otherwise we cannot
@@ -90,6 +91,88 @@ func (c *ClusterScaleUtils) RunPreScaleInTasks(ctx context.Context, cfg map[stri
 	return nodeResourceIDs, nil
 }
 
+// RunPreScaleInTasksWithRemoteCheck triggers all the tasks, including node
+// identification, filtering by remote ID, and draining, required before
+// terminating the nodes in the remote provider.
+func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Context, cfg map[string]string, remoteIDs []string, num int) ([]NodeResourceID, error) {
+
+	// Check that the ClusterNodeIDLookupFunc has been set, otherwise we cannot
+	// attempt to identify nodes and their remote resource IDs.
+	if c.ClusterNodeIDLookupFunc == nil {
+		return nil, errors.New("required ClusterNodeIDLookupFunc not set")
+	}
+
+	// Find nodes in Nomad that match the node filtering criteria.
+	nodes, err := c.IdentifyScaleInNodes(cfg, num)
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the remote ID for each of the Nomad nodes found.
+	nodeResourceIDs, err := c.IdentifyScaleInRemoteIDs(nodes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Index nodes and remote node IDs by Nomad node ID for easier access.
+	nodesMap := make(map[string]*api.NodeListStub)
+	for _, n := range nodes {
+		nodesMap[n.ID] = n
+	}
+	nodesResourceIDsMap := make(map[string]NodeResourceID)
+	for _, id := range nodeResourceIDs {
+		nodesResourceIDsMap[id.NomadNodeID] = id
+	}
+
+	// Filter out nodes that are not part of the remote ID list.
+	filteredNodes := []*api.NodeListStub{}
+	for _, id := range nodeResourceIDs {
+		for _, remoteID := range remoteIDs {
+			if id.RemoteResourceID == remoteID {
+				c.log.Debug("node is part of the policy target", "node_id", id.NomadNodeID, "remote_id", id.RemoteResourceID)
+				filteredNodes = append(filteredNodes, nodesMap[id.NomadNodeID])
+				break
+			}
+		}
+	}
+
+	// Ensure we have not filtered out all the available nodes.
+	if len(filteredNodes) == 0 {
+		return nil, fmt.Errorf("no nodes identified for scaling in action")
+	}
+
+	// If the caller has requested more nodes than we have available once
+	// filtered, adjust the value. This shouldn't cause the whole scaling
+	// action to fail, but we should warn.
+	if num > len(filteredNodes) {
+		c.log.Warn("can only identify portion of requested nodes for removal",
+			"requested", num, "available", len(filteredNodes))
+	}
+
+	// Select which nodes to drain and terminate based on the policy's
+	// node selector strategy.
+	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
+	if err != nil {
+		return nil, err
+	}
+
+	selectedResourceIDs := []NodeResourceID{}
+	for _, n := range selectedNodes {
+		c.log.Debug("node selected for removal", "node_id", n.ID, "remote_id", nodesResourceIDsMap[n.ID].RemoteResourceID)
+		selectedResourceIDs = append(selectedResourceIDs, nodesResourceIDsMap[n.ID])
+	}
+
+	// Drain the nodes.
+	// TODO(jrasell) we should try some reconciliation here, where we identify
+	//  failed nodes and continue with nodes that drained successfully.
+	if err := c.DrainNodes(ctx, cfg, selectedResourceIDs); err != nil {
+		return nil, err
+	}
+	c.log.Debug("pre scale-in tasks now complete")
+
+	return selectedResourceIDs, nil
+}
+
 func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
 	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
@@ -105,6 +188,13 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 		return nil, fmt.Errorf("failed to list Nomad nodes from API: %v", err)
 	}
 
+	if c.log.IsDebug() {
+		for _, n := range nodes {
+			c.log.Debug("found node", "node_id", n.ID, "datacenter", n.Datacenter, "node_class", n.NodeClass,
+				"status", n.Status, "eligibility", n.SchedulingEligibility, "draining", n.Drain)
+		}
+	}
+
 	// Filter our nodes to select only those within our identified pool.
 	filteredNodes, err := FilterNodes(nodes, poolID.IsPoolMember)
 	if err != nil {
@@ -113,6 +203,12 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 
 	// Filter out the Nomad node ID where this autoscaler instance is running.
 	filteredNodes = filterOutNodeID(filteredNodes, c.curNodeID)
+
+	if c.log.IsDebug() {
+		for _, n := range filteredNodes {
+			c.log.Debug("node passed filter criteria", "node_id", n.ID)
+		}
+	}
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
@@ -125,30 +221,9 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 	if num > len(filteredNodes) {
 		c.log.Warn("can only identify portion of requested nodes for removal",
 			"requested", num, "available", len(filteredNodes))
-		num = len(filteredNodes)
 	}
 
-	// Setup the node selector used to identify suitable nodes for termination.
-	selector, err := nodeselector.NewSelector(cfg, c.client, c.log)
-	if err != nil {
-		return nil, err
-	}
-	c.log.Debug("performing node selection", "selector_strategy", selector.Name())
-
-	// It is possible the selector is unable to identify suitable nodes and so
-	// we should return an error to stop additional execution.
-	out := selector.Select(filteredNodes, num)
-	if len(out) < 1 {
-		return nil, fmt.Errorf("no nodes selected using strategy %s", selector.Name())
-	}
-
-	// Selection can filter most of the nodes in the filtered list, we should
-	// log about this, but using certain strategies this is to be expected.
-	if len(out) < num {
-		c.log.Info("identified portion of requested nodes for removal",
-			"requested", num, "identified", len(out))
-	}
-	return out, nil
+	return filteredNodes, nil
 }
 
 func (c *ClusterScaleUtils) IdentifyScaleInRemoteIDs(nodes []*api.NodeListStub) ([]NodeResourceID, error) {
@@ -185,6 +260,30 @@ func (c *ClusterScaleUtils) IdentifyScaleInRemoteIDs(nodes []*api.NodeListStub) 
 
 	if mErr != nil {
 		return nil, errHelper.FormattedMultiError(mErr)
+	}
+	return out, nil
+}
+
+func (c *ClusterScaleUtils) SelectScaleInNodes(nodes []*api.NodeListStub, cfg map[string]string, num int) ([]*api.NodeListStub, error) {
+	// Setup the node selector used to identify suitable nodes for termination.
+	selector, err := nodeselector.NewSelector(cfg, c.client, c.log)
+	if err != nil {
+		return nil, err
+	}
+	c.log.Debug("performing node selection", "selector_strategy", selector.Name())
+
+	// It is possible the selector is unable to identify suitable nodes and so
+	// we should return an error to stop additional execution.
+	out := selector.Select(nodes, num)
+	if len(out) < 1 {
+		return nil, fmt.Errorf("no nodes selected using strategy %s", selector.Name())
+	}
+
+	// Selection can filter most of the nodes in the filtered list, we should
+	// log about this, but using certain strategies this is to be expected.
+	if len(out) < num {
+		c.log.Info("identified portion of requested nodes for removal",
+			"requested", num, "identified", len(out))
 	}
 	return out, nil
 }

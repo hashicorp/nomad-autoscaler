@@ -47,9 +47,10 @@ var _ target.Target = (*TargetPlugin)(nil)
 
 // TargetPlugin is the Azure VMSS implementation of the target.Target interface.
 type TargetPlugin struct {
-	config       map[string]string
-	logger       hclog.Logger
-	vmss         compute.VirtualMachineScaleSetsClient
+	config  map[string]string
+	logger  hclog.Logger
+	vmss    compute.VirtualMachineScaleSetsClient
+	vmssVMs compute.VirtualMachineScaleSetVMsClient
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.

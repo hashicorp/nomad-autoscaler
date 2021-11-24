@@ -5,10 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -48,68 +45,6 @@ func TestTargetPlugin_SetConfig_NonAWS(t *testing.T) {
 				region = "us-east-1"
 			}
 			assert.Equal(t, region, awsPlugin.asg.Config.Region, tc.name)
-		})
-	}
-}
-
-func Test_instancesBelongToASG(t *testing.T) {
-	testCases := []struct {
-		inputASG            *autoscaling.AutoScalingGroup
-		inputIDs            []scaleutils.NodeResourceID
-		expectedOutputList  []string
-		expectedOutputError error
-		name                string
-	}{
-		{
-			inputASG: &autoscaling.AutoScalingGroup{
-				AutoScalingGroupName: aws.String("test"),
-				Instances: []autoscaling.Instance{
-					{InstanceId: aws.String("i-08d2c60605d210f51")},
-					{InstanceId: aws.String("i-08d2c60605d210f52")},
-					{InstanceId: aws.String("i-08d2c60605d210f53")},
-					{InstanceId: aws.String("i-08d2c60605d210f54")},
-					{InstanceId: aws.String("i-08d2c60605d210f55")},
-				},
-			},
-			inputIDs: []scaleutils.NodeResourceID{
-				{RemoteResourceID: "i-08d2c60605d210f51"},
-				{RemoteResourceID: "i-08d2c60605d210f54"},
-			},
-			expectedOutputList: []string{
-				"i-08d2c60605d210f51",
-				"i-08d2c60605d210f54",
-			},
-			expectedOutputError: nil,
-			name:                "multiple matches with zero failure",
-		},
-		{
-			inputASG: &autoscaling.AutoScalingGroup{
-				AutoScalingGroupName: aws.String("test"),
-				Instances: []autoscaling.Instance{
-					{InstanceId: aws.String("i-08d2c60605d210f51")},
-					{InstanceId: aws.String("i-08d2c60605d210f52")},
-					{InstanceId: aws.String("i-08d2c60605d210f53")},
-					{InstanceId: aws.String("i-08d2c60605d210f54")},
-					{InstanceId: aws.String("i-08d2c60605d210f55")},
-				},
-			},
-			inputIDs: []scaleutils.NodeResourceID{
-				{RemoteResourceID: "i-08d2c60605d210f51"},
-				{RemoteResourceID: "i-08d2c60605d210f54"},
-				{RemoteResourceID: "i-08d2c60605d210f58"},
-			},
-			expectedOutputList:  nil,
-			expectedOutputError: errors.New("1 selected nodes are not found within ASG"),
-			name:                "multiple matches with zero failure",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p := NewAWSASGPlugin(hclog.NewNullLogger())
-			actualList, actualErr := p.instancesBelongToASG(tc.inputASG, tc.inputIDs)
-			assert.Equal(t, tc.expectedOutputList, actualList, tc.name)
-			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
 		})
 	}
 }

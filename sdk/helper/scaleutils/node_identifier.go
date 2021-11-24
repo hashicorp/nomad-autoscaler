@@ -64,8 +64,18 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 			return nil, errHelper.FormattedMultiError(err)
 		}
 
-		// Filter out all nodes which do not match the target first.
+		// Filter out nodes which do not match the policy filter criteria first.
 		if !idFn(node) {
+			continue
+		}
+
+		// Assuming a cluster has most, if not all nodes in a correct state for
+		// scheduling then this is the fastest route. Only append in the event
+		// we have not encountered any error to save some cycles.
+		if !node.Drain && node.Status == api.NodeStatusReady {
+			if err == nil {
+				out = append(out, node)
+			}
 			continue
 		}
 
@@ -76,26 +86,12 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 			continue
 		}
 
-		// Assuming a cluster has most, if not all nodes in a correct state for
-		// scheduling then this is the fastest route. Only append in the event
-		// we have not encountered any error to save some cycles.
-		if node.SchedulingEligibility == api.NodeSchedulingEligible {
-			if err == nil {
-				out = append(out, node)
-			}
-			continue
-		}
-
-		// This lifecycle phase relates to nodes that are being drained.
-		if node.Drain && node.Status == api.NodeStatusReady {
+		// Avoid scaling the cluster if there are nodes being drained since the
+		// cluster may be in an unstable state. If a scaling action is still
+		// required it will happen in the next policy evaluation.
+		if node.Drain {
 			err = multierror.Append(err, fmt.Errorf("node %s is draining", node.ID))
 			continue
-		}
-
-		// This lifecycle phase relates to nodes that typically have had their
-		// drain completed, and now await removal from the cluster.
-		if !node.Drain && node.Status == api.NodeStatusReady {
-			err = multierror.Append(err, fmt.Errorf("node %s is ineligible", node.ID))
 		}
 	}
 

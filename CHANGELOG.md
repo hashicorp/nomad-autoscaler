@@ -6,6 +6,7 @@ IMPROVEMENTS:
  * plugins/target/nomad: Reduce log level for active deployments error messages [[GH-542](https://github.com/hashicorp/nomad-autoscaler/pull/542)]
  * policy: Prevent scaling cluster to zero when using the Nomad APM [[GH-534](https://github.com/hashicorp/nomad-autoscaler/pull/534)]
  * scaleutils: Add combined filter to allow filtering by node class and datacenter [[GH-535](https://github.com/hashicorp/nomad-autoscaler/pull/535)]
+ * scaleutils: Improve node selection on scale in actions to avoid errors due to invalid nodes [[GH-539](https://github.com/hashicorp/nomad-autoscaler/pull/539)]
 
 BUG FIXES:
  * scaleutils: Fixed `least_busy` node selector on clusters running servers older than v1.0.0 [[GH-508](https://github.com/hashicorp/nomad-autoscaler/pull/508)]

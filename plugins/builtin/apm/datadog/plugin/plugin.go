@@ -19,6 +19,9 @@ const (
 	// pluginName is the name of the plugin
 	pluginName = "datadog"
 
+	// configKeySite is used to change the Datadog site
+	configKeySite = "site"
+
 	configKeyClientAPIKey = "dd_api_key"
 	configKeyClientAPPKey = "dd_app_key"
 
@@ -88,6 +91,16 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 			datadogAuthAPPKey: {Key: a.config[configKeyClientAPPKey]},
 		},
 	)
+
+	// set Datadog site if provided
+	if a.config[configKeySite] != "" {
+		ctx = context.WithValue(ctx,
+			datadog.ContextServerVariables,
+			map[string]string{
+				"site": a.config[configKeySite],
+			})
+	}
+
 	a.clientCtx = ctx
 	configuration := datadog.NewConfiguration()
 	client := datadog.NewAPIClient(configuration)

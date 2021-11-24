@@ -90,8 +90,6 @@ func TestTargetPlugin_statusTimeout(t *testing.T) {
 	nomadMock := httptest.NewServer(http.HandlerFunc(scaleStatusErrorHandler))
 	defer nomadMock.Close()
 
-	statusHandlerInitTimeout = 3 * time.Second
-
 	plugin := PluginConfig.Factory(hclog.NewNullLogger()).(*TargetPlugin)
 	plugin.SetConfig(map[string]string{
 		"nomad_address": nomadMock.URL,

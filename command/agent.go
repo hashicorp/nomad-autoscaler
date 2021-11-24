@@ -483,14 +483,14 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	if disableFileSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
-			Name:       string(policy.SourceNameFile),
-			EnabledPtr: ptr.BoolToPtr(false),
+			Name:    string(policy.SourceNameFile),
+			Enabled: ptr.BoolToPtr(false),
 		})
 	}
 	if disableNomadSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
-			Name:       string(policy.SourceNameNomad),
-			EnabledPtr: ptr.BoolToPtr(false),
+			Name:    string(policy.SourceNameNomad),
+			Enabled: ptr.BoolToPtr(false),
 		})
 	}
 

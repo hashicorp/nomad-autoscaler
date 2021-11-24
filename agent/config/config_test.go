@@ -59,9 +59,8 @@ func TestAgent_Merge(t *testing.T) {
 		Policy: &Policy{
 			Sources: []*PolicySource{
 				{
-					Name:       "nomad",
-					EnabledPtr: ptr.BoolToPtr(false),
-					Enabled:    false,
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(false),
 				},
 			},
 		},
@@ -112,14 +111,12 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultEvaluationInterval: 10 * time.Second,
 			Sources: []*PolicySource{
 				{
-					Name:       "file",
-					EnabledPtr: ptr.BoolToPtr(false),
-					Enabled:    false,
+					Name:    "file",
+					Enabled: ptr.BoolToPtr(false),
 				},
 				{
-					Name:       "nomad",
-					EnabledPtr: ptr.BoolToPtr(true),
-					Enabled:    true,
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(true),
 				},
 			},
 		},
@@ -214,14 +211,12 @@ func TestAgent_Merge(t *testing.T) {
 			DefaultEvaluationInterval: 10 * time.Second,
 			Sources: []*PolicySource{
 				{
-					Name:       "file",
-					EnabledPtr: ptr.BoolToPtr(false),
-					Enabled:    false,
+					Name:    "file",
+					Enabled: ptr.BoolToPtr(false),
 				},
 				{
-					Name:       "nomad",
-					EnabledPtr: ptr.BoolToPtr(true),
-					Enabled:    true,
+					Name:    "nomad",
+					Enabled: ptr.BoolToPtr(true),
 				},
 			},
 		},
@@ -455,9 +450,8 @@ policy {
 
 	expected := []*PolicySource{
 		{
-			Name:       "nomad",
-			EnabledPtr: nil,
-			Enabled:    true,
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(true),
 		},
 	}
 	assert.ElementsMatch(t, expected, cfg.Policy.Sources)
@@ -485,14 +479,12 @@ policy {
 	result := defaultConfig.Merge(cfg)
 	expected = []*PolicySource{
 		{
-			Name:       "file",
-			EnabledPtr: nil,
-			Enabled:    true,
+			Name:    "file",
+			Enabled: ptr.BoolToPtr(true),
 		},
 		{
-			Name:       "nomad",
-			EnabledPtr: ptr.BoolToPtr(false),
-			Enabled:    false,
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(false),
 		},
 	}
 	assert.ElementsMatch(t, expected, result.Policy.Sources)
@@ -520,14 +512,12 @@ policy {
 	result = defaultConfig.Merge(cfg)
 	expected = []*PolicySource{
 		{
-			Name:       "file",
-			EnabledPtr: ptr.BoolToPtr(false),
-			Enabled:    false,
+			Name:    "file",
+			Enabled: ptr.BoolToPtr(false),
 		},
 		{
-			Name:       "nomad",
-			EnabledPtr: nil,
-			Enabled:    true,
+			Name:    "nomad",
+			Enabled: ptr.BoolToPtr(true),
 		},
 	}
 	assert.ElementsMatch(t, expected, result.Policy.Sources)

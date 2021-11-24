@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/mitchellh/copystructure"
 )
 
@@ -480,9 +481,8 @@ type PolicyEval struct {
 
 // PolicySource is an individual configured policy source.
 type PolicySource struct {
-	Name       string `hcl:"name,label"`
-	EnabledPtr *bool  `hcl:"enabled,optional"`
-	Enabled    bool
+	Name    string `hcl:"name,label"`
+	Enabled *bool  `hcl:"enabled,optional"`
 }
 
 const (
@@ -563,8 +563,8 @@ func Default() (*Agent, error) {
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
 			Sources: []*PolicySource{
-				{Name: policySourceFile, Enabled: true},
-				{Name: policySourceNomad, Enabled: true},
+				{Name: policySourceFile, Enabled: ptr.BoolToPtr(true)},
+				{Name: policySourceNomad, Enabled: ptr.BoolToPtr(true)},
 			},
 		},
 		PolicyEval: &PolicyEval{
@@ -972,10 +972,14 @@ func (s *PolicySource) copy() *PolicySource {
 		return nil
 	}
 
+	var enabled *bool
+	if s.Enabled != nil {
+		enabled = ptr.BoolToPtr(*s.Enabled)
+	}
+
 	return &PolicySource{
-		Name:       s.Name,
-		EnabledPtr: s.EnabledPtr,
-		Enabled:    s.Enabled,
+		Name:    s.Name,
+		Enabled: enabled,
 	}
 }
 
@@ -989,8 +993,7 @@ func (s *PolicySource) merge(b *PolicySource) *PolicySource {
 	if len(b.Name) != 0 {
 		result.Name = b.Name
 	}
-	if b.EnabledPtr != nil {
-		result.EnabledPtr = b.EnabledPtr
+	if b.Enabled != nil {
 		result.Enabled = b.Enabled
 	}
 
@@ -1117,11 +1120,9 @@ func parseFile(file string, cfg *Agent) error {
 		}
 
 		for _, source := range cfg.Policy.Sources {
-			if source.EnabledPtr != nil {
-				source.Enabled = *source.EnabledPtr
-			} else {
+			if source.Enabled == nil {
 				// Default to true if source block is defined.
-				source.Enabled = true
+				source.Enabled = ptr.BoolToPtr(true)
 			}
 		}
 	}

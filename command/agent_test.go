@@ -124,8 +124,8 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			want: defaultConfig.Merge(&config.Agent{
 				Policy: &config.Policy{
 					Sources: []*config.PolicySource{
-						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
 					},
 				},
 			}),
@@ -229,8 +229,8 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
 					Sources: []*config.PolicySource{
-						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
 					},
 				},
 				PolicyEval: &config.PolicyEval{
@@ -321,8 +321,8 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
 					Sources: []*config.PolicySource{
-						{Name: "file", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
-						{Name: "nomad", EnabledPtr: ptr.BoolToPtr(false), Enabled: false},
+						{Name: "file", Enabled: ptr.BoolToPtr(false)},
+						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
 					},
 				},
 				PolicyEval: &config.PolicyEval{

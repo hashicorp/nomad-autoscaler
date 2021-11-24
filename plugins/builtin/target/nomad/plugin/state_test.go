@@ -2,7 +2,10 @@ package nomad
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -11,11 +14,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func init() {
+	statusHandlerInitTimeout = 3 * time.Second
+}
+
 func Test_newJobStateHandler(t *testing.T) {
 
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		scaleStatus := `
+{
+  "JobCreateIndex": 10,
+  "JobID": "example",
+  "Namespace": "default",
+  "JobModifyIndex": 18,
+  "JobStopped": false,
+  "TaskGroups": {
+    "cache": {
+      "Desired": 1,
+      "Events": null,
+      "Healthy": 1,
+      "Placed": 1,
+      "Running": 0,
+      "Unhealthy": 0
+    }
+  }
+}`
+		w.Write([]byte(scaleStatus))
+	}
+	server := httptest.NewServer(http.HandlerFunc(handler))
+	defer server.Close()
+
 	// Create an actual client so we can test it gets set properly.
-	c, err := api.NewClient(api.DefaultConfig())
-	assert.Nil(t, err)
+	cfg := api.DefaultConfig()
+	cfg.Address = server.URL
+	c, err := api.NewClient(cfg)
+	require.NoError(t, err)
 
 	// Create the new handler and perform assertions.
 	jsh, err := newJobScaleStatusHandler(c, "default", "test", hclog.NewNullLogger())

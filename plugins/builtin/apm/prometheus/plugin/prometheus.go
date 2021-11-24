@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"crypto/tls"
 	"net/http"
 	"strings"
 
@@ -18,7 +19,7 @@ type pluginRoundTripper struct {
 
 // newPluginRoudTripper returns a new pluginRoundTripper configured based on
 // configuration values set for the plugin.
-func newPluginRoudTripper(config map[string]string) *pluginRoundTripper {
+func newPluginRoudTripper(config map[string]string, tlsConfig *tls.Config) *pluginRoundTripper {
 	username := config[configKeyBasicAuthUser]
 	password := config[configKeyBasicAuthPassword]
 
@@ -30,11 +31,14 @@ func newPluginRoudTripper(config map[string]string) *pluginRoundTripper {
 		}
 	}
 
+	defaultRoudTripper := api.DefaultRoundTripper.(*http.Transport)
+	defaultRoudTripper.TLSClientConfig = tlsConfig
+
 	return &pluginRoundTripper{
 		headers:           headers,
 		basicAuthUser:     username,
 		basicAuthPassword: password,
-		rt:                api.DefaultRoundTripper,
+		rt:                defaultRoudTripper,
 	}
 }
 

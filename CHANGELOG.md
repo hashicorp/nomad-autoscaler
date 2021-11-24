@@ -3,6 +3,7 @@
 IMPROVEMENTS:
  * agent: Allow disabling specific policy sources [[GH-544](https://github.com/hashicorp/nomad-autoscaler/pull/544)]
  * agent: Dispense `fixed-value`, `pass-through`, and `threshold` strategy plugins by default [[GH-536](https://github.com/hashicorp/nomad-autoscaler/pull/536)]
+ * plugins/apm/datadog: Add support for custom server site [[GH-548](https://github.com/hashicorp/nomad-autoscaler/pull/548)]
  * plugins/apm/prometheus: Add support for basic auth and custom headers [[GH-522](https://github.com/hashicorp/nomad-autoscaler/pull/522)]
  * plugins/target/nomad: Reduce log level for active deployments error messages [[GH-542](https://github.com/hashicorp/nomad-autoscaler/pull/542)]
  * policy: Prevent scaling cluster to zero when using the Nomad APM [[GH-534](https://github.com/hashicorp/nomad-autoscaler/pull/534)]

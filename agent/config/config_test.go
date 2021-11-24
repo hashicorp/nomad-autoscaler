@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -303,6 +304,9 @@ func TestAgent_Merge(t *testing.T) {
 	actualResult := baseCfg.Merge(cfg1)
 	actualResult = actualResult.Merge(cfg2)
 
+	// Sort Policy sources to prevent flakiness.
+	sort.Slice(actualResult.Policy.Sources, func(i, j int) bool { return actualResult.Policy.Sources[i].Name < actualResult.Policy.Sources[j].Name })
+
 	assert.Equal(t, expectedResult.DynamicApplicationSizing, actualResult.DynamicApplicationSizing)
 	assert.Equal(t, expectedResult.HTTP, actualResult.HTTP)
 	assert.Equal(t, expectedResult.LogJson, actualResult.LogJson)
@@ -312,7 +316,6 @@ func TestAgent_Merge(t *testing.T) {
 	assert.Equal(t, expectedResult.PluginDir, actualResult.PluginDir)
 	assert.Equal(t, expectedResult.Policy, actualResult.Policy)
 	assert.Equal(t, expectedResult.PolicyEval, actualResult.PolicyEval)
-	assert.ElementsMatch(t, expectedResult.Policy.Sources, actualResult.Policy.Sources)
 	assert.ElementsMatch(t, expectedResult.APMs, actualResult.APMs)
 	assert.ElementsMatch(t, expectedResult.Targets, actualResult.Targets)
 	assert.ElementsMatch(t, expectedResult.Strategies, actualResult.Strategies)

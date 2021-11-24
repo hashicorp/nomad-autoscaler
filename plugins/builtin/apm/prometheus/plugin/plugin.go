@@ -2,9 +2,14 @@ package plugin
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math"
+	"strconv"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -33,6 +38,14 @@ const (
 	// configKeyHeadersPrefix is the prefix used to indicate that a
 	// configuration value should be set as an HTTP header.
 	configKeyHeadersPrefix = "header_"
+
+	// configKeyCACert is the path to the CA certificate the Prometheus client
+	// should use.
+	configKeyCACert = "ca_cert"
+
+	// configKeySkipVerify indicates that the Prometheus client should not
+	// verify TLS certificates.
+	configKeySkipVerify = "skip_verify"
 )
 
 var (
@@ -75,9 +88,14 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
+	tlsConfig, err := generateTLSConfig(config)
+	if err != nil {
+		return fmt.Errorf("failed to parse TLS configuration: %v", err)
+	}
+
 	promCfg := api.Config{
 		Address:      addr,
-		RoundTripper: newPluginRoudTripper(a.config),
+		RoundTripper: newPluginRoudTripper(a.config, tlsConfig),
 	}
 
 	// create Prometheus client
@@ -143,6 +161,41 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	default:
 		return nil, fmt.Errorf("result type (`%v`) is not supported", t)
 	}
+}
+
+func generateTLSConfig(config map[string]string) (*tls.Config, error) {
+	tlsConfig := tls.Config{}
+
+	// Load the CA certificate if present.
+	caCertPath := config[configKeyCACert]
+	fmt.Println(caCertPath)
+	if caCertPath != "" {
+		caCert, err := ioutil.ReadFile(caCertPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load CA certificate %s: %v", caCertPath, err)
+		}
+
+		block, _ := pem.Decode(caCert)
+		if block == nil {
+			return nil, fmt.Errorf("failed to decode PEM file %s", caCertPath)
+		}
+
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	skipVerify := config[configKeySkipVerify]
+	if skipVerify != "" {
+		skipVerifyBool, err := strconv.ParseBool(skipVerify)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse %s value %s: %v", configKeySkipVerify, skipVerify, err)
+		}
+
+		tlsConfig.InsecureSkipVerify = skipVerifyBool
+	}
+
+	return &tlsConfig, nil
 }
 
 func parseScalar(s *model.Scalar) ([]sdk.TimestampedMetrics, error) {

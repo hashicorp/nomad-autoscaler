@@ -63,6 +63,10 @@ type ScalingPolicy struct {
 
 // Validate applies validation rules that are independent of policy source.
 func (p *ScalingPolicy) Validate() error {
+	if p == nil {
+		return nil
+	}
+
 	var result *multierror.Error
 
 	if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {

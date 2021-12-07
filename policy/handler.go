@@ -153,14 +153,6 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			currentPolicy = &p
 
 		case <-h.ticker.C:
-			// Validate policy on ticker so any validation errors are
-			// resurfaced periodically.
-			err := currentPolicy.Validate()
-			if err != nil {
-				h.log.Error("invalid policy", "errors", err)
-				continue
-			}
-
 			eval, err := h.handleTick(ctx, currentPolicy)
 			if err != nil {
 				if err == context.Canceled {
@@ -200,6 +192,20 @@ func (h *Handler) Stop() {
 }
 
 func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
+	h.log.Trace("tick")
+
+	if policy == nil {
+		// Initial ticker ticked without a policy being set, assume we are not able
+		// to retrieve the policy and exit.
+		return nil, errors.New("timeout: failed to read policy in time")
+	}
+
+	// Validate policy on ticker so any validation errors are resurfaced
+	// periodically.
+	err := policy.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("invalid policy: %v", err)
+	}
 
 	// Timestamp the invocation of this evaluation run. This can be
 	// used when checking cooldown or emitting metrics to ensure some
@@ -257,13 +263,6 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 // generateEvaluation returns an evaluation if the policy needs to be evaluated.
 // Returning an error will stop the handler.
 func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
-	h.log.Trace("tick")
-
-	if policy == nil {
-		// Initial ticker ticked without a policy being set, assume we are not able
-		// to retrieve the policy and exit.
-		return nil, errors.New("timeout: failed to read policy in time")
-	}
 
 	// Exit early if the policy is not enabled.
 	if !policy.Enabled {

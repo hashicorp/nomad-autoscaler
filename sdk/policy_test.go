@@ -14,6 +14,11 @@ func TestScalingPolicy_Validate(t *testing.T) {
 		expectedError string
 	}{
 		{
+			name:          "nil policy",
+			policy:        nil,
+			expectedError: "",
+		},
+		{
 			name: "DAS plugin with non-vertical policy",
 			policy: &ScalingPolicy{
 				Type: "horizontal",

@@ -102,6 +102,15 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	}
 	t.client = client
 
+	// Create a read/write lock on the handlers so we can safely interact.
+	t.statusHandlersLock.Lock()
+	defer t.statusHandlersLock.Unlock()
+
+	// Reload nomad client on existing handlers
+	for _, sh := range t.statusHandlers {
+		sh.client = client
+	}
+
 	return nil
 }
 

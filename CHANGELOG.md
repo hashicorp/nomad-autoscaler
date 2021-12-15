@@ -1,6 +1,7 @@
 ## UNRELEASED
 
 BUG FIXES:
+ * plugins/target/nomad: Reload status handlers on SIGHUP [[GH-554](https://github.com/hashicorp/nomad-autoscaler/pull/554)]
  * policy: Fixed an issue that could cause a panic if the policy content is not read in time [[GH-551](https://github.com/hashicorp/nomad-autoscaler/pull/551)]
 
 ## 0.3.4 (November 24, 2021)

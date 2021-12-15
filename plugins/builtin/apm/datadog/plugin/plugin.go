@@ -141,13 +141,12 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 		Query(q).
 		Execute()
 	if err != nil {
+		if res.StatusCode == http.StatusTooManyRequests {
+			return nil,
+				fmt.Errorf("metric queries are ratelimited in current time period by datadog, resets in %s sec",
+					res.Header.Get(ratelimitResetHdr))
+		}
 		return nil, fmt.Errorf("error querying metrics from datadog: %v", err)
-	}
-
-	if res.StatusCode == http.StatusTooManyRequests {
-		return nil,
-			fmt.Errorf("metric queries are ratelimited in current time period by datadog, resets in %s sec",
-				res.Header.Get(ratelimitResetHdr))
 	}
 
 	series := queryResult.GetSeries()

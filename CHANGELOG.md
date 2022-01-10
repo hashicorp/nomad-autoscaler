@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * build: Updated to Go 1.17.6 [[GH-556](https://github.com/hashicorp/nomad-autoscaler/pull/556)]
+
 BUG FIXES:
  * plugins/apm/datadog: Log the correct rate limit error message [[GH-552](https://github.com/hashicorp/nomad-autoscaler/pull/552)]
  * plugins/target/nomad: Reload status handlers on SIGHUP [[GH-554](https://github.com/hashicorp/nomad-autoscaler/pull/554)]

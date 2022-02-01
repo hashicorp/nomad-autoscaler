@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 )
@@ -25,7 +28,7 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 
 	// Load our default AWS config. This handles pulling configuration from
 	// default profiles and environment variables.
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed to load default AWS config: %v", err)
 	}
@@ -48,17 +51,21 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 	// supplied configuration. In order to use these static credentials both
 	// the access key and secret key need to be present; the session token is
 	// optional.
+	// If not found, EC2RoleProvider will be instantiated instead.
 	keyID, idOK := config[configKeyAccessID]
 	secretKey, keyOK := config[configKeySecretKey]
 	session := config[configKeySessionToken]
 
-	if idOK && keyOK {
+	if idOK && keyOK && keyID != "" && secretKey != "" {
 		t.logger.Trace("setting AWS access credentials from config map")
-		cfg.Credentials = aws.NewStaticCredentialsProvider(keyID, secretKey, session)
+		cfg.Credentials = credentials.NewStaticCredentialsProvider(keyID, secretKey, session)
+	} else {
+		t.logger.Trace("AWS access credentials empty - using EC2 instance role credentials instead")
+		cfg.Credentials = aws.NewCredentialsCache(ec2rolecreds.New())
 	}
 
 	// Set up our AWS client.
-	t.asg = autoscaling.New(cfg)
+	t.asg = autoscaling.NewFromConfig(cfg)
 
 	return nil
 }

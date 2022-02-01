@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -118,7 +119,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	// The AWS ASG target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
 	// relevant number so we can correctly perform the AWS work.
-	num, direction := t.calculateDirection(*curASG.DesiredCapacity, action.Count)
+	num, direction := t.calculateDirection(int64(*curASG.DesiredCapacity), action.Count)
 
 	switch direction {
 	case "in":
@@ -174,7 +175,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// being deleted.
 	resp := sdk.TargetStatus{
 		Ready: asg.Status == nil,
-		Count: *asg.DesiredCapacity,
+		Count: int64(*asg.DesiredCapacity),
 		Meta:  make(map[string]string),
 	}
 
@@ -199,12 +200,12 @@ func (t *TargetPlugin) calculateDirection(asgDesired, strategyDesired int64) (in
 
 // processLastActivity updates the status object based on the details within
 // the last scaling activity.
-func processLastActivity(activity autoscaling.Activity, status *sdk.TargetStatus) {
+func processLastActivity(activity types.Activity, status *sdk.TargetStatus) {
 
 	// If the last activities progress is not nil then check whether this
 	// finished or not. In the event there is a current activity in progress
 	// set ready to false so the autoscaler will not perform any actions.
-	if activity.Progress != nil && *activity.Progress != 100 {
+	if activity.Progress != 100 {
 		status.Ready = false
 	}
 

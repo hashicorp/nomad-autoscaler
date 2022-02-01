@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	hclog "github.com/hashicorp/go-hclog"
 )
 
@@ -57,7 +58,7 @@ func (e *eventWriter) write(ctx context.Context, event scalingEvent) {
 	// reconciliation, but not necessarily scaling actions. This could fail if
 	// the AWS credentials are missing the autoscaling:CreateOrUpdateTags IAM
 	// action.
-	if _, err := e.asg.CreateOrUpdateTagsRequest(&input).Send(ctx); err != nil {
+	if _, err := e.asg.CreateOrUpdateTags(ctx, &input); err != nil {
 		e.logger.Error("failed to update AutoScaling Group tag", "error", err, "event", event)
 	}
 	e.logger.Trace("successfully updated AutoScaling Group tag", "event", event)
@@ -65,12 +66,12 @@ func (e *eventWriter) write(ctx context.Context, event scalingEvent) {
 
 // buildTags iterates the eventWriters ID chunks and creates a list of AWS
 // autoscaling tags for the specified event.
-func (e *eventWriter) buildTags(event scalingEvent) []autoscaling.Tag {
+func (e *eventWriter) buildTags(event scalingEvent) []types.Tag {
 
-	var tags []autoscaling.Tag
+	var tags []types.Tag
 
 	for i, chunk := range e.ids {
-		tags = append(tags, autoscaling.Tag{
+		tags = append(tags, types.Tag{
 			Key:               aws.String(fmt.Sprintf("%v_%v", tagKey, i+1)),
 			Value:             aws.String(fmt.Sprintf("%v_%v", event, chunk)),
 			PropagateAtLaunch: aws.Bool(false),

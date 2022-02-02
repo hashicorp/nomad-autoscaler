@@ -104,7 +104,7 @@ func Test_processLastActivity(t *testing.T) {
 				Meta:  map[string]string{},
 			},
 			expectedStatus: &sdk.TargetStatus{
-				Ready: true,
+				Ready: false,
 				Count: 1,
 				Meta:  map[string]string{},
 			},

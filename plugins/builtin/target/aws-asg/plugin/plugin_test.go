@@ -1,11 +1,11 @@
 package plugin
 
 import (
-	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,14 +56,14 @@ func Test_processLastActivity(t *testing.T) {
 	testTime := time.Date(2020, time.April, 13, 8, 4, 0, 0, time.UTC)
 
 	testCases := []struct {
-		inputActivity  autoscaling.Activity
+		inputActivity  types.Activity
 		inputStatus    *sdk.TargetStatus
 		expectedStatus *sdk.TargetStatus
 		name           string
 	}{
 		{
-			inputActivity: autoscaling.Activity{
-				Progress: int64ToPtr(75),
+			inputActivity: types.Activity{
+				Progress: int32(75),
 			},
 			inputStatus: &sdk.TargetStatus{
 				Ready: true,
@@ -78,8 +78,8 @@ func Test_processLastActivity(t *testing.T) {
 			name: "latest activity still in progress",
 		},
 		{
-			inputActivity: autoscaling.Activity{
-				Progress: int64ToPtr(100),
+			inputActivity: types.Activity{
+				Progress: int32(100),
 				EndTime:  &testTime,
 			},
 			inputStatus: &sdk.TargetStatus{
@@ -97,7 +97,7 @@ func Test_processLastActivity(t *testing.T) {
 			name: "latest activity completed",
 		},
 		{
-			inputActivity: autoscaling.Activity{},
+			inputActivity: types.Activity{},
 			inputStatus: &sdk.TargetStatus{
 				Ready: true,
 				Count: 1,

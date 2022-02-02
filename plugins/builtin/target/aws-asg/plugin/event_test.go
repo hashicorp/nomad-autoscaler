@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,14 +15,14 @@ func Test_eventWriter_buildTags(t *testing.T) {
 		inputIDs       []string
 		inputASGName   string
 		inputEvent     scalingEvent
-		expectedOutput []autoscaling.Tag
+		expectedOutput []types.Tag
 		name           string
 	}{
 		{
 			inputIDs:     generateIDs(1),
 			inputASGName: "test-test-asg",
 			inputEvent:   scalingEventDrain,
-			expectedOutput: []autoscaling.Tag{
+			expectedOutput: []types.Tag{
 				{
 					Key:               aws.String("nomad_autoscaler_lifecycle_phase_1"),
 					Value:             aws.String("drain_i-036e43a14e8f81001"),
@@ -37,7 +37,7 @@ func Test_eventWriter_buildTags(t *testing.T) {
 			inputIDs:     generateIDs(14),
 			inputASGName: "test-test-asg",
 			inputEvent:   scalingEventDrain,
-			expectedOutput: []autoscaling.Tag{
+			expectedOutput: []types.Tag{
 				{
 					Key:               aws.String("nomad_autoscaler_lifecycle_phase_1"),
 					Value:             aws.String("drain_i-036e43a14e8f81001_i-036e43a14e8f81002_i-036e43a14e8f81003_i-036e43a14e8f81004_i-036e43a14e8f81005_i-036e43a14e8f81006_i-036e43a14e8f81007_i-036e43a14e8f81008_i-036e43a14e8f81009_i-036e43a14e8f81010_i-036e43a14e8f81011_i-036e43a14e8f81012"),

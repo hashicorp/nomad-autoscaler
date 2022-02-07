@@ -52,11 +52,11 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 	// the access key and secret key need to be present; the session token is
 	// optional.
 	// If not found, EC2RoleProvider will be instantiated instead.
-	keyID, idOK := config[configKeyAccessID]
-	secretKey, keyOK := config[configKeySecretKey]
+	keyID := config[configKeyAccessID]
+	secretKey := config[configKeySecretKey]
 	session := config[configKeySessionToken]
 
-	if idOK && keyOK && keyID != "" && secretKey != "" {
+	if keyID != "" && secretKey != "" {
 		t.logger.Trace("setting AWS access credentials from config map")
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(keyID, secretKey, session)
 	} else {

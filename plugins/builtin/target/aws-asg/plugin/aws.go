@@ -7,8 +7,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
+	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 )
@@ -25,7 +28,7 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 
 	// Load our default AWS config. This handles pulling configuration from
 	// default profiles and environment variables.
-	cfg, err := external.LoadDefaultAWSConfig()
+	cfg, err := awsconfig.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		return fmt.Errorf("failed to load default AWS config: %v", err)
 	}
@@ -48,24 +51,28 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 	// supplied configuration. In order to use these static credentials both
 	// the access key and secret key need to be present; the session token is
 	// optional.
-	keyID, idOK := config[configKeyAccessID]
-	secretKey, keyOK := config[configKeySecretKey]
+	// If not found, EC2RoleProvider will be instantiated instead.
+	keyID := config[configKeyAccessID]
+	secretKey := config[configKeySecretKey]
 	session := config[configKeySessionToken]
 
-	if idOK && keyOK {
+	if keyID != "" && secretKey != "" {
 		t.logger.Trace("setting AWS access credentials from config map")
-		cfg.Credentials = aws.NewStaticCredentialsProvider(keyID, secretKey, session)
+		cfg.Credentials = credentials.NewStaticCredentialsProvider(keyID, secretKey, session)
+	} else {
+		t.logger.Trace("AWS access credentials empty - using EC2 instance role credentials instead")
+		cfg.Credentials = aws.NewCredentialsCache(ec2rolecreds.New())
 	}
 
 	// Set up our AWS client.
-	t.asg = autoscaling.New(cfg)
+	t.asg = autoscaling.NewFromConfig(cfg)
 
 	return nil
 }
 
 // scaleOut updates the Auto Scaling Group desired count to match what the
 // Autoscaler has deemed required.
-func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalingGroup, count int64) error {
+func (t *TargetPlugin) scaleOut(ctx context.Context, asg *types.AutoScalingGroup, count int64) error {
 
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
@@ -75,11 +82,12 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 	input := autoscaling.UpdateAutoScalingGroupInput{
 		AutoScalingGroupName: asg.AutoScalingGroupName,
 		AvailabilityZones:    asg.AvailabilityZones,
-		DesiredCapacity:      aws.Int64(count),
+		DesiredCapacity:      aws.Int32(int32(count)),
 	}
 
 	// Ignore the response from Send() as its empty.
-	_, err := t.asg.UpdateAutoScalingGroupRequest(&input).Send(ctx)
+
+	_, err := t.asg.UpdateAutoScalingGroup(ctx, &input)
 	if err != nil {
 		return fmt.Errorf("failed to update Autoscaling Group: %v", err)
 	}
@@ -92,7 +100,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *autoscaling.AutoScalin
 	return nil
 }
 
-func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScalingGroup, num int64, config map[string]string) error {
+func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup, num int64, config map[string]string) error {
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
 	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
@@ -100,7 +108,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *autoscaling.AutoScaling
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
 	for _, inst := range asg.Instances {
-		if *inst.HealthStatus == "Healthy" && inst.LifecycleState == autoscaling.LifecycleStateInService {
+		if *inst.HealthStatus == "Healthy" && inst.LifecycleState == types.LifecycleStateInService {
 			log.Debug("found healthy instance", "instance_id", *inst.InstanceId)
 			remoteIDs = append(remoteIDs, *inst.InstanceId)
 		} else {
@@ -202,7 +210,8 @@ func (t *TargetPlugin) terminateInstance(ctx context.Context, id string) (*strin
 	// The underlying AWS client HTTP request includes backoff and retry in the
 	// event of errors such as timeouts and rate-limiting. There is therefore
 	// no value in retrying requests that fail.
-	resp, err := t.asg.TerminateInstanceInAutoScalingGroupRequest(&asgInput).Send(ctx)
+
+	resp, err := t.asg.TerminateInstanceInAutoScalingGroup(ctx, &asgInput)
 	if err != nil {
 		return nil, err
 	}
@@ -216,11 +225,11 @@ func (t *TargetPlugin) terminateInstance(ctx context.Context, id string) (*strin
 	return resp.Activity.ActivityId, nil
 }
 
-func (t *TargetPlugin) describeASG(ctx context.Context, asgName string) (*autoscaling.AutoScalingGroup, error) {
+func (t *TargetPlugin) describeASG(ctx context.Context, asgName string) (*types.AutoScalingGroup, error) {
 
 	input := autoscaling.DescribeAutoScalingGroupsInput{AutoScalingGroupNames: []string{asgName}}
 
-	resp, err := t.asg.DescribeAutoScalingGroupsRequest(&input).Send(ctx)
+	resp, err := t.asg.DescribeAutoScalingGroups(ctx, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +240,7 @@ func (t *TargetPlugin) describeASG(ctx context.Context, asgName string) (*autosc
 	return &resp.AutoScalingGroups[0], nil
 }
 
-func (t *TargetPlugin) describeActivities(ctx context.Context, asgName string, ids []string) ([]autoscaling.Activity, error) {
+func (t *TargetPlugin) describeActivities(ctx context.Context, asgName string, ids []string) ([]types.Activity, error) {
 
 	input := autoscaling.DescribeScalingActivitiesInput{AutoScalingGroupName: aws.String(asgName)}
 
@@ -241,7 +250,7 @@ func (t *TargetPlugin) describeActivities(ctx context.Context, asgName string, i
 		input.ActivityIds = ids
 	}
 
-	resp, err := t.asg.DescribeScalingActivitiesRequest(&input).Send(ctx)
+	resp, err := t.asg.DescribeScalingActivities(ctx, &input)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +279,7 @@ func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, asg string,
 		// Iterate each activity, check the progress and add any incomplete
 		// activities to the ID list for rechecking.
 		for _, activity := range activities {
-			if *activity.Progress != 100 {
+			if activity.Progress != 100 {
 				ids = append(ids, *activity.ActivityId)
 			}
 		}

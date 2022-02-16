@@ -19,6 +19,37 @@ func TestScalingPolicy_Validate(t *testing.T) {
 			expectedError: "",
 		},
 		{
+			name: "invalid on_check_error",
+			policy: &ScalingPolicy{
+				Type:         "horizontal",
+				OnCheckError: "not-valid",
+			},
+			expectedError: "invalid value for on_check_error",
+		},
+		{
+			name: "invalid on_error",
+			policy: &ScalingPolicy{
+				Type: "horizontal",
+				Checks: []*ScalingPolicyCheck{
+					{
+						Name:    "invalid",
+						OnError: "non-valid",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "target-value",
+						},
+					},
+					{
+						Name:    "valid",
+						OnError: "ignore",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "target-value",
+						},
+					},
+				},
+			},
+			expectedError: "invalid value for on_error in check",
+		},
+		{
 			name: "DAS plugin with non-vertical policy",
 			policy: &ScalingPolicy{
 				Type: "horizontal",
@@ -42,10 +73,12 @@ func TestScalingPolicy_Validate(t *testing.T) {
 		{
 			name: "valid policy",
 			policy: &ScalingPolicy{
-				Type: "horizontal",
+				Type:         "horizontal",
+				OnCheckError: "ignore",
 				Checks: []*ScalingPolicyCheck{
 					{
-						Name: "valid",
+						Name:    "valid",
+						OnError: "fail",
 						Strategy: &ScalingPolicyStrategy{
 							Name: "target-value",
 						},

@@ -12,6 +12,9 @@ import (
 const (
 	ScalingPolicyTypeCluster    = "cluster"
 	ScalingPolicyTypeHorizontal = "horizontal"
+
+	ScalingPolicyOnErrorFail   = "fail"
+	ScalingPolicyOnErrorIgnore = "ignore"
 )
 
 // ScalingPolicy is the internal representation of a scaling document and
@@ -43,6 +46,14 @@ type ScalingPolicy struct {
 	// policy or not.
 	Enabled bool
 
+	// OnCheckError defines how errors are handled by the Autoscaler when
+	// running the policy checks. Possible values are "ignore" or "fail".
+	//
+	// If "ignore" the policy evaluation will continue even if a check fails.
+	// If "fail" the the entire policy evaluation will stop and no action will
+	// be taken.
+	OnCheckError string
+
 	// Cooldown is the time period after a scaling action if performed, during
 	// which no policy evaluations will be started.
 	Cooldown time.Duration
@@ -69,12 +80,28 @@ func (p *ScalingPolicy) Validate() error {
 
 	var result *multierror.Error
 
-	if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {
-		for _, c := range p.Checks {
+	switch p.OnCheckError {
+	case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
+	default:
+		err := fmt.Errorf("invalid value for on_check_error: only %s and %s are allowed.",
+			ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
+		result = multierror.Append(result, err)
+	}
+
+	for _, c := range p.Checks {
+		if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {
 			if strings.HasPrefix(c.Strategy.Name, "app-sizing") {
 				err := fmt.Errorf("invalid strategy in check %s: plugin %s can only be used with Dynamic Application Sizing", c.Name, c.Strategy.Name)
 				result = multierror.Append(result, err)
 			}
+		}
+
+		switch c.OnError {
+		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
+		default:
+			err := fmt.Errorf("invalid value for on_error in check %s: only %s and %s are allowed.",
+				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
+			result = multierror.Append(result, err)
 		}
 	}
 
@@ -103,6 +130,16 @@ type ScalingPolicyCheck struct {
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
 	Strategy *ScalingPolicyStrategy
+
+	// OnError defines how errors are handled by the Autoscaler when running
+	// this check. Possible values are "ignore" or "fail". If not set the
+	// policy `on_check_error` value will be used.
+	//
+	// If "ignore" the check is not considered when calculating the final
+	// scaling action result.
+	// If "fail" the the entire policy evaluation will stop and no action will
+	// be taken.
+	OnError string
 }
 
 // ScalingPolicyStrategy contains the plugin and configuration details for
@@ -172,6 +209,7 @@ type FileDecodePolicyDoc struct {
 	CooldownHCL           string `hcl:"cooldown,optional"`
 	EvaluationInterval    time.Duration
 	EvaluationIntervalHCL string                      `hcl:"evaluation_interval,optional"`
+	OnCheckError          string                      `hcl:"on_check_error,optional"`
 	Checks                []*FileDecodePolicyCheckDoc `hcl:"check,block"`
 	Target                *ScalingPolicyTarget        `hcl:"target,block"`
 }
@@ -182,6 +220,7 @@ type FileDecodePolicyCheckDoc struct {
 	Query          string `hcl:"query,optional"`
 	QueryWindow    time.Duration
 	QueryWindowHCL string                 `hcl:"query_window,optional"`
+	OnError        string                 `hcl:"on_error,optional"`
 	Strategy       *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
 
@@ -196,6 +235,7 @@ func (fpd *FileDecodeScalingPolicy) Translate() *ScalingPolicy {
 	p.Type = fpd.Type
 	p.Cooldown = fpd.Doc.Cooldown
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
+	p.OnCheckError = fpd.Doc.OnCheckError
 	p.Target = fpd.Doc.Target
 
 	fpd.translateChecks(p)
@@ -221,5 +261,6 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Source = fdc.Source
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
+	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

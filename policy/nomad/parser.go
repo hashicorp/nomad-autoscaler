@@ -48,6 +48,11 @@ func parsePolicy(p *api.ScalingPolicy) sdk.ScalingPolicy {
 		to.Cooldown, _ = time.ParseDuration(cooldown)
 	}
 
+	// Parse on_check_error.
+	if onCheckError, ok := p.Policy[keyOnCheckError].(string); ok {
+		to.OnCheckError = onCheckError
+	}
+
 	// Parse target block.
 	var target *sdk.ScalingPolicyTarget
 
@@ -137,6 +142,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	// Parse query and source with _ to avoid panics.
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
+	on_error, _ := checkMap[keyOnError].(string)
 
 	// Parse query_window ignoring errors since we assume policy has been validated.
 	var queryWindow time.Duration
@@ -149,6 +155,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 		QueryWindow: queryWindow,
 		Source:      source,
 		Strategy:    strategy,
+		OnError:     on_error,
 	}
 }
 

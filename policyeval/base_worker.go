@@ -156,7 +156,24 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		}
 
 		if err != nil {
-			logger.Warn("failed to run check", "error", err)
+			logger.Warn("failed to run check",
+				"check", checkEval.Check.Name,
+				"on_error", checkEval.Check.OnError,
+				"on_check_error", eval.Policy.OnCheckError,
+				"error", err)
+
+			// Define how to handle error.
+			// Use check behaviour if set or fail iff the policy is set to fail.
+			switch checkEval.Check.OnError {
+			case sdk.ScalingPolicyOnErrorIgnore:
+				continue
+			case sdk.ScalingPolicyOnErrorFail:
+				return err
+			default:
+				if eval.Policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
+					return err
+				}
+			}
 			continue
 		}
 

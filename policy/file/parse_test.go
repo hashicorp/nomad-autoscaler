@@ -26,6 +26,7 @@ func Test_decodeFile(t *testing.T) {
 					Max:                100,
 					Cooldown:           10 * time.Minute,
 					EvaluationInterval: 1 * time.Minute,
+					OnCheckError:       "error",
 					Checks: []*sdk.ScalingPolicyCheck{
 						{
 							Name:        "cpu_nomad",
@@ -40,9 +41,10 @@ func Test_decodeFile(t *testing.T) {
 							},
 						},
 						{
-							Name:   "memory_prom",
-							Source: "prometheus",
-							Query:  "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)",
+							Name:    "memory_prom",
+							OnError: "ignore",
+							Source:  "prometheus",
+							Query:   "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)",
 							Strategy: &sdk.ScalingPolicyStrategy{
 								Name: "target-value",
 								Config: map[string]string{

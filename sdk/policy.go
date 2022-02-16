@@ -83,7 +83,7 @@ func (p *ScalingPolicy) Validate() error {
 	switch p.OnCheckError {
 	case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
 	default:
-		err := fmt.Errorf("invalid value for on_check_error: only %s and %s are allowed.",
+		err := fmt.Errorf("invalid value for on_check_error: only %s and %s are allowed",
 			ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
 		result = multierror.Append(result, err)
 	}
@@ -99,7 +99,7 @@ func (p *ScalingPolicy) Validate() error {
 		switch c.OnError {
 		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
 		default:
-			err := fmt.Errorf("invalid value for on_error in check %s: only %s and %s are allowed.",
+			err := fmt.Errorf("invalid value for on_error in check %s: only %s and %s are allowed",
 				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
 			result = multierror.Append(result, err)
 		}

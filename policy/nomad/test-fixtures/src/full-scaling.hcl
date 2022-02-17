@@ -11,6 +11,7 @@ job "full-scaling" {
       policy {
         evaluation_interval = "5s"
         cooldown            = "5m"
+        on_check_error      = "fail"
 
         target "target" {
           int_config  = 2
@@ -22,6 +23,7 @@ job "full-scaling" {
           source       = "source-1"
           query        = "query-1"
           query_window = "1m"
+          on_error     = "ignore"
 
           strategy "strategy-1" {
             int_config  = 2

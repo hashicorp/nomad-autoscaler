@@ -27,6 +27,7 @@ func Test_parsePolicy(t *testing.T) {
 				EvaluationInterval: 5 * time.Second,
 				Cooldown:           5 * time.Minute,
 				Type:               "horizontal",
+				OnCheckError:       "fail",
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
@@ -44,6 +45,7 @@ func Test_parsePolicy(t *testing.T) {
 						Source:      "source-1",
 						Query:       "query-1",
 						QueryWindow: time.Minute,
+						OnError:     "ignore",
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy-1",
 							Config: map[string]string{

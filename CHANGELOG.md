@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
  * plugins/target/aws-asg: Support EC2 role credentials [[GH-564](https://github.com/hashicorp/nomad-autoscaler/pull/564)]
+ * policy: Add `on_check_error` and `on_error` configuration [[GH-566](https://github.com/hashicorp/nomad-autoscaler/pull/566)]
 
 ## 0.3.5 (January 20, 2022)
 

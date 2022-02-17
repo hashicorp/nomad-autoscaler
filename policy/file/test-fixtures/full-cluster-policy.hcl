@@ -8,6 +8,7 @@ scaling "full-cluster-policy" {
 
     cooldown            = "10m"
     evaluation_interval = "1m"
+    on_check_error      = "error"
 
     check "cpu_nomad" {
       source       = "nomad_apm"
@@ -20,8 +21,9 @@ scaling "full-cluster-policy" {
     }
 
     check "memory_prom" {
-      source = "prometheus"
-      query  = "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)"
+      source   = "prometheus"
+      query    = "nomad_client_allocated_memory*100/(nomad_client_allocated_memory+nomad_client_unallocated_memory)"
+      on_error = "ignore"
 
       strategy "target-value" {
         target = "80"

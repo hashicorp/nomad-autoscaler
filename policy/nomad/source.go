@@ -23,6 +23,8 @@ const (
 	keyQuery              = "query"
 	keyQueryWindow        = "query_window"
 	keyEvaluationInterval = "evaluation_interval"
+	keyOnCheckError       = "on_check_error"
+	keyOnError            = "on_error"
 	keyTarget             = "target"
 	keyChecks             = "check"
 	keyStrategy           = "strategy"

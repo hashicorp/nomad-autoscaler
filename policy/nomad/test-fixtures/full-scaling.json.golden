@@ -3,17 +3,19 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
+    "ConsulNamespace": "",
     "ConsulToken": "",
-    "CreateIndex": 256,
+    "CreateIndex": 10,
     "Datacenters": [
       "dc1"
     ],
+    "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 256,
+    "JobModifyIndex": 10,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 260,
+    "ModifyIndex": 13,
     "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
@@ -30,11 +32,14 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1602724429980309000,
+    "SubmitTime": 1644973915971036000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
+        "Consul": {
+          "Namespace": ""
+        },
         "Count": 2,
         "EphemeralDisk": {
           "Migrate": false,
@@ -60,57 +65,15 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 256,
+          "CreateIndex": 10,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 256,
+          "ModifyIndex": 10,
           "Namespace": "",
           "Policy": {
-            "check": [
-              {
-                "check-1": [
-                  {
-                    "source": "source-1",
-                    "strategy": [
-                      {
-                        "strategy-1": [
-                          {
-                            "str_config": "str",
-                            "bool_config": true,
-                            "int_config": 2
-                          }
-                        ]
-                      }
-                    ],
-                    "query": "query-1",
-                    "query_window": "1m"
-                  }
-                ]
-              },
-              {
-                "check-2": [
-                  {
-                    "query": "query-2",
-                    "source": "source-2",
-                    "strategy": [
-                      {
-                        "strategy-2": [
-                          {
-                            "bool_config": true,
-                            "int_config": 2,
-                            "str_config": "str"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ],
-            "cooldown": "5m",
-            "evaluation_interval": "5s",
+            "on_check_error": "fail",
             "target": [
               {
                 "target": [
@@ -121,7 +84,51 @@
                   }
                 ]
               }
-            ]
+            ],
+            "check": [
+              {
+                "check-1": [
+                  {
+                    "source": "source-1",
+                    "strategy": [
+                      {
+                        "strategy-1": [
+                          {
+                            "bool_config": true,
+                            "int_config": 2,
+                            "str_config": "str"
+                          }
+                        ]
+                      }
+                    ],
+                    "on_error": "ignore",
+                    "query": "query-1",
+                    "query_window": "1m"
+                  }
+                ]
+              },
+              {
+                "check-2": [
+                  {
+                    "source": "source-2",
+                    "strategy": [
+                      {
+                        "strategy-2": [
+                          {
+                            "str_config": "str",
+                            "bool_config": true,
+                            "int_config": 2
+                          }
+                        ]
+                      }
+                    ],
+                    "query": "query-2"
+                  }
+                ]
+              }
+            ],
+            "cooldown": "5m",
+            "evaluation_interval": "5s"
           },
           "Target": {
             "Namespace": "default",
@@ -139,10 +146,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "DispatchPayload": null,
@@ -161,10 +168,12 @@
             "Name": "echo",
             "Resources": {
               "CPU": 100,
+              "Cores": 0,
               "Devices": null,
               "DiskMB": 0,
               "IOPS": 0,
               "MemoryMB": 300,
+              "MemoryMaxMB": 0,
               "Networks": null
             },
             "RestartPolicy": {

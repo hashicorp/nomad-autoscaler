@@ -5,17 +5,17 @@
     "Constraints": null,
     "ConsulNamespace": "",
     "ConsulToken": "",
-    "CreateIndex": 10,
+    "CreateIndex": 195,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 10,
+    "JobModifyIndex": 195,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 13,
+    "ModifyIndex": 199,
     "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1644973915971036000,
+    "SubmitTime": 1645143603621529000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -65,22 +65,21 @@
           "Mode": "fail"
         },
         "Scaling": {
-          "CreateIndex": 10,
+          "CreateIndex": 195,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 10,
+          "ModifyIndex": 195,
           "Namespace": "",
           "Policy": {
-            "on_check_error": "fail",
             "target": [
               {
                 "target": [
                   {
+                    "bool_config": true,
                     "int_config": 2,
-                    "str_config": "str",
-                    "bool_config": true
+                    "str_config": "str"
                   }
                 ]
               }
@@ -89,27 +88,29 @@
               {
                 "check-1": [
                   {
+                    "query_window": "1m",
                     "source": "source-1",
                     "strategy": [
                       {
                         "strategy-1": [
                           {
-                            "bool_config": true,
                             "int_config": 2,
-                            "str_config": "str"
+                            "str_config": "str",
+                            "bool_config": true
                           }
                         ]
                       }
                     ],
                     "on_error": "ignore",
-                    "query": "query-1",
-                    "query_window": "1m"
+                    "query": "query-1"
                   }
                 ]
               },
               {
                 "check-2": [
                   {
+                    "group": "group-2",
+                    "query": "query-2",
                     "source": "source-2",
                     "strategy": [
                       {
@@ -121,14 +122,14 @@
                           }
                         ]
                       }
-                    ],
-                    "query": "query-2"
+                    ]
                   }
                 ]
               }
             ],
             "cooldown": "5m",
-            "evaluation_interval": "5s"
+            "evaluation_interval": "5s",
+            "on_check_error": "fail"
           },
           "Target": {
             "Namespace": "default",

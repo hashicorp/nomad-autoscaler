@@ -129,10 +129,8 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	handlersCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// winningAction is the action to be executed after all checks' results are
-	// reconciled.
-	var winningAction *sdk.ScalingAction
-	var winningHandler *checkHandler
+	// Store check results by group so we can compare their results together.
+	checkGroups := make(map[string][]checkResult)
 
 	// Start check handlers.
 	for _, checkEval := range eval.CheckEvaluations {
@@ -177,23 +175,71 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 			continue
 		}
 
-		winningAction = sdk.PreemptScalingAction(winningAction, action)
-		if winningAction == action {
-			winningHandler = checkHandler
+		group := checkEval.Check.Group
+		checkGroups[group] = append(checkGroups[group], checkResult{
+			action:  action,
+			handler: checkHandler,
+		})
+	}
+
+	// winner is the final check that will be executed after the check groups
+	// are processed.
+	var winner checkResult
+
+	for group, results := range checkGroups {
+		// Decide which action wins in the group. The decision processes still
+		// picks the safest choice, but it handles `none` actions a little
+		// differently.
+		//
+		// Since grouped checks have corelated metrics, it's expected that most
+		// checks will result in `none` actions as the data will be somewhere
+		// else. So we ignore none actions unless _all_ checks in the group
+		// vote for `none` to avoid accidentally scaling down when comparing
+		// with other groups.
+		var groupWinner checkResult
+
+		noneCount := 0
+		for _, r := range results {
+			if r.action == nil {
+				continue
+			}
+
+			if group != "" && r.action.Direction == sdk.ScaleDirectionNone {
+				noneCount += 1
+				continue
+			}
+			groupWinner = groupWinner.preempt(r)
 		}
+
+		// If all checks result in `none`, pick any one of them so when we
+		// don't scale down accidentally when comparing it with other groups.
+		if noneCount > 0 && noneCount == len(results) {
+			groupWinner = results[0]
+		}
+
+		if groupWinner.handler == nil {
+			logger.Trace(fmt.Sprintf("no winner in group %s", group))
+			continue
+		}
+
+		logger.Debug(
+			fmt.Sprintf("check %s selected in group %s", groupWinner.handler.checkEval.Check.Name, group),
+			"direction", groupWinner.action.Direction, "count", groupWinner.action.Count)
+
+		winner = winner.preempt(groupWinner)
 	}
 
 	// At this point the checks have finished. Therefore emit of metric data
 	// tracking how long it takes to run all the checks within a policy.
 	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
 
-	if winningHandler == nil || winningAction == nil || winningAction.Direction == sdk.ScaleDirectionNone {
+	if winner.handler == nil || winner.action == nil || winner.action.Direction == sdk.ScaleDirectionNone {
 		logger.Debug("no checks need to be executed")
 		return nil
 	}
 
-	logger.Trace(fmt.Sprintf("check %s selected", winningHandler.checkEval.Check.Name),
-		"direction", winningAction.Direction, "count", winningAction.Count)
+	logger.Debug(fmt.Sprintf("check %s selected", winner.handler.checkEval.Check.Name),
+		"direction", winner.action.Direction, "count", winner.action.Count)
 
 	// Measure how long it takes to invoke the scaling actions. This helps
 	// understand the time taken to interact with the remote target and action
@@ -205,16 +251,16 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// submit the job, but not alter its state.
 	if val, ok := eval.Policy.Target.Config["dry-run"]; ok && val == "true" {
 		logger.Info("scaling dry-run is enabled, using no-op task group count")
-		winningAction.SetDryRun()
+		winner.action.SetDryRun()
 	}
 
-	if winningAction.Count == sdk.StrategyActionMetaValueDryRunCount {
+	if winner.action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		logger.Debug("registering scaling event",
-			"count", currentStatus.Count, "reason", winningAction.Reason, "meta", winningAction.Meta)
+			"count", currentStatus.Count, "reason", winner.action.Reason, "meta", winner.action.Meta)
 	} else {
 		logger.Info("scaling target",
-			"from", currentStatus.Count, "to", winningAction.Count,
-			"reason", winningAction.Reason, "meta", winningAction.Meta)
+			"from", currentStatus.Count, "to", winner.action.Count,
+			"reason", winner.action.Reason, "meta", winner.action.Meta)
 	}
 
 	// Last check for early exit before scaling the target, which we consider
@@ -229,7 +275,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 	// Scale the target. If we receive an error add this onto the result so the
 	// handler understand what do to.
-	err = w.runTargetScale(targetInst, eval.Policy, *winningAction)
+	err = w.runTargetScale(targetInst, eval.Policy, *winner.action)
 	if err != nil {
 		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
 			logger.Info("scaling action skipped", "reason", err)
@@ -240,7 +286,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		return fmt.Errorf("failed to scale target: %v", err)
 	} else {
 		logger.Debug("successfully submitted scaling action to target",
-			"desired_count", winningAction.Count)
+			"desired_count", winner.action.Count)
 		metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 	}
 
@@ -440,4 +486,17 @@ func (h *checkHandler) runStrategyRun(strategyImpl strategy.Strategy, count int6
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
 	return strategyImpl.Run(h.checkEval, count)
+}
+
+type checkResult struct {
+	action  *sdk.ScalingAction
+	handler *checkHandler
+}
+
+func (c checkResult) preempt(other checkResult) checkResult {
+	winner := sdk.PreemptScalingAction(c.action, other.action)
+	if winner == c.action {
+		return c
+	}
+	return other
 }

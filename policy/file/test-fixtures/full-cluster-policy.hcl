@@ -14,6 +14,7 @@ scaling "full-cluster-policy" {
       source       = "nomad_apm"
       query        = "cpu_high-memory"
       query_window = "1m"
+      group        = "cpu"
 
       strategy "target-value" {
         target = "80"

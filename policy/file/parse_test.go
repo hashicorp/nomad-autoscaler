@@ -30,6 +30,7 @@ func Test_decodeFile(t *testing.T) {
 					Checks: []*sdk.ScalingPolicyCheck{
 						{
 							Name:        "cpu_nomad",
+							Group:       "cpu",
 							Source:      "nomad_apm",
 							Query:       "cpu_high-memory",
 							QueryWindow: time.Minute,

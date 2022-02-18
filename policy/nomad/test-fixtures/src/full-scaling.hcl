@@ -35,6 +35,7 @@ job "full-scaling" {
         check "check-2" {
           source = "source-2"
           query  = "query-2"
+          group  = "group-2"
 
           strategy "strategy-2" {
             int_config  = 2

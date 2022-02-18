@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.3.6 (February 18, 2022)
 
 IMPROVEMENTS:
  * plugins/target/aws-asg: Support EC2 role credentials [[GH-564](https://github.com/hashicorp/nomad-autoscaler/pull/564)]

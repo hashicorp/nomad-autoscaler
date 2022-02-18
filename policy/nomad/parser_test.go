@@ -57,6 +57,7 @@ func Test_parsePolicy(t *testing.T) {
 					},
 					{
 						Name:   "check-2",
+						Group:  "group-2",
 						Source: "source-2",
 						Query:  "query-2",
 						Strategy: &sdk.ScalingPolicyStrategy{

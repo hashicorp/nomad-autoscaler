@@ -27,6 +27,7 @@ const (
 	keyOnError            = "on_error"
 	keyTarget             = "target"
 	keyChecks             = "check"
+	keyGroup              = "group"
 	keyStrategy           = "strategy"
 	keyCooldown           = "cooldown"
 )

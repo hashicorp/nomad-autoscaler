@@ -116,6 +116,10 @@ type ScalingPolicyCheck struct {
 	// create clearly identified policy checks.
 	Name string
 
+	// Group is used to group related checks together. Their results will be
+	// consolidated into a single action.
+	Group string
+
 	// Source is the APM plugin that should be used to perform the query and
 	// obtain the metric that will be used to perform a calculation.
 	Source string
@@ -216,6 +220,7 @@ type FileDecodePolicyDoc struct {
 
 type FileDecodePolicyCheckDoc struct {
 	Name           string `hcl:"name,label"`
+	Group          string `hcl:"group,optional"`
 	Source         string `hcl:"source,optional"`
 	Query          string `hcl:"query,optional"`
 	QueryWindow    time.Duration
@@ -258,6 +263,7 @@ func (fpd *FileDecodeScalingPolicy) translateChecks(p *ScalingPolicy) {
 // check object.
 func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Name = fdc.Name
+	c.Group = fdc.Group
 	c.Source = fdc.Source
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow

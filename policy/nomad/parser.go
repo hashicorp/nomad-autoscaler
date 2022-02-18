@@ -143,6 +143,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
 	on_error, _ := checkMap[keyOnError].(string)
+	group, _ := checkMap[keyGroup].(string)
 
 	// Parse query_window ignoring errors since we assume policy has been validated.
 	var queryWindow time.Duration
@@ -151,6 +152,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	}
 
 	return &sdk.ScalingPolicyCheck{
+		Group:       group,
 		Query:       query,
 		QueryWindow: queryWindow,
 		Source:      source,

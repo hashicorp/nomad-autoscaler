@@ -9,7 +9,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
@@ -60,8 +59,10 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 		t.logger.Trace("setting AWS access credentials from config map")
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(keyID, secretKey, session)
 	} else {
-		t.logger.Trace("AWS access credentials empty - using EC2 instance role credentials instead")
-		cfg.Credentials = aws.NewCredentialsCache(ec2rolecreds.New())
+		// Using AWS default credential chain rather then directly use ec2role
+		// to support web identity / shared configuration / ec2 role / etc
+		// https://aws.github.io/aws-sdk-go-v2/docs/configuring-sdk/#specifying-credentials
+		t.logger.Trace("using AWS default credential chain")
 	}
 
 	// Set up our AWS client.

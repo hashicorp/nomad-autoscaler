@@ -33,6 +33,20 @@ lint-tools: ## Install the tools used to lint
 	GO111MODULE=on cd tools && go get github.com/hashicorp/go-hclog/hclogvet@v0.1.3
 	@echo "==> Done"
 
+pkg/%/nomad-autoscaler: GO_OUT ?= $@
+pkg/windows_%/nomad-autoscaler: GO_OUT = $@.exe
+pkg/%/nomad-autoscaler: ## Build Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linux_amd64/nomad
+	@echo "==> Building $@ with tags $(GO_TAGS)..."
+	@CGO_ENABLED=0 \
+		GOOS=$(firstword $(subst _, ,$*)) \
+		GOARCH=$(lastword $(subst _, ,$*)) \
+		go build -trimpath -ldflags $(GO_LDFLAGS) -tags "$(GO_TAGS)" -o $(GO_OUT)
+
+.PRECIOUS: pkg/%/nomad-autoscaler
+pkg/%.zip: pkg/%/nomad-autoscaler
+	@echo "==> Packaging for $@..."
+	zip -j $@ $(dir $<)*
+
 .PHONY: build
 build:
 	@echo "==> Building autoscaler..."
@@ -195,3 +209,11 @@ plugins: \
 	bin/plugins/datadog \
 	bin/plugins/azure-vmss \
 	bin/plugins/gce-mig
+
+.PHONY: version
+version:
+ifneq (,$(wildcard version/version_ent.go))
+	@$(CURDIR)/scripts/version.sh version/version.go version/version_ent.go
+else
+	@$(CURDIR)/scripts/version.sh version/version.go version/version.go
+endif

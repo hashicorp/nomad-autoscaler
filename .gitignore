@@ -7,3 +7,6 @@ pkg/
 
 # ignore GoLand IDE
 .idea
+
+# assets download path when using bob CLI
+.bob

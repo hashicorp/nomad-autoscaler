@@ -2,12 +2,19 @@ package plugin
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
+	"path"
 	"testing"
+	"time"
 
 	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAPMPlugin_SetConfig(t *testing.T) {
@@ -141,6 +148,78 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			} else {
 				assert.Nil(t, apmPlugin.clientCtx, tc.name)
 				assert.Nil(t, apmPlugin.client, tc.name)
+			}
+		})
+	}
+}
+
+func TestAPMPlugin_Query(t *testing.T) {
+	testCases := []struct {
+		name            string
+		fixture         string
+		pluginConfig    map[string]string
+		query           string
+		timeRange       sdk.TimeRange
+		validateRequest func(*testing.T, *http.Request)
+		validateMetrics func(*testing.T, sdk.TimestampedMetrics, error)
+	}{
+		{
+			name:    "success",
+			fixture: "query_200.json",
+			pluginConfig: map[string]string{
+				configKeyClientAPPKey: "app",
+				configKeyClientAPIKey: "key",
+			},
+			query: "avg:nomad.client.allocated.memory",
+			timeRange: sdk.TimeRange{
+				From: time.Unix(1600000000, 0),
+				To:   time.Unix(1610000000, 0),
+			},
+			validateRequest: func(t *testing.T, r *http.Request) {
+				// Check auth headers.
+				require.Equal(t, "app", r.Header.Get("DD-APPLICATION-KEY"))
+				require.Equal(t, "key", r.Header.Get("DD-API-KEY"))
+
+				// Check query params.
+				qp := r.URL.Query()
+				require.Equal(t, "avg:nomad.client.allocated.memory", qp.Get("query"))
+				require.Equal(t, "1600000000", qp.Get("from"))
+				require.Equal(t, "1610000000", qp.Get("to"))
+			},
+			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
+				require.NoError(t, err)
+				require.Len(t, m, 63)
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tc.validateRequest != nil {
+					tc.validateRequest(t, r)
+				}
+				http.ServeFile(w, r, path.Join("./test-fixtures", tc.fixture))
+			}))
+			defer srv.Close()
+
+			srvURL, err := url.Parse(srv.URL)
+			require.NoError(t, err)
+
+			plugin := NewDatadogPlugin(hclog.NewNullLogger())
+
+			// Configure plugin to talk to the test server.
+			plugin.(*APMPlugin).ddConfigCallback = func(config *datadog.Configuration) {
+				config.Host = srvURL.Host
+				config.Scheme = srvURL.Scheme
+			}
+
+			err = plugin.SetConfig(tc.pluginConfig)
+			require.NoError(t, err)
+
+			metrics, err := plugin.Query(tc.query, tc.timeRange)
+			if tc.validateMetrics != nil {
+				tc.validateMetrics(t, metrics, err)
 			}
 		})
 	}

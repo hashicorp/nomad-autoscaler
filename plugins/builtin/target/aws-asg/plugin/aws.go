@@ -51,17 +51,26 @@ func (t *TargetPlugin) setupAWSClients(config map[string]string) error {
 	// supplied configuration. In order to use these static credentials both
 	// the access key and secret key need to be present; the session token is
 	// optional.
-	// If not found, EC2RoleProvider will be instantiated instead.
+	// If static credentials are not set, check for specific credential
+	// provider.
 	keyID := config[configKeyAccessID]
 	secretKey := config[configKeySecretKey]
 	session := config[configKeySessionToken]
+	credProvider := config[configKeyCredentialProvider]
 
 	if keyID != "" && secretKey != "" {
 		t.logger.Trace("setting AWS access credentials from config map")
 		cfg.Credentials = credentials.NewStaticCredentialsProvider(keyID, secretKey, session)
+	} else if credProvider != "" {
+		switch credProvider {
+		case credentialProviderEC2Role:
+			t.logger.Trace("AWS access credentials empty - using EC2 instance role credentials instead")
+			cfg.Credentials = aws.NewCredentialsCache(ec2rolecreds.New())
+		default:
+			return fmt.Errorf("invalid value %s for aws_credential_provider", credProvider)
+		}
 	} else {
-		t.logger.Trace("AWS access credentials empty - using EC2 instance role credentials instead")
-		cfg.Credentials = aws.NewCredentialsCache(ec2rolecreds.New())
+		t.logger.Trace("Using default AWS credential chain")
 	}
 
 	// Set up our AWS client.

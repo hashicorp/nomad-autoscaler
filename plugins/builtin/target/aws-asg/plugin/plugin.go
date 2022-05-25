@@ -22,15 +22,20 @@ const (
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
-	configKeyRegion       = "aws_region"
-	configKeyAccessID     = "aws_access_key_id"
-	configKeySecretKey    = "aws_secret_access_key"
-	configKeySessionToken = "aws_session_token"
-	configKeyASGName      = "aws_asg_name"
+	configKeyRegion             = "aws_region"
+	configKeyAccessID           = "aws_access_key_id"
+	configKeySecretKey          = "aws_secret_access_key"
+	configKeySessionToken       = "aws_session_token"
+	configKeyASGName            = "aws_asg_name"
+	configKeyCredentialProvider = "aws_credential_provider"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
 	configValueRegionDefault = "us-east-1"
+
+	// credentialProvider are the valid options for the aws_credential_provider
+	// configuration key.
+	credentialProviderEC2Role = "ec2_role"
 )
 
 var (

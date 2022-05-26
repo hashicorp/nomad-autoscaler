@@ -9,6 +9,9 @@ IMPROVEMENTS:
  * plugin/target/azure: Update Azure client dependency to v64.1.0 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * plugin/target/gcp: Update GCP client dependency to 0.80.0 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
 
+BUG FIXES:
+ * plugin/target/aws: Fixed a regression issue that broke the default AWS credential chain [[GH-586](https://github.com/hashicorp/nomad-autoscaler/pull/586)]
+
 ## 0.3.6 (February 18, 2022)
 
 IMPROVEMENTS:

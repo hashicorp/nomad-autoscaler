@@ -56,6 +56,9 @@ type APMPlugin struct {
 	clientCtx context.Context
 	config    map[string]string
 	logger    hclog.Logger
+
+	// ddConfigCallback is used to customize the Datadog client for testing.
+	ddConfigCallback func(*datadog.Configuration)
 }
 
 func NewDatadogPlugin(log hclog.Logger) apm.APM {
@@ -102,10 +105,16 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	}
 
 	a.clientCtx = ctx
+
+	// configure the Datadog API client.
+	// Call the ddConfigCallback if provided to setup test harness.
 	configuration := datadog.NewConfiguration()
-	client := datadog.NewAPIClient(configuration)
+	if a.ddConfigCallback != nil {
+		a.ddConfigCallback(configuration)
+	}
 
 	// store config and client in plugin instance
+	client := datadog.NewAPIClient(configuration)
 	a.client = client
 
 	return nil
@@ -135,13 +144,9 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
-	queryResult, res, err := a.client.MetricsApi.QueryMetrics(ctx).
-		From(r.From.Unix()).
-		To(r.To.Unix()).
-		Query(q).
-		Execute()
+	queryResult, res, err := a.client.MetricsApi.QueryMetrics(ctx, r.From.Unix(), r.To.Unix(), q)
 	if err != nil {
-		if res.StatusCode == http.StatusTooManyRequests {
+		if res != nil && res.StatusCode == http.StatusTooManyRequests {
 			return nil,
 				fmt.Errorf("metric queries are ratelimited in current time period by datadog, resets in %s sec",
 					res.Header.Get(ratelimitResetHdr))
@@ -170,8 +175,8 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 				continue
 			}
 
-			ts := int64(p[0]) / 1e3
-			value := p[1]
+			ts := int64(*p[0]) / 1e3
+			value := *p[1]
 			tm := sdk.TimestampedMetric{
 				Timestamp: time.Unix(ts, 0),
 				Value:     value,

@@ -125,6 +125,31 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		return errTargetNotReady
 	}
 
+	// First make sure the target is within the policy limits.
+	// Return early after scaling since we already modified the target.
+	if currentStatus.Count < eval.Policy.Min {
+		reason := fmt.Sprintf("scaling up because current count %d is lower than policy min value of %d",
+			currentStatus.Count, eval.Policy.Min)
+
+		action := sdk.ScalingAction{
+			Count:     eval.Policy.Min,
+			Reason:    reason,
+			Direction: sdk.ScaleDirectionUp,
+		}
+		return w.scaleTarget(logger, targetInst, eval.Policy, action, currentStatus)
+	}
+	if currentStatus.Count > eval.Policy.Max {
+		reason := fmt.Sprintf("scaling down because current count %d is greater than policy max value of %d",
+			currentStatus.Count, eval.Policy.Max)
+
+		action := sdk.ScalingAction{
+			Count:     eval.Policy.Max,
+			Reason:    reason,
+			Direction: sdk.ScaleDirectionDown,
+		}
+		return w.scaleTarget(logger, targetInst, eval.Policy, action, currentStatus)
+	}
+
 	// Prepare handlers.
 	handlersCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -254,15 +279,6 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		winner.action.SetDryRun()
 	}
 
-	if winner.action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		logger.Debug("registering scaling event",
-			"count", currentStatus.Count, "reason", winner.action.Reason, "meta", winner.action.Meta)
-	} else {
-		logger.Info("scaling target",
-			"from", currentStatus.Count, "to", winner.action.Count,
-			"reason", winner.action.Reason, "meta", winner.action.Meta)
-	}
-
 	// Last check for early exit before scaling the target, which we consider
 	// a non-preemptable action since we cannot be sure that a scaling action can
 	// be cancelled halfway through or undone.
@@ -273,9 +289,35 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	default:
 	}
 
-	// Scale the target. If we receive an error add this onto the result so the
-	// handler understand what do to.
-	err = w.runTargetScale(targetInst, eval.Policy, *winner.action)
+	err = w.scaleTarget(logger, targetInst, eval.Policy, *winner.action, currentStatus)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("policy evaluation complete")
+	return nil
+}
+
+// scaleTarget performs all the necessary checks and actions necessary to scale
+// a target.
+func (w *BaseWorker) scaleTarget(
+	logger hclog.Logger,
+	targetImpl target.Target,
+	policy *sdk.ScalingPolicy,
+	action sdk.ScalingAction,
+	currentStatus *sdk.TargetStatus,
+) error {
+
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		logger.Debug("registering scaling event",
+			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
+	} else {
+		logger.Info("scaling target",
+			"from", currentStatus.Count, "to", action.Count,
+			"reason", action.Reason, "meta", action.Meta)
+	}
+
+	err := w.runTargetScale(targetImpl, policy, action)
 	if err != nil {
 		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
 			logger.Info("scaling action skipped", "reason", err)
@@ -284,16 +326,14 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
 		return fmt.Errorf("failed to scale target: %v", err)
-	} else {
-		logger.Debug("successfully submitted scaling action to target",
-			"desired_count", winner.action.Count)
-		metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 	}
 
-	// Enforce the cooldown after a successful scaling event.
-	w.policyManager.EnforceCooldown(eval.Policy.ID, eval.Policy.Cooldown)
+	logger.Debug("successfully submitted scaling action to target",
+		"desired_count", action.Count)
+	metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
 
-	logger.Debug("policy evaluation complete")
+	// Enforce the cooldown after a successful scaling event.
+	w.policyManager.EnforceCooldown(policy.ID, policy.Cooldown)
 	return nil
 }
 

@@ -55,9 +55,13 @@ application and cluster scaling.
 The Nomad Autoscaler can be easily built for local testing or development using the `make build`
 command. This will output the compiled binary to `./bin/nomad-autoscaler`.
 
-## Nightly Builds
+## Nightly Builds and Docker Image Preview
 
-As a tech preview, this project is under constant updates, so every day the
-[`nightly` release](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly) is updated
-with binaries built off the latest code in the `main` branch. This should make it easier for you
-to try new features and bug fixes.
+The Nomad Autoscaler is under constant updates, so every day the [`nightly`
+release](https://github.com/hashicorp/nomad-autoscaler/releases/tag/nightly) is updated with
+binaries built off the latest code in the `main` branch. This should make it easier for you to try
+new features and bug fixes.
+
+Each commit to `main` also generates a preview Docker image that can be accessed from the
+[`hashicorppreview/nomad-autoscaler`](https://hub.docker.com/r/hashicorppreview/nomad-autoscaler/tags)
+repository on Docker Hub.

@@ -1,6 +1,7 @@
 ## UNRELEASED
 
 IMPROVEMENTS:
+ * agent: Scale target so it is within `min` and `max` values before evaluating the rest of the policy [[GH-588](https://github.com/hashicorp/nomad-autoscaler/pull/588)]
  * agent: Update `hashicorp/nomad/api` to v1.3.1 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * agent: Update `armon/go-metrics` to v0.3.11 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * build: Use `alpine:3.15` as base image and provide an entrypoint to run `nomad-autoscaler` by default [[GH-582](https://github.com/hashicorp/nomad-autoscaler/pull/582)]

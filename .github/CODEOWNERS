@@ -1,2 +1,6 @@
 # Blanket ownership of all PRs.
 * @jazzyfresh @jrasell @lgfa29
+
+# release configuration
+/.release/                              @hashicorp/release-engineering 
+/.github/workflows/build.yml            @hashicorp/release-engineering 

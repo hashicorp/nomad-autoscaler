@@ -25,7 +25,7 @@ COPY --from=devbuild /build/nomad-autoscaler /bin/
 COPY ./scripts/docker-entrypoint.sh /
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["-v"]
+CMD ["help"]
 
 
 # ===================================
@@ -53,7 +53,7 @@ RUN addgroup $PRODUCT_NAME && \
 
 USER $PRODUCT_NAME
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["-v"]
+CMD ["help"]
 
 # ===================================
 #   Set default target to 'dev'.

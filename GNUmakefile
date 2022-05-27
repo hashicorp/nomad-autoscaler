@@ -31,6 +31,7 @@ lint-tools: ## Install the tools used to lint
 	GO111MODULE=on cd tools && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
 	GO111MODULE=on cd tools && go get -u honnef.co/go/tools/cmd/staticcheck@2020.1.6
 	GO111MODULE=on cd tools && go get github.com/hashicorp/go-hclog/hclogvet@v0.1.3
+	GO111MODULE=on cd tools && go get github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
 	@echo "==> Done"
 
 pkg/%/nomad-autoscaler: GO_OUT ?= $@
@@ -47,8 +48,8 @@ pkg/%.zip: pkg/%/nomad-autoscaler
 	@echo "==> Packaging for $@..."
 	zip -j $@ $(dir $<)*
 
-.PHONY: build
-build:
+.PHONY: dev
+dev: lint
 	@echo "==> Building autoscaler..."
 	@CGO_ENABLED=0 GO111MODULE=on \
 	go build \
@@ -56,20 +57,27 @@ build:
 	-o ./bin/nomad-autoscaler
 	@echo "==> Done"
 
-.PHONY: generate-proto
-generate-proto: ## Generate the protocol buffers
+.PHONY: proto
+proto: ## Generate the protocol buffers
 	@echo "==> Generating proto bindings..."
 	@buf --config tools/buf/buf.yaml --template tools/buf/buf.gen.yaml generate
 	@echo "==> Done"
 
 .PHONY: lint
-lint: ## Lint the source code
+lint: hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
 	@staticcheck ./...
 	@hclogvet .
 	@buf lint --config=./tools/buf/buf.yaml
 	@echo "==> Done"
+
+.PHONY: hclfmt
+hclfmt: ## Format HCL files with hclfmt
+	@echo "--> Formatting HCL"
+	@find . -name '.git' -prune \
+	        -o \( -name '*.nomad' -o -name '*.hcl' -o -name '*.tf' \) \
+	      -print0 | xargs -0 hclfmt -w
 
 .PHONY: check
 check: check-sdk check-root-mod check-tools-mod check-protobuf
@@ -106,7 +114,7 @@ check-tools-mod: ## Checks the tools Go mod is tidy
 
 .PHONY: check-protobuf
 check-protobuf: ## Checks the protobuf files are in-sync
-	@$(MAKE) generate-proto
+	@$(MAKE) proto
 	@echo "==> Checking proto files are in-sync..."
 	@if (git status -s | grep -q .pb.go); then echo the following proto files are out of sync; git status -s | grep .pb.go; exit 1; fi
 	@echo "==> Done"

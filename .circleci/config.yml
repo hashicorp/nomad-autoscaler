@@ -18,19 +18,13 @@ jobs:
       - run: make generate-tools
       - run: make check
 
-  lint-go:
+  linux-build-go:
     executor: go-linux
     steps:
       - checkout
       - run: make lint-tools
       - run: make generate-tools
-      - run: make lint
-
-  linux-build-go:
-    executor: go-linux
-    steps:
-      - checkout
-      - run: make build
+      - run: make dev
 
   linux-test-go:
     executor: go-linux
@@ -43,6 +37,5 @@ workflows:
   ci:
     jobs:
       - check-deps-go
-      - lint-go
       - linux-build-go
       - linux-test-go

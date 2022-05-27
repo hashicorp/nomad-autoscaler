@@ -52,7 +52,7 @@ application and cluster scaling.
 
 ## Building
 
-The Nomad Autoscaler can be easily built for local testing or development using the `make build`
+The Nomad Autoscaler can be easily built for local testing or development using the `make dev`
 command. This will output the compiled binary to `./bin/nomad-autoscaler`.
 
 ## Nightly Builds and Docker Image Preview

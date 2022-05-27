@@ -11,7 +11,7 @@ env:
 jobs:
   get-go-version:
     name: "Determine Go toolchain version"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       go-version: ${{ steps.get-go-version.outputs.go-version }}
     steps:
@@ -25,7 +25,7 @@ jobs:
           echo "::set-output name=go-version::$(cat .go-version)"
 
   get-product-version:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       product-version: ${{ steps.get-product-version.outputs.product-version }}
     steps:
@@ -38,7 +38,7 @@ jobs:
 
   generate-metadata-file:
     needs: get-product-version
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       filepath: ${{ steps.generate-metadata-file.outputs.filepath }}
     steps:
@@ -61,7 +61,7 @@ jobs:
     needs:
       - get-go-version
       - get-product-version
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         goos: ["linux"]
@@ -123,10 +123,10 @@ jobs:
     needs:
       - get-go-version
       - get-product-version
-    runs-on: macos-latest
+    runs-on: macos-11
     strategy:
       matrix:
-        goos: [darwin]
+        goos: ["darwin"]
         goarch: ["amd64", "arm64"]
       fail-fast: true
 
@@ -160,18 +160,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos:
-          - "freebsd"
-          - "windows"
-        goarch:
-          - "amd64"
-          - "arm"
-          - "arm64"
+        goos: ["freebsd", "windows"]
+        goarch: ["amd64", "arm", "arm64"]
         exclude:
           - goos: "windows"
             goarch: "arm"
-          - goos: "windows"
-            goarch: "arm64"
       fail-fast: true
 
     name: Go ${{ needs.get-go-version.outputs.go-version }} ${{ matrix.goos }} ${{ matrix.goarch }} build
@@ -198,25 +191,25 @@ jobs:
           path: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
   build-docker-default:
-    name: Docker ${{ matrix.arch }} default release build
     needs:
       - get-product-version
       - build-linux
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         arch: ["arm", "arm64", "386", "amd64"]
-      fail-fast: false
+      fail-fast: true
     env:
       repo: ${{ github.event.repository.name }}
       version: ${{ needs.get-product-version.outputs.product-version }}
+
+    name: Docker ${{ matrix.arch }} default release build
+
     steps:
       - uses: actions/checkout@v2
       - name: Docker Build (Action)
         uses: hashicorp/actions-docker-build@v1
         with:
-          # Add smoke test here. Below is a sample smoke test that runs the built image
-          # and validates the version.
           smoke_test: |
             TEST_VERSION="$(docker run "${IMAGE_NAME}" version | awk '/Nomad Autoscaler/{print $3}')"
             if [ "${TEST_VERSION}" != "v${version}" ]; then
@@ -230,25 +223,6 @@ jobs:
           tags: |
             docker.io/hashicorp/${{ env.repo }}:${{ env.version }}
             986891699432.dkr.ecr.us-east-1.amazonaws.com/hashicorp/${{ env.repo }}:${{ env.version }}
-          # dev_tags are tags that get automatically pushed whenever successful
-          # builds make it to the stable channel. The intention is for these tags
-          # to be used for early testing of new code prior to official releases
-          # going out. The stable channel implies that all tests and scans have
-          # completed successfully, so these images should be _stable_ but are not
-          # intended for production use.
-          #
-          # Here we have two example dev tags. The first (ending -dev) is a tag
-          # that will be updated over-and-over as new builds arrive in stable.
-          #
-          # The second (using the git SHA) will produce a new separate tag for
-          # each commit that is built. (These can still be overridden if the same
-          # commit is built successfully a second time, but that is a less likely
-          # scenario.) These kinds of dev tags are useful if you want to be able
-          # to use Docker images built from those specific commits.
-          #
-          # NOTE: dev_tags MUST publish to the 'hashicorppreview' DockerHub org, it
-          # will fail to any other DockerHub org or registry. You can optionally
-          # prepend docker.io
           dev_tags: |
             docker.io/hashicorppreview/${{ env.repo }}:${{ env.version }}-dev
             docker.io/hashicorppreview/${{ env.repo }}:${{ env.version }}-${{ github.sha }}

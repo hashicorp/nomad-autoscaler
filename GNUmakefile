@@ -9,6 +9,16 @@ GO_LDFLAGS := "-X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_
 # Attempt to use gotestsum for running tests, otherwise fallback to go test.
 GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
 
+HELP_FORMAT="    \033[36m%-25s\033[0m %s\n"
+.PHONY: help
+help: ## Display this usage information
+	@echo "Valid targets:"
+	@grep -E '^[^ ]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		sort | \
+		awk 'BEGIN {FS = ":.*?## "}; \
+			{printf $(HELP_FORMAT), $$1, $$2}'
+	@echo ""
+
 .PHONY: tools
 tools: lint-tools test-tools generate-tools
 

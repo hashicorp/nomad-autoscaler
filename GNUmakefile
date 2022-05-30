@@ -46,7 +46,7 @@ lint-tools: ## Install the tools used to lint
 
 pkg/%/nomad-autoscaler: GO_OUT ?= $@
 pkg/windows_%/nomad-autoscaler: GO_OUT = $@.exe
-pkg/%/nomad-autoscaler: ## Build Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linux_amd64/nomad
+pkg/%/nomad-autoscaler: ## Build Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linux_amd64/nomad-autoscaler
 	@echo "==> Building $@ with tags $(GO_TAGS)..."
 	@CGO_ENABLED=0 \
 		GOOS=$(firstword $(subst _, ,$*)) \
@@ -54,7 +54,7 @@ pkg/%/nomad-autoscaler: ## Build Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linu
 		go build -trimpath -ldflags $(GO_LDFLAGS) -tags "$(GO_TAGS)" -o $(GO_OUT)
 
 .PRECIOUS: pkg/%/nomad-autoscaler
-pkg/%.zip: pkg/%/nomad-autoscaler
+pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linux_amd64.zip
 	@echo "==> Packaging for $@..."
 	zip -j $@ $(dir $<)*
 
@@ -88,9 +88,10 @@ hclfmt: ## Format HCL files with hclfmt
 	@find . -name '.git' -prune \
 	        -o \( -name '*.nomad' -o -name '*.hcl' -o -name '*.tf' \) \
 	      -print0 | xargs -0 hclfmt -w
+	@if (git status -s | grep -q -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'); then echo the following HCL files are out of sync; git status -s | grep -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'; exit 1; fi
 
 .PHONY: check
-check: check-sdk check-root-mod check-tools-mod check-protobuf
+check: tools check-sdk check-root-mod check-tools-mod check-protobuf ## Lint the source code and check other properties
 
 .PHONY: check-sdk
 check-sdk: ## Checks the SDK pkg is isolated

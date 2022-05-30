@@ -11,21 +11,19 @@ env:
 jobs:
   get-go-version:
     name: "Determine Go toolchain version"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     outputs:
       go-version: ${{ steps.get-go-version.outputs.go-version }}
     steps:
       - uses: actions/checkout@v2
       - name: Determine Go version
         id: get-go-version
-        # We use .go-version as our source of truth for current Go
-        # version, because "goenv" can react to it automatically.
         run: |
           echo "Building with Go $(cat .go-version)"
           echo "::set-output name=go-version::$(cat .go-version)"
 
   get-product-version:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     outputs:
       product-version: ${{ steps.get-product-version.outputs.product-version }}
     steps:
@@ -38,7 +36,7 @@ jobs:
 
   generate-metadata-file:
     needs: get-product-version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     outputs:
       filepath: ${{ steps.generate-metadata-file.outputs.filepath }}
     steps:
@@ -61,7 +59,7 @@ jobs:
     needs:
       - get-go-version
       - get-product-version
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         goos: ["linux"]
@@ -157,7 +155,7 @@ jobs:
     needs:
       - get-go-version
       - get-product-version
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         goos: ["freebsd", "windows"]
@@ -194,7 +192,7 @@ jobs:
     needs:
       - get-product-version
       - build-linux
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     strategy:
       matrix:
         arch: ["arm", "arm64", "386", "amd64"]

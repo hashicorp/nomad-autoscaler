@@ -91,7 +91,7 @@ hclfmt: ## Format HCL files with hclfmt
 	@if (git status -s | grep -q -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'); then echo the following HCL files are out of sync; git status -s | grep -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'; exit 1; fi
 
 .PHONY: check
-check: tools check-sdk check-root-mod check-tools-mod check-protobuf ## Lint the source code and check other properties
+check: tools check-sdk check-tools-mod check-root-mod check-protobuf ## Lint the source code and check other properties
 
 .PHONY: check-sdk
 check-sdk: ## Checks the SDK pkg is isolated

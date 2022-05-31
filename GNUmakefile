@@ -59,7 +59,7 @@ pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOA
 	zip -j $@ $(dir $<)*
 
 .PHONY: dev
-dev: lint
+dev: lint ## Build for the current development version
 	@echo "==> Building autoscaler..."
 	@CGO_ENABLED=0 GO111MODULE=on \
 	go build \

@@ -71,9 +71,11 @@ accepted. Then, repeat if you have more to propose!
 ### Building the Nomad Autoscaler
 
 The Nomad Autoscaler can be easily built for local testing or development using
-the `make build` command from the project root directory. This will output the
+the `make dev` command from the project root directory. This will output the
 compiled binary to `./bin/nomad-autoscaler`. You will need to have the
-[Go][go_install] language environment installed.
+[Go][go_install] language environment installed and other tooling that can be
+installed using the `make tools` command.
+
 
 ### Making Changes to Nomad Autoscaler
 

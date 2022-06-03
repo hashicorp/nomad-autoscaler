@@ -3,6 +3,8 @@
 IMPROVEMENTS:
  * agent: Update `hashicorp/nomad/api` to v1.3.1 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * agent: Update `armon/go-metrics` to v0.3.11 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
+ * build: Use `alpine:3.15` as base image and provide an entrypoint to run `nomad-autoscaler` by default [[GH-582](https://github.com/hashicorp/nomad-autoscaler/pull/582)]
+ * build: Docker image with support for multiple architectures [[GH-582](https://github.com/hashicorp/nomad-autoscaler/pull/582)]
  * plugin/apm/datadog: Update Datadog client dependency to v1.14.0 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * plugin/apm/prometheus: Update Prometheus client dependency to v1.12.2 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]
  * plugin/target/aws: Update AWS client dependency to v1.16.4 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]

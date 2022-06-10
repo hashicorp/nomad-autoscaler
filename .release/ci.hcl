@@ -11,6 +11,7 @@ project "nomad-autoscaler" {
     repository   = "nomad-autoscaler"
     release_branches = [
       "main",
+      "release/0.3.7",
     ]
   }
 }

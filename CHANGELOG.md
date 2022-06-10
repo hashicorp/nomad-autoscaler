@@ -1,5 +1,7 @@
 ## UNRELEASED
 
+## 0.3.7 (June 10, 2022)
+
 IMPROVEMENTS:
  * agent: Scale target so it is within `min` and `max` values before evaluating the rest of the policy [[GH-588](https://github.com/hashicorp/nomad-autoscaler/pull/588)]
  * agent: Update `hashicorp/nomad/api` to v1.3.1 [[GH-585](https://github.com/hashicorp/nomad-autoscaler/pull/585)]

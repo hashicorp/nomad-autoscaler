@@ -28,10 +28,12 @@ const (
 	configKeySessionToken       = "aws_session_token"
 	configKeyASGName            = "aws_asg_name"
 	configKeyCredentialProvider = "aws_credential_provider"
+	configKeyRetryAttempts      = "retry_attempts"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
-	configValueRegionDefault = "us-east-1"
+	configValueRegionDefault        = "us-east-1"
+	configValueRetryAttemptsDefault = "15"
 
 	// credentialProvider are the valid options for the aws_credential_provider
 	// configuration key.

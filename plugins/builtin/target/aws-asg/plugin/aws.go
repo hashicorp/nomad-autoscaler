@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -18,9 +19,17 @@ import (
 
 const (
 	defaultRetryInterval  = 10 * time.Second
-	defaultRetryLimit     = 15
 	nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 )
+
+func getConfigValue(config map[string]string, key string, defaultValue string) string {
+	value, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+
+	return value
+}
 
 // setupAWSClients takes the passed config mapping and instantiates the
 // required AWS service clients.
@@ -300,7 +309,12 @@ func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, asg string,
 		return false, fmt.Errorf("waiting for %v activities to finish", len(ids))
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+	retryLimit, err := strconv.Atoi(getConfigValue(t.config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	if err != nil {
+		return err
+	}
+
+	return retry(ctx, defaultRetryInterval, retryLimit, f)
 }
 
 func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int64, asgName string) error {
@@ -317,7 +331,12 @@ func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int6
 		return false, fmt.Errorf("AutoScaling Group at %v instances of desired %v", asg.Instances, desired)
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+	retryLimit, err := strconv.Atoi(getConfigValue(t.config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	if err != nil {
+		return err
+	}
+
+	return retry(ctx, defaultRetryInterval, retryLimit, f)
 }
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using

@@ -121,6 +121,32 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		return fmt.Errorf("failed to describe AWS Autoscaling Group: %v", err)
 	}
 
+	// Autoscaling can interfere with a running instance refresh so we
+	// prevent any scaling action while a refresh is Pending or InProgress
+	maxRecords := int32(1)
+	input := autoscaling.DescribeInstanceRefreshesInput{
+		AutoScalingGroupName: &asgName,
+		MaxRecords:           &maxRecords,
+	}
+
+	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input, nil)
+	if err != nil {
+		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
+	}
+
+	// We might get 0 results if no InstanceRefreshes were ever run on the ASG
+	if len(refreshes.InstanceRefreshes) == 1 {
+		status := refreshes.InstanceRefreshes[0].Status
+		if status == types.InstanceRefreshStatusInProgress ||
+			status == types.InstanceRefreshStatusPending {
+			t.logger.Warn("scaling will not take place due to InstanceRefresh",
+				"asg_name", asgName,
+				"current_count", *curASG.DesiredCapacity,
+				"strategy_count", action.Count)
+			return nil
+		}
+	}
+
 	// The AWS ASG target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
 	// relevant number so we can correctly perform the AWS work.

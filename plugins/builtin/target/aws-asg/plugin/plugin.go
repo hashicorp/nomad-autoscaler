@@ -7,6 +7,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/davecgh/go-spew/spew"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -130,19 +131,20 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	}
 
 	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input, nil)
+	spew.Dump(refreshes)
 	if err != nil {
 		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
 	}
 
 	// We might get 0 results if no InstanceRefreshes were ever run on the ASG
 	if len(refreshes.InstanceRefreshes) == 1 {
+		refreshID := refreshes.InstanceRefreshes[0].InstanceRefreshId
 		status := refreshes.InstanceRefreshes[0].Status
 		if status == types.InstanceRefreshStatusInProgress ||
 			status == types.InstanceRefreshStatusPending {
 			t.logger.Warn("scaling will not take place due to InstanceRefresh",
 				"asg_name", asgName,
-				"current_count", *curASG.DesiredCapacity,
-				"strategy_count", action.Count)
+				"refresh_id", refreshID)
 			return nil
 		}
 	}

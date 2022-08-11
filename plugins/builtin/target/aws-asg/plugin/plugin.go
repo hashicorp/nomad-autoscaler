@@ -7,7 +7,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
-	"github.com/davecgh/go-spew/spew"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -124,14 +123,15 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 
 	// Autoscaling can interfere with a running instance refresh so we
 	// prevent any scaling action while a refresh is Pending or InProgress
-	maxRecords := int32(1)
+	var maxRecords int32 = 1
 	input := autoscaling.DescribeInstanceRefreshesInput{
 		AutoScalingGroupName: &asgName,
+		InstanceRefreshIds:   []string{},
 		MaxRecords:           &maxRecords,
+		NextToken:            nil,
 	}
 
-	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input, nil)
-	spew.Dump(refreshes)
+	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input)
 	if err != nil {
 		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
 	}

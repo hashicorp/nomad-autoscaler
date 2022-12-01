@@ -175,6 +175,11 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 				continue
 			}
 
+			// Datadog may return null values, so skip them.
+			if p[0] == nil || p[1] == nil {
+				continue
+			}
+
 			ts := int64(*p[0]) / 1e3
 			value := *p[1]
 			tm := sdk.TimestampedMetric{

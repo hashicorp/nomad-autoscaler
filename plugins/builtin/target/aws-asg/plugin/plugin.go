@@ -60,6 +60,10 @@ type TargetPlugin struct {
 	logger hclog.Logger
 	asg    *autoscaling.Client
 
+	// retryAttempts is the number of times operations such as wating for a
+	// given ASG state should be retried.
+	retryAttempts int
+
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
 	clusterUtils *scaleutils.ClusterScaleUtils
@@ -90,6 +94,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	// Store and set the remote ID callback function.
 	t.clusterUtils = clusterUtils
 	t.clusterUtils.ClusterNodeIDLookupFunc = awsNodeIDMap
+
+	retryLimit, err := strconv.Atoi(getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	if err != nil {
+		return err
+	}
+	t.retryAttempts = retryLimit
 
 	return nil
 }
@@ -221,4 +231,13 @@ func processLastActivity(activity types.Activity, status *sdk.TargetStatus) {
 	if activity.EndTime != nil {
 		status.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatInt(activity.EndTime.UnixNano(), 10)
 	}
+}
+
+func getConfigValue(config map[string]string, key string, defaultValue string) string {
+	value, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+
+	return value
 }

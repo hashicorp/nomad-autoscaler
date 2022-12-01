@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+ * plugin/apm/datadog: Fixed a panic when Datadog queries return `null` values [[GH-606](https://github.com/hashicorp/nomad-autoscaler/pull/606)]
+
 ## 0.3.7 (June 10, 2022)
 
 IMPROVEMENTS:

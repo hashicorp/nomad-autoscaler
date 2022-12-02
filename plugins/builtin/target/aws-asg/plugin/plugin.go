@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
@@ -131,6 +132,31 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	curASG, err := t.describeASG(ctx, asgName)
 	if err != nil {
 		return fmt.Errorf("failed to describe AWS Autoscaling Group: %v", err)
+	}
+
+	// Autoscaling can interfere with a running instance refresh so we
+	// prevent any scaling action while a refresh is Pending or InProgress
+	input := autoscaling.DescribeInstanceRefreshesInput{
+		AutoScalingGroupName: &asgName,
+		MaxRecords:           ptr.Int32ToPtr(1),
+	}
+
+	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input)
+	if err != nil {
+		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
+	}
+
+	for _, refresh := range refreshes.InstanceRefreshes {
+		active := refresh.Status == types.InstanceRefreshStatusInProgress ||
+			refresh.Status == types.InstanceRefreshStatusPending
+
+		if active {
+			t.logger.Warn("scaling will not take place due to InstanceRefresh",
+				"asg_name", asgName,
+				"refresh_id", refresh.InstanceRefreshId,
+				"refresh_status", refresh.Status)
+			return nil
+		}
 	}
 
 	// The AWS ASG target requires different details depending on which

@@ -1,7 +1,8 @@
 ## UNRELEASED
 
 IMPROVEMENTS:
-  * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)]
+ * plugin/target/aws: Prevent scaling if an instance refresh is in progress [[GH-597](https://github.com/hashicorp/nomad-autoscaler/pull/597)]
+ * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)
 
 ## 0.3.7 (June 10, 2022)
 

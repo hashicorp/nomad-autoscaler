@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
@@ -123,12 +124,9 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 
 	// Autoscaling can interfere with a running instance refresh so we
 	// prevent any scaling action while a refresh is Pending or InProgress
-	var maxRecords int32 = 1
 	input := autoscaling.DescribeInstanceRefreshesInput{
 		AutoScalingGroupName: &asgName,
-		InstanceRefreshIds:   []string{},
-		MaxRecords:           &maxRecords,
-		NextToken:            nil,
+		MaxRecords:           ptr.Int32ToPtr(1),
 	}
 
 	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input)
@@ -136,15 +134,15 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
 	}
 
-	// We might get 0 results if no InstanceRefreshes were ever run on the ASG
-	if len(refreshes.InstanceRefreshes) == 1 {
-		refreshID := refreshes.InstanceRefreshes[0].InstanceRefreshId
-		status := refreshes.InstanceRefreshes[0].Status
-		if status == types.InstanceRefreshStatusInProgress ||
-			status == types.InstanceRefreshStatusPending {
+	for _, refresh := range refreshes.InstanceRefreshes {
+		active := refresh.Status == types.InstanceRefreshStatusInProgress ||
+			refresh.Status == types.InstanceRefreshStatusPending
+
+		if active {
 			t.logger.Warn("scaling will not take place due to InstanceRefresh",
 				"asg_name", asgName,
-				"refresh_id", refreshID)
+				"refresh_id", refresh.InstanceRefreshId,
+				"refresh_status", refresh.Status)
 			return nil
 		}
 	}

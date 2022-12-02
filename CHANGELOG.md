@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * plugin/target/aws: Prevent scaling if an instance refresh is in progress [[GH-597](https://github.com/hashicorp/nomad-autoscaler/pull/597)]
+
 ## 0.3.7 (June 10, 2022)
 
 IMPROVEMENTS:

@@ -1,6 +1,6 @@
 module github.com/hashicorp/nomad-autoscaler/plugins/test/noop-apm
 
-go 1.17
+go 1.19
 
 require (
 	github.com/hashicorp/go-hclog v0.16.0

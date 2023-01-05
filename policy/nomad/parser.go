@@ -106,18 +106,18 @@ func parseChecks(cs interface{}) []*sdk.ScalingPolicyCheck {
 //
 // It provides best-effort parsing and will return `nil` in case of errors.
 //
-//  scaling {
-//    policy {
-//    +--------------------------------+
-//    | check "name" {                 |
-//    |   source = "source"            |
-//    |   query = "query"              |
-//    |   query_window = "5m"          |
-//    |   strategy "strategy" { ... }  |
-//    | }                              |
-//    +--------------------------------+
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	  +--------------------------------+
+//	  | check "name" {                 |
+//	  |   source = "source"            |
+//	  |   query = "query"              |
+//	  |   query_window = "5m"          |
+//	  |   strategy "strategy" { ... }  |
+//	  | }                              |
+//	  +--------------------------------+
+//	  }
+//	}
 func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	if c == nil {
 		return nil
@@ -165,15 +165,15 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 //
 // It provides best-effort parsing and will return `nil` in case of errors.
 //
-//  scaling {
-//    policy {
-//      strategy "strategy" {
-//      +---------------+
-//      | key = "value" |
-//      +---------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	    strategy "strategy" {
+//	    +---------------+
+//	    | key = "value" |
+//	    +---------------+
+//	    }
+//	  }
+//	}
 func parseStrategy(s interface{}) *sdk.ScalingPolicyStrategy {
 	if s == nil {
 		return nil
@@ -200,15 +200,15 @@ func parseStrategy(s interface{}) *sdk.ScalingPolicyStrategy {
 //
 // It provides best-effort parsing and will return `nil` in case of errors.
 //
-//  scaling {
-//    policy {
-//      target "target"  {
-//      +---------------+
-//      | key = "value" |
-//      +---------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	    target "target"  {
+//	    +---------------+
+//	    | key = "value" |
+//	    +---------------+
+//	    }
+//	  }
+//	}
 func parseTarget(targetBlock interface{}, targetAttr map[string]string) *sdk.ScalingPolicyTarget {
 	targetMap := parseBlock(targetBlock)
 	if targetMap == nil && targetAttr == nil {

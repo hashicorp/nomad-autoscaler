@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  check:
+    name: "Run checks"
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-golang@v1
+      - name: "Run checks"
+        run: |
+          make tools
+          make check
+
+  build:
+    name: "Run dev"
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-golang@v1
+      - name: "Build dev binary"
+        run: |
+          make tools
+          make dev
+
+  test:
+    name: "Run tests"
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hashicorp/setup-golang@v1
+      - name: "Run tests"
+        run: |
+          make tools
+          make test

@@ -1,5 +1,5 @@
 SHELL = bash
-default: lint check test build
+default: lint check test dev
 
 GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
@@ -25,23 +25,23 @@ tools: lint-tools test-tools generate-tools
 .PHONY: generate-tools
 generate-tools: ## Install the tools used to generate code
 	@echo "==> Installing code generate tools..."
-	GO111MODULE=on cd tools && go get github.com/bufbuild/buf/cmd/buf@v0.36.0
-	GO111MODULE=on cd tools && go get github.com/golang/protobuf/protoc-gen-go@v1.4.3
+	cd tools && go install github.com/bufbuild/buf/cmd/buf@v0.36.0
+	cd tools && go install github.com/golang/protobuf/protoc-gen-go@v1.4.3
 	@echo "==> Done"
 
 .PHONY: test-tools
 test-tools: ## Install the tools used to run tests
 	@echo "==> Installing test tools..."
-	GO111MODULE=on cd tools && go get gotest.tools/gotestsum@v0.6.0
+	cd tools && go install gotest.tools/gotestsum@v1.8.2
 	@echo "==> Done"
 
 .PHONY: lint-tools
 lint-tools: ## Install the tools used to lint
 	@echo "==> Installing lint tools..."
-	GO111MODULE=on cd tools && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v1.24.0
-	GO111MODULE=on cd tools && go get -u honnef.co/go/tools/cmd/staticcheck@2020.1.6
-	GO111MODULE=on cd tools && go get github.com/hashicorp/go-hclog/hclogvet@v0.1.3
-	GO111MODULE=on cd tools && go get github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
+	cd tools && go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.50.1
+	cd tools && go install honnef.co/go/tools/cmd/staticcheck@2022.1.3
+	cd tools && go install github.com/hashicorp/go-hclog/hclogvet@v0.1.5
+	cd tools && go install github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
 	@echo "==> Done"
 
 pkg/%/nomad-autoscaler: GO_OUT ?= $@
@@ -61,7 +61,7 @@ pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOA
 .PHONY: dev
 dev: lint ## Build for the current development version
 	@echo "==> Building autoscaler..."
-	@CGO_ENABLED=0 GO111MODULE=on \
+	@CGO_ENABLED=0 \
 	go build \
 	-ldflags $(GO_LDFLAGS) \
 	-o ./bin/nomad-autoscaler
@@ -74,7 +74,7 @@ proto: ## Generate the protocol buffers
 	@echo "==> Done"
 
 .PHONY: lint
-lint: hclfmt ## Lint the source code
+lint: lint-tools generate-tools hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
 	@golangci-lint run -j 1
 	@staticcheck ./...
@@ -104,7 +104,7 @@ check-sdk: ## Checks the SDK pkg is isolated
 .PHONY: check-root-mod
 check-root-mod: ## Checks the root Go mod is tidy
 	@echo "==> Checking Go mod and Go sum..."
-	@GO111MODULE=on go mod tidy
+	@go mod tidy
 	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
 		echo go.mod or go.sum needs updating; \
 		git --no-pager diff go.mod; \
@@ -115,7 +115,7 @@ check-root-mod: ## Checks the root Go mod is tidy
 .PHONY: check-tools-mod
 check-tools-mod: ## Checks the tools Go mod is tidy
 	@echo "==> Checking tools Go mod and Go sum..."
-	@GO111MODULE=on cd tools && go mod tidy
+	@cd tools && go mod tidy
 	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
 		echo tools go.mod or go.sum needs updating; \
 		git --no-pager diff go.mod; \

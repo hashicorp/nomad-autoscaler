@@ -15,6 +15,8 @@ import (
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/version"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type AgentCommand struct {
@@ -310,7 +312,7 @@ func (c *AgentCommand) Run(args []string) int {
 		logger.Info(fmt.Sprintf(
 			"%s%s: %s",
 			strings.Repeat(" ", padding-len(k)),
-			strings.Title(k),
+			cases.Title(language.English, cases.NoLower).String(k),
 			info[k]))
 	}
 	logger.Info("")

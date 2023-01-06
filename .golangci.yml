@@ -23,11 +23,7 @@ linters:
     - goimports
     - misspell
     - govet
-    - deadcode
-    - varcheck
     - ineffassign
-    - structcheck
     - unconvert
     - gofmt
-    - maligned
   fast: false

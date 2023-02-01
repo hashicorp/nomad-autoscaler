@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 scaling "full-cluster-policy" {
   enabled = true
   min     = 10

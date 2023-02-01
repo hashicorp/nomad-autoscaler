@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package blocking
 
 // IndexHasChanged is used to check whether a returned blocking query has an

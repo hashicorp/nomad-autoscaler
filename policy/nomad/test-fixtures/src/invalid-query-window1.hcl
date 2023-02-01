@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 job "invalid-query-window1" {
   datacenters = ["dc1"]
   type        = "batch"

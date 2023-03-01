@@ -87,11 +87,6 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
 
-	// GCE can't support dry-run like Nomad, so just exit.
-	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		return nil
-	}
-
 	migRef, err := t.calculateMIG(config)
 	if err != nil {
 		return err
@@ -102,6 +97,13 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	_, currentCount, err := t.status(ctx, migRef)
 	if err != nil {
 		return fmt.Errorf("failed to describe GCE Managed Instance Group: %v", err)
+	}
+
+	// GCE can't support dry-run like Nomad, so just exit.
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		t.logger.Info("dry-run action", "mig_name", migRef.getName(),
+			"current_count", currentCount, "strategy_count", action.Count)
+		return nil
 	}
 
 	num, direction := t.calculateDirection(currentCount, action.Count)

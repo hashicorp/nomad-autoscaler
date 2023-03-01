@@ -93,10 +93,6 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
-	// Azure can't support dry-run like Nomad, so just exit.
-	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		return nil
-	}
 
 	// We cannot scale an Scale Set without knowing the resource group and name.
 	resourceGroup, ok := config[configKeyResoureGroup]
@@ -115,6 +111,13 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	}
 
 	capacity := ptr.PtrToInt64(currVMSS.Sku.Capacity)
+
+	// Azure can't support dry-run like Nomad, so just exit.
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		t.logger.Info("dry-run action", "resource_group", resourceGroup, "vmss", vmScaleSet,
+			"current_count", capacity, "strategy_count", action.Count)
+		return nil
+	}
 
 	// The Azure VMSS target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the

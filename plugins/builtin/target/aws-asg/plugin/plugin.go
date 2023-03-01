@@ -113,11 +113,6 @@ func (t *TargetPlugin) PluginInfo() (*base.PluginInfo, error) {
 // Scale satisfies the Scale function on the target.Target interface.
 func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string) error {
 
-	// AWS can't support dry-run like Nomad, so just exit.
-	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		return nil
-	}
-
 	// We cannot scale an ASG without knowing the ASG name.
 	asgName, ok := config[configKeyASGName]
 	if !ok {
@@ -157,6 +152,13 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 				"refresh_status", refresh.Status)
 			return nil
 		}
+	}
+
+	// AWS can't support dry-run like Nomad, so just exit.
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		t.logger.Info("dry-run action", "asg_name", asgName,
+			"current_count", *curASG.DesiredCapacity, "strategy_count", action.Count)
+		return nil
 	}
 
 	// The AWS ASG target requires different details depending on which

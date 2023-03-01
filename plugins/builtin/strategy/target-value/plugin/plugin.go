@@ -133,10 +133,7 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		newCount = int64(math.Ceil(float64(count) * factor))
 	}
 
-	// Log at trace level the details of the strategy calculation. This is
-	// helpful in ultra-debugging situations when there is a need to understand
-	// all the calculations made.
-	s.logger.Trace("calculated scaling strategy results",
+	s.logger.Info("calculated scaling strategy results",
 		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
 		"metric_value", metric.Value, "metric_time", metric.Timestamp, "factor", factor,
 		"direction", eval.Action.Direction)

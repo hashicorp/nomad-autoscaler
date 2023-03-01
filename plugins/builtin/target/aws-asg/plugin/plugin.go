@@ -154,17 +154,17 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		}
 	}
 
-	// AWS can't support dry-run like Nomad, so just exit.
-	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		t.logger.Info("dry-run action", "asg_name", asgName,
-			"current_count", *curASG.DesiredCapacity, "strategy_count", action.Count)
-		return nil
-	}
-
 	// The AWS ASG target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
 	// relevant number so we can correctly perform the AWS work.
 	num, direction := t.calculateDirection(int64(*curASG.DesiredCapacity), action.Count)
+
+	// AWS can't support dry-run like Nomad, so just exit.
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		t.logger.Info("dry-run action", "asg_name", asgName,
+			"current_desired", *curASG.DesiredCapacity, "num", num, "direction", direction)
+		return nil
+	}
 
 	switch direction {
 	case "in":

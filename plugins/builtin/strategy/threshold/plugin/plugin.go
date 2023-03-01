@@ -125,7 +125,7 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		return eval, nil
 	}
 
-	logger.Trace("calculated scaling strategy results",
+	logger.Info("calculated scaling strategy results",
 		"new_count", newCount, "direction", eval.Action.Direction)
 
 	eval.Action.Count = newCount

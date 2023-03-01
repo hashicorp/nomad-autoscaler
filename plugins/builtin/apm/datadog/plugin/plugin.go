@@ -156,7 +156,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 
 	series := queryResult.GetSeries()
 	if len(series) == 0 {
-		a.logger.Warn("empty time series response from datadog, try a wider query window")
+		a.logger.Warn("empty time series response from datadog, try a wider query window", "query", q)
 		return nil, nil
 	}
 
@@ -188,7 +188,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	}
 
 	if len(results) == 0 {
-		a.logger.Warn("no data points found in time series response from datadog, try a wider query window")
+		a.logger.Warn("no data points found in time series response from datadog, try a wider query window", "query", q)
 	}
 
 	return results, nil

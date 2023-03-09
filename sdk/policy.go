@@ -137,13 +137,15 @@ type ScalingPolicyCheck struct {
 	Strategy *ScalingPolicyStrategy
 
 	// OnError defines how errors are handled by the Autoscaler when running
-	// this check. Possible values are "ignore" or "fail". If not set the
+	// this check. Possible values are "ignore", "fail", or "scale". If not set the
 	// policy `on_check_error` value will be used.
 	//
 	// If "ignore" the check is not considered when calculating the final
 	// scaling action result.
-	// If "fail" the the entire policy evaluation will stop and no action will
+	// If "fail" the entire policy evaluation will stop and no action will
 	// be taken.
+	// If "scale" the check will be considered to be active. Use this to
+	// "fail-safe" scale-up to towards max when metrics are unavailable
 	OnError string
 }
 

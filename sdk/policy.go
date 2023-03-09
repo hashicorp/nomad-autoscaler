@@ -15,6 +15,7 @@ const (
 
 	ScalingPolicyOnErrorFail   = "fail"
 	ScalingPolicyOnErrorIgnore = "ignore"
+	ScalingPolicyOnErrorScale  = "scale"
 )
 
 // ScalingPolicy is the internal representation of a scaling document and
@@ -97,10 +98,10 @@ func (p *ScalingPolicy) Validate() error {
 		}
 
 		switch c.OnError {
-		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
+		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore, ScalingPolicyOnErrorScale:
 		default:
-			err := fmt.Errorf("invalid value for on_error in check %s: only %s and %s are allowed",
-				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
+			err := fmt.Errorf("invalid value for on_error in check %s: only %s, %s, and %s are allowed",
+				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore, ScalingPolicyOnErrorScale)
 			result = multierror.Append(result, err)
 		}
 	}

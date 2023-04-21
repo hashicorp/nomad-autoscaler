@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"reflect"
 	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -212,16 +211,6 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 		s.policyProcessor.CanonicalizeCheck(c, newPolicy.Target)
 	}
 
-	val, ok := s.policyMap[ID]
-	if !ok || val.policy == nil {
-		return newPolicy, nil
-	}
-
-	// Check the new policy against the stored. If they are the same, and
-	// therefore the policy has not changed indicate that to the caller.
-	if reflect.DeepEqual(newPolicy, val.policy) {
-		return nil, nil
-	}
 	return newPolicy, nil
 }
 

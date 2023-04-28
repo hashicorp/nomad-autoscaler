@@ -1,5 +1,5 @@
 # Blanket ownership of all PRs.
-* @jazzyfresh @jrasell @lgfa29
+* @jrasell @lgfa29
 
 # release configuration
 /.release/                              @hashicorp/release-engineering

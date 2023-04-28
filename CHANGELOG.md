@@ -1,7 +1,7 @@
 ## UNRELEASED
 
 IMPROVEMENTS:
- * build: Updated to Go 1.19.3 [[GH-608](https://github.com/hashicorp/nomad-autoscaler/pull/608)]
+ * build: Updated to Go 1.20.3 [[GH-631](https://github.com/hashicorp/nomad-autoscaler/pull/631)]
  * plugin/target/aws: Prevent scaling if an instance refresh is in progress [[GH-597](https://github.com/hashicorp/nomad-autoscaler/pull/597)]
  * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)
 

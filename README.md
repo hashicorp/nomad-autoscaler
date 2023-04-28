@@ -1,4 +1,4 @@
-# Nomad Autoscaler [![Build Status](https://circleci.com/gh/hashicorp/nomad-autoscaler.svg?style=svg)](https://circleci.com/gh/hashicorp/nomad-autoscaler) [![Discuss](https://img.shields.io/badge/discuss-nomad-00BC7F?style=flat)](https://discuss.hashicorp.com/c/nomad)
+# Nomad Autoscaler [![Discuss](https://img.shields.io/badge/discuss-nomad-00BC7F?style=flat)](https://discuss.hashicorp.com/c/nomad)
 
 The Nomad Autoscaler is an autoscaling daemon for [Nomad](https://nomadproject.io/),
 architectured around plug-ins to allow for easy extensibility in terms of supported metrics sources,

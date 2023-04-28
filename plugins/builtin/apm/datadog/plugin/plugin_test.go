@@ -194,6 +194,23 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.Len(t, m, 63)
 			},
 		},
+		{
+			name:    "handle null values",
+			fixture: "query_null_result.json",
+			pluginConfig: map[string]string{
+				configKeyClientAPPKey: "app",
+				configKeyClientAPIKey: "key",
+			},
+			query: "avg:nomad.client.allocated.memory",
+			timeRange: sdk.TimeRange{
+				From: time.Unix(1660000000, 0),
+				To:   time.Unix(1670000000, 0),
+			},
+			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
+				require.NoError(t, err)
+				require.Len(t, m, 20)
+			},
+		},
 	}
 
 	for _, tc := range testCases {

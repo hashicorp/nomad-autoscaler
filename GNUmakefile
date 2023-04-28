@@ -229,6 +229,14 @@ plugins: \
 	bin/plugins/azure-vmss \
 	bin/plugins/gce-mig
 
+.PHONY: tidy-test-plugin-mods
+tidy-test-plugin-mods:
+	@echo "==> Tidying test plugin Go modules..."
+	@cd plugins/test/noop-apm && go mod tidy
+	@cd plugins/test/noop-strategy && go mod tidy
+	@cd plugins/test/noop-target && go mod tidy
+	@echo "==> Done"
+
 .PHONY: version
 version:
 ifneq (,$(wildcard version/version_ent.go))

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package scaleutils
 
 import (
@@ -305,7 +308,7 @@ func (si *ScaleIn) drainNode(ctx context.Context, nodeID string, spec *api.Drain
 // receive to their appropriate level.
 //
 // TODO(jrasell): currently the ignoreSys param is hardcoded to false, we will
-//  probably want to expose this to operators in the future.
+// probably want to expose this to operators in the future.
 func (si *ScaleIn) monitorNodeDrain(ctx context.Context, nodeID string, index uint64) error {
 	for msg := range si.nomad.Nodes().MonitorDrain(ctx, nodeID, index, false) {
 		switch msg.Level {

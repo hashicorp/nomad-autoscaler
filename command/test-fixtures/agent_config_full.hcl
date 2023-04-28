@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 log_level    = "TRACE"
 log_json     = true
 enable_debug = true

@@ -1,7 +1,9 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -336,7 +338,7 @@ func TestAgent_parseFile(t *testing.T) {
 	assert.NotNil(t, parseFile("/honeybadger/", &Agent{}))
 
 	// Create a temporary file for use.
-	fh, err := ioutil.TempFile("", "nomad-autoscaler*.hcl")
+	fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
 	assert.Nil(t, err)
 	defer os.RemoveAll(fh.Name())
 
@@ -369,7 +371,7 @@ func TestConfig_Load(t *testing.T) {
 	_, err := Load("/honeybadger/")
 	assert.NotNil(t, err)
 
-	fh, err := ioutil.TempFile("", "nomad-autoscaler*.hcl")
+	fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
 	assert.Nil(t, err)
 	defer os.Remove(fh.Name())
 
@@ -381,12 +383,12 @@ func TestConfig_Load(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "trace", cfg.LogLevel)
 
-	dir, err := ioutil.TempDir("", "nomad-autoscaler")
+	dir, err := os.MkdirTemp("", "nomad-autoscaler")
 	assert.Nil(t, err)
 	defer os.RemoveAll(dir)
 
 	file1 := filepath.Join(dir, "config1.hcl")
-	assert.Nil(t, ioutil.WriteFile(file1, []byte("plugin_dir = \"/opt/nomad-autoscaler/plugins\""), 0600))
+	assert.Nil(t, os.WriteFile(file1, []byte("plugin_dir = \"/opt/nomad-autoscaler/plugins\""), 0600))
 
 	// Works on config dir
 	cfg, err = Load(dir)
@@ -399,7 +401,7 @@ func TestAgent_loadDir(t *testing.T) {
 	_, err := loadDir("/honeybadger/")
 	assert.NotNil(t, err)
 
-	dir, err := ioutil.TempDir("", "nomad-autoscaler")
+	dir, err := os.MkdirTemp("", "nomad-autoscaler")
 	assert.Nil(t, err)
 	defer os.RemoveAll(dir)
 
@@ -409,13 +411,13 @@ func TestAgent_loadDir(t *testing.T) {
 	assert.Equal(t, config, &Agent{})
 
 	file1 := filepath.Join(dir, "config1.hcl")
-	assert.Nil(t, ioutil.WriteFile(file1, []byte("log_level = \"trace\""), 0600))
+	assert.Nil(t, os.WriteFile(file1, []byte("log_level = \"trace\""), 0600))
 
 	file2 := filepath.Join(dir, "config2.hcl")
-	assert.Nil(t, ioutil.WriteFile(file2, []byte("plugin_dir = \"/opt/nomad-autoscaler/plugins\""), 0600))
+	assert.Nil(t, os.WriteFile(file2, []byte("plugin_dir = \"/opt/nomad-autoscaler/plugins\""), 0600))
 
 	file3 := filepath.Join(dir, "config3.hcl")
-	assert.Nil(t, ioutil.WriteFile(file3, []byte("¿que?"), 0600))
+	assert.Nil(t, os.WriteFile(file3, []byte("¿que?"), 0600))
 
 	// Fails if we have a bad config file.
 	_, err = loadDir(dir)
@@ -436,7 +438,7 @@ func TestAgent_policySources(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a temporary file for use.
-	fh, err := ioutil.TempFile("", "nomad-autoscaler*.hcl")
+	fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
 	require.NoError(t, err)
 	defer os.RemoveAll(fh.Name())
 

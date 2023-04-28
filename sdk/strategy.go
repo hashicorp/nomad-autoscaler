@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package sdk
 
 import "fmt"
@@ -147,8 +150,8 @@ func (a *ScalingAction) pushReason(r string) {
 // option, where safest is defined as lowest impact in the underlying
 // infrastructure:
 //
-//   * ScaleDirectionUp: Action with highest count
-//   * ScaleDirectionDown: Action with highest count
+// * ScaleDirectionUp: Action with highest count
+// * ScaleDirectionDown: Action with highest count
 func PreemptScalingAction(a *ScalingAction, b *ScalingAction) *ScalingAction {
 	if a == nil {
 		return b

@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 # This Dockerfile contains multiple targets.
 # Use 'docker build --target=<name> .' to build one.
 
@@ -7,7 +10,7 @@
 
 # devbuild compiles the binary
 # -----------------------------------
-FROM golang:1.17 AS devbuild
+FROM golang:1.19 AS devbuild
 
 # Disable CGO to make sure we build static binaries
 ENV CGO_ENABLED=0

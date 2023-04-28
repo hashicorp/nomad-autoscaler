@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 job "strategy-without-metric" {
   datacenters = ["dc1"]
   type        = "batch"

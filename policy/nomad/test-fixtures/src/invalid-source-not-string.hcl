@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 job "invalid-source-not-string" {
   datacenters = ["dc1"]
   type        = "batch"

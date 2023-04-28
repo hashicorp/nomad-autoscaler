@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package ptr
 
 func BoolToPtr(b bool) *bool {
@@ -5,6 +8,10 @@ func BoolToPtr(b bool) *bool {
 }
 
 func IntToPtr(i int) *int {
+	return &i
+}
+
+func Int32ToPtr(i int32) *int32 {
 	return &i
 }
 

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package nomad
 
 import (
@@ -62,13 +65,13 @@ func validateScalingPolicyByType(policy *api.ScalingPolicy) error {
 
 // validatePolicy validates the content of the policy block inside scaling.
 //
-//  scaling {
-//   +----------+
-//   | policy { |
-//   |   ...    |
-//   | }        |
-//   +----------+
-//  }
+//	scaling {
+//	 +----------+
+//	 | policy { |
+//	 |   ...    |
+//	 | }        |
+//	 +----------+
+//	}
 func validatePolicy(p map[string]interface{}) error {
 	const path = "scaling.policy"
 
@@ -113,61 +116,61 @@ func validatePolicy(p map[string]interface{}) error {
 
 // validateTarget validates target blocks within policy.
 //
-//  scaling {
-//    policy {
-//    +-------------------+
-//    | target "target" { |
-//    |   key = "value"   |
-//    | }                 |
-//    +-------------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	  +-------------------+
+//	  | target "target" { |
+//	  |   key = "value"   |
+//	  | }                 |
+//	  +-------------------+
+//	    }
+//	  }
+//	}
 //
 // Validation rules:
-//   1. Only one target block at maxmimum.
-//   2. Block must have a label.
-//   3. Block structure should be valid.
+//  1. Only one target block at maxmimum.
+//  2. Block must have a label.
+//  3. Block structure should be valid.
 func validateTarget(t map[string]interface{}, path string) error {
 	return validateLabeledBlocks(t, path, nil, ptr.IntToPtr(1), nil)
 }
 
 // validateChecks validates the set of check blocks within policy.
 //
-//  scaling {
-//    policy {
-//    +-------------------+
-//    | check "check-1" { |
-//    |   ...             |
-//    | }                 |
-//    |                   |
-//    | check "check-2" { |
-//    |   ...             |
-//    | }                 |
-//    +-------------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	  +-------------------+
+//	  | check "check-1" { |
+//	  |   ...             |
+//	  | }                 |
+//	  |                   |
+//	  | check "check-2" { |
+//	  |   ...             |
+//	  | }                 |
+//	  +-------------------+
+//	    }
+//	  }
+//	}
 //
 // Validation rules:
-//   1. At least one check block.
-//   2. All check blocks should have labels.
-//   3. All check blocks structure should be valid.
+//  1. At least one check block.
+//  2. All check blocks should have labels.
+//  3. All check blocks structure should be valid.
 func validateChecks(in map[string]interface{}, path string) error {
 	return validateLabeledBlocks(in, path, ptr.IntToPtr(1), nil, validateCheck)
 }
 
 // validateCheck validates the content of a check block.
 //
-//  scaling {
-//    policy {
-//      check "check" {
-//      +---------------+
-//      | key = "value" |
-//      +---------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	    check "check" {
+//	    +---------------+
+//	    | key = "value" |
+//	    +---------------+
+//	    }
+//	  }
+//	}
 func validateCheck(c map[string]interface{}, path string, label string) error {
 	var result *multierror.Error
 
@@ -233,22 +236,22 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 
 // validateStrategy validates strategy blocks within a policy check.
 //
-//  scaling {
-//    policy {
-//      check "check" {
-//      +-----------------------+
-//      | strategy "strategy" { |
-//      |   key = "value"       |
-//      | }                     |
-//      +-----------------------+
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	    check "check" {
+//	    +-----------------------+
+//	    | strategy "strategy" { |
+//	    |   key = "value"       |
+//	    | }                     |
+//	    +-----------------------+
+//	    }
+//	  }
+//	}
 //
 // Validation rules:
-//   1. Only one strategy block.
-//   2. Block must have a label.
-//   3. Block structure should be valid.
+//  1. Only one strategy block.
+//  2. Block must have a label.
+//  3. Block structure should be valid.
 func validateStrategy(s map[string]interface{}, path string, validator validatorWithLabelFunc) error {
 	return validateLabeledBlocks(s, path, ptr.IntToPtr(1), ptr.IntToPtr(1), validator)
 }
@@ -257,21 +260,21 @@ func validateStrategy(s map[string]interface{}, path string, validator validator
 // that do not require an APM.
 // It is called for checks that do not have `source` nor `query`.
 //
-//  scaling {
-//    policy {
-//      check "check" {
-//        strategy "strategy" {
-//        +---------------+
-//        | key = "value" |
-//        +---------------+
-//        }
-//      }
-//    }
-//  }
+//	scaling {
+//	  policy {
+//	    check "check" {
+//	      strategy "strategy" {
+//	      +---------------+
+//	      | key = "value" |
+//	      +---------------+
+//	      }
+//	    }
+//	  }
+//	}
 //
 // Validation rules:
-//   1. Strategy does not require source
-//   2. Strategy does not require query
+//  1. Strategy does not require source
+//  2. Strategy does not require query
 func validateStrategyWithoutMetric(s map[string]interface{}, path string, label string) error {
 	if _, ok := nonMetricStrategies[label]; ok {
 		return nil
@@ -282,8 +285,8 @@ func validateStrategyWithoutMetric(s map[string]interface{}, path string, label 
 // validateDuration validates if the input has a valid time.Duration format.
 //
 // Validation rules:
-//   1. Input must be a string.
-//   2. Input must parse to a time.Duration.
+//  1. Input must be a string.
+//  2. Input must parse to a time.Duration.
 func validateDuration(d interface{}, path string) error {
 	dStr, ok := d.(string)
 	if !ok {
@@ -302,11 +305,12 @@ func validateDuration(d interface{}, path string) error {
 // function.
 //
 // Expected input format:
-//   []interface{} {
-//     map[string]interface{} {
-//       "key": interface{}
-//     }
-//   }
+//
+//	[]interface{} {
+//	  map[string]interface{} {
+//	    "key": interface{}
+//	  }
+//	}
 func validateBlock(in interface{}, path string, validator validatorFunc) error {
 	var result *multierror.Error
 
@@ -350,25 +354,26 @@ func validateBlock(in interface{}, path string, validator validatorFunc) error {
 // function for further validation of each blocks' content.
 //
 // Expected input format:
-//   []interface{} {
-//     map[string]interface{} {
-//       "block-type": []interface{} {
-//         map[string]interface{} {
-//           "label-1": []interface{} {
-//             map[string]interface{} {
-//               "key": interface{}
-//             }
-//           }
-//           "label-2": []interface{} {
-//             map[string]interface{} {
-//               "key-1": interface{}
-//               "key-2": interface{}
-//             }
-//           }
-//         }
-//       }
-//     }
-//   }
+//
+//	[]interface{} {
+//	  map[string]interface{} {
+//	    "block-type": []interface{} {
+//	      map[string]interface{} {
+//	        "label-1": []interface{} {
+//	          map[string]interface{} {
+//	            "key": interface{}
+//	          }
+//	        }
+//	        "label-2": []interface{} {
+//	          map[string]interface{} {
+//	            "key-1": interface{}
+//	            "key-2": interface{}
+//	          }
+//	        }
+//	      }
+//	    }
+//	  }
+//	}
 func validateBlocks(in interface{}, path string, validator validatorFunc) error {
 	var result *multierror.Error
 
@@ -410,19 +415,20 @@ func validateBlocks(in interface{}, path string, validator validatorFunc) error 
 // `validator` function.
 //
 // Expected input format:
-//   map[string]interface{} {
-//     "label-1": []interface{} {
-//       map[string]interface{} {
-//         "key": interface{}
-//       }
-//     }
-//     "label-2": []interface{} {
-//       map[string]interface{} {
-//         "key-1": interface{}
-//         "key-2": interface{}
-//       }
-//     }
-//   }
+//
+//	map[string]interface{} {
+//	  "label-1": []interface{} {
+//	    map[string]interface{} {
+//	      "key": interface{}
+//	    }
+//	  }
+//	  "label-2": []interface{} {
+//	    map[string]interface{} {
+//	      "key-1": interface{}
+//	      "key-2": interface{}
+//	    }
+//	  }
+//	}
 func validateLabeledBlocks(b map[string]interface{}, path string, min, max *int, validator validatorWithLabelFunc) error {
 	var result *multierror.Error
 

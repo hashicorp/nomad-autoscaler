@@ -1,8 +1,11 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package nomad
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -42,7 +45,7 @@ func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults))
 
 // TestParseJob parses a file into an *api.Job object.
 func TestParseJob(t *testing.T, path string) *api.Job {
-	jobJSON, err := ioutil.ReadFile(path)
+	jobJSON, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatalf("failed to read job file %s: %v", path, err)
 	}

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package nodeselector
 
 import (
@@ -454,9 +457,7 @@ func Test_nodeResourceConsumption(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			h := make(nodeResourceConsumption, len(tc.inputEntries))
-			for i, entry := range tc.inputEntries {
-				h[i] = entry
-			}
+			copy(h, tc.inputEntries)
 			sort.Sort(h)
 
 			actualPop := make([]*api.NodeListStub, tc.popWanted)

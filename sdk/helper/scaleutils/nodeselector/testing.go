@@ -1,10 +1,13 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package nodeselector
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
@@ -17,7 +20,7 @@ func NodeAllocsTestServer(t *testing.T, cluster string) (*httptest.Server, func(
 
 		// Read file from test-fixtures/empty folder.
 		fileName := fmt.Sprintf("test-fixtures/%s/%s.json", cluster, nodeID)
-		nodeStatus, err := ioutil.ReadFile(fileName)
+		nodeStatus, err := os.ReadFile(fileName)
 		if err != nil {
 			t.Errorf("failed to read file: %v", err)
 		}

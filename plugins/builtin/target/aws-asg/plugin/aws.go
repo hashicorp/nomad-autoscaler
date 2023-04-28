@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package plugin
 
 import (
@@ -18,7 +21,6 @@ import (
 
 const (
 	defaultRetryInterval  = 10 * time.Second
-	defaultRetryLimit     = 15
 	nodeAttrAWSInstanceID = "unique.platform.aws.instance-id"
 )
 
@@ -300,7 +302,7 @@ func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, asg string,
 		return false, fmt.Errorf("waiting for %v activities to finish", len(ids))
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
 }
 
 func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int64, asgName string) error {
@@ -317,7 +319,7 @@ func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int6
 		return false, fmt.Errorf("AutoScaling Group at %v instances of desired %v", asg.Instances, desired)
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
 }
 
 // awsNodeIDMap is used to identify the AWS InstanceID of a Nomad node using

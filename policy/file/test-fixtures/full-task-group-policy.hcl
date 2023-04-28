@@ -1,3 +1,6 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 scaling "full-task-group-policy" {
   enabled = true
   min     = 1

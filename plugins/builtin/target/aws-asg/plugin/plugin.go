@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package plugin
 
 import (
@@ -13,6 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
@@ -28,10 +32,12 @@ const (
 	configKeySessionToken       = "aws_session_token"
 	configKeyASGName            = "aws_asg_name"
 	configKeyCredentialProvider = "aws_credential_provider"
+	configKeyRetryAttempts      = "retry_attempts"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
-	configValueRegionDefault = "us-east-1"
+	configValueRegionDefault        = "us-east-1"
+	configValueRetryAttemptsDefault = "15"
 
 	// credentialProvider are the valid options for the aws_credential_provider
 	// configuration key.
@@ -57,6 +63,10 @@ type TargetPlugin struct {
 	config map[string]string
 	logger hclog.Logger
 	asg    *autoscaling.Client
+
+	// retryAttempts is the number of times operations such as wating for a
+	// given ASG state should be retried.
+	retryAttempts int
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
@@ -89,6 +99,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	t.clusterUtils = clusterUtils
 	t.clusterUtils.ClusterNodeIDLookupFunc = awsNodeIDMap
 
+	retryLimit, err := strconv.Atoi(getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	if err != nil {
+		return err
+	}
+	t.retryAttempts = retryLimit
+
 	return nil
 }
 
@@ -119,6 +135,31 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	curASG, err := t.describeASG(ctx, asgName)
 	if err != nil {
 		return fmt.Errorf("failed to describe AWS Autoscaling Group: %v", err)
+	}
+
+	// Autoscaling can interfere with a running instance refresh so we
+	// prevent any scaling action while a refresh is Pending or InProgress
+	input := autoscaling.DescribeInstanceRefreshesInput{
+		AutoScalingGroupName: &asgName,
+		MaxRecords:           ptr.Int32ToPtr(1),
+	}
+
+	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input)
+	if err != nil {
+		return fmt.Errorf("failed to describe AWS InstanceRefresh: %v", err)
+	}
+
+	for _, refresh := range refreshes.InstanceRefreshes {
+		active := refresh.Status == types.InstanceRefreshStatusInProgress ||
+			refresh.Status == types.InstanceRefreshStatusPending
+
+		if active {
+			t.logger.Warn("scaling will not take place due to InstanceRefresh",
+				"asg_name", asgName,
+				"refresh_id", refresh.InstanceRefreshId,
+				"refresh_status", refresh.Status)
+			return nil
+		}
 	}
 
 	// The AWS ASG target requires different details depending on which
@@ -219,4 +260,13 @@ func processLastActivity(activity types.Activity, status *sdk.TargetStatus) {
 	if activity.EndTime != nil {
 		status.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatInt(activity.EndTime.UnixNano(), 10)
 	}
+}
+
+func getConfigValue(config map[string]string, key string, defaultValue string) string {
+	value, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+
+	return value
 }

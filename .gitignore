@@ -10,3 +10,7 @@ pkg/
 
 # assets download path when using bob CLI
 .bob
+
+# default build
+nomad-autoscaler
+plugins/test/noop-*/noop-*

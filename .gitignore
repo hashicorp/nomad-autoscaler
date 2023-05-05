@@ -11,6 +11,11 @@ pkg/
 # assets download path when using bob CLI
 .bob
 
-# default build
+# default builds
 nomad-autoscaler
 plugins/test/noop-*/noop-*
+
+# demo configs
+example.nomad.hcl
+spec.hcl
+config.hcl

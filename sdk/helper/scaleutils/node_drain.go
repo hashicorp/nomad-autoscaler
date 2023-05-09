@@ -124,8 +124,16 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 
 	c.log.Info("triggering drain on node", "node_id", nodeID, "deadline", spec.Deadline)
 
+	opts := &api.DrainOptions{
+		DrainSpec:    spec,
+		MarkEligible: false,
+		Meta: map[string]string{
+			"autoscaler": "true",
+			"timestamp":  time.Now().String(),
+		},
+	}
 	// Update the drain on the node.
-	resp, err := c.client.Nodes().UpdateDrain(nodeID, spec, false, nil)
+	resp, err := c.client.Nodes().UpdateDrainOpts(nodeID, opts, nil)
 	if err != nil {
 		return fmt.Errorf("failed to drain node: %v", err)
 	}

@@ -281,7 +281,7 @@ func (a *Agent) handleSignals() {
 		case syscall.SIGHUP:
 			a.reload()
 		default:
-			break
+			return
 		}
 	}
 }

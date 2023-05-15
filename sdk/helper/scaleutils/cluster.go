@@ -19,6 +19,13 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+type nodeDrainer interface {
+	UpdateDrainOpts(nodeID string, opts *api.DrainOptions,
+		q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
+	MonitorDrain(ctx context.Context, nodeID string, index uint64,
+		ignoreSys bool) <-chan *api.MonitorMessage
+}
+
 // ClusterScaleUtils provides common functionality when performing horizontal
 // cluster scaling evaluations and actions.
 type ClusterScaleUtils struct {
@@ -35,6 +42,8 @@ type ClusterScaleUtils struct {
 	// ClusterNodeIDLookupFunc is the callback function used to translate a
 	// Nomad nodes ID to the remote resource ID used by the target platform.
 	ClusterNodeIDLookupFunc ClusterNodeIDLookupFunc
+
+	drainer nodeDrainer
 }
 
 // NewClusterScaleUtils instantiates a new ClusterScaleUtils object for use.
@@ -56,6 +65,7 @@ func NewClusterScaleUtils(cfg *api.Config, log hclog.Logger) (*ClusterScaleUtils
 		log:       log,
 		client:    client,
 		curNodeID: id,
+		drainer:   client.Nodes(),
 	}, nil
 }
 

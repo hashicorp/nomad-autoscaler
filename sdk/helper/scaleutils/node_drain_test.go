@@ -4,15 +4,37 @@
 package scaleutils
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
+	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
+
+type mockDrainer struct {
+	drain func(nodeID string, opts *api.DrainOptions,
+		q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
+	monitor func(ctx context.Context, nodeID string,
+		index uint64, ignoreSys bool) <-chan *api.MonitorMessage
+	monitorCalled bool
+}
+
+func (md *mockDrainer) UpdateDrainOpts(nodeID string, opts *api.DrainOptions,
+	q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+	return md.drain(nodeID, opts, q)
+}
+
+func (md *mockDrainer) MonitorDrain(ctx context.Context, nodeID string,
+	index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+	md.monitorCalled = true
+	return md.monitor(ctx, nodeID, index, ignoreSys)
+}
 
 func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 	testCases := []struct {
@@ -90,4 +112,42 @@ func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_DrainNode(t *testing.T) {
+	testNodeID := "nodeID"
+	testLogger := hclog.New(&hclog.LoggerOptions{
+		Level: hclog.LevelFromString("ERROR"),
+	})
+
+	md := &mockDrainer{
+		drain: func(nodeID string, opts *api.DrainOptions,
+			_ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+
+			must.StrContains(t, opts.Meta["DrainedBy"], "Autoscaler")
+			return &api.NodeDrainUpdateResponse{}, nil
+		},
+		monitor: func(ctx context.Context, nodeID string,
+			index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+			outCh := make(chan *api.MonitorMessage, 1)
+			go func() {
+				outCh <- &api.MonitorMessage{
+					Level:   api.MonitorMsgLevelNormal,
+					Message: "test message",
+				}
+				close(outCh)
+			}()
+			return outCh
+		},
+	}
+
+	cu := &ClusterScaleUtils{
+		log:     testLogger,
+		drainer: md,
+	}
+
+	ctx := context.Background()
+	err := cu.drainNode(ctx, testNodeID, &api.DrainSpec{})
+	must.NoError(t, err)
+	must.True(t, md.monitorCalled)
 }

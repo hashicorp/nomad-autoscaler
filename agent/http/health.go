@@ -18,8 +18,9 @@ func (s *Server) getHealth(_ http.ResponseWriter, r *http.Request) (interface{},
 		return nil, newCodedError(http.StatusMethodNotAllowed, errInvalidMethod)
 	}
 
-	if atomic.LoadInt32(&s.aliveness) == healthAlivenessReady {
-		return nil, nil
+	if atomic.LoadInt32(&s.aliveness) != healthAlivenessReady {
+		return nil, newCodedError(http.StatusServiceUnavailable, "Service unavailable")
+
 	}
-	return nil, newCodedError(http.StatusServiceUnavailable, "Service unavailable")
+	return nil, nil
 }

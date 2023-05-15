@@ -269,19 +269,19 @@ func (a *Agent) handleSignals() {
 	signal.Notify(signalCh, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 
 	// Wait to receive a signal. This blocks until we are notified.
-WAIT:
-	sig := <-signalCh
+	for {
+		sig := <-signalCh
 
-	a.logger.Info("caught signal", "signal", sig.String())
+		a.logger.Info("caught signal", "signal", sig.String())
 
-	// Check the signal we received. If it was a SIGHUP perform the reload
-	// tasks and then continue to wait for another signal. Everything else
-	// means exit.
-	switch sig {
-	case syscall.SIGHUP:
-		a.reload()
-		goto WAIT
-	default:
-		return
+		// Check the signal we received. If it was a SIGHUP perform the reload
+		// tasks and then continue to wait for another signal. Everything else
+		// means exit.
+		switch sig {
+		case syscall.SIGHUP:
+			a.reload()
+		default:
+			break
+		}
 	}
 }

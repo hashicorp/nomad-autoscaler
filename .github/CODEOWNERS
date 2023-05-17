@@ -2,5 +2,5 @@
 * @jrasell @lgfa29
 
 # release configuration
-/.release/                              @hashicorp/release-engineering
-/.github/workflows/build.yml            @hashicorp/release-engineering
+/.release/                              @hashicorp/nomad-eng
+/.github/workflows/build.yml            @hashicorp/nomad-eng

@@ -20,7 +20,7 @@ jobs:
         id: get-go-version
         run: |
           echo "Building with Go $(cat .go-version)"
-          echo "::set-output name=go-version::$(cat .go-version)"
+          echo "go-version=$(cat .go-version)" >> $GITHUB_OUTPUT
 
   get-product-version:
     runs-on: ubuntu-20.04
@@ -32,7 +32,7 @@ jobs:
         id: get-product-version
         run: |
           make version
-          echo "::set-output name=product-version::$(make version)"
+          echo "product-version=$(make version)" >> $GITHUB_OUTPUT
 
   generate-metadata-file:
     needs: get-product-version
@@ -66,7 +66,7 @@ jobs:
         id: generate-ldflags
         run: |
           project="$(go list -m)"
-          echo "::set-output name=ldflags::"-X \'$project/version.GitDescribe=v${{ needs.get-product-version.outputs.product-version }}\'""
+          echo "ldflags="-X \'$project/version.GitDescribe=v${{ needs.get-product-version.outputs.product-version }}\'"" >> $GITHUB_OUTPUT
 
   build-linux:
     needs:

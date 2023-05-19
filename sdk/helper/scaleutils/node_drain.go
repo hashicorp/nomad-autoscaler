@@ -128,7 +128,7 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 		DrainSpec:    spec,
 		MarkEligible: false,
 		Meta: map[string]string{
-			"DrainedBy": "Autoscaler",
+			"drained_by": "nomad-autoscaler",
 		},
 	}
 

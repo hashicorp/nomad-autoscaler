@@ -17,23 +17,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Mock implementation of the drainer, it includes a couple of callback functions
+// that can be used to assert the correctness of the call values.
 type mockDrainer struct {
-	drain func(nodeID string, opts *api.DrainOptions,
-		q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
-	monitor func(ctx context.Context, nodeID string,
-		index uint64, ignoreSys bool) <-chan *api.MonitorMessage
-	monitorCalled bool
+	drainerMockFunc func(nodeID string, opts *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
+	monitorMockFunc func(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage
+
+	monitorFunctionCalled bool
 }
 
-func (md *mockDrainer) UpdateDrainOpts(nodeID string, opts *api.DrainOptions,
-	q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
-	return md.drain(nodeID, opts, q)
+func newMockDrainer() *mockDrainer {
+	return &mockDrainer{
+		monitorFunctionCalled: false,
+	}
 }
 
-func (md *mockDrainer) MonitorDrain(ctx context.Context, nodeID string,
-	index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
-	md.monitorCalled = true
-	return md.monitor(ctx, nodeID, index, ignoreSys)
+func (md *mockDrainer) UpdateDrainOpts(nodeID string, opt *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+	return md.drainerMockFunc(nodeID, opt, q)
+}
+
+func (md *mockDrainer) MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+	md.monitorFunctionCalled = true
+
+	return md.monitorMockFunc(ctx, nodeID, index, ignoreSys)
 }
 
 func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
@@ -120,25 +126,25 @@ func Test_DrainNode(t *testing.T) {
 		Level: hclog.LevelFromString("ERROR"),
 	})
 
-	md := &mockDrainer{
-		drain: func(nodeID string, opts *api.DrainOptions,
-			_ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+	md := newMockDrainer()
 
-			must.StrContains(t, opts.Meta["DrainedBy"], "Autoscaler")
-			return &api.NodeDrainUpdateResponse{}, nil
-		},
-		monitor: func(ctx context.Context, nodeID string,
-			index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
-			outCh := make(chan *api.MonitorMessage, 1)
-			go func() {
-				outCh <- &api.MonitorMessage{
-					Level:   api.MonitorMsgLevelNormal,
-					Message: "test message",
-				}
-				close(outCh)
-			}()
-			return outCh
-		},
+	md.drainerMockFunc = func(nodeID string, opts *api.DrainOptions, _ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+		must.StrContains(t, testNodeID, nodeID)
+		must.StrContains(t, opts.Meta[NODE_DRAINED_META_KEY], NODE_DRAINED_META_VALUE)
+
+		return &api.NodeDrainUpdateResponse{}, nil
+	}
+
+	md.monitorMockFunc = func(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+		must.StrContains(t, testNodeID, nodeID)
+
+		outCh := make(chan *api.MonitorMessage, 1)
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			close(outCh)
+		}()
+
+		return outCh
 	}
 
 	cu := &ClusterScaleUtils{
@@ -149,5 +155,6 @@ func Test_DrainNode(t *testing.T) {
 	ctx := context.Background()
 	err := cu.drainNode(ctx, testNodeID, &api.DrainSpec{})
 	must.NoError(t, err)
-	must.True(t, md.monitorCalled)
+	must.True(t, md.monitorFunctionCalled)
+
 }

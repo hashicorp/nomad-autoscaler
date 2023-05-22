@@ -19,6 +19,9 @@ import (
 const (
 	defaultNodeDrainDeadline    = 15 * time.Minute
 	defaultNodeIgnoreSystemJobs = false
+
+	NODE_DRAINED_META_KEY   = "drained_by"
+	NODE_DRAINED_META_VALUE = "nomad-autoscaler"
 )
 
 // DrainNodes iterates the provided nodeID list and performs a drain on each
@@ -128,7 +131,7 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 		DrainSpec:    spec,
 		MarkEligible: false,
 		Meta: map[string]string{
-			"drained_by": "nomad-autoscaler",
+			NODE_DRAINED_META_KEY: NODE_DRAINED_META_VALUE,
 		},
 	}
 

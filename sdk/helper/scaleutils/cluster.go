@@ -19,11 +19,12 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// We use the node drainer interface in order to separate the nomad-autoscaler
+// node drain logic from the actual drain execution, which is executed using the
+// nomad API, allowing us to better define the boundary and write better tests.
 type nodeDrainer interface {
-	UpdateDrainOpts(nodeID string, opts *api.DrainOptions,
-		q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
-	MonitorDrain(ctx context.Context, nodeID string, index uint64,
-		ignoreSys bool) <-chan *api.MonitorMessage
+	UpdateDrainOpts(nodeID string, opts *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
+	MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage
 }
 
 // ClusterScaleUtils provides common functionality when performing horizontal

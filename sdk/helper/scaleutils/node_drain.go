@@ -20,8 +20,8 @@ const (
 	defaultNodeDrainDeadline    = 15 * time.Minute
 	defaultNodeIgnoreSystemJobs = false
 
-	NODE_DRAINED_META_KEY   = "drained_by"
-	NODE_DRAINED_META_VALUE = "nomad-autoscaler"
+	nodeDrainedMetaKey   = "drained_by"
+	nodeDrainedMetaValue = "nomad-autoscaler"
 )
 
 // DrainNodes iterates the provided nodeID list and performs a drain on each

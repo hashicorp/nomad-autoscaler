@@ -130,7 +130,7 @@ func Test_DrainNode(t *testing.T) {
 
 	md.drainerMockFunc = func(nodeID string, opts *api.DrainOptions, _ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
 		must.StrContains(t, testNodeID, nodeID)
-		must.StrContains(t, opts.Meta[NODE_DRAINED_META_KEY], NODE_DRAINED_META_VALUE)
+		must.StrContains(t, opts.Meta[nodeDrainedMetaKey], nodeDrainedMetaValue)
 
 		return &api.NodeDrainUpdateResponse{}, nil
 	}

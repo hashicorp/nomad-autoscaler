@@ -131,7 +131,7 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 		DrainSpec:    spec,
 		MarkEligible: false,
 		Meta: map[string]string{
-			NODE_DRAINED_META_KEY: NODE_DRAINED_META_VALUE,
+			nodeDrainedMetaKey: nodeDrainedMetaValue,
 		},
 	}
 

@@ -4,15 +4,43 @@
 package scaleutils
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
 
+	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
+
+// Mock implementation of the drainer, it includes a couple of callback functions
+// that can be used to assert the correctness of the call values.
+type mockDrainer struct {
+	drainerMockFunc func(nodeID string, opts *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
+	monitorMockFunc func(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage
+
+	monitorFunctionCalled bool
+}
+
+func newMockDrainer() *mockDrainer {
+	return &mockDrainer{
+		monitorFunctionCalled: false,
+	}
+}
+
+func (md *mockDrainer) UpdateDrainOpts(nodeID string, opt *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+	return md.drainerMockFunc(nodeID, opt, q)
+}
+
+func (md *mockDrainer) MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+	md.monitorFunctionCalled = true
+
+	return md.monitorMockFunc(ctx, nodeID, index, ignoreSys)
+}
 
 func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 	testCases := []struct {
@@ -90,4 +118,43 @@ func TestNewClusterScaleUtils_drainSpec(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_DrainNode(t *testing.T) {
+	testNodeID := "nodeID"
+	testLogger := hclog.New(&hclog.LoggerOptions{
+		Level: hclog.LevelFromString("ERROR"),
+	})
+
+	md := newMockDrainer()
+
+	md.drainerMockFunc = func(nodeID string, opts *api.DrainOptions, _ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
+		must.StrContains(t, testNodeID, nodeID)
+		must.StrContains(t, opts.Meta[nodeDrainedMetaKey], nodeDrainedMetaValue)
+
+		return &api.NodeDrainUpdateResponse{}, nil
+	}
+
+	md.monitorMockFunc = func(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage {
+		must.StrContains(t, testNodeID, nodeID)
+
+		outCh := make(chan *api.MonitorMessage, 1)
+		go func() {
+			time.Sleep(100 * time.Millisecond)
+			close(outCh)
+		}()
+
+		return outCh
+	}
+
+	cu := &ClusterScaleUtils{
+		log:     testLogger,
+		drainer: md,
+	}
+
+	ctx := context.Background()
+	err := cu.drainNode(ctx, testNodeID, &api.DrainSpec{})
+	must.NoError(t, err)
+	must.True(t, md.monitorFunctionCalled)
+
 }

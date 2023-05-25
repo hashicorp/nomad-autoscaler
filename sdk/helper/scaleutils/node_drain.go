@@ -19,6 +19,9 @@ import (
 const (
 	defaultNodeDrainDeadline    = 15 * time.Minute
 	defaultNodeIgnoreSystemJobs = false
+
+	nodeDrainedMetaKey   = "drained_by"
+	nodeDrainedMetaValue = "nomad-autoscaler"
 )
 
 // DrainNodes iterates the provided nodeID list and performs a drain on each
@@ -124,16 +127,24 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 
 	c.log.Info("triggering drain on node", "node_id", nodeID, "deadline", spec.Deadline)
 
+	opts := &api.DrainOptions{
+		DrainSpec:    spec,
+		MarkEligible: false,
+		Meta: map[string]string{
+			nodeDrainedMetaKey: nodeDrainedMetaValue,
+		},
+	}
+
 	// Update the drain on the node.
-	resp, err := c.client.Nodes().UpdateDrain(nodeID, spec, false, nil)
+	resp, err := c.drainer.UpdateDrainOpts(nodeID, opts, nil)
 	if err != nil {
-		return fmt.Errorf("failed to drain node: %v", err)
+		return fmt.Errorf("failed to drain node: %w", err)
 	}
 
 	// Monitor the drain so we output the log messages. An error here indicates
 	// the drain failed to complete successfully.
 	if err := c.monitorNodeDrain(ctx, nodeID, resp.LastIndex, spec.IgnoreSystemJobs); err != nil {
-		return fmt.Errorf("context done while monitoring node drain: %v", err)
+		return fmt.Errorf("context done while monitoring node drain: %w", err)
 	}
 	return nil
 }
@@ -141,7 +152,8 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 // monitorNodeDrain follows the drain of a node, logging the messages we
 // receive to their appropriate level.
 func (c *ClusterScaleUtils) monitorNodeDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) error {
-	for msg := range c.client.Nodes().MonitorDrain(ctx, nodeID, index, ignoreSys) {
+	for msg := range c.drainer.MonitorDrain(ctx, nodeID, index, ignoreSys) {
+
 		switch msg.Level {
 		case api.MonitorMsgLevelInfo:
 			c.log.Info("received node drain message", "node_id", nodeID, "msg", msg.Message)

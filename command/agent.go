@@ -8,7 +8,6 @@ import (
 	"flag"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -341,9 +339,11 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	cfg, err := setupPluginsConfig(parsedConfig, APIconfig)
-	pluginManager := manager.NewPluginManager(logger, parsedConfig.PluginDir, cfg)
-
+	pluginManager, err := manager.NewPluginManager(logger, parsedConfig, APIconfig)
+	if err != nil {
+		logger.Error("failed to run the plugin manager", "error", err)
+		return 1
+	}
 	// Trigger the loading of the plugins which will be available to the agent.
 	// Any errors here will cause the agent to fail, but will include wrapped
 	// errors so the user can fix any problems in a single iteration.
@@ -385,68 +385,6 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 	return 0
-}
-
-func setupPluginsConfig(agentCfg *config.Agent, apiConfig *api.Config) (map[string][]*config.Plugin, error) {
-	cfg := map[string][]*config.Plugin{}
-
-	if len(agentCfg.APMs) > 0 {
-		cfg[sdk.PluginTypeAPM] = agentCfg.APMs
-	}
-	if len(agentCfg.Strategies) > 0 {
-		cfg[sdk.PluginTypeStrategy] = agentCfg.Strategies
-	}
-	if len(agentCfg.Targets) > 0 {
-		cfg[sdk.PluginTypeTarget] = agentCfg.Targets
-	}
-
-	// Iterate the configs and perform the config setup on each. If the
-	// operator did not specify any config, it will be nil so make sure we
-	// initialise the map.
-	for _, cfgs := range cfg {
-		for _, c := range cfgs {
-			if c.Config == nil {
-				c.Config = make(map[string]string)
-			}
-			err := setupPluginConfig(apiConfig, c.Config)
-			if err != nil {
-				fmt.Errorf("failed to config plugin: %w", err)
-				return nil, err
-			}
-
-		}
-	}
-
-	return cfg, nil
-}
-
-// setupPluginConfig takes the individual plugin configuration and merges in
-// namespaced Nomad configuration unless the user has disabled this
-// functionality.
-func setupPluginConfig(nomadCfg *api.Config, cfg map[string]string) error {
-
-	// Look for the config flag that users can supply to toggle inheriting the
-	// Nomad config from the agent. If we do not find it, opt-in by default.
-	val, ok := cfg[plugins.ConfigKeyNomadConfigInherit]
-	if !ok {
-		nomadHelper.MergeMapWithAgentConfig(cfg, nomadCfg)
-		return nil
-	}
-
-	// Attempt to convert the string. If the operator made an effort to
-	// configure the key but got the value wrong, log the error and do not
-	// perform the merge. The operator can fix the error and we do not make an
-	// assumption.
-	boolVal, err := strconv.ParseBool(val)
-	if err != nil {
-		fmt.Errorf("failed to convert config value to bool: %w", err)
-		return err
-	}
-
-	if boolVal {
-		nomadHelper.MergeMapWithAgentConfig(cfg, nomadCfg)
-	}
-	return nil
 }
 
 func (c *AgentCommand) readConfig() (*config.Agent, []string) {

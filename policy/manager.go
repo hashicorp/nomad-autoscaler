@@ -61,21 +61,16 @@ func NewManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
 	if len(sources) == 0 {
 		return nil, fmt.Errorf("no policy source available")
 	}
-
-	plcm := SetupPolicyManager(logger, sources, pm, c.Telemetry.CollectionInterval)
-
-	return plcm, nil
-}
-
-func SetupPolicyManager(log hclog.Logger, ps map[source.Name]source.Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
-	return &Manager{
-		log:             log.ResetNamed("policy_manager"),
-		policySource:    ps,
+	pl := &Manager{
+		log:             logger.ResetNamed("policy_manager"),
+		policySource:    sources,
 		pluginManager:   pm,
 		handlers:        make(map[source.PolicyID]*Handler),
 		keep:            make(map[source.PolicyID]bool),
-		metricsInterval: mInt,
+		metricsInterval: c.Telemetry.CollectionInterval,
 	}
+
+	return pl, nil
 }
 
 // Run starts the manager and blocks until the context is canceled.

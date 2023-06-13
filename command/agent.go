@@ -24,8 +24,6 @@ import (
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/source"
-	filePolicy "github.com/hashicorp/nomad-autoscaler/source/file"
-	nomadPolicy "github.com/hashicorp/nomad-autoscaler/source/nomad"
 	"github.com/hashicorp/nomad-autoscaler/version"
 	"github.com/hashicorp/nomad/api"
 	"golang.org/x/text/cases"
@@ -355,7 +353,7 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	policyManager, err := setupPolicyManager(logger, nomadClient, parsedConfig,
+	policyManager, err := policy.NewManager(logger, nomadClient, parsedConfig,
 		pluginManager)
 	if err != nil {
 		logger.Error("failed to instantiate policy manager", "error", err)
@@ -449,64 +447,6 @@ func setupPluginConfig(nomadCfg *api.Config, cfg map[string]string) error {
 		nomadHelper.MergeMapWithAgentConfig(cfg, nomadCfg)
 	}
 	return nil
-}
-
-func setupPolicyManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
-	pm *manager.PluginManager) (*policy.Manager, error) {
-
-	// Create our processor, a shared method for performing basic policy
-	// actions.
-	cfgDefaults := sdk.ConfigDefaults{
-		DefaultEvaluationInterval: c.Policy.DefaultEvaluationInterval,
-		DefaultCooldown:           c.Policy.DefaultCooldown,
-	}
-	policyProcessor := sdk.NewPolicyProcessor(&cfgDefaults, getNomadAPMNames(c.APMs))
-
-	// Setup our initial default policy source which is Nomad.
-	sources := setUpSources(logger, nc, c.Policy.Dir,
-		policyProcessor, c.Policy.Sources)
-
-	if len(sources) == 0 {
-		return nil, fmt.Errorf("no policy source available")
-	}
-
-	plcm := policy.SetupPolicyManager(logger, sources, pm, c.Telemetry.CollectionInterval)
-
-	return plcm, nil
-}
-
-func getNomadAPMNames(apms []*config.Plugin) []string {
-	var names []string
-	for _, apm := range apms {
-		if apm.Driver == plugins.InternalAPMNomad {
-			names = append(names, apm.Name)
-		}
-	}
-	return names
-}
-
-func setUpSources(log hclog.Logger, nc *api.Client, dir string,
-	pp *sdk.PolicyProcessor, sources []*config.PolicySource) map[source.Name]source.Source {
-	ss := map[source.Name]source.Source{}
-
-	for _, s := range sources {
-		if s.Enabled == nil || !*s.Enabled {
-			continue
-		}
-
-		switch source.Name(s.Name) {
-		case source.NameNomad:
-			ss[source.NameNomad] = nomadPolicy.NewNomadSource(log, nc, pp)
-		case source.NameFile:
-			// Only setup the file source if operators have configured a
-			// scaling policy directory to read from.
-			if dir != "" {
-				ss[source.NameFile] = filePolicy.NewFileSource(log, dir, pp)
-			}
-		}
-	}
-
-	return ss
 }
 
 func (c *AgentCommand) readConfig() (*config.Agent, []string) {

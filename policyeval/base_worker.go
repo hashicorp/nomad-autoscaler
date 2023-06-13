@@ -50,7 +50,6 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 }
 
 func (w *BaseWorker) Run(ctx context.Context) {
-	w.logger.Debug("starting worker")
 
 	for {
 		select {
@@ -59,13 +58,14 @@ func (w *BaseWorker) Run(ctx context.Context) {
 			return
 		default:
 		}
-
+		w.logger.Debug("starting worker                             desde el worker #############")
 		eval, token, err := w.broker.Dequeue(ctx, w.queue)
 		if err != nil {
 			w.logger.Warn("failed to dequeue evaluation", "error", err)
 			continue
 		}
 
+		w.logger.Debug("dequeued successfully", eval.TargetStatus)
 		if eval == nil {
 			// Nothing to do for now or we timedout, let's loop.
 			continue

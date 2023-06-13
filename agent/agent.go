@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -33,6 +32,7 @@ type Agent struct {
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
+	policyEvalCh  chan *sdk.ScalingEvaluation
 
 	// nomadCfg is the merged Nomad API configuration that should be used when
 	// setting up all clients. It is the result of the Nomad api.DefaultConfig
@@ -40,31 +40,23 @@ type Agent struct {
 	nomadCfg *api.Config
 }
 
-func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent {
+func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger,
+	pluginm *manager.PluginManager, policym *policy.Manager, nomadClient *api.Client,
+	policyEvalCh chan *sdk.ScalingEvaluation) *Agent {
 	return &Agent{
-		logger:      logger,
-		config:      c,
-		configPaths: configPaths,
-		nomadCfg:    nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
+		logger:        logger,
+		config:        c,
+		configPaths:   configPaths,
+		nomadCfg:      nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
+		policyManager: policym,
+		pluginManager: pluginm,
+		//nomadClient:   nomadClient,
+		policyEvalCh: policyEvalCh,
 	}
 }
 
-func (a *Agent) Run() error {
-	defer a.stop()
-
-	// Create context to handle propagation to downstream routines.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	// Generate the Nomad client.
-	if err := a.generateNomadClient(); err != nil {
-		return err
-	}
-
-	// launch plugins
-	if err := a.setupPlugins(); err != nil {
-		return fmt.Errorf("failed to setup plugins: %v", err)
-	}
+func (a *Agent) Run(ctx context.Context) error {
+	//defer a.stop()
 
 	// Setup the telemetry sinks.
 	inMem, err := a.setupTelemetry(a.config.Telemetry)
@@ -72,13 +64,6 @@ func (a *Agent) Run() error {
 		return fmt.Errorf("failed to setup telemetry: %v", err)
 	}
 	a.inMemSink = inMem
-
-	// Setup policy manager.
-	policyEvalCh, err := a.setupPolicyManager()
-	if err != nil {
-		return fmt.Errorf("failed to setup policy manager: %v", err)
-	}
-	go a.policyManager.Run(ctx, policyEvalCh)
 
 	// Launch eval broker and workers.
 	a.evalBroker = policyeval.NewBroker(
@@ -90,7 +75,7 @@ func (a *Agent) Run() error {
 	a.initEnt(ctx)
 
 	// Launch the eval handler.
-	go a.runEvalHandler(ctx, policyEvalCh)
+	go a.runEvalHandler(ctx, a.policyEvalCh)
 
 	// Wait for our exit.
 	a.handleSignals()
@@ -131,67 +116,6 @@ func (a *Agent) initWorkers(ctx context.Context) {
 	}
 }
 
-func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
-
-	// Create our processor, a shared method for performing basic policy
-	// actions.
-	cfgDefaults := policy.ConfigDefaults{
-		DefaultEvaluationInterval: a.config.Policy.DefaultEvaluationInterval,
-		DefaultCooldown:           a.config.Policy.DefaultCooldown,
-	}
-	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
-
-	// Setup our initial default policy source which is Nomad.
-	sources := map[policy.SourceName]policy.Source{}
-	for _, s := range a.config.Policy.Sources {
-		if s.Enabled == nil || !*s.Enabled {
-			continue
-		}
-
-		switch policy.SourceName(s.Name) {
-		case policy.SourceNameNomad:
-			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor)
-		case policy.SourceNameFile:
-			// Only setup the file source if operators have configured a
-			// scaling policy directory to read from.
-			if a.config.Policy.Dir != "" {
-				sources[policy.SourceNameFile] = filePolicy.NewFileSource(a.logger, a.config.Policy.Dir, policyProcessor)
-			}
-		}
-	}
-
-	// TODO: Once full policy source reload is implemented this should probably
-	// be just a warning.
-	if len(sources) == 0 {
-		return nil, fmt.Errorf("no policy source available")
-	}
-
-	a.policySources = sources
-	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
-
-	return make(chan *sdk.ScalingEvaluation, 10), nil
-}
-
-func (a *Agent) stop() {
-	// Kill all the plugins.
-	if a.pluginManager != nil {
-		a.pluginManager.KillPlugins()
-	}
-}
-
-// generateNomadClient creates a Nomad client for use within the agent.
-func (a *Agent) generateNomadClient() error {
-
-	// Generate the Nomad client.
-	client, err := api.NewClient(a.nomadCfg)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
-	}
-	a.nomadClient = client
-
-	return nil
-}
-
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
 func (a *Agent) reload() {
@@ -209,11 +133,6 @@ func (a *Agent) reload() {
 	a.config = newCfg
 	a.nomadCfg = nomadHelper.MergeDefaultWithAgentConfig(newCfg.Nomad)
 
-	if err := a.generateNomadClient(); err != nil {
-		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
-		os.Exit(1)
-	}
-
 	a.logger.Debug("reloading policy sources")
 	// Set new Nomad client in the Nomad policy source.
 	ps, ok := a.policySources[policy.SourceNameNomad]
@@ -222,10 +141,12 @@ func (a *Agent) reload() {
 	}
 	a.policyManager.ReloadSources()
 
-	a.logger.Debug("reloading plugins")
-	if err := a.pluginManager.Reload(a.setupPluginsConfig()); err != nil {
-		a.logger.Error("failed to reload plugins", "error", err)
-	}
+	/*
+		 	a.logger.Debug("reloading plugins")
+			if err := a.pluginManager.Reload(a.setupPluginsConfig()); err != nil {
+				a.logger.Error("failed to reload plugins", "error", err)
+			}
+	*/
 }
 
 // handleSignals blocks until the agent receives an exit signal.

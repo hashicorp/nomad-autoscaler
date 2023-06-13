@@ -3,17 +3,7 @@
 
 package agent
 
-import (
-	"strconv"
-
-	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	"github.com/hashicorp/nomad-autoscaler/plugins"
-	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
-	"github.com/hashicorp/nomad-autoscaler/sdk"
-	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
-)
-
-// setupPlugins is used to setup the plugin manager for all the agents plugins
+/* // setupPlugins is used to setup the plugin manager for all the agents plugins
 // and forks the configured plugins for use.
 func (a *Agent) setupPlugins() error {
 
@@ -92,3 +82,4 @@ func (a *Agent) getNomadAPMNames() []string {
 	}
 	return names
 }
+*/

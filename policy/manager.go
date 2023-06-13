@@ -70,17 +70,36 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		go s.MonitorIDs(monitorCtx, req)
 	}
 
-LOOP:
 	for {
 		select {
 		case <-ctx.Done():
 			m.log.Trace("stopping policy manager")
+
+			m.stopHandlers()
+			cancel()
 			return
 
 		case err := <-policyIDsErrCh:
 			m.log.Error("encountered an error monitoring policy IDs", "error", err)
 			if isUnrecoverableError(err) {
-				break LOOP
+				// If we reach this point it means an unrecoverable error happened.
+				// We should reset any internal state and re-run the policy manager.
+				m.log.Debug("re-starting policy manager")
+
+				// Explicitly stop the handlers and cancel the monitoring context instead
+				// of relying on the deferred statements, otherwise the next iteration of
+				// m.Run would be executed before they are complete.
+				m.stopHandlers()
+				cancel()
+
+				// Make sure we start the next iteration with an empty map of handlers.
+				m.lock.Lock()
+				m.handlers = make(map[PolicyID]*Handler)
+				m.lock.Unlock()
+
+				// Delay the next iteration of m.Run to avoid re-runs to start too often.
+				time.Sleep(10 * time.Second)
+				go m.Run(ctx, evalCh)
 			}
 			continue
 
@@ -136,25 +155,6 @@ LOOP:
 			m.lock.Unlock()
 		}
 	}
-
-	// If we reach this point it means an unrecoverable error happened.
-	// We should reset any internal state and re-run the policy manager.
-	m.log.Debug("re-starting policy manager")
-
-	// Explicitly stop the handlers and cancel the monitoring context instead
-	// of relying on the deferred statements, otherwise the next iteration of
-	// m.Run would be executed before they are complete.
-	m.stopHandlers()
-	cancel()
-
-	// Make sure we start the next iteration with an empty map of handlers.
-	m.lock.Lock()
-	m.handlers = make(map[PolicyID]*Handler)
-	m.lock.Unlock()
-
-	// Delay the next iteration of m.Run to avoid re-runs to start too often.
-	time.Sleep(10 * time.Second)
-	go m.Run(ctx, evalCh)
 }
 
 func (m *Manager) stopHandlers() {

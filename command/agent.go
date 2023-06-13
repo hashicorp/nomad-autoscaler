@@ -4,9 +4,11 @@
 package command
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -14,10 +16,17 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	agentHTTP "github.com/hashicorp/nomad-autoscaler/agent/http"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
+	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
+	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/version"
+	"github.com/hashicorp/nomad/api"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -276,6 +285,10 @@ func (c *AgentCommand) Synopsis() string {
 // above that change behavior.
 func (c *AgentCommand) Run(args []string) int {
 
+	// Create context to handle propagation to downstream routines.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	c.args = args
 
 	parsedConfig, configPaths := c.readConfig()
@@ -322,10 +335,43 @@ func (c *AgentCommand) Run(args []string) int {
 	// Output the header that the server has started
 	logger.Info("Nomad Autoscaler agent started! Log data will stream in below:")
 
+	APIconfig := nomadHelper.MergeDefaultWithAgentConfig(parsedConfig.Nomad)
+	nomadClient, err := api.NewClient(APIconfig)
+	if err != nil {
+		logger.Error("failed to instantiate Nomad client", "error", err)
+		return 1
+	}
+
+	cfg, err := setupPluginsConfig(parsedConfig, APIconfig)
+	pluginManager := manager.NewPluginManager(logger, parsedConfig.PluginDir, cfg)
+
+	// Trigger the loading of the plugins which will be available to the agent.
+	// Any errors here will cause the agent to fail, but will include wrapped
+	// errors so the user can fix any problems in a single iteration.
+	err = pluginManager.Load()
+	if err != nil {
+		logger.Error("failed to loading plugin manager", "error", err)
+		return 1
+	}
+
+	policyManager, err := setupPolicyManager(logger, nomadClient, parsedConfig,
+		pluginManager)
+	if err != nil {
+		logger.Error("failed to instantiate policy manager", "error", err)
+		return 1
+	}
+
+	policyEvalCh := make(chan *sdk.ScalingEvaluation, 10)
+
+	go policyManager.Run(ctx, policyEvalCh)
+
 	// create and run agent and HTTP server
-	c.agent = agent.NewAgent(parsedConfig, configPaths, logger)
+	c.agent = agent.NewAgent(parsedConfig, configPaths, logger, pluginManager,
+		policyManager, nomadClient, policyEvalCh)
+
 	httpServer, err := agentHTTP.NewHTTPServer(
-		parsedConfig.EnableDebug, parsedConfig.Telemetry.PrometheusMetrics, parsedConfig.HTTP, logger, c.agent)
+		parsedConfig.EnableDebug, parsedConfig.Telemetry.PrometheusMetrics,
+		parsedConfig.HTTP, logger, c.agent)
 	if err != nil {
 		logger.Error("failed to setup HTTP getHealth server", "error", err)
 		return 1
@@ -335,11 +381,131 @@ func (c *AgentCommand) Run(args []string) int {
 	go c.httpServer.Start()
 	defer c.httpServer.Stop()
 
-	if err := c.agent.Run(); err != nil {
+	if err := c.agent.Run(ctx); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}
 	return 0
+}
+
+func setupPluginsConfig(agentCfg *config.Agent, apiConfig *api.Config) (map[string][]*config.Plugin, error) {
+	cfg := map[string][]*config.Plugin{}
+
+	if len(agentCfg.APMs) > 0 {
+		cfg[sdk.PluginTypeAPM] = agentCfg.APMs
+	}
+	if len(agentCfg.Strategies) > 0 {
+		cfg[sdk.PluginTypeStrategy] = agentCfg.Strategies
+	}
+	if len(agentCfg.Targets) > 0 {
+		cfg[sdk.PluginTypeTarget] = agentCfg.Targets
+	}
+
+	// Iterate the configs and perform the config setup on each. If the
+	// operator did not specify any config, it will be nil so make sure we
+	// initialise the map.
+	for _, cfgs := range cfg {
+		for _, c := range cfgs {
+			if c.Config == nil {
+				c.Config = make(map[string]string)
+			}
+			err := setupPluginConfig(apiConfig, c.Config)
+			if err != nil {
+				fmt.Errorf("failed to config plugin: %w", err)
+				return nil, err
+			}
+
+		}
+	}
+
+	return cfg, nil
+}
+
+// setupPluginConfig takes the individual plugin configuration and merges in
+// namespaced Nomad configuration unless the user has disabled this
+// functionality.
+func setupPluginConfig(nomadCfg *api.Config, cfg map[string]string) error {
+
+	// Look for the config flag that users can supply to toggle inheriting the
+	// Nomad config from the agent. If we do not find it, opt-in by default.
+	val, ok := cfg[plugins.ConfigKeyNomadConfigInherit]
+	if !ok {
+		nomadHelper.MergeMapWithAgentConfig(cfg, nomadCfg)
+		return nil
+	}
+
+	// Attempt to convert the string. If the operator made an effort to
+	// configure the key but got the value wrong, log the error and do not
+	// perform the merge. The operator can fix the error and we do not make an
+	// assumption.
+	boolVal, err := strconv.ParseBool(val)
+	if err != nil {
+		fmt.Errorf("failed to convert config value to bool: %w", err)
+		return err
+	}
+
+	if boolVal {
+		nomadHelper.MergeMapWithAgentConfig(cfg, nomadCfg)
+	}
+	return nil
+}
+
+func setupPolicyManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
+	pm *manager.PluginManager) (*policy.Manager, error) {
+
+	// Create our processor, a shared method for performing basic policy
+	// actions.
+	cfgDefaults := policy.ConfigDefaults{
+		DefaultEvaluationInterval: c.Policy.DefaultEvaluationInterval,
+		DefaultCooldown:           c.Policy.DefaultCooldown,
+	}
+	policyProcessor := policy.NewProcessor(&cfgDefaults, getNomadAPMNames(c.APMs))
+
+	// Setup our initial default policy source which is Nomad.
+	sources := setUpSources(logger, nc, c.Policy.Dir,
+		policyProcessor, c.Policy.Sources)
+
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no policy source available")
+	}
+
+	plcm := policy.NewManager(logger, sources, pm, c.Telemetry.CollectionInterval)
+
+	return plcm, nil
+}
+
+func getNomadAPMNames(apms []*config.Plugin) []string {
+	var names []string
+	for _, apm := range apms {
+		if apm.Driver == plugins.InternalAPMNomad {
+			names = append(names, apm.Name)
+		}
+	}
+	return names
+}
+
+func setUpSources(log hclog.Logger, nc *api.Client, dir string,
+	pp *policy.Processor, sources []*config.PolicySource) map[policy.SourceName]policy.Source {
+	ss := map[policy.SourceName]policy.Source{}
+
+	for _, s := range sources {
+		if s.Enabled == nil || !*s.Enabled {
+			continue
+		}
+
+		switch policy.SourceName(s.Name) {
+		case policy.SourceNameNomad:
+			ss[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(log, nc, pp)
+		case policy.SourceNameFile:
+			// Only setup the file source if operators have configured a
+			// scaling policy directory to read from.
+			if dir != "" {
+				ss[policy.SourceNameFile] = filePolicy.NewFileSource(log, dir, pp)
+			}
+		}
+	}
+
+	return ss
 }
 
 func (c *AgentCommand) readConfig() (*config.Agent, []string) {

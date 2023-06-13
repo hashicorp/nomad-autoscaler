@@ -294,6 +294,7 @@ func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEva
 		return nil, nil
 	}
 
+	h.log.Trace("target status is this", "target", status)
 	// A nil status indicates the target doesn't exist, so we don't need to
 	// monitor the policy anymore.
 	if status == nil {

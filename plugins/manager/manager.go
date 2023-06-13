@@ -129,13 +129,18 @@ func NewPluginManager(log hclog.Logger, agentCfg *config.Agent, apiConfig *api.C
 		return nil, err
 	}
 
+	return newPluginManager(log, agentCfg.PluginDir, cfg), nil
+}
+
+// NewPluginManager sets up a new PluginManager for use.
+func newPluginManager(log hclog.Logger, dir string, cfg map[string][]*config.Plugin) *PluginManager {
 	return &PluginManager{
 		cfg:             cfg,
 		logger:          log.Named("plugin_manager"),
-		pluginDir:       agentCfg.PluginDir,
+		pluginDir:       dir,
 		pluginInstances: make(map[plugins.PluginID]PluginInstance),
 		plugins:         make(map[plugins.PluginID]*pluginInfo),
-	}, nil
+	}
 }
 
 // Load is responsible for registering and executing the plugins configured for

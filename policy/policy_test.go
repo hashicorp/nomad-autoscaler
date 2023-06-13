@@ -252,7 +252,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 	testCases := []struct {
 		inputPolicy          *sdk.ScalingPolicy
-		inputDefaults        *ConfigDefaults
+		inputDefaults        *sdk.ConfigDefaults
 		expectedOutputPolicy *sdk.ScalingPolicy
 		name                 string
 	}{
@@ -260,7 +260,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			inputPolicy: &sdk.ScalingPolicy{
 				Cooldown: 20 * time.Second,
 			},
-			inputDefaults: &ConfigDefaults{
+			inputDefaults: &sdk.ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},
@@ -274,7 +274,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			inputPolicy: &sdk.ScalingPolicy{
 				EvaluationInterval: 15 * time.Second,
 			},
-			inputDefaults: &ConfigDefaults{
+			inputDefaults: &sdk.ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           11 * time.Second,
 			},
@@ -286,7 +286,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 		},
 		{
 			inputPolicy: &sdk.ScalingPolicy{},
-			inputDefaults: &ConfigDefaults{
+			inputDefaults: &sdk.ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},
@@ -301,7 +301,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 				Cooldown:           10 * time.Minute,
 				EvaluationInterval: 5 * time.Minute,
 			},
-			inputDefaults: &ConfigDefaults{
+			inputDefaults: &sdk.ConfigDefaults{
 				DefaultEvaluationInterval: 5 * time.Second,
 				DefaultCooldown:           10 * time.Second,
 			},

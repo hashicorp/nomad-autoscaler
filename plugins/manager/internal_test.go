@@ -20,27 +20,27 @@ func TestPluginManager_useInternal(t *testing.T) {
 		expectedOutput bool
 	}{
 		{
-			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPM:        newPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    plugins.InternalAPMNomad,
 			expectedOutput: true,
 		},
 		{
-			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPM:        newPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    plugins.InternalTargetNomad,
 			expectedOutput: true,
 		},
 		{
-			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPM:        newPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    plugins.InternalAPMPrometheus,
 			expectedOutput: true,
 		},
 		{
-			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPM:        newPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    plugins.InternalStrategyTargetValue,
 			expectedOutput: true,
 		},
 		{
-			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPM:        newPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    "this-plugin-doesnt-exist-either",
 			expectedOutput: false,
 		},

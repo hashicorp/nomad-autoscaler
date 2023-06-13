@@ -4,6 +4,7 @@
 package sdk
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,7 +19,23 @@ const (
 
 	ScalingPolicyOnErrorFail   = "fail"
 	ScalingPolicyOnErrorIgnore = "ignore"
+
+	// DefaultQueryWindow is the value used if `query_window` is not specified in
+	// a policy check.
+	DefaultQueryWindow = time.Minute
+
+	// queryTypes are the types of query the Nomad APM plugin can handle. Each
+	// one has its own path to discovering the correct data and so its
+	// important this is included and validated on every query request.
+	QueryTypeTaskGroup = "taskgroup"
+	QueryTypeNode      = "node"
 )
+
+// ConfigDefaults holds default configuration for unspecified values.
+type ConfigDefaults struct {
+	DefaultEvaluationInterval time.Duration
+	DefaultCooldown           time.Duration
+}
 
 // ScalingPolicy is the internal representation of a scaling document and
 // encompasses all the required information for the autoscaler to perform
@@ -272,4 +289,132 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.QueryWindow = fdc.QueryWindow
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
+}
+
+// Processor helps process policies and perform common actions on them when
+// they are discovered from their source.
+type PolicyProcessor struct {
+	defaults  *ConfigDefaults
+	nomadAPMs []string
+}
+
+// NewProcessor returns a pointer to a new Processor for use.
+func NewPolicyProcessor(defaults *ConfigDefaults, apms []string) *PolicyProcessor {
+	return &PolicyProcessor{
+		defaults:  defaults,
+		nomadAPMs: apms,
+	}
+}
+
+// ApplyPolicyDefaults applies the config defaults to the policy where the
+// operator does not supply the parameter. This can be used for both cluster
+// and task group policies.
+func (pr *PolicyProcessor) ApplyPolicyDefaults(p *ScalingPolicy) {
+	if p.Cooldown == 0 {
+		p.Cooldown = pr.defaults.DefaultCooldown
+	}
+	if p.EvaluationInterval == 0 {
+		p.EvaluationInterval = pr.defaults.DefaultEvaluationInterval
+	}
+
+	for i := 0; i < len(p.Checks); i++ {
+		c := p.Checks[i]
+		if c.QueryWindow == 0 {
+			c.QueryWindow = DefaultQueryWindow
+		}
+	}
+}
+
+// ValidatePolicy performs validation of the policy document returning a list
+// of errors found, if any.
+func (pr *PolicyProcessor) ValidatePolicy(p *ScalingPolicy) error {
+
+	var mErr *multierror.Error
+
+	if p.ID == "" {
+		mErr = multierror.Append(mErr, errors.New("policy ID is empty"))
+	}
+	if p.Min < 0 {
+		mErr = multierror.Append(mErr, errors.New("policy Min can't be negative"))
+	}
+	if p.Max < 0 {
+		mErr = multierror.Append(mErr, errors.New("policy Max can't be negative"))
+	}
+	if p.Min > p.Max {
+		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
+	}
+
+	return mErr.ErrorOrNil()
+}
+
+// CanonicalizeCheck sets standardised values on fields.
+func (pr *PolicyProcessor) CanonicalizeCheck(c *ScalingPolicyCheck, t *ScalingPolicyTarget) {
+
+	// Operators can omit the check query source which defaults to the Nomad
+	// APM.
+	if c.Source == "" {
+		c.Source = "nomad-apm"
+	}
+	pr.CanonicalizeAPMQuery(c, t)
+}
+
+// CanonicalizeAPMQuery takes a short styled Nomad APM check query and creates
+// its fully hydrated internal representation. This is required by the Nomad
+// APM if it is being used as the source. The function can be called without
+// any validation on the check.
+func (pr *PolicyProcessor) CanonicalizeAPMQuery(c *ScalingPolicyCheck, t *ScalingPolicyTarget) {
+
+	// Catch nils so this function is safe to call without any prior checks.
+	if c == nil || t == nil {
+		return
+	}
+
+	// If the query source is not a Nomad APM, we do not have any additional
+	// work to perform. The APM canonicalization is specific to the Nomad APM.
+	if !pr.isNomadAPMQuery(c.Source) {
+		return
+	}
+
+	// If the query is not formatted in the short manner we do not have any
+	// work to do. Operators can add this if they want/know the autoscaler
+	// internal model.
+	if !isShortQuery(c.Query) {
+		return
+	}
+
+	// If the target is a Nomad job task group, format the query in the
+	// expected manner.
+	if t.IsJobTaskGroupTarget() {
+		c.Query = fmt.Sprintf("%s_%s/%s/%s",
+			QueryTypeTaskGroup, c.Query, t.Config[TargetConfigKeyTaskGroup], t.Config[TargetConfigKeyJob])
+		return
+	}
+
+	// If the target is a Nomad client node pool, format the query in the
+	// expected manner. Once the autoscaler supports more than just class
+	// identification of pools this func and logic will need to be updated. For
+	// now keep it simple.
+	if t.IsNodePoolTarget() {
+		c.Query = fmt.Sprintf("%s_%s/%s/class",
+			QueryTypeNode, c.Query, t.Config[TargetConfigKeyClass])
+	}
+}
+
+// isNomadAPMQuery helps identify whether the policy query is aligned with a
+// configured Nomad APM source.
+func (pr *PolicyProcessor) isNomadAPMQuery(source string) bool {
+	for _, name := range pr.nomadAPMs {
+		if source == name {
+			return true
+		}
+	}
+	return false
+}
+
+// isShortQuery detects if a query is in the <type>_<op>_<metric> format which
+// is required by the Nomad APM.
+func isShortQuery(q string) bool {
+	opMetric := strings.SplitN(q, "_", 2)
+	hasSlash := strings.Contains(q, "/")
+	return len(opMetric) == 2 && !hasSlash
 }

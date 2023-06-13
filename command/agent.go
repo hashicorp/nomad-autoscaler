@@ -19,12 +19,13 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
-	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
+	"github.com/hashicorp/nomad-autoscaler/source"
+	filePolicy "github.com/hashicorp/nomad-autoscaler/source/file"
+	nomadPolicy "github.com/hashicorp/nomad-autoscaler/source/nomad"
 	"github.com/hashicorp/nomad-autoscaler/version"
 	"github.com/hashicorp/nomad/api"
 	"golang.org/x/text/cases"
@@ -455,11 +456,11 @@ func setupPolicyManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
-	cfgDefaults := policy.ConfigDefaults{
+	cfgDefaults := sdk.ConfigDefaults{
 		DefaultEvaluationInterval: c.Policy.DefaultEvaluationInterval,
 		DefaultCooldown:           c.Policy.DefaultCooldown,
 	}
-	policyProcessor := policy.NewProcessor(&cfgDefaults, getNomadAPMNames(c.APMs))
+	policyProcessor := sdk.NewPolicyProcessor(&cfgDefaults, getNomadAPMNames(c.APMs))
 
 	// Setup our initial default policy source which is Nomad.
 	sources := setUpSources(logger, nc, c.Policy.Dir,
@@ -469,7 +470,7 @@ func setupPolicyManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
 		return nil, fmt.Errorf("no policy source available")
 	}
 
-	plcm := policy.NewManager(logger, sources, pm, c.Telemetry.CollectionInterval)
+	plcm := policy.SetupPolicyManager(logger, sources, pm, c.Telemetry.CollectionInterval)
 
 	return plcm, nil
 }
@@ -485,22 +486,22 @@ func getNomadAPMNames(apms []*config.Plugin) []string {
 }
 
 func setUpSources(log hclog.Logger, nc *api.Client, dir string,
-	pp *policy.Processor, sources []*config.PolicySource) map[policy.SourceName]policy.Source {
-	ss := map[policy.SourceName]policy.Source{}
+	pp *sdk.PolicyProcessor, sources []*config.PolicySource) map[source.Name]source.Source {
+	ss := map[source.Name]source.Source{}
 
 	for _, s := range sources {
 		if s.Enabled == nil || !*s.Enabled {
 			continue
 		}
 
-		switch policy.SourceName(s.Name) {
-		case policy.SourceNameNomad:
-			ss[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(log, nc, pp)
-		case policy.SourceNameFile:
+		switch source.Name(s.Name) {
+		case source.NameNomad:
+			ss[source.NameNomad] = nomadPolicy.NewNomadSource(log, nc, pp)
+		case source.NameFile:
 			// Only setup the file source if operators have configured a
 			// scaling policy directory to read from.
 			if dir != "" {
-				ss[policy.SourceNameFile] = filePolicy.NewFileSource(log, dir, pp)
+				ss[source.NameFile] = filePolicy.NewFileSource(log, dir, pp)
 			}
 		}
 	}
@@ -654,13 +655,13 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	if disableFileSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
-			Name:    string(policy.SourceNameFile),
+			Name:    string(source.NameFile),
 			Enabled: ptr.BoolToPtr(false),
 		})
 	}
 	if disableNomadSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
-			Name:    string(policy.SourceNameNomad),
+			Name:    string(source.NameNomad),
 			Enabled: ptr.BoolToPtr(false),
 		})
 	}

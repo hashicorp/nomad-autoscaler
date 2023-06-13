@@ -1,25 +1,28 @@
 // Copyright (c) HashiCorp, Inc.
 // SPDX-License-Identifier: MPL-2.0
 
-package policy
+package source
 
 import (
 	"context"
-	"time"
 
 	"github.com/armon/go-metrics"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-// DefaultQueryWindow is the value used if `query_window` is not specified in
-// a policy check.
-const DefaultQueryWindow = time.Minute
+type Name string
 
-// ConfigDefaults holds default configuration for unspecified values.
-type ConfigDefaults struct {
-	DefaultEvaluationInterval time.Duration
-	DefaultCooldown           time.Duration
-}
+const (
+	// NameNomad is the source for policies that originate from the Nomad
+	// scaling policies API.
+	NameNomad Name = "nomad"
+
+	// NameFile is the source for policies that are loaded from disk.
+	NameFile Name = "file"
+
+	// NameHA is the source for HA policy sources
+	NameHA Name = "ha"
+)
 
 type MonitorIDsReq struct {
 	ErrCh    chan<- error
@@ -41,7 +44,7 @@ type Source interface {
 
 	// Name returns the SourceName for the implementation. This helps handlers
 	// identify the source implementation which is responsible for policies.
-	Name() SourceName
+	Name() Name
 
 	// ReloadIDsMonitor is used to trigger a reload of the MonitorIDs routine
 	// so that config items can be reloaded gracefully without restarting the
@@ -61,23 +64,10 @@ func (p PolicyID) String() string {
 // SourceName differentiates policies from different sources. This allows the
 // policy manager to use the correct Source interface implementation to launch
 // the MonitorPolicy function for the PolicyID.
-type SourceName string
-
-const (
-	// SourceNameNomad is the source for policies that originate from the Nomad
-	// scaling policies API.
-	SourceNameNomad SourceName = "nomad"
-
-	// SourceNameFile is the source for policies that are loaded from disk.
-	SourceNameFile SourceName = "file"
-
-	// SourceNameHA is the source for HA policy sources
-	SourceNameHA SourceName = "ha"
-)
 
 // HandleSourceError provides common functionality when a policy source
 // encounters an ephemeral or non-critical error.
-func HandleSourceError(name SourceName, err error, errCha chan<- error) {
+func HandleSourceError(name Name, err error, errCha chan<- error) {
 
 	// Emit our metric so errors can be visualised and alerted on from APM
 	// tools. This helps operators identify potential issues in communicating
@@ -97,5 +87,5 @@ func HandleSourceError(name SourceName, err error, errCha chan<- error) {
 // needs to handle policies which originate from different sources.
 type IDMessage struct {
 	IDs    []PolicyID
-	Source SourceName
+	Source Name
 }

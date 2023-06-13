@@ -13,9 +13,9 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
-	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
+	"github.com/hashicorp/nomad-autoscaler/source"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -36,23 +36,23 @@ const (
 )
 
 // Ensure NomadSource satisfies the Source interface.
-var _ policy.Source = (*Source)(nil)
+var _ source.Source = (*NomadSource)(nil)
 
 // Source is an implementation of the Source interface that retrieves
 // policies from a Nomad cluster.
-type Source struct {
+type NomadSource struct {
 	log             hclog.Logger
 	nomad           *api.Client
 	nomadLock       sync.RWMutex
-	policyProcessor *policy.Processor
+	policyProcessor *sdk.PolicyProcessor
 
 	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
 	reloadCh chan struct{}
 }
 
 // NewNomadSource returns a new Nomad policy source.
-func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
-	return &Source{
+func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *sdk.PolicyProcessor) *NomadSource {
+	return &NomadSource{
 		log:             log.ResetNamed("nomad_policy_source"),
 		nomad:           nomad,
 		policyProcessor: policyProcessor,
@@ -60,15 +60,15 @@ func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy
 	}
 }
 
-func (s *Source) SetNomadClient(nomad *api.Client) {
+func (s *NomadSource) SetNomadClient(nomad *api.Client) {
 	s.nomadLock.Lock()
 	defer s.nomadLock.Unlock()
 	s.nomad = nomad
 }
 
 // Name satisfies the Name function of the policy.Source interface.
-func (s *Source) Name() policy.SourceName {
-	return policy.SourceNameNomad
+func (s *NomadSource) Name() source.Name {
+	return source.NameNomad
 }
 
 // ReloadIDsMonitor satisfies the ReloadIDsMonitor function of the
@@ -77,7 +77,7 @@ func (s *Source) Name() policy.SourceName {
 // This currently does nothing but in the future will be useful to allow
 // reloading configuration options such as the Nomad client params or the log
 // level.
-func (s *Source) ReloadIDsMonitor() {
+func (s *NomadSource) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 }
 
@@ -86,7 +86,7 @@ func (s *Source) ReloadIDsMonitor() {
 // errCh channel.
 //
 // This function blocks until the context is closed.
-func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
+func (s *NomadSource) MonitorIDs(ctx context.Context, req source.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
 	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
@@ -125,7 +125,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
+			source.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				s.log.Trace("stopping ID subscription")
@@ -144,13 +144,13 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			continue
 		}
 
-		var policyIDs []policy.PolicyID
+		var policyIDs []source.PolicyID
 
 		// Iterate over all policies in the list and filter out policies
 		// that are not enabled.
 		for _, p := range policies {
 			if p.Enabled {
-				policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				policyIDs = append(policyIDs, source.PolicyID(p.ID))
 			} else {
 				s.log.Info("policy not enabled", "policy_id", p.ID)
 			}
@@ -162,7 +162,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		q.WaitIndex = meta.LastIndex
 
 		// Send new policy IDs in the channel.
-		req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
+		req.ResultCh <- source.IDMessage{IDs: policyIDs, Source: s.Name()}
 	}
 }
 
@@ -170,7 +170,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 // when a change is detect. Errors are sent through the errCh channel.
 //
 // This function blocks until the context is closed.
-func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (s *NomadSource) MonitorPolicy(ctx context.Context, req source.MonitorPolicyReq) {
 	log := s.log.With("policy_id", req.ID)
 
 	// Close channels when done with the monitoring loop.
@@ -220,7 +220,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
+			source.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				log.Trace("done with policy monitoring")
@@ -253,7 +253,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 				err = fmt.Errorf("%s: %v", errMsg, err)
 			}
 
-			policy.HandleSourceError(s.Name(), err, req.ErrCh)
+			source.HandleSourceError(s.Name(), err, req.ErrCh)
 			continue
 		}
 
@@ -265,7 +265,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 }
 
 // canonicalizePolicy sets standarized values for missing fields.
-func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
+func (s *NomadSource) canonicalizePolicy(p *sdk.ScalingPolicy) {
 	if p == nil {
 		return
 	}
@@ -296,7 +296,7 @@ func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 	}
 }
 
-func (s *Source) canonicalizePolicyByType(p *sdk.ScalingPolicy) {
+func (s *NomadSource) canonicalizePolicyByType(p *sdk.ScalingPolicy) {
 	switch p.Type {
 	case "horizontal":
 		s.canonicalizeHorizontalPolicy(p)
@@ -307,13 +307,13 @@ func (s *Source) canonicalizePolicyByType(p *sdk.ScalingPolicy) {
 	}
 }
 
-func (s *Source) canonicalizeHorizontalPolicy(p *sdk.ScalingPolicy) {
+func (s *NomadSource) canonicalizeHorizontalPolicy(p *sdk.ScalingPolicy) {
 	if p.Target.Name == "" {
 		p.Target.Name = plugins.InternalTargetNomad
 	}
 }
 
-func (s *Source) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
+func (s *NomadSource) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 	// Set default values for Strategy.
 	if c.Strategy == nil {
 		c.Strategy = &sdk.ScalingPolicyStrategy{}

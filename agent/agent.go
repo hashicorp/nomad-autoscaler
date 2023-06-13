@@ -15,10 +15,11 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
+	"github.com/hashicorp/nomad-autoscaler/source"
+	"github.com/hashicorp/nomad-autoscaler/source/nomad"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -28,7 +29,7 @@ type Agent struct {
 	configPaths   []string
 	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
-	policySources map[policy.SourceName]policy.Source
+	policySources map[source.Name]source.Source
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
 	evalBroker    *policyeval.Broker
@@ -135,9 +136,9 @@ func (a *Agent) reload() {
 
 	a.logger.Debug("reloading policy sources")
 	// Set new Nomad client in the Nomad policy source.
-	ps, ok := a.policySources[policy.SourceNameNomad]
+	ps, ok := a.policySources[source.NameNomad]
 	if ok {
-		ps.(*nomadPolicy.Source).SetNomadClient(a.nomadClient)
+		ps.(*nomad.NomadSource).SetNomadClient(a.nomadClient)
 	}
 	a.policyManager.ReloadSources()
 

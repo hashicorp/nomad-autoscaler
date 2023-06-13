@@ -18,6 +18,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/source"
 )
 
 const (
@@ -30,7 +31,7 @@ type Handler struct {
 	log hclog.Logger
 
 	// policyID is the ID of the policy the handler is responsible for.
-	policyID PolicyID
+	policyID source.PolicyID
 
 	// pluginManager is used to retrieve an instance of the target plugin used
 	// by the policy.
@@ -38,7 +39,7 @@ type Handler struct {
 
 	// policySource is used to monitor for changes to the policy the handler
 	// is responsible for.
-	policySource Source
+	policySource source.Source
 
 	// mutators is a list of mutations to apply to policies.
 	mutators []Mutator
@@ -69,7 +70,7 @@ type Handler struct {
 }
 
 // NewHandler returns a new handler for a policy.
-func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Source) *Handler {
+func NewHandler(ID source.PolicyID, log hclog.Logger, pm *manager.PluginManager, ps source.Source) *Handler {
 	return &Handler{
 		policyID:      ID,
 		log:           log.Named("policy_handler").With("policy_id", ID),
@@ -114,7 +115,7 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	defer cancel()
 
 	// Start monitoring the policy for changes.
-	req := MonitorPolicyReq{ID: h.policyID, ErrCh: h.errCh, ReloadCh: h.reloadCh, ResultCh: h.ch}
+	req := source.MonitorPolicyReq{ID: h.policyID, ErrCh: h.errCh, ReloadCh: h.reloadCh, ResultCh: h.ch}
 	go h.policySource.MonitorPolicy(monitorCtx, req)
 
 	for {

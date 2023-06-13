@@ -12,29 +12,29 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	fileHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
+	"github.com/hashicorp/nomad-autoscaler/source"
 )
 
 // Ensure NomadSource satisfies the Source interface.
-var _ policy.Source = (*Source)(nil)
+var _ source.Source = (*FileSource)(nil)
 
 // pathMD5Sum is the key used in the idMap. Having this as a type makes it
 // clearer to readers what this represents.
 type pathMD5Sum [16]byte
 
-// Source is the File implementation of the policy.Source interface.
-type Source struct {
+// Source is the File implementation of the source.Source interface.
+type FileSource struct {
 	dir             string
 	log             hclog.Logger
-	policyProcessor *policy.Processor
+	policyProcessor *sdk.PolicyProcessor
 
 	// idMap stores a mapping between between the md5sum of the file path and
 	// the associated policyID. This allows us to keep a consistent PolicyID in
 	// the event of policy changes.
-	idMap     map[pathMD5Sum]policy.PolicyID
+	idMap     map[pathMD5Sum]source.PolicyID
 	idMapLock sync.RWMutex
 
 	// reloadChannels help coordinate reloading the of the MonitorIDs routine.
@@ -42,10 +42,10 @@ type Source struct {
 	reloadCompleteCh chan struct{}
 
 	// policyMap maps our policyID to the file and policy which was decode from
-	// the file. This is required with the current policy.Source interface
+	// the file. This is required with the current source.Source interface
 	// implementation, as the MonitorPolicy function only has access to the
 	// policyID and not the underlying file path.
-	policyMap     map[policy.PolicyID]*filePolicy
+	policyMap     map[source.PolicyID]*filePolicy
 	policyMapLock sync.RWMutex
 }
 
@@ -57,25 +57,25 @@ type filePolicy struct {
 	policy *sdk.ScalingPolicy
 }
 
-func NewFileSource(log hclog.Logger, dir string, policyProcessor *policy.Processor) policy.Source {
-	return &Source{
+func NewFileSource(log hclog.Logger, dir string, policyProcessor *sdk.PolicyProcessor) source.Source {
+	return &FileSource{
 		dir:              dir,
 		log:              log.ResetNamed("file_policy_source"),
-		idMap:            make(map[pathMD5Sum]policy.PolicyID),
-		policyMap:        make(map[policy.PolicyID]*filePolicy),
+		idMap:            make(map[pathMD5Sum]source.PolicyID),
+		policyMap:        make(map[source.PolicyID]*filePolicy),
 		reloadCh:         make(chan struct{}),
 		reloadCompleteCh: make(chan struct{}, 1),
 		policyProcessor:  policyProcessor,
 	}
 }
 
-// Name satisfies the Name function of the policy.Source interface.
-func (s *Source) Name() policy.SourceName {
-	return policy.SourceNameFile
+// Name satisfies the Name function of the source.Source interface.
+func (s *FileSource) Name() source.Name {
+	return source.NameFile
 }
 
-// MonitorIDs satisfies the MonitorIDs function of the policy.Source interface.
-func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
+// MonitorIDs satisfies the MonitorIDs function of the source.Source interface.
+func (s *FileSource) MonitorIDs(ctx context.Context, req source.MonitorIDsReq) {
 	s.log.Debug("starting file policy source ID monitor")
 
 	// Run the policyID identification method before entering the loop so we do
@@ -98,15 +98,15 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 }
 
 // ReloadIDsMonitor satisfies the ReloadIDsMonitor function of the
-// policy.Source interface.
-func (s *Source) ReloadIDsMonitor() {
+// source.Source interface.
+func (s *FileSource) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 	<-s.reloadCompleteCh
 }
 
-// MonitorPolicy satisfies the MonitorPolicy function of the policy.Source
+// MonitorPolicy satisfies the MonitorPolicy function of the source.Source
 // interface.
-func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (s *FileSource) MonitorPolicy(ctx context.Context, req source.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
 	defer close(req.ResultCh)
@@ -122,7 +122,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 	// handler which starts the evaluation ticker.
 	val, ok := s.policyMap[req.ID]
 	if !ok {
-		policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
+		source.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
 	} else {
 
 		// Assign the stored file to our local variable. This is so we can use
@@ -133,7 +133,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		p, err := s.handleIndividualPolicyRead(req.ID, file, name)
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
+			source.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
 		}
 		if p != nil {
 			req.ResultCh <- *p
@@ -166,7 +166,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			// isn't a terminal error as the operator can fix the policy and
 			// trigger another reload.
 			if err != nil {
-				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
+				source.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
 				continue
 			}
 
@@ -185,7 +185,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 // be returned, otherwise we return nil to indicate no reload is required. This
 // function is not thread safe, so the caller should obtain at least a read
 // lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (*sdk.ScalingPolicy, error) {
+func (s *FileSource) handleIndividualPolicyRead(ID source.PolicyID, path, name string) (*sdk.ScalingPolicy, error) {
 
 	// Decode the file into a new policy to allow comparison to our stored
 	// policy. Make sure to add the ID string and defaults, we are responsible
@@ -228,22 +228,22 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 // identifyPolicyIDs iterates the configured directory, identifying the
 // configured policyIDs. The IDs will be wrapped and sent to the resultCh so
 // the policy manager can do its work.
-func (s *Source) identifyPolicyIDs(resultCh chan<- policy.IDMessage, errCh chan<- error) {
+func (s *FileSource) identifyPolicyIDs(resultCh chan<- source.IDMessage, errCh chan<- error) {
 	ids, err := s.handleDir()
 	if err != nil {
-		policy.HandleSourceError(s.Name(), err, errCh)
+		source.HandleSourceError(s.Name(), err, errCh)
 	}
 
 	// Even if we receive an error we may have IDs to send. Otherwise it may be
 	// that all policies have been removed so we should even send the empty
 	// list so handlers can be cleaned.
-	resultCh <- policy.IDMessage{IDs: ids, Source: s.Name()}
+	resultCh <- source.IDMessage{IDs: ids, Source: s.Name()}
 }
 
 // handleDir iterates through the configured directory, attempting to decode
 // and store all HCL and JSON files as scaling policies. If the policy is not
 // enabled it will be ignored.
-func (s *Source) handleDir() ([]policy.PolicyID, error) {
+func (s *FileSource) handleDir() ([]source.PolicyID, error) {
 
 	// Obtain a list of all files in the directory which have the suffixes we
 	// can handle as scaling policies.
@@ -252,7 +252,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 		return nil, fmt.Errorf("failed to list files in directory: %v", err)
 	}
 
-	var policyIDs []policy.PolicyID
+	var policyIDs []source.PolicyID
 	var mErr *multierror.Error
 
 	for _, file := range files {
@@ -319,7 +319,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 // getFilePolicyID translates the file into its policyID. This is done by
 // firstly checking our internal state. If it isn't found, we generate and
 // store the ID in our state.
-func (s *Source) getFilePolicyID(file, name string) policy.PolicyID {
+func (s *FileSource) getFilePolicyID(file, name string) source.PolicyID {
 
 	// The function performs at least a read and potentially a write so obtain
 	// a lock.
@@ -334,7 +334,7 @@ func (s *Source) getFilePolicyID(file, name string) policy.PolicyID {
 	// and store this.
 	policyID, ok := s.idMap[md5Sum]
 	if !ok {
-		policyID = policy.PolicyID(uuid.Generate())
+		policyID = source.PolicyID(uuid.Generate())
 		s.idMap[md5Sum] = policyID
 	}
 

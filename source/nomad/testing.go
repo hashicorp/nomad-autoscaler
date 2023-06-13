@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/source"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
@@ -19,9 +20,9 @@ import (
 // from Nomad.
 //
 // The Nomad client and the agent can be configured by passing a cb function.
-func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults)) *Source {
+func TestNomadSource(t *testing.T, cb func(*api.Config, *sdk.ConfigDefaults)) source.Source {
 	nomadConfig := api.DefaultConfig()
-	sourceConfig := &policy.ConfigDefaults{
+	sourceConfig := &sdk.ConfigDefaults{
 		DefaultEvaluationInterval: 10 * time.Second,
 	}
 
@@ -38,7 +39,7 @@ func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults))
 		Level: hclog.Trace,
 	})
 
-	pr := policy.NewProcessor(sourceConfig, []string{"nomad-apm"})
+	pr := sdk.NewPolicyProcessor(sourceConfig, []string{"nomad-apm"})
 
 	return NewNomadSource(log, nomad, pr)
 }

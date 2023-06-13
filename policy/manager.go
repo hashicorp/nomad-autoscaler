@@ -5,30 +5,37 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/agent/config"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/source"
+	filePolicy "github.com/hashicorp/nomad-autoscaler/source/file"
+	nomadPolicy "github.com/hashicorp/nomad-autoscaler/source/nomad"
+	"github.com/hashicorp/nomad/api"
 )
 
 // Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
-	policySource  map[SourceName]Source
+	policySource  map[source.Name]source.Source
 	pluginManager *manager.PluginManager
 
 	// lock is used to synchronize parallel access to the maps below.
 	lock sync.RWMutex
 
 	// handlers are used to track the Go routines monitoring policies.
-	handlers map[PolicyID]*Handler
+	handlers map[source.PolicyID]*Handler
 
 	// keep is used to mark active policies during reconciliation.
-	keep map[PolicyID]bool
+	keep map[source.PolicyID]bool
 
 	// metricsInterval is the interval at which the agent is configured to emit
 	// metrics. This is used when creating the periodicMetricsReporter.
@@ -36,13 +43,37 @@ type Manager struct {
 }
 
 // NewManager returns a new Manager.
-func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
+func NewManager(logger hclog.Logger, nc *api.Client, c *config.Agent,
+	pm *manager.PluginManager) (*Manager, error) {
+
+	// Create our processor, a shared method for performing basic policy
+	// actions.
+	cfgDefaults := sdk.ConfigDefaults{
+		DefaultEvaluationInterval: c.Policy.DefaultEvaluationInterval,
+		DefaultCooldown:           c.Policy.DefaultCooldown,
+	}
+	policyProcessor := sdk.NewPolicyProcessor(&cfgDefaults, getNomadAPMNames(c.APMs))
+
+	// Setup our initial default policy source which is Nomad.
+	sources := setUpSources(logger, nc, c.Policy.Dir,
+		policyProcessor, c.Policy.Sources)
+
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("no policy source available")
+	}
+
+	plcm := SetupPolicyManager(logger, sources, pm, c.Telemetry.CollectionInterval)
+
+	return plcm, nil
+}
+
+func SetupPolicyManager(log hclog.Logger, ps map[source.Name]source.Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
 		policySource:    ps,
 		pluginManager:   pm,
-		handlers:        make(map[PolicyID]*Handler),
-		keep:            make(map[PolicyID]bool),
+		handlers:        make(map[source.PolicyID]*Handler),
+		keep:            make(map[source.PolicyID]bool),
 		metricsInterval: mInt,
 	}
 }
@@ -52,7 +83,7 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
 	defer m.stopHandlers()
 
-	policyIDsCh := make(chan IDMessage, 2)
+	policyIDsCh := make(chan source.IDMessage, 2)
 	policyIDsErrCh := make(chan error, 2)
 
 	// Create a separate context so we can stop the goroutine monitoring the
@@ -66,7 +97,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// Start the policy source and listen for changes in the list of policy IDs
 	for _, s := range m.policySource {
 		m.log.Info("starting policy source", "source", s.Name())
-		req := MonitorIDsReq{ErrCh: policyIDsErrCh, ResultCh: policyIDsCh}
+		req := source.MonitorIDsReq{ErrCh: policyIDsErrCh, ResultCh: policyIDsCh}
 		go s.MonitorIDs(monitorCtx, req)
 	}
 
@@ -94,7 +125,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 				// Make sure we start the next iteration with an empty map of handlers.
 				m.lock.Lock()
-				m.handlers = make(map[PolicyID]*Handler)
+				m.handlers = make(map[source.PolicyID]*Handler)
 				m.lock.Unlock()
 
 				// Delay the next iteration of m.Run to avoid re-runs to start too often.
@@ -111,7 +142,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 			// Reset set of policies to keep. We will remove the policies that
 			// are not in policyIDs to reconcile our state.
-			m.keep = make(map[PolicyID]bool)
+			m.keep = make(map[source.PolicyID]bool)
 
 			// Iterate over policy IDs and create new handlers if necessary
 			for _, policyID := range policyIDs.IDs {
@@ -134,7 +165,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 				h := NewHandler(policyID, m.log, m.pluginManager, m.policySource[policyIDs.Source])
 				m.handlers[policyID] = h
 
-				go func(ID PolicyID) {
+				go func(ID source.PolicyID) {
 					h.Run(ctx, evalCh)
 
 					// Remove the handler when it stops running.
@@ -194,7 +225,7 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 	// duration based on the remaining time between calling this function and
 	// it actually running. Obtaining the lock could cause a delay which may
 	// skew the cooldown period, but this is likely very small.
-	if handler, ok := m.handlers[PolicyID(id)]; ok && handler.cooldownCh != nil {
+	if handler, ok := m.handlers[source.PolicyID(id)]; ok && handler.cooldownCh != nil {
 		handler.cooldownCh <- t
 	} else {
 		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
@@ -254,4 +285,38 @@ func isUnrecoverableError(err error) bool {
 		}
 	}
 	return false
+}
+
+func getNomadAPMNames(apms []*config.Plugin) []string {
+	var names []string
+	for _, apm := range apms {
+		if apm.Driver == plugins.InternalAPMNomad {
+			names = append(names, apm.Name)
+		}
+	}
+	return names
+}
+
+func setUpSources(log hclog.Logger, nc *api.Client, dir string,
+	pp *sdk.PolicyProcessor, sources []*config.PolicySource) map[source.Name]source.Source {
+	ss := map[source.Name]source.Source{}
+
+	for _, s := range sources {
+		if s.Enabled == nil || !*s.Enabled {
+			continue
+		}
+
+		switch source.Name(s.Name) {
+		case source.NameNomad:
+			ss[source.NameNomad] = nomadPolicy.NewNomadSource(log, nc, pp)
+		case source.NameFile:
+			// Only setup the file source if operators have configured a
+			// scaling policy directory to read from.
+			if dir != "" {
+				ss[source.NameFile] = filePolicy.NewFileSource(log, dir, pp)
+			}
+		}
+	}
+
+	return ss
 }

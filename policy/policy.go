@@ -17,12 +17,12 @@ import (
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
 type Processor struct {
-	defaults  *ConfigDefaults
+	defaults  *sdk.ConfigDefaults
 	nomadAPMs []string
 }
 
 // NewProcessor returns a pointer to a new Processor for use.
-func NewProcessor(defaults *ConfigDefaults, apms []string) *Processor {
+func NewProcessor(defaults *sdk.ConfigDefaults, apms []string) *Processor {
 	return &Processor{
 		defaults:  defaults,
 		nomadAPMs: apms,
@@ -43,7 +43,7 @@ func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 	for i := 0; i < len(p.Checks); i++ {
 		c := p.Checks[i]
 		if c.QueryWindow == 0 {
-			c.QueryWindow = DefaultQueryWindow
+			c.QueryWindow = sdk.DefaultQueryWindow
 		}
 	}
 }

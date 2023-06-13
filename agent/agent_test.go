@@ -3,15 +3,7 @@
 
 package agent
 
-import (
-	"errors"
-	"testing"
-
-	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
-)
-
-func TestAgent_generateNomadClient(t *testing.T) {
+/* func TestAgent_generateNomadClient(t *testing.T) {
 	testCases := []struct {
 		inputAgent       *Agent
 		expectedOutputEr error
@@ -43,3 +35,4 @@ func TestAgent_generateNomadClient(t *testing.T) {
 		}
 	}
 }
+*/

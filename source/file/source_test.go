@@ -6,7 +6,7 @@ package file
 import (
 	"testing"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/source"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,15 +14,15 @@ func TestSource_getFilePolicyID(t *testing.T) {
 	testCases := []struct {
 		inputFile       string
 		inputPolicyName string
-		existingID      policy.PolicyID
-		inputSource     *Source
+		existingID      source.PolicyID
+		inputSource     *FileSource
 		name            string
 	}{
 		{
 			inputFile:       "/this/test/file.hcl",
 			inputPolicyName: "policy_name",
 			existingID:      "b65aa225-35bd-aa72-29d0-a1d228662817",
-			inputSource: &Source{idMap: map[pathMD5Sum]policy.PolicyID{
+			inputSource: &FileSource{idMap: map[pathMD5Sum]source.PolicyID{
 				md5Sum("/this/test/file.hcl/policy_name"): "b65aa225-35bd-aa72-29d0-a1d228662817",
 			}},
 			name: "file already within idMap",
@@ -32,7 +32,7 @@ func TestSource_getFilePolicyID(t *testing.T) {
 			inputFile:       "/this/test/file.hcl",
 			inputPolicyName: "policy_name",
 			existingID:      "",
-			inputSource:     &Source{idMap: map[pathMD5Sum]policy.PolicyID{}},
+			inputSource:     &FileSource{idMap: map[pathMD5Sum]source.PolicyID{}},
 			name:            "file not within idMap",
 		},
 	}

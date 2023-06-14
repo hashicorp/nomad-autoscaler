@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/plugins"
-	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
@@ -19,7 +18,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		name     string
 		input    *sdk.ScalingPolicy
 		expected *sdk.ScalingPolicy
-		cb       func(*api.Config, *policy.ConfigDefaults)
+		cb       func(*api.Config, *sdk.ConfigDefaults)
 	}{
 		{
 			name: "full policy",
@@ -134,7 +133,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					{
 						Source:      plugins.InternalAPMNomad,
 						Query:       "taskgroup_avg_cpu/group/job",
-						QueryWindow: policy.DefaultQueryWindow,
+						QueryWindow: sdk.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -172,7 +171,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					{
 						Source:      plugins.InternalAPMNomad,
 						Query:       "taskgroup_avg_cpu/group/job",
-						QueryWindow: policy.DefaultQueryWindow,
+						QueryWindow: sdk.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -209,7 +208,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					{
 						Source:      plugins.InternalAPMNomad,
 						Query:       "taskgroup_avg_cpu/my_group/my_job",
-						QueryWindow: policy.DefaultQueryWindow,
+						QueryWindow: sdk.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -247,7 +246,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					{
 						Source:      "not_nomad",
 						Query:       "avg_cpu",
-						QueryWindow: policy.DefaultQueryWindow,
+						QueryWindow: sdk.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -284,7 +283,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					{
 						Source:      plugins.InternalAPMNomad,
 						Query:       "avg_cpu/my_group/my_job",
-						QueryWindow: policy.DefaultQueryWindow,
+						QueryWindow: sdk.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
 						},
@@ -303,7 +302,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					Config: map[string]string{},
 				},
 			},
-			cb: func(_ *api.Config, sourceConfig *policy.ConfigDefaults) {
+			cb: func(_ *api.Config, sourceConfig *sdk.ConfigDefaults) {
 				sourceConfig.DefaultEvaluationInterval = 5 * time.Second
 			},
 		},
@@ -319,7 +318,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 					Config: map[string]string{},
 				},
 			},
-			cb: func(_ *api.Config, sourceConfig *policy.ConfigDefaults) {
+			cb: func(_ *api.Config, sourceConfig *sdk.ConfigDefaults) {
 				sourceConfig.DefaultCooldown = 1 * time.Hour
 			},
 		},

@@ -9,12 +9,12 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/source"
 )
 
 // NewFilteredSource accepts an upstream policy.Source and an ha.PolicyFilter
 // and constructs a FilteredSource
-func NewFilteredSource(log hclog.Logger, upstreamSource policy.Source, filter PolicyFilter) policy.Source {
+func NewFilteredSource(log hclog.Logger, upstreamSource source.Source, filter PolicyFilter) source.Source {
 	return &FilteredSource{
 		log:            log,
 		upstreamSource: upstreamSource,
@@ -27,27 +27,27 @@ func NewFilteredSource(log hclog.Logger, upstreamSource policy.Source, filter Po
 // policy.Source and filters them through an ha.PolicyFilter
 type FilteredSource struct {
 	log            hclog.Logger
-	upstreamSource policy.Source
+	upstreamSource source.Source
 	policyFilter   PolicyFilter
 	filterCond     *sync.Cond
 }
 
 // MonitorIDs calls the same method on the configured upstream policy.Source,
 // and filters the discovered policy IDs using the configured PolicyFilter.
-func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
+func (fs *FilteredSource) MonitorIDs(ctx context.Context, req source.MonitorIDsReq) {
 	if fs.upstreamSource == nil || fs.policyFilter == nil {
 		return
 	}
 
 	// buffer both of these channels, to prevent the goroutines below from
 	// blocking on send between checks of ctx.Done()
-	upstreamPolicyCh := make(chan policy.IDMessage, 1)
+	upstreamPolicyCh := make(chan source.IDMessage, 1)
 	filterUpdateCh := make(chan struct{}, 1)
 	// create separate error channels just for augmenting the log messages
 	policyErrCh := make(chan error, 1)
 	filterErrCh := make(chan error, 1)
 
-	go fs.upstreamSource.MonitorIDs(ctx, policy.MonitorIDsReq{
+	go fs.upstreamSource.MonitorIDs(ctx, source.MonitorIDsReq{
 		ErrCh:    policyErrCh,
 		ResultCh: upstreamPolicyCh,
 	})
@@ -57,7 +57,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 	})
 
 	// keep track of the previous policyIDs, in case the filter updates
-	var policyIDs []policy.PolicyID
+	var policyIDs []source.PolicyID
 	// don't emit policy IDs until both the  filter and the upstream policy
 	// source have sent their first update
 	haveFirstPolicies, haveFirstFilter := false, false
@@ -95,24 +95,24 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 
 		newPolicyIDs := fs.policyFilter.FilterPolicies(policyIDs)
 		fs.log.Trace("filtered policies", "original_len", len(policyIDs), "filtered_len", len(newPolicyIDs))
-		req.ResultCh <- policy.IDMessage{
+		req.ResultCh <- source.IDMessage{
 			IDs:    newPolicyIDs,
 			Source: fs.Name(),
 		}
 	}
 }
 
-// MonitorPolicy calls the same method on the configured policy.Source.
-// This method doesn't need to worry about the policy filter, because the policy.Manager
+// MonitorPolicy calls the same method on the configured source.Source.
+// This method doesn't need to worry about the policy filter, because the source.Manager
 // will close the context if the corresponding policy is removed.
-func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req source.MonitorPolicyReq) {
 	fs.log.Trace("delegating MonitorPolicy", "policy_id", req.ID)
 	fs.upstreamSource.MonitorPolicy(ctx, req)
 }
 
-// Name satisfies the Name function of the policy.Source interface.
-func (fs *FilteredSource) Name() policy.SourceName {
-	return policy.SourceNameHA
+// Name satisfies the Name function of the source.Source interface.
+func (fs *FilteredSource) Name() source.Name {
+	return source.NameHA
 }
 
 // ReloadIDsMonitor implements policy.Source by calling the appropriate

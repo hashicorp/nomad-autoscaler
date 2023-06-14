@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
-	"github.com/hashicorp/nomad-autoscaler/source"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
@@ -20,7 +19,7 @@ import (
 // from Nomad.
 //
 // The Nomad client and the agent can be configured by passing a cb function.
-func TestNomadSource(t *testing.T, cb func(*api.Config, *sdk.ConfigDefaults)) source.Source {
+func TestNomadSource(t *testing.T, cb func(*api.Config, *sdk.ConfigDefaults)) *NomadSource {
 	nomadConfig := api.DefaultConfig()
 	sourceConfig := &sdk.ConfigDefaults{
 		DefaultEvaluationInterval: 10 * time.Second,

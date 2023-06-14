@@ -5,7 +5,6 @@ package policyeval
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -23,10 +22,6 @@ import (
 type CoolDownEnforcer interface {
 	EnforceCooldown(policyID string, cooldown time.Duration)
 }
-
-// errTargetNotReady is used by a check handler to indicate the policy target
-// is not ready.
-var errTargetNotReady = errors.New("target not ready")
 
 // Worker is responsible for executing a policy evaluation request.
 type BaseWorker struct {
@@ -112,14 +107,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 	// Fetch target status.
 	logger.Debug("fetching current count")
-	/*
-		currentStatus, err := w.runTargetStatus(targetInst, eval.Policy)
-		if err != nil {
-			return fmt.Errorf("failed to fetch current count: %v", err)
-		}
-		if !currentStatus.Ready {
-			return errTargetNotReady
-		} */
+
 	currentStatus := eval.TargetStatus
 
 	// First make sure the target is within the policy limits.

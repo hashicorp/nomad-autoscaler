@@ -83,7 +83,7 @@ func setupPluginsConfig(agentCfg *config.Agent, apiConfig *api.Config) (map[stri
 			}
 			err := setupPluginConfig(apiConfig, c.Config)
 			if err != nil {
-				fmt.Errorf("failed to config plugin: %w", err)
+				err = fmt.Errorf("failed to config plugin: %w", err)
 				return nil, err
 			}
 
@@ -112,7 +112,7 @@ func setupPluginConfig(nomadCfg *api.Config, cfg map[string]string) error {
 	// assumption.
 	boolVal, err := strconv.ParseBool(val)
 	if err != nil {
-		fmt.Errorf("failed to convert config value to bool: %w", err)
+		err = fmt.Errorf("failed to convert config value to bool: %w", err)
 		return err
 	}
 

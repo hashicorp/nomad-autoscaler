@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/source"
 )
 
@@ -104,7 +103,7 @@ type testSource struct {
 // NewTestSource returns a policy.Source for testing, which simply echoes
 // source.IDMessage messages from the inputCh to the result channel on
 // MonitorIDs
-func NewTestSource(inputCh chan source.IDMessage, errCh chan error) source.Source {
+func NewTestSource(inputCh chan source.IDMessage, errCh chan error) *testSource {
 	return &testSource{
 		inputCh: inputCh,
 		errCh:   errCh,
@@ -124,11 +123,11 @@ func (t *testSource) MonitorIDs(ctx context.Context, req source.MonitorIDsReq) {
 	}
 }
 
-func (t *testSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (t *testSource) MonitorPolicy(ctx context.Context, req source.MonitorPolicyReq) {
 	panic("implement me")
 }
 
-func (t *testSource) Name() policy.SourceName {
+func (t *testSource) Name() source.Name {
 	return "test-source"
 }
 

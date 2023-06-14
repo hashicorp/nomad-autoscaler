@@ -26,12 +26,12 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	testFilter := NewTesterFilter(nil)
 	testSource := NewTestSource(inputCh, errCh)
 
-	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
+	fsource := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
 	outputCh := make(chan source.IDMessage)
 	outputErrCh := make(chan error)
 	monitorExited := make(chan bool)
 	go func() {
-		source.MonitorIDs(monitorCtx, source.MonitorIDsReq{
+		fsource.MonitorIDs(monitorCtx, source.MonitorIDsReq{
 			ErrCh:    outputErrCh,
 			ResultCh: outputCh,
 		})
@@ -104,9 +104,9 @@ func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
 	upstreamErrCh := make(chan error)
 	testSource := NewTestSource(make(chan source.IDMessage), upstreamErrCh)
 
-	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
+	fsource := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
 	outputErrCh := make(chan error)
-	go source.MonitorIDs(context.Background(), source.MonitorIDsReq{
+	go fsource.MonitorIDs(context.Background(), source.MonitorIDsReq{
 		ErrCh:    outputErrCh,
 		ResultCh: make(chan source.IDMessage),
 	})
@@ -151,10 +151,10 @@ func TestFilteredSource_Reload(t *testing.T) {
 	testFilter := NewTesterFilter(nil)
 	testSource := NewTestSource(inputCh, errCh)
 
-	source := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
+	fsource := NewFilteredSource(hclog.NewNullLogger(), testSource, testFilter)
 	outputCh := make(chan source.IDMessage)
 	outputErrCh := make(chan error)
-	go source.MonitorIDs(context.Background(), source.MonitorIDsReq{
+	go fsource.MonitorIDs(context.Background(), source.MonitorIDsReq{
 		ErrCh:    outputErrCh,
 		ResultCh: outputCh,
 	})
@@ -188,7 +188,7 @@ func TestFilteredSource_Reload(t *testing.T) {
 	}
 
 	// call reload, this should trigger another message send
-	source.ReloadIDsMonitor()
+	fsource.ReloadIDsMonitor()
 
 	// check that the policies returned from upstream are filtered
 	select {

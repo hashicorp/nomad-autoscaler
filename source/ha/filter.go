@@ -6,7 +6,7 @@ package ha
 import (
 	"context"
 
-	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/source"
 )
 
 type MonitorFilterRequest struct {
@@ -26,5 +26,5 @@ type PolicyFilter interface {
 	// FilterPolicies should return a list of policies appropriate for this
 	// autoscaler agent; policies for other autoscaler agents in the HA pool
 	// should be neglected from the returned slice.
-	FilterPolicies(policyIDs []policy.PolicyID) []policy.PolicyID
+	FilterPolicies(policyIDs []source.PolicyID) []source.PolicyID
 }

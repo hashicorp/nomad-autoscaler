@@ -5,7 +5,6 @@ package policyeval
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -20,10 +19,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
 )
-
-// errTargetNotReady is used by a check handler to indicate the policy target
-// is not ready.
-var errTargetNotReady = errors.New("target not ready")
 
 // Worker is responsible for executing a policy evaluation request.
 type BaseWorker struct {
@@ -120,13 +115,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// Fetch target status.
 	logger.Debug("fetching current count")
 
-	currentStatus, err := w.runTargetStatus(targetInst, eval.Policy)
-	if err != nil {
-		return fmt.Errorf("failed to fetch current count: %v", err)
-	}
-	if !currentStatus.Ready {
-		return errTargetNotReady
-	}
+	currentStatus := eval.TargetStatus
 
 	// First make sure the target is within the policy limits.
 	// Return early after scaling since we already modified the target.
@@ -338,16 +327,6 @@ func (w *BaseWorker) scaleTarget(
 	// Enforce the cooldown after a successful scaling event.
 	w.policyManager.EnforceCooldown(policy.ID, policy.Cooldown)
 	return nil
-}
-
-// runTargetStatus wraps the target.Status call to provide operational
-// functionality.
-func (w *BaseWorker) runTargetStatus(targetImpl target.Target, policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
-	// Trigger a metric measure to track latency of the call.
-	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
-
-	return targetImpl.Status(policy.Target.Config)
 }
 
 // runTargetScale wraps the target.Scale call to provide operational

@@ -3,7 +3,6 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "ConsulToken": "",
     "CreateIndex": 238,
     "Datacenters": [
       "dc1"

@@ -33,10 +33,14 @@ type Manager struct {
 	// metricsInterval is the interval at which the agent is configured to emit
 	// metrics. This is used when creating the periodicMetricsReporter.
 	metricsInterval time.Duration
+
+	policyIDsCh    chan IDMessage
+	policyIDsErrCh chan error
 }
 
 // NewManager returns a new Manager.
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
+
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
 		policySource:    ps,
@@ -44,6 +48,8 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		handlers:        make(map[PolicyID]*Handler),
 		keep:            make(map[PolicyID]bool),
 		metricsInterval: mInt,
+		policyIDsCh:     make(chan IDMessage, 2),
+		policyIDsErrCh:  make(chan error, 2),
 	}
 }
 
@@ -51,57 +57,61 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 // Policies that need to be evaluated are sent in the evalCh.
 func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
 	defer m.stopHandlers()
-
-	policyIDsCh := make(chan IDMessage, 2)
-	policyIDsErrCh := make(chan error, 2)
-
-	// Create a separate context so we can stop the goroutine monitoring the
-	// list of policies independently from the parent context.
-	monitorCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	// Start the metrics reporter.
-	go m.periodicMetricsReporter(monitorCtx, m.metricsInterval)
+	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
-	// Start the policy source and listen for changes in the list of policy IDs
-	for _, s := range m.policySource {
-		m.log.Info("starting policy source", "source", s.Name())
-		req := MonitorIDsReq{ErrCh: policyIDsErrCh, ResultCh: policyIDsCh}
-		go s.MonitorIDs(monitorCtx, req)
+	for {
+		// Create a separate context so we can stop the goroutine monitoring the
+		// list of policies independently from the parent context.
+		monitorCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		// Start the policy source and listen for changes in the list of policy IDs
+		for _, s := range m.policySource {
+			m.log.Info("starting policy source", "source", s.Name())
+			req := MonitorIDsReq{ErrCh: m.policyIDsErrCh, ResultCh: m.policyIDsCh}
+			go s.MonitorIDs(monitorCtx, req)
+		}
+
+		err := m.start(ctx, evalCh)
+		if err == nil {
+			break
+		}
+		// If we reach this point it means an unrecoverable error happened.
+		// We should reset any internal state and re-run the policy manager.
+		m.log.Debug("re-starting policy manager")
+
+		// Explicitly stop the handlers and cancel the monitoring context instead
+		// of relying on the deferred statements, otherwise the next iteration of
+		// m.Run would be executed before they are complete.
+		m.stopHandlers()
+		cancel()
+
+		// Make sure we start the next iteration with an empty map of handlers.
+		m.lock.Lock()
+		m.handlers = make(map[PolicyID]*Handler)
+		m.lock.Unlock()
+
+		// Delay the next iteration of m.Run to avoid re-runs to start too often.
+		time.Sleep(10 * time.Second)
 	}
+}
 
+func (m *Manager) start(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
 	for {
 		select {
 		case <-ctx.Done():
 			m.log.Trace("stopping policy manager")
-			return
+			return nil
 
-		case err := <-policyIDsErrCh:
+		case err := <-m.policyIDsErrCh:
 			m.log.Error("encountered an error monitoring policy IDs", "error", err)
 			if isUnrecoverableError(err) {
-
-				// If we reach this point it means an unrecoverable error happened.
-				// We should reset any internal state and re-run the policy manager.
-				m.log.Debug("re-starting policy manager")
-
-				// Explicitly stop the handlers and cancel the monitoring context instead
-				// of relying on the deferred statements, otherwise the next iteration of
-				// m.Run would be executed before they are complete.
-				m.stopHandlers()
-				cancel()
-
-				// Make sure we start the next iteration with an empty map of handlers.
-				m.lock.Lock()
-				m.handlers = make(map[PolicyID]*Handler)
-				m.lock.Unlock()
-
-				// Delay the next iteration of m.Run to avoid re-runs to start too often.
-				time.Sleep(10 * time.Second)
-				go m.Run(ctx, evalCh)
+				return err
 			}
 			continue
 
-		case policyIDs := <-policyIDsCh:
+		case policyIDs := <-m.policyIDsCh:
 			m.log.Trace("received policy IDs listing",
 				"num", len(policyIDs.IDs), "policy_source", policyIDs.Source)
 

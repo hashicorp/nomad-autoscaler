@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
-	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
@@ -103,7 +102,7 @@ func (w *BaseWorker) getTargetStatus(policy *sdk.ScalingPolicy) (*sdk.TargetStat
 		return nil, err
 	}
 
-	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
+	targetInst, ok := targetPlugin.Plugin().(target.Target)
 	if !ok {
 		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetPlugin.Plugin())
 		return nil, err

@@ -16,7 +16,6 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
-	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -292,31 +291,6 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// stale, therefore return so that we do not send the eval this time and
 	// wait for the next tick.
 	return nil, nil
-}
-
-func (h *Handler) getTargetStatus(policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
-	// Dispense an instance of target plugin used by the policy.
-	targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, sdk.PluginTypeTarget)
-	if err != nil {
-		return nil, err
-	}
-
-	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
-	if !ok {
-		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetPlugin.Plugin())
-		return nil, err
-	}
-
-	// Get target status.
-	h.log.Trace("getting target status")
-
-	status, err := targetInst.Status(policy.Target.Config)
-	if err != nil {
-		h.log.Warn("failed to get target status", "error", err)
-		return nil, err
-	}
-
-	return status, nil
 }
 
 // updateHandler updates the handler's internal state based on the changes in

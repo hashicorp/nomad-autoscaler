@@ -73,7 +73,9 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			go s.MonitorIDs(monitorCtx, req)
 		}
 
-		err := m.start(ctx, evalCh)
+		// followPolicies is a blocking function that will only return without errors when
+		// the context is cancelled.
+		err := m.followPolicies(ctx, evalCh)
 		if err == nil {
 			break
 		}
@@ -97,7 +99,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	}
 }
 
-func (m *Manager) start(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
+func (m *Manager) followPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
 	for {
 		select {
 		case <-ctx.Done():

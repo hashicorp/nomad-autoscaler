@@ -13,7 +13,6 @@ import (
 func TestNewScalingEvaluation(t *testing.T) {
 	testCases := []struct {
 		inputScalingPolicy *ScalingPolicy
-		inputTargetStatus  *TargetStatus
 		expectedOutput     *ScalingEvaluation
 		name               string
 	}{
@@ -50,11 +49,6 @@ func TestNewScalingEvaluation(t *testing.T) {
 					Config: map[string]string{"type": "galaxy", "object": "ngc-4649"},
 				},
 			},
-			inputTargetStatus: &TargetStatus{
-				Ready: true,
-				Count: 57,
-				Meta:  map[string]string{"r-shift": "0.003726"},
-			},
 			expectedOutput: &ScalingEvaluation{
 				Policy: &ScalingPolicy{
 					ID:                 "test-test-test",
@@ -88,11 +82,7 @@ func TestNewScalingEvaluation(t *testing.T) {
 						Config: map[string]string{"type": "galaxy", "object": "ngc-4649"},
 					},
 				},
-				TargetStatus: &TargetStatus{
-					Ready: true,
-					Count: 57,
-					Meta:  map[string]string{"r-shift": "0.003726"},
-				},
+				TargetStatus: &TargetStatus{},
 				CheckEvaluations: []*ScalingCheckEvaluation{
 					{
 						Check: &ScalingPolicyCheck{
@@ -136,7 +126,7 @@ func TestNewScalingEvaluation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := NewScalingEvaluation(tc.inputScalingPolicy, tc.inputTargetStatus)
+			actualOutput := NewScalingEvaluation(tc.inputScalingPolicy)
 			assert.NotEmpty(t, actualOutput.ID)
 			assert.NotZero(t, actualOutput.CreateTime)
 			// Fill in randomly generated values

@@ -22,13 +22,13 @@ type ScalingEvaluation struct {
 // NewScalingEvaluation creates a new ScalingEvaluation based off the passed
 // policy and status. It is responsible for hydrating all the fields to a basic
 // level for safe usage throughout the scaling evaluation phase.
-func NewScalingEvaluation(p *ScalingPolicy, status *TargetStatus) *ScalingEvaluation {
+func NewScalingEvaluation(p *ScalingPolicy) *ScalingEvaluation {
 
 	// Create the base eval.
 	eval := ScalingEvaluation{
 		ID:           uuid.Generate(),
 		Policy:       p,
-		TargetStatus: status,
+		TargetStatus: &TargetStatus{},
 		CreateTime:   time.Now().UTC(),
 	}
 

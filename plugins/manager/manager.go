@@ -15,7 +15,11 @@ import (
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // PluginManager is the brains of the plugin operation and should be used to
@@ -341,4 +345,46 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	}
 
 	return pluginInfo, nil
+}
+
+func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.Target, error) {
+	// Dispense an instance of target plugin used by the policy.
+	targetPlugin, err := pm.Dispense(target.Name, sdk.PluginTypeTarget)
+	if err != nil {
+		return nil, err
+	}
+
+	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
+	if !ok {
+		err := fmt.Errorf("plugin %s (%T) is not a target plugin", target.Name, targetPlugin.Plugin())
+		return nil, err
+	}
+
+	return targetInst, nil
+}
+
+func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
+	// Dispense plugins.
+	apmPlugin, err := pm.Dispense(source, sdk.PluginTypeAPM)
+	if err != nil {
+		return nil, fmt.Errorf(`apm plugin "%s" not initialized: %v`, source, err)
+	}
+	apmInst, ok := apmPlugin.Plugin().(apm.APM)
+	if !ok {
+		return nil, fmt.Errorf(`"%s" is not an APM plugin`, source)
+	}
+	return apmInst, nil
+}
+
+func (pm *PluginManager) GetStrategy(name string) (strategy.Strategy, error) {
+	strategyPlugin, err := pm.Dispense(name, sdk.PluginTypeStrategy)
+	if err != nil {
+		return nil, fmt.Errorf(`strategy plugin "%s" not initialized: %v`, name, err)
+	}
+
+	strategyInst, ok := strategyPlugin.Plugin().(strategy.Strategy)
+	if !ok {
+		return nil, fmt.Errorf(`"%s" is not a strategy plugin`, name)
+	}
+	return strategyInst, nil
 }

@@ -5,6 +5,7 @@ package policyeval
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -15,10 +16,15 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
 )
+
+// errTargetNotReady is used by a check handler to indicate the policy target
+// is not ready.
+var errTargetNotReady = errors.New("target not ready")
 
 // Worker is responsible for executing a policy evaluation request.
 type BaseWorker struct {
@@ -88,6 +94,31 @@ func (w *BaseWorker) Run(ctx context.Context) {
 	}
 }
 
+// getTargetStatus wraps the target.Status call to provide operational
+// functionality.
+func (w *BaseWorker) getTargetStatus(policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
+	// Dispense an instance of target plugin used by the policy.
+	targetPlugin, err := w.pluginManager.Dispense(policy.Target.Name, sdk.PluginTypeTarget)
+	if err != nil {
+		return nil, err
+	}
+
+	targetInst, ok := targetPlugin.Plugin().(targetpkg.Target)
+	if !ok {
+		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetPlugin.Plugin())
+		return nil, err
+	}
+
+	// Get target status.
+	w.logger.Trace("getting target status")
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
+
+	return targetInst.Status(policy.Target.Config)
+}
+
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
 func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) error {
 
@@ -102,20 +133,19 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	logger := w.logger.With("policy_id", eval.Policy.ID, "target", eval.Policy.Target.Name)
 	logger.Debug("received policy for evaluation")
 
-	// Dispense taget plugin.
-	targetPlugin, err := w.pluginManager.Dispense(eval.Policy.Target.Name, sdk.PluginTypeTarget)
+	target, err := w.pluginManager.GetTarget(eval.Policy.Target)
 	if err != nil {
-		return fmt.Errorf(`target plugin "%s" not initialized: %v`, eval.Policy.Target.Name, err)
-	}
-	targetInst, ok := targetPlugin.Plugin().(target.Target)
-	if !ok {
-		return fmt.Errorf(`"%s" is not a target plugin`, eval.Policy.Target.Name)
+		return fmt.Errorf("failed to fetch current count: %v", err)
 	}
 
-	// Fetch target status.
-	logger.Debug("fetching current count")
+	currentStatus, err := target.Status(eval.Policy.Target.Config)
+	if err != nil {
+		return fmt.Errorf("failed to get target status: %v", err)
+	}
 
-	currentStatus := eval.TargetStatus
+	if !currentStatus.Ready {
+		return errTargetNotReady
+	}
 
 	// First make sure the target is within the policy limits.
 	// Return early after scaling since we already modified the target.
@@ -128,7 +158,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 			Reason:    reason,
 			Direction: sdk.ScaleDirectionUp,
 		}
-		return w.scaleTarget(logger, targetInst, eval.Policy, action, currentStatus)
+		return w.scaleTarget(logger, target, eval.Policy, action, currentStatus)
 	}
 	if currentStatus.Count > eval.Policy.Max {
 		reason := fmt.Sprintf("scaling down because current count %d is greater than policy max value of %d",
@@ -139,7 +169,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 			Reason:    reason,
 			Direction: sdk.ScaleDirectionDown,
 		}
-		return w.scaleTarget(logger, targetInst, eval.Policy, action, currentStatus)
+		return w.scaleTarget(logger, target, eval.Policy, action, currentStatus)
 	}
 
 	// Prepare handlers.
@@ -281,7 +311,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	default:
 	}
 
-	err = w.scaleTarget(logger, targetInst, eval.Policy, *winner.action, currentStatus)
+	err = w.scaleTarget(logger, target, eval.Policy, *winner.action, currentStatus)
 	if err != nil {
 		return err
 	}
@@ -365,26 +395,12 @@ func newCheckHandler(l hclog.Logger, p *sdk.ScalingPolicy, c *sdk.ScalingCheckEv
 func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatus) (*sdk.ScalingAction, error) {
 	h.logger.Debug("received policy check for evaluation")
 
-	var apmInst apm.APM
-	var strategyInst strategy.Strategy
+	var source apm.APM
+	var strategy strategy.Strategy
 
-	// Dispense plugins.
-	apmPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Source, sdk.PluginTypeAPM)
+	source, err := h.pluginManager.GetAPM(h.checkEval.Check.Source)
 	if err != nil {
-		return nil, fmt.Errorf(`apm plugin "%s" not initialized: %v`, h.checkEval.Check.Source, err)
-	}
-	apmInst, ok := apmPlugin.Plugin().(apm.APM)
-	if !ok {
-		return nil, fmt.Errorf(`"%s" is not an APM plugin`, h.checkEval.Check.Source)
-	}
-
-	strategyPlugin, err := h.pluginManager.Dispense(h.checkEval.Check.Strategy.Name, sdk.PluginTypeStrategy)
-	if err != nil {
-		return nil, fmt.Errorf(`strategy plugin "%s" not initialized: %v`, h.checkEval.Check.Strategy.Name, err)
-	}
-	strategyInst, ok = strategyPlugin.Plugin().(strategy.Strategy)
-	if !ok {
-		return nil, fmt.Errorf(`"%s" is not a strategy plugin`, h.checkEval.Check.Strategy.Name)
+		return nil, fmt.Errorf(`"%s" unable to get APM source`, h.checkEval.Check.Source)
 	}
 
 	// Query check's APM.
@@ -392,7 +408,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	apmQueryDoneCh := make(chan interface{})
 	go func() {
 		defer close(apmQueryDoneCh)
-		h.checkEval.Metrics, err = h.runAPMQuery(apmInst)
+		h.checkEval.Metrics, err = h.runAPMQuery(source)
 	}()
 
 	select {
@@ -424,8 +440,13 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	}
 
 	// Calculate new count using check's Strategy.
+	strategy, err = h.pluginManager.GetStrategy(h.checkEval.Check.Strategy.Name)
+	if err != nil {
+		return nil, fmt.Errorf(`"%s" unable to get strategy`, h.checkEval.Check.Strategy.Name)
+	}
+
 	h.logger.Debug("calculating new count", "count", currentStatus.Count)
-	runResp, err := h.runStrategyRun(strategyInst, currentStatus.Count)
+	runResp, err := h.runStrategyRun(strategy, currentStatus.Count)
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute strategy: %v", err)
 	}

@@ -215,11 +215,42 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// consistency.
 	curTime := time.Now().UTC().UnixNano()
 
-	eval, err := h.generateEvaluation(policy)
-	if err != nil {
-		return nil, err
+	// Exit early if the policy is not enabled.
+	if !policy.Enabled {
+		h.log.Debug("policy is not enabled")
+		return nil, nil
 	}
 
+	target, err := h.pluginManager.GetTarget(policy.Target)
+	if err != nil {
+		h.log.Warn("failed to get target", "error", err)
+		return nil, nil
+	}
+
+	status, err := target.Status(policy.Target.Config)
+	if err != nil {
+		h.log.Warn("failed to get target status", "error", err)
+		return nil, nil
+	}
+
+	// A nil status indicates the target doesn't exist, so we don't need to
+	// monitor the policy anymore.
+	if status == nil {
+		h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
+		h.Stop()
+		return nil, nil
+	}
+
+	// Exit early if the target is not ready yet.
+	if !status.Ready {
+		h.log.Trace("target is not ready")
+		return nil, nil
+	}
+
+	// Send policy for evaluation.
+	h.log.Trace("sending policy for evaluation")
+
+	eval := sdk.NewScalingEvaluation(policy)
 	// If the evaluation is nil there is nothing to be done this time
 	// around.
 	if eval == nil {
@@ -229,7 +260,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.
-	ts, ok := eval.TargetStatus.Meta[sdk.TargetStatusMetaKeyLastEvent]
+	ts, ok := status.Meta[sdk.TargetStatusMetaKeyLastEvent]
 	if !ok {
 		return eval, nil
 	}
@@ -263,16 +294,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	return nil, nil
 }
 
-// generateEvaluation returns an evaluation if the policy needs to be evaluated.
-// Returning an error will stop the handler.
-func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
-
-	// Exit early if the policy is not enabled.
-	if !policy.Enabled {
-		h.log.Debug("policy is not enabled")
-		return nil, nil
-	}
-
+func (h *Handler) getTargetStatus(policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
 	// Dispense an instance of target plugin used by the policy.
 	targetPlugin, err := h.pluginManager.Dispense(policy.Target.Name, sdk.PluginTypeTarget)
 	if err != nil {
@@ -291,26 +313,10 @@ func (h *Handler) generateEvaluation(policy *sdk.ScalingPolicy) (*sdk.ScalingEva
 	status, err := targetInst.Status(policy.Target.Config)
 	if err != nil {
 		h.log.Warn("failed to get target status", "error", err)
-		return nil, nil
+		return nil, err
 	}
 
-	// A nil status indicates the target doesn't exist, so we don't need to
-	// monitor the policy anymore.
-	if status == nil {
-		h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
-		h.Stop()
-		return nil, nil
-	}
-
-	// Exit early if the target is not ready yet.
-	if !status.Ready {
-		h.log.Trace("target is not ready")
-		return nil, nil
-	}
-
-	// Send policy for evaluation.
-	h.log.Trace("sending policy for evaluation")
-	return sdk.NewScalingEvaluation(policy, status), nil
+	return status, nil
 }
 
 // updateHandler updates the handler's internal state based on the changes in

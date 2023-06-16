@@ -31,7 +31,7 @@ func TestAgent_generateNomadClient(t *testing.T) {
 				},
 			},
 			expectedOutputEr: errors.New(`failed to instantiate Nomad client: invalid address '	': parse "\t": net/url: invalid control character in URL`),
-			name:             "invalid input Nomad address", //nolint
+			name:             "invalid input Nomad address",
 		},
 	}
 

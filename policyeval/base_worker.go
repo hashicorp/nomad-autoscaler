@@ -93,31 +93,6 @@ func (w *BaseWorker) Run(ctx context.Context) {
 	}
 }
 
-// getTargetStatus wraps the target.Status call to provide operational
-// functionality.
-func (w *BaseWorker) getTargetStatus(policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
-	// Dispense an instance of target plugin used by the policy.
-	targetPlugin, err := w.pluginManager.Dispense(policy.Target.Name, sdk.PluginTypeTarget)
-	if err != nil {
-		return nil, err
-	}
-
-	targetInst, ok := targetPlugin.Plugin().(target.Target)
-	if !ok {
-		err := fmt.Errorf("plugin %s (%T) is not a target plugin", policy.Target.Name, targetPlugin.Plugin())
-		return nil, err
-	}
-
-	// Get target status.
-	w.logger.Trace("getting target status")
-
-	// Trigger a metric measure to track latency of the call.
-	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
-
-	return targetInst.Status(policy.Target.Config)
-}
-
 // HandlePolicy evaluates a policy and execute a scaling action if necessary.
 func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) error {
 
@@ -137,7 +112,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 		return fmt.Errorf("failed to fetch current count: %v", err)
 	}
 
-	currentStatus, err := target.Status(eval.Policy.Target.Config)
+	currentStatus, err := runTargetStatus(target, eval.Policy)
 	if err != nil {
 		return fmt.Errorf("failed to get target status: %v", err)
 	}
@@ -338,7 +313,7 @@ func (w *BaseWorker) scaleTarget(
 			"reason", action.Reason, "meta", action.Meta)
 	}
 
-	err := w.runTargetScale(targetImpl, policy, action)
+	err := runTargetScale(targetImpl, policy, action)
 	if err != nil {
 		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
 			logger.Info("scaling action skipped", "reason", err)
@@ -358,9 +333,20 @@ func (w *BaseWorker) scaleTarget(
 	return nil
 }
 
+// runTargetStatus wraps the target.Status call to provide operational
+// functionality.
+func runTargetStatus(t target.Target, policy *sdk.ScalingPolicy) (*sdk.TargetStatus, error) {
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
+
+	return t.Status(policy.Target.Config)
+}
+
 // runTargetScale wraps the target.Scale call to provide operational
 // functionality.
-func (w *BaseWorker) runTargetScale(targetImpl target.Target, policy *sdk.ScalingPolicy, action sdk.ScalingAction) error {
+func runTargetScale(targetImpl target.Target, policy *sdk.ScalingPolicy, action sdk.ScalingAction) error {
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)

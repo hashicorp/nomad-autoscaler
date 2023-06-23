@@ -223,7 +223,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	target, err := h.pluginManager.GetTarget(policy.Target)
 	if err != nil {
 		h.log.Warn("failed to get target", "error", err)
-		return nil, nil
+		return nil, err
 	}
 
 	status, err := target.Status(policy.Target.Config)

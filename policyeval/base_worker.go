@@ -427,7 +427,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	// Calculate new count using check's Strategy.
 	strategy, err = h.pluginManager.GetStrategy(h.checkEval.Check.Strategy.Name)
 	if err != nil {
-		return nil, fmt.Errorf(`"%s" unable to get strategy`, h.checkEval.Check.Strategy.Name)
+		return nil, fmt.Errorf("failed to dispense strategy plugin: %v", err)
 	}
 
 	h.logger.Debug("calculating new count", "count", currentStatus.Count)

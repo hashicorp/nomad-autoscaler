@@ -99,7 +99,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	}
 }
 
-func (m *Manager) followPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
+func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
 	for {
 		select {
 		case <-ctx.Done():

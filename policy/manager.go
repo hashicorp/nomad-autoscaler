@@ -34,7 +34,12 @@ type Manager struct {
 	// metrics. This is used when creating the periodicMetricsReporter.
 	metricsInterval time.Duration
 
-	policyIDsCh    chan IDMessage
+	// policyIDsCh is used to report any changes on the list of policy IDs, it is passed
+	// down to the MonitorIDs functions.
+	policyIDsCh chan IDMessage
+	// policyIDsErrCh is used to report errors coming from the MonitorIDs function
+	// running on each policy source. It is passed down as part of the MonitorIDsReq
+	// along with policyIDsCh.
 	policyIDsErrCh chan error
 }
 
@@ -73,9 +78,9 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			go s.MonitorIDs(monitorCtx, req)
 		}
 
-		// followPolicies is a blocking function that will only return without errors when
+		// monitorPolicies is a blocking function that will only return without errors when
 		// the context is cancelled.
-		err := m.followPolicies(ctx, evalCh)
+		err := m.monitorPolicies(ctx, evalCh)
 		if err == nil {
 			break
 		}

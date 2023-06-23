@@ -82,7 +82,6 @@ func TestNewScalingEvaluation(t *testing.T) {
 						Config: map[string]string{"type": "galaxy", "object": "ngc-4649"},
 					},
 				},
-				TargetStatus: &TargetStatus{},
 				CheckEvaluations: []*ScalingCheckEvaluation{
 					{
 						Check: &ScalingPolicyCheck{

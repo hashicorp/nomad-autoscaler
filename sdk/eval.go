@@ -14,7 +14,6 @@ import (
 type ScalingEvaluation struct {
 	ID               string
 	Policy           *ScalingPolicy
-	TargetStatus     *TargetStatus
 	CheckEvaluations []*ScalingCheckEvaluation
 	CreateTime       time.Time
 }
@@ -26,10 +25,9 @@ func NewScalingEvaluation(p *ScalingPolicy) *ScalingEvaluation {
 
 	// Create the base eval.
 	eval := ScalingEvaluation{
-		ID:           uuid.Generate(),
-		Policy:       p,
-		TargetStatus: &TargetStatus{},
-		CreateTime:   time.Now().UTC(),
+		ID:         uuid.Generate(),
+		Policy:     p,
+		CreateTime: time.Now().UTC(),
 	}
 
 	// Iterate the policy checks and add then to the eval.

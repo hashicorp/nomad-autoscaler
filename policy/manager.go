@@ -84,6 +84,10 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		if err == nil {
 			break
 		}
+
+		// Make sure to cancel the monitor's context before starting a new iteration
+		cancel()
+
 		// If we reach this point it means an unrecoverable error happened.
 		// We should reset any internal state and re-run the policy manager.
 		m.log.Debug("re-starting policy manager")
@@ -92,7 +96,6 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		// of relying on the deferred statements, otherwise the next iteration of
 		// m.Run would be executed before they are complete.
 		m.stopHandlers()
-		cancel()
 
 		// Make sure we start the next iteration with an empty map of handlers.
 		m.lock.Lock()

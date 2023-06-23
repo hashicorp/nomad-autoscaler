@@ -385,7 +385,7 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 
 	source, err := h.pluginManager.GetAPM(h.checkEval.Check.Source)
 	if err != nil {
-		return nil, fmt.Errorf(`"%s" unable to get APM source`, h.checkEval.Check.Source)
+		return nil, fmt.Errorf("failed to dispense APM plugin: %v", err)
 	}
 
 	// Query check's APM.

@@ -14,7 +14,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.23.2
 	github.com/golang/protobuf v1.5.2
 	github.com/google/go-cmp v0.5.9
-	github.com/hashicorp/consul/api v1.8.0
 	github.com/hashicorp/go-hclog v0.16.0
 	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.1.1
@@ -44,6 +43,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.6 // indirect
 	github.com/aws/smithy-go v1.11.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.4.1 // indirect
+	github.com/hashicorp/go-uuid v1.0.1 // indirect
+	github.com/kr/pretty v0.2.0 // indirect
 	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53 // indirect
 )
 
@@ -82,7 +83,6 @@ require (
 	github.com/hashicorp/go-retryablehttp v0.5.3 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/serf v0.9.5 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect

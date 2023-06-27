@@ -141,7 +141,6 @@
       "Meta": {
         "sleep": "360"
       },
-      "ConsulToken": "",
       "VaultToken": "",
       "VaultNamespace": "",
       "NomadTokenID": "",

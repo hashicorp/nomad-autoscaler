@@ -3,8 +3,6 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "ConsulNamespace": "",
-    "ConsulToken": "",
     "CreateIndex": 195,
     "Datacenters": [
       "dc1"
@@ -37,9 +35,6 @@
       {
         "Affinities": null,
         "Constraints": null,
-        "Consul": {
-          "Namespace": ""
-        },
         "Count": 2,
         "EphemeralDisk": {
           "Migrate": false,

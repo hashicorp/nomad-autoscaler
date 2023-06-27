@@ -134,7 +134,6 @@
       "Dispatched": false,
       "Payload": null,
       "Meta": null,
-      "ConsulToken": "",
       "VaultToken": "",
       "VaultNamespace": "",
       "NomadTokenID": "",
@@ -487,7 +486,6 @@
       "Dispatched": false,
       "Payload": null,
       "Meta": null,
-      "ConsulToken": "",
       "VaultToken": "",
       "VaultNamespace": "",
       "NomadTokenID": "",
@@ -822,7 +820,6 @@
       "Meta": {
         "sleep": "360"
       },
-      "ConsulToken": "",
       "VaultToken": "",
       "VaultNamespace": "",
       "NomadTokenID": "",

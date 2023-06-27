@@ -19,3 +19,6 @@ plugins/test/noop-*/noop-*
 example.nomad.hcl
 spec.hcl
 config.hcl
+
+# IDE config files
+.vscode/

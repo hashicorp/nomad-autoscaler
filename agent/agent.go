@@ -11,7 +11,6 @@ import (
 	"syscall"
 
 	metrics "github.com/armon/go-metrics"
-	consulapi "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
@@ -29,7 +28,6 @@ type Agent struct {
 	config        *config.Agent
 	configPaths   []string
 	nomadClient   *api.Client
-	consulClient  *consulapi.Client
 	pluginManager *manager.PluginManager
 	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
@@ -60,11 +58,6 @@ func (a *Agent) Run() error {
 
 	// Generate the Nomad client.
 	if err := a.generateNomadClient(); err != nil {
-		return err
-	}
-
-	// Generate the Consul client
-	if err := a.generateConsulClient(); err != nil {
 		return err
 	}
 
@@ -199,28 +192,6 @@ func (a *Agent) generateNomadClient() error {
 	return nil
 }
 
-// generateConsulClient creates a Consul client for use within the agent.
-func (a *Agent) generateConsulClient() error {
-	if a.config.Consul == nil {
-		a.consulClient = nil
-		return nil
-	}
-
-	cfg, err := a.config.Consul.MergeWithDefault()
-	if err != nil {
-		return fmt.Errorf("error generating Consul client config: %v", err)
-	}
-
-	// Generate the Consul client.
-	client, err := consulapi.NewClient(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to instantiate Consul client: %v", err)
-	}
-	a.consulClient = client
-
-	return nil
-}
-
 // reload triggers the reload of sub-routines based on the operator sending a
 // SIGHUP signal to the agent.
 func (a *Agent) reload() {
@@ -239,11 +210,6 @@ func (a *Agent) reload() {
 	a.nomadCfg = nomadHelper.MergeDefaultWithAgentConfig(newCfg.Nomad)
 
 	if err := a.generateNomadClient(); err != nil {
-		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
-		os.Exit(1)
-	}
-
-	if err := a.generateConsulClient(); err != nil {
 		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
 		os.Exit(1)
 	}

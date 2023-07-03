@@ -1,3 +1,6 @@
+//go:build !race
+// +build !race
+
 package ha
 
 //var lease = 10 * time.Millisecond

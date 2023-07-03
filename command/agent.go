@@ -4,6 +4,7 @@
 package command
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"sort"
@@ -335,7 +336,9 @@ func (c *AgentCommand) Run(args []string) int {
 	go c.httpServer.Start()
 	defer c.httpServer.Stop()
 
-	if err := c.agent.Run(); err != nil {
+	ctx := context.Background()
+
+	if err := c.agent.Run(ctx); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}

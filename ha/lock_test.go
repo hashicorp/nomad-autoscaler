@@ -6,11 +6,15 @@ package ha
 //	locked        bool
 //	acquiresCalls map[string]int
 //	renewsCounter int
+//	mu            sync.Mutex
 //
 //	leaseStartTime time.Time
 //}
 //
 //func (ml *mockLock) Acquire(_ context.Context, callerID string) (string, error) {
+//	ml.mu.Lock()
+//	defer ml.mu.Unlock()
+//
 //	ml.acquiresCalls[callerID] += 1
 //	if ml.locked {
 //		return "", nil
@@ -22,6 +26,9 @@ package ha
 //}
 //
 //func (ml *mockLock) Release(_ context.Context) error {
+//	ml.mu.Lock()
+//	defer ml.mu.Unlock()
+//
 //	if !ml.locked {
 //		return errors.New("error")
 //	}
@@ -35,11 +42,14 @@ package ha
 //// the lock work, its intended to test the behavior of the
 //// multiple instances running.
 //func (ml *mockLock) Renew(_ context.Context) error {
+//	ml.mu.Lock()
+//	defer ml.mu.Unlock()
+//
 //	if !ml.locked {
 //		return errors.New("error")
 //	}
 //
-//	if time.Now().Sub(ml.leaseStartTime) > lease {
+//	if time.Since(ml.leaseStartTime) > lease {
 //		ml.locked = false
 //		return errors.New("lease lost")
 //	}
@@ -52,10 +62,14 @@ package ha
 //type mockService struct {
 //	startsCounter int
 //	starterID     string
+//	mu            sync.Mutex
 //}
 //
 //func (ms *mockService) Run(callerID string, ctx context.Context) func(ctx context.Context) {
 //	return func(ctx context.Context) {
+//		ms.mu.Lock()
+//		defer ms.mu.Unlock()
+//
 //		ms.startsCounter += 1
 //		ms.starterID = callerID
 //
@@ -94,7 +108,7 @@ package ha
 //		logger:        testlog.HCLogger(t),
 //		renewalPeriod: time.Duration(float64(lease) * renewalFactor),
 //		waitPeriod:    time.Duration(float64(lease) * waitFactor),
-//		randomDelay:   5 * time.Millisecond,
+//		randomDelay:   6 * time.Millisecond,
 //	}
 //
 //	must.False(t, l.locked)

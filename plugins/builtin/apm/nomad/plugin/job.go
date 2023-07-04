@@ -79,7 +79,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 		// does not vary between allocations.
 		allocatedCPU, err := a.getAllocatedCPUForTaskGroup(query.job, query.group)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get total alloctaed CPU for taskgroup: %v", err)
+			return nil, fmt.Errorf("failed to get total allocated CPU for taskgroup: %v", err)
 		}
 
 		// Create the metric function now that the total allocated CPU is known

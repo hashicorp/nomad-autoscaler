@@ -49,11 +49,11 @@ func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent
 	}
 }
 
-func (a *Agent) Run() error {
+func (a *Agent) Run(ctx context.Context) error {
 	defer a.stop()
 
 	// Create context to handle propagation to downstream routines.
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	// Generate the Nomad client.

@@ -368,7 +368,7 @@ func (ml *mockLock) Release(_ context.Context) error {
 	defer ml.mu.Unlock()
 
 	if !ml.locked {
-		return errors.New("error")
+		return errors.New("lock not locked")
 	}
 
 	ml.locked = false

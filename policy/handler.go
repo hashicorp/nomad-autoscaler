@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	metrics "github.com/armon/go-metrics"
 	"github.com/google/go-cmp/cmp"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
@@ -228,6 +229,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 
 	status, err := target.Status(policy.Target.Config)
 	if err != nil {
+		metrics.IncrCounter([]string{"policy", "target_status", "failure_count"}, 1)
 		h.log.Warn("failed to get target status", "error", err)
 		return nil, err
 	}

@@ -116,6 +116,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 		case err := <-m.policyIDsErrCh:
 			m.log.Error("encountered an error monitoring policy IDs", "error", err)
+			metrics.IncrCounter([]string{"policy", "monitor", "failure_count"}, 1)
 			if isUnrecoverableError(err) {
 				return err
 			}

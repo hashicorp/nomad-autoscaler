@@ -360,7 +360,7 @@ func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.T
 		return nil, err
 	}
 
-	return targetInst, nil
+	return targetpkg.NewTelemetryTarget(target.Name, targetInst), nil
 }
 
 func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {

@@ -21,7 +21,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.10.0
 	github.com/hashicorp/nomad/api v0.0.0-20230505125014-3d63bc62b35c
 	github.com/mitchellh/cli v1.1.2
-	github.com/mitchellh/copystructure v1.1.2
+	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/client_golang v1.12.2
 	github.com/prometheus/common v0.32.1
@@ -92,7 +92,7 @@ require (
 	github.com/mitchellh/go-testing-interface v1.14.1 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
-	github.com/mitchellh/reflectwalk v1.0.1 // indirect
+	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/oklog/run v1.0.0 // indirect

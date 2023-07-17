@@ -33,11 +33,6 @@ require (
 )
 
 require (
-	github.com/kr/text v0.2.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
-)
-
-require (
 	cloud.google.com/go/compute v1.15.1 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
@@ -90,6 +85,7 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/kr/text v0.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
@@ -105,6 +101,7 @@ require (
 	github.com/posener/complete v1.2.3 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
 	github.com/zclconf/go-cty v1.8.2 // indirect
 	go.opencensus.io v0.24.0 // indirect

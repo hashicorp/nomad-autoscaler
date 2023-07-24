@@ -23,7 +23,7 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			inputQuery: "node_percentage-allocated_memory/high-memory/class",
 			expectedOutputQuery: &nodePoolQuery{
 				metric:         "memory",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory"),
+				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory", false),
 				operation:      "percentage-allocated",
 			},
 			expectError: nil,
@@ -33,7 +33,7 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			inputQuery: "node_percentage-allocated_cpu/high-compute/class",
 			expectedOutputQuery: &nodePoolQuery{
 				metric:         "cpu",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-compute"),
+				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-compute", false),
 				operation:      "percentage-allocated",
 			},
 			expectError: nil,

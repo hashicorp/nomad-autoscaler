@@ -5,9 +5,14 @@ package nodepool
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
+)
+
+const (
+	defaultignoreDrainingNodes = false
 )
 
 // ClusterNodePoolIdentifier is the interface that defines how nodes are
@@ -34,19 +39,30 @@ func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentif
 	class, hasClass := cfg[sdk.TargetConfigKeyClass]
 	dc, hasDC := cfg[sdk.TargetConfigKeyDatacenter]
 
+	ignoreDrainingNodes := defaultignoreDrainingNodes
+
+	if ignoreDrainingNodesString, ok := cfg[sdk.TargetIgnoreDrainingNodes]; ok {
+		idn, err := strconv.ParseBool(ignoreDrainingNodesString)
+		if err != nil {
+			return nil, fmt.Errorf("node pool identification method required")
+		} else {
+			ignoreDrainingNodes = idn
+		}
+	}
+
 	switch {
 	case hasClass && hasDC:
 		return NewCombinedClusterPoolIdentifier(
 			[]ClusterNodePoolIdentifier{
-				NewNodeClassPoolIdentifier(class),
-				NewNodeDatacenterPoolIdentifier(dc),
+				NewNodeClassPoolIdentifier(class, ignoreDrainingNodes),
+				NewNodeDatacenterPoolIdentifier(dc, ignoreDrainingNodes),
 			},
 			CombinedClusterPoolIdentifierAnd,
 		), nil
 	case hasClass:
-		return NewNodeClassPoolIdentifier(class), nil
+		return NewNodeClassPoolIdentifier(class, ignoreDrainingNodes), nil
 	case hasDC:
-		return NewNodeDatacenterPoolIdentifier(dc), nil
+		return NewNodeDatacenterPoolIdentifier(dc, ignoreDrainingNodes), nil
 	}
 
 	return nil, fmt.Errorf("node pool identification method required")

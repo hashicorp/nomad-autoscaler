@@ -170,7 +170,7 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 	}
 
 	query := nodePoolQuery{
-		poolIdentifier: nodepool.NewNodeClassPoolIdentifier(mainParts[1]),
+		poolIdentifier: nodepool.NewNodeClassPoolIdentifier(mainParts[1], false),
 	}
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)

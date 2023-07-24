@@ -27,7 +27,7 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 			name: "single identifier",
 			identifier: NewCombinedClusterPoolIdentifier(
 				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
+					NewNodeClassPoolIdentifier("test-class", false),
 				},
 				CombinedClusterPoolIdentifierAnd,
 			),
@@ -37,8 +37,8 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 			name: "multiple identifiers with and",
 			identifier: NewCombinedClusterPoolIdentifier(
 				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
+					NewNodeClassPoolIdentifier("test-class", false),
+					NewNodeDatacenterPoolIdentifier("test-dc", false),
 					NewMockPoolIdentifier(),
 				},
 				CombinedClusterPoolIdentifierAnd,
@@ -49,8 +49,8 @@ func TestNewCombinedPoolIdentifier(t *testing.T) {
 			name: "multiple identifiers with or",
 			identifier: NewCombinedClusterPoolIdentifier(
 				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
+					NewNodeClassPoolIdentifier("test-class", false),
+					NewNodeDatacenterPoolIdentifier("test-dc", false),
 					NewMockPoolIdentifier(),
 				},
 				CombinedClusterPoolIdentifierOr,
@@ -78,8 +78,8 @@ func TestNewCombinedPoolIdentifier_NodeIsPoolMember(t *testing.T) {
 			name: "find node by class and datacenter",
 			identifier: NewCombinedClusterPoolIdentifier(
 				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
+					NewNodeClassPoolIdentifier("test-class", false),
+					NewNodeDatacenterPoolIdentifier("test-dc", false),
 				},
 				CombinedClusterPoolIdentifierAnd,
 			),
@@ -109,8 +109,8 @@ func TestNewCombinedPoolIdentifier_NodeIsPoolMember(t *testing.T) {
 			name: "find node by class or datacenter",
 			identifier: NewCombinedClusterPoolIdentifier(
 				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
+					NewNodeClassPoolIdentifier("test-class", false),
+					NewNodeDatacenterPoolIdentifier("test-dc", false),
 				},
 				CombinedClusterPoolIdentifierOr,
 			),

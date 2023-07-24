@@ -11,7 +11,7 @@ import (
 )
 
 func TestNewNodeDatacenterPoolIdentifier(t *testing.T) {
-	poolID := NewNodeDatacenterPoolIdentifier("eu-west-2a")
+	poolID := NewNodeDatacenterPoolIdentifier("eu-west-2a", false)
 	assert.Equal(t, "datacenter", poolID.Key())
 	assert.Equal(t, "eu-west-2a", poolID.Value())
 }
@@ -24,19 +24,19 @@ func TestNodeDatacenterClusterPoolIdentifier_NodeIsPoolMember(t *testing.T) {
 		name           string
 	}{
 		{
-			inputPI:        NewNodeDatacenterPoolIdentifier("dc1"),
+			inputPI:        NewNodeDatacenterPoolIdentifier("dc1", false),
 			inputNode:      &api.NodeListStub{Datacenter: "dc1"},
 			expectedOutput: true,
 			name:           "el classico dc1",
 		},
 		{
-			inputPI:        NewNodeDatacenterPoolIdentifier("dc1"),
+			inputPI:        NewNodeDatacenterPoolIdentifier("dc1", false),
 			inputNode:      &api.NodeListStub{Datacenter: "eu-west-2a"},
 			expectedOutput: false,
 			name:           "non-matching datacenter",
 		},
 		{
-			inputPI:        NewNodeDatacenterPoolIdentifier("eu-west-2a"),
+			inputPI:        NewNodeDatacenterPoolIdentifier("eu-west-2a", false),
 			inputNode:      &api.NodeListStub{Datacenter: "eu-west-2b"},
 			expectedOutput: false,
 			name:           "non-matching close",

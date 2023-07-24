@@ -90,6 +90,12 @@ const (
 	// option which dictates how the Nomad Autoscaler selects nodes when
 	// scaling in.
 	TargetConfigNodeSelectorStrategy = "node_selector_strategy"
+
+	// TargetIgnoreDrainingNodes is an optional config which can be used to
+	// ignore the nodes which are currently draining.
+	// This option is useful for example if there are long-running batch jobs on the node,
+	// and we want keep scaling while nodes are draining.
+	TargetIgnoreDrainingNodes = "ignore_draining_nodes"
 )
 
 const (

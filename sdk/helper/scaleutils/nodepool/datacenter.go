@@ -9,21 +9,26 @@ import (
 )
 
 type nodeDatacenterClusterPoolIdentifier struct {
-	id string
+	id                  string
+	ignoreDrainingNodes bool
 }
 
 // NewNodeDatacenterPoolIdentifier returns a new
 // nodeDatacenterClusterPoolIdentifier implementation of the
 // ClusterNodePoolIdentifier interface.
-func NewNodeDatacenterPoolIdentifier(id string) ClusterNodePoolIdentifier {
+func NewNodeDatacenterPoolIdentifier(id string, ignoreDrainingNodes bool) ClusterNodePoolIdentifier {
 	return &nodeDatacenterClusterPoolIdentifier{
-		id: id,
+		id:                  id,
+		ignoreDrainingNodes: ignoreDrainingNodes,
 	}
 }
 
 // IsPoolMember satisfies the IsPoolMember function on the
 // ClusterNodePoolIdentifier interface.
 func (n nodeDatacenterClusterPoolIdentifier) IsPoolMember(node *api.NodeListStub) bool {
+	if n.ignoreDrainingNodes {
+		return node.Datacenter == n.id && !node.Drain
+	}
 	return node.Datacenter == n.id
 }
 

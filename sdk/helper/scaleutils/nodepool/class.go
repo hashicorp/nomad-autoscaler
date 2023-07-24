@@ -16,22 +16,28 @@ const defaultClassIdentifier = "autoscaler-default-pool"
 // ClusterNodePoolIdentifier interface and filters Nomad nodes by their
 // Node.NodeClass parameter.
 type nodeClassClusterPoolIdentifier struct {
-	id string
+	id                  string
+	ignoreDrainingNodes bool
 }
 
 // NewNodeClassPoolIdentifier returns a new nodeClassClusterPoolIdentifier
 // implementation of the ClusterNodePoolIdentifier interface.
-func NewNodeClassPoolIdentifier(id string) ClusterNodePoolIdentifier {
+func NewNodeClassPoolIdentifier(id string, ignoreDrainingNodes bool) ClusterNodePoolIdentifier {
 	return &nodeClassClusterPoolIdentifier{
-		id: id,
+		id:                  id,
+		ignoreDrainingNodes: ignoreDrainingNodes,
 	}
 }
 
 // IsPoolMember satisfies the IsPoolMember function on the
 // ClusterNodePoolIdentifier interface.
 func (n nodeClassClusterPoolIdentifier) IsPoolMember(node *api.NodeListStub) bool {
-	return node.NodeClass != "" && node.NodeClass == n.id ||
-		node.NodeClass == "" && n.id == defaultClassIdentifier
+	isNodeClassMatch := node.NodeClass != "" && node.NodeClass == n.id
+	isNodeDefault := node.NodeClass == "" && n.id == defaultClassIdentifier
+	if n.ignoreDrainingNodes {
+		return (isNodeClassMatch || isNodeDefault) && !node.Drain
+	}
+	return isNodeClassMatch || isNodeDefault
 }
 
 // Key satisfies the Key function on the ClusterNodePoolIdentifier interface.

@@ -7,7 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.27
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/date v0.3.0
-	github.com/DataDog/datadog-api-client-go v1.14.0
+	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/armon/go-metrics v0.3.11
 	github.com/aws/aws-sdk-go-v2 v1.19.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.28
@@ -32,6 +32,8 @@ require (
 	google.golang.org/grpc v1.56.2
 	google.golang.org/protobuf v1.30.0
 )
+
+require github.com/DataDog/zstd v1.5.0 // indirect
 
 require (
 	cloud.google.com/go/compute v1.19.1 // indirect

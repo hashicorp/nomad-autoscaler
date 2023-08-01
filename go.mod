@@ -7,7 +7,7 @@ require (
 	github.com/Azure/go-autorest/autorest v0.11.27
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.12
 	github.com/Azure/go-autorest/autorest/date v0.3.0
-	github.com/DataDog/datadog-api-client-go v1.14.0
+	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/armon/go-metrics v0.3.11
 	github.com/aws/aws-sdk-go-v2 v1.20.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.28
@@ -44,6 +44,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/DataDog/datadog-go v3.6.0+incompatible // indirect
+	github.com/DataDog/zstd v1.5.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.2.1 // indirect

@@ -19,6 +19,7 @@ import (
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/version"
+	"github.com/hashicorp/nomad/api"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -338,7 +339,22 @@ func (c *AgentCommand) Run(args []string) int {
 
 	ctx := context.Background()
 
-	if err := c.agent.Run(ctx); err != nil {
+	asLock := api.Variable{
+		Path: "autoscaler/lock/",
+	}
+
+	// Generate the Nomad client.
+	if err := c.agent.GenerateNomadClient(); err != nil {
+		logger.Error("failed to start the nomad client", "error", err)
+		return 1
+	}
+
+	ll, err := c.agent.NomadClient.NewLockLeaser(api.WriteOptions{
+		Region:    parsedConfig.Nomad.Region,
+		Namespace: parsedConfig.Nomad.Region,
+	}, &asLock, 5*time.Minute, "")
+
+	if err := ll.Start(ctx, c.agent.Run); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}

@@ -36,10 +36,10 @@ func TestAgent_generateNomadClient(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		actualOutputErr := tc.inputAgent.generateNomadClient()
+		actualOutputErr := tc.inputAgent.GenerateNomadClient()
 		assert.Equal(t, tc.expectedOutputEr, actualOutputErr, tc.name)
 		if actualOutputErr == nil {
-			assert.Equal(t, tc.inputAgent.nomadCfg.Address, tc.inputAgent.nomadClient.Address(), tc.name)
+			assert.Equal(t, tc.inputAgent.nomadCfg.Address, tc.inputAgent.NomadClient.Address(), tc.name)
 		}
 	}
 }

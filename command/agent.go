@@ -339,8 +339,13 @@ func (c *AgentCommand) Run(args []string) int {
 
 	ctx := context.Background()
 
+	ttl := 5 * time.Minute
 	asLock := api.Variable{
 		Path: "autoscaler/lock/",
+		Lock: api.VariableLock{
+			TTL:       ttl.String(),
+			LockDelay: ttl.String(),
+		},
 	}
 
 	// Generate the Nomad client.
@@ -349,10 +354,17 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	ll, err := c.agent.NomadClient.NewLockLeaser(api.WriteOptions{
+	locker, err := c.agent.NomadClient.Locks(api.WriteOptions{
 		Region:    parsedConfig.Nomad.Region,
 		Namespace: parsedConfig.Nomad.Region,
-	}, &asLock, 5*time.Minute, "")
+	}, asLock)
+
+	if err != nil {
+		logger.Error("failed to start locker", "error", err)
+		return 1
+	}
+
+	ll := c.agent.NomadClient.NewLockLeaser(locker, "", ttl)
 
 	if err := ll.Start(ctx, c.agent.Run); err != nil {
 		logger.Error("failed to start agent", "error", err)

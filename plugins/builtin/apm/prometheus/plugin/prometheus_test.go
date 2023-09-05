@@ -5,7 +5,6 @@ package plugin
 
 import (
 	"encoding/pem"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -53,7 +52,7 @@ func TestAPMPlugin_roundTripperTLS(t *testing.T) {
 	defer server.Close()
 
 	// Write CA cert into a temporary file.
-	caCertFile, err := ioutil.TempFile("", "ca_cert*.pem")
+	caCertFile, err := os.CreateTemp("", "ca_cert*.pem")
 	require.NoError(t, err)
 	defer os.RemoveAll(caCertFile.Name())
 
@@ -61,7 +60,7 @@ func TestAPMPlugin_roundTripperTLS(t *testing.T) {
 	require.NoError(t, err)
 
 	// Write invalid CA cert into a temporary file.
-	invalidcaCertFile, err := ioutil.TempFile("", "ca_cert*.pem")
+	invalidcaCertFile, err := os.CreateTemp("", "ca_cert*.pem")
 	require.NoError(t, err)
 	defer os.RemoveAll(invalidcaCertFile.Name())
 

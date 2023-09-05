@@ -10,8 +10,8 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math"
+	"os"
 	"strconv"
 	"time"
 
@@ -172,7 +172,7 @@ func generateTLSConfig(config map[string]string) (*tls.Config, error) {
 	// Load the CA certificate if present.
 	caCertPath := config[configKeyCACert]
 	if caCertPath != "" {
-		caCert, err := ioutil.ReadFile(caCertPath)
+		caCert, err := os.ReadFile(caCertPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load CA certificate %s: %v", caCertPath, err)
 		}

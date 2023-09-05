@@ -18,9 +18,9 @@ type retryFunc func(ctx context.Context) (stop bool, err error)
 
 // retry will retry the passed function f until any of the following conditions
 // are met:
-//  - the function returns stop=true and err=nil
-//  - the retryAttempts limit is reached
-//  - the context is cancelled
+//   - the function returns stop=true and err=nil
+//   - the retryAttempts limit is reached
+//   - the context is cancelled
 func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, f retryFunc) error {
 
 	var (

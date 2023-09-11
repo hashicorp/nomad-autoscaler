@@ -63,6 +63,9 @@ type Agent struct {
 	// Telemetry is the configuration used to setup metrics collection.
 	Telemetry *Telemetry `hcl:"telemetry,block"`
 
+	// HighAvailability is the configuration used for the leader election.
+	HighAvailability *HighAvailability `hcl:"high_availability,block"`
+
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
@@ -269,6 +272,11 @@ type Telemetry struct {
 	CirconusBrokerSelectTag string `hcl:"circonus_broker_select_tag,optional"`
 }
 
+type HighAvailability struct {
+	Enable   bool   `hcl:"high_availability"`
+	LockPath string `hcl:"lock_path,optional"  json:"-"`
+}
+
 // Plugin is an individual configured plugin and holds all the required params
 // to successfully dispense the driver.
 type Plugin struct {
@@ -355,6 +363,10 @@ const (
 	// defaultPolicyWorkerAckTimeout is the default time limit that a policy
 	// eval must be ACK'd.
 	defaultPolicyEvalAckTimeout = 5 * time.Minute
+
+	// defaultLockPath is the default path used for the lock that syncs the leader
+	// election.
+	defaultLockPath = "autoscaler/lock"
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the
@@ -420,6 +432,10 @@ func Default() (*Agent, error) {
 		Targets: []*Plugin{
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
+		HighAvailability: &HighAvailability{
+			Enable:   false,
+			LockPath: defaultLockPath,
+		},
 	}, nil
 }
 
@@ -446,6 +462,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.DynamicApplicationSizing != nil {
 		result.DynamicApplicationSizing = result.DynamicApplicationSizing.merge(b.DynamicApplicationSizing)
+	}
+
+	if b.HighAvailability != nil {
+		result.HighAvailability = result.HighAvailability.merge(b.HighAvailability)
 	}
 
 	if b.HTTP != nil {
@@ -685,6 +705,23 @@ func (t *Telemetry) merge(b *Telemetry) *Telemetry {
 	}
 	if b.CirconusBrokerSelectTag != "" {
 		result.CirconusBrokerSelectTag = b.CirconusBrokerSelectTag
+	}
+
+	return &result
+}
+
+func (ha *HighAvailability) merge(b *HighAvailability) *HighAvailability {
+	if ha == nil {
+		return b
+	}
+
+	result := *ha
+	if b.Enable {
+		result.Enable = b.Enable
+	}
+
+	if b.LockPath != "" {
+		result.LockPath = b.LockPath
 	}
 
 	return &result

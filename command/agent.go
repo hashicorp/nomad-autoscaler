@@ -260,6 +260,18 @@ Telemetry Options:
   -telemetry-circonus-broker-select-tag
     A tag which is used to select a broker ID when an explicit broker ID is not
     provided.
+  
+High Availability Options:
+  -high-availability
+	On cases when multiple instances of the autoscaler need to be run at the same
+	time, the high-availability option triggers a leader election using a lock 
+	for sync among the different lock instances. It defaults to false.
+  
+  -lock-path
+    When using the high-availability mode, the path to the lock to be used for the
+	leader election can be provided using the lock-path flag. The same path must 
+	be provided to every instance of the autoscaler in order to be included in the 
+	election.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -345,30 +357,37 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	ttl := 5 * time.Minute
-	asLock := api.Variable{
-		Path: "autoscaler/lock/",
-		Lock: &api.VariableLock{
-			TTL:       ttl.String(),
-			LockDelay: ttl.String(),
-		},
+	if parsedConfig.HighAvailability.Enable {
+		logger.Info("Running on ha mode")
+		ttl := 5 * time.Minute
+		asLock := api.Variable{
+			Path: "autoscaler/lock/",
+			Lock: &api.VariableLock{
+				TTL:       ttl.String(),
+				LockDelay: ttl.String(),
+			},
+		}
+
+		locker, err := c.agent.NomadClient.Locks(api.WriteOptions{}, asLock)
+		if err != nil {
+			logger.Error("failed to start locker", "error", err)
+			return 1
+		}
+
+		ll := c.agent.NomadClient.NewLockLeaser(locker)
+		if err := ll.Start(ctx, c.agent.Run); err != nil {
+			logger.Error("failed to start agent", "error", err)
+			return 1
+		}
+
+		return 0
 	}
 
-	locker, err := c.agent.NomadClient.Locks(api.WriteOptions{
-		Region:    parsedConfig.Nomad.Region,
-		Namespace: parsedConfig.Nomad.Region,
-	}, asLock)
-	if err != nil {
-		logger.Error("failed to start locker", "error", err)
-		return 1
-	}
-
-	ll := c.agent.NomadClient.NewLockLeaser(locker, "")
-
-	if err := ll.Start(ctx, c.agent.Run); err != nil {
+	if err := c.agent.Run(ctx); err != nil {
 		logger.Error("failed to start agent", "error", err)
 		return 1
 	}
+
 	return 0
 }
 
@@ -383,8 +402,9 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		Policy: &config.Policy{
 			Sources: []*config.PolicySource{},
 		},
-		PolicyEval: &config.PolicyEval{},
-		Telemetry:  &config.Telemetry{},
+		PolicyEval:       &config.PolicyEval{},
+		Telemetry:        &config.Telemetry{},
+		HighAvailability: &config.HighAvailability{},
 	}
 
 	var disableFileSource bool
@@ -506,6 +526,10 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusCheckDisplayName, "telemetry-circonus-check-display-name", "", "")
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerID, "telemetry-circonus-broker-id", "", "")
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
+
+	// Specify our High Availability flags.
+	flags.BoolVar(&cmdConfig.HighAvailability.Enable, "high-availability", false, "")
+	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "lock-path", "", "")
 
 	if err := flags.Parse(c.args); err != nil {
 		return nil, configPath

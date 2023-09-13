@@ -175,7 +175,7 @@ func (a *Agent) stop() {
 	}
 }
 
-// generateNomadClient creates a Nomad client for use within the agent.
+// GenerateNomadClient creates a Nomad client for use within the agent.
 func (a *Agent) GenerateNomadClient() error {
 
 	// Generate the Nomad client.

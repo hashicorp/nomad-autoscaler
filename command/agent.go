@@ -358,7 +358,7 @@ func (c *AgentCommand) Run(args []string) int {
 	}
 
 	if parsedConfig.HighAvailability.Enable {
-		logger.Info("Running on ha mode")
+		logger.Info("running in HA mode")
 		ttl := 5 * time.Minute
 		asLock := api.Variable{
 			Path: "autoscaler/lock/",

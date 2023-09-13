@@ -273,7 +273,7 @@ type Telemetry struct {
 }
 
 type HighAvailability struct {
-	Enabled   bool          `hcl:"enabled"`
+	Enabled   *bool         `hcl:"enabled"`
 	LockPath  string        `hcl:"path,optional"  json:"-"`
 	LockTTL   time.Duration `hcl:"ttl,optional"  json:"-"`
 	LockDelay time.Duration `hcl:"delay,optional"  json:"-"`
@@ -441,7 +441,7 @@ func Default() (*Agent, error) {
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:   false,
+			Enabled:   ptr.BoolToPtr(false),
 			LockPath:  defaultLockPath,
 			LockTTL:   defaultLockTTL,
 			LockDelay: defaultLockDelay,
@@ -721,12 +721,13 @@ func (t *Telemetry) merge(b *Telemetry) *Telemetry {
 }
 
 func (ha *HighAvailability) merge(b *HighAvailability) *HighAvailability {
+
 	if ha == nil {
 		return b
 	}
 
 	result := *ha
-	if b.Enabled {
+	if b.Enabled != nil {
 		result.Enabled = b.Enabled
 	}
 

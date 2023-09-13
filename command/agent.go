@@ -357,7 +357,7 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	switch parsedConfig.HighAvailability.Enabled {
+	switch *parsedConfig.HighAvailability.Enabled {
 	case true:
 		logger.Info("running in HA mode with lock path %s, lock TTL %v and lock delay %v",
 			parsedConfig.HighAvailability.LockPath,
@@ -413,6 +413,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	var disableFileSource bool
 	var disableNomadSource bool
+	var enableHighAvailability bool
 
 	modeChecker := config.NewModeChecker()
 
@@ -532,8 +533,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
 	// Specify our High Availability flags.
-	flags.BoolVar(&cmdConfig.HighAvailability.Enabled, "high-availability", false, "")
-	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
+	flags.BoolVar(&enableHighAvailability, "high-availability-enabled", false, "")
 	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
 	flags.DurationVar(&cmdConfig.HighAvailability.LockTTL, "high-availability-lock-ttl", 0, "")
 	flags.DurationVar(&cmdConfig.HighAvailability.LockDelay, "high-availability-lock-delay", 0, "")
@@ -560,6 +560,9 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		})
 	}
 
+	if enableHighAvailability {
+		cmdConfig.HighAvailability.Enabled = ptr.BoolToPtr(true)
+	}
 	// Validate config values from flags.
 	if err := cmdConfig.Validate(); err != nil {
 		fmt.Printf("%s\n", err)

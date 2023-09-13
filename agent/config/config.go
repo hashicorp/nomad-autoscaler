@@ -366,7 +366,7 @@ const (
 
 	// defaultLockPath is the default path used for the lock that syncs the leader
 	// election.
-	defaultLockPath = "autoscaler/lock"
+	defaultLockPath = "nomad-autoscaler/lock"
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the

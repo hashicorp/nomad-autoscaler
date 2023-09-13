@@ -262,12 +262,12 @@ Telemetry Options:
     provided.
   
 High Availability Options:
-  -high-availability
+  -high-availability-enabled
 	On cases when multiple instances of the autoscaler need to be run at the same
 	time, the high-availability option triggers a leader election using a lock 
 	for sync among the different lock instances. It defaults to false.
   
-  -lock-path
+  -high-availability-lock-path
     When using the high-availability mode, the path to the lock to be used for the
 	leader election can be provided using the lock-path flag. The same path must 
 	be provided to every instance of the autoscaler in order to be included in the 
@@ -357,14 +357,19 @@ func (c *AgentCommand) Run(args []string) int {
 		return 1
 	}
 
-	if parsedConfig.HighAvailability.Enable {
-		logger.Info("running in HA mode")
-		ttl := 5 * time.Minute
+	switch parsedConfig.HighAvailability.Enabled {
+	case true:
+		logger.Info("running in HA mode with lock path %s, lock TTL %v and lock delay %v",
+			parsedConfig.HighAvailability.LockPath,
+			parsedConfig.HighAvailability.LockTTL,
+			parsedConfig.HighAvailability.LockDelay,
+		)
+
 		asLock := api.Variable{
-			Path: "autoscaler/lock/",
+			Path: parsedConfig.HighAvailability.LockPath,
 			Lock: &api.VariableLock{
-				TTL:       ttl.String(),
-				LockDelay: ttl.String(),
+				TTL:       parsedConfig.HighAvailability.LockTTL.String(),
+				LockDelay: parsedConfig.HighAvailability.LockDelay.String(),
 			},
 		}
 
@@ -380,12 +385,11 @@ func (c *AgentCommand) Run(args []string) int {
 			return 1
 		}
 
-		return 0
-	}
-
-	if err := c.agent.Run(ctx); err != nil {
-		logger.Error("failed to start agent", "error", err)
-		return 1
+	default:
+		if err := c.agent.Run(ctx); err != nil {
+			logger.Error("failed to start agent", "error", err)
+			return 1
+		}
 	}
 
 	return 0
@@ -528,8 +532,11 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
 	// Specify our High Availability flags.
-	flags.BoolVar(&cmdConfig.HighAvailability.Enable, "high-availability", false, "")
-	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "lock-path", "", "")
+	flags.BoolVar(&cmdConfig.HighAvailability.Enabled, "high-availability", false, "")
+	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
+	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
+	flags.DurationVar(&cmdConfig.HighAvailability.LockTTL, "high-availability-lock-ttl", 0, "")
+	flags.DurationVar(&cmdConfig.HighAvailability.LockDelay, "high-availability-lock-delay", 0, "")
 
 	if err := flags.Parse(c.args); err != nil {
 		return nil, configPath

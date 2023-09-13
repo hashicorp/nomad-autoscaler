@@ -273,8 +273,10 @@ type Telemetry struct {
 }
 
 type HighAvailability struct {
-	Enable   bool   `hcl:"high_availability"`
-	LockPath string `hcl:"lock_path,optional"  json:"-"`
+	Enabled   bool          `hcl:"enabled"`
+	LockPath  string        `hcl:"path,optional"  json:"-"`
+	LockTTL   time.Duration `hcl:"ttl,optional"  json:"-"`
+	LockDelay time.Duration `hcl:"delay,optional"  json:"-"`
 }
 
 // Plugin is an individual configured plugin and holds all the required params
@@ -367,6 +369,12 @@ const (
 	// defaultLockPath is the default path used for the lock that syncs the leader
 	// election.
 	defaultLockPath = "nomad-autoscaler/lock"
+	// defaultLockTTL is the default ttl used for the lock that syncs the leader
+	// election.
+	defaultLockTTL = 5 * time.Minute
+	// defaultLockDelay is the default lockDelay used for the lock that syncs the leader
+	// election.
+	defaultLockDelay = 5 * time.Minute
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the
@@ -433,8 +441,10 @@ func Default() (*Agent, error) {
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
 		HighAvailability: &HighAvailability{
-			Enable:   false,
-			LockPath: defaultLockPath,
+			Enabled:   false,
+			LockPath:  defaultLockPath,
+			LockTTL:   defaultLockTTL,
+			LockDelay: defaultLockDelay,
 		},
 	}, nil
 }
@@ -716,12 +726,20 @@ func (ha *HighAvailability) merge(b *HighAvailability) *HighAvailability {
 	}
 
 	result := *ha
-	if b.Enable {
-		result.Enable = b.Enable
+	if b.Enabled {
+		result.Enabled = b.Enabled
 	}
 
 	if b.LockPath != "" {
 		result.LockPath = b.LockPath
+	}
+
+	if b.LockTTL != 0 {
+		result.LockTTL = b.LockTTL
+	}
+
+	if b.LockDelay != 0 {
+		result.LockDelay = b.LockDelay
 	}
 
 	return &result

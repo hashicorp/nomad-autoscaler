@@ -273,10 +273,25 @@ type Telemetry struct {
 }
 
 type HighAvailability struct {
-	Enabled   *bool         `hcl:"enabled"`
-	LockPath  string        `hcl:"path,optional"  json:"-"`
-	LockTTL   time.Duration `hcl:"ttl,optional"  json:"-"`
-	LockDelay time.Duration `hcl:"delay,optional"  json:"-"`
+	// Enable starts the agent in high availability mode, where the agent instance
+	// attempts to hold a lock over a variable and will only execute if the lock
+	// is successfully acquired.
+	Enabled *bool `hcl:"enabled"`
+
+	// LockPath defines the path of the variable that will be used to sync the
+	// leader when running on high availability mode.
+	LockPath string `hcl:"path,optional" json:"-"`
+
+	// Lock ttl defines the lease period or ttl of the lock used to sync the
+	// leader when running on high availability mode.
+	LockTTLHCL string `hcl:"ttl,optional" json:"-"`
+	LockTTL    time.Duration
+
+	// Lock delay defines the period the lock used used to sync the
+	// leader when running on high availability mode will be unattainable if its
+	// not renewed or release properly.
+	LockDelayHCL string `hcl:"delay,optional" json:"-"`
+	LockDelay    time.Duration
 }
 
 // Plugin is an individual configured plugin and holds all the required params
@@ -1043,6 +1058,23 @@ func parseFile(file string, cfg *Agent) error {
 
 		if cfg.PolicyEval.DeliveryLimitPtr != nil {
 			cfg.PolicyEval.DeliveryLimit = *cfg.PolicyEval.DeliveryLimitPtr
+		}
+	}
+
+	if cfg.HighAvailability != nil {
+		if cfg.HighAvailability.LockDelayHCL != "" {
+			d, err := time.ParseDuration(cfg.HighAvailability.LockDelayHCL)
+			if err != nil {
+				return err
+			}
+			cfg.HighAvailability.LockDelay = d
+		}
+		if cfg.HighAvailability.LockTTLHCL != "" {
+			d, err := time.ParseDuration(cfg.HighAvailability.LockTTLHCL)
+			if err != nil {
+				return err
+			}
+			cfg.HighAvailability.LockTTL = d
 		}
 	}
 

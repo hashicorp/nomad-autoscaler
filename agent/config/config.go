@@ -386,10 +386,10 @@ const (
 	defaultLockPath = "nomad-autoscaler/lock"
 	// defaultLockTTL is the default ttl used for the lock that syncs the leader
 	// election.
-	defaultLockTTL = 5 * time.Minute
+	defaultLockTTL = 60 * time.Second
 	// defaultLockDelay is the default lockDelay used for the lock that syncs the leader
 	// election.
-	defaultLockDelay = 5 * time.Minute
+	defaultLockDelay = 30 * time.Second
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the

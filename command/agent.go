@@ -269,9 +269,17 @@ High Availability Options:
   
   -high-availability-lock-path
     When using the high-availability mode, the path to the lock to be used for the
-	leader election can be provided using the lock-path flag. The same path must 
-	be provided to every instance of the autoscaler in order to be included in the 
-	election.
+	leader election can be provided using the high-availability-lock-path flag. 
+	The same path must be provided to every instance of the autoscaler in order 
+	to be included in the election.
+
+  -high-availability-lock-ttl
+    When using the high-availability mode, the TTL for the lock to be used for the
+	leader election can be provided using the high-availability-lock-ttl flag.
+
+  -high-availability-lock-delay
+    When using the high-availability mode, the delay for the lock to be used for the
+	leader election can be provided using the high-availability-lock-delay flag.
 `
 	return strings.TrimSpace(helpText)
 }

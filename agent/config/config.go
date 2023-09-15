@@ -63,6 +63,9 @@ type Agent struct {
 	// Telemetry is the configuration used to setup metrics collection.
 	Telemetry *Telemetry `hcl:"telemetry,block"`
 
+	// HighAvailability is the configuration used for the leader election.
+	HighAvailability *HighAvailability `hcl:"high_availability,block"`
+
 	APMs       []*Plugin `hcl:"apm,block"`
 	Targets    []*Plugin `hcl:"target,block"`
 	Strategies []*Plugin `hcl:"strategy,block"`
@@ -269,6 +272,28 @@ type Telemetry struct {
 	CirconusBrokerSelectTag string `hcl:"circonus_broker_select_tag,optional"`
 }
 
+type HighAvailability struct {
+	// Enable starts the agent in high availability mode, where the agent instance
+	// attempts to hold a lock over a variable and will only execute if the lock
+	// is successfully acquired.
+	Enabled *bool `hcl:"enabled"`
+
+	// LockPath defines the path of the variable that will be used to sync the
+	// leader when running on high availability mode.
+	LockPath string `hcl:"path,optional" json:"-"`
+
+	// Lock ttl defines the lease period or ttl of the lock used to sync the
+	// leader when running on high availability mode.
+	LockTTLHCL string `hcl:"ttl,optional" json:"-"`
+	LockTTL    time.Duration
+
+	// Lock delay defines the period the lock used used to sync the
+	// leader when running on high availability mode will be unattainable if its
+	// not renewed or release properly.
+	LockDelayHCL string `hcl:"delay,optional" json:"-"`
+	LockDelay    time.Duration
+}
+
 // Plugin is an individual configured plugin and holds all the required params
 // to successfully dispense the driver.
 type Plugin struct {
@@ -355,6 +380,16 @@ const (
 	// defaultPolicyWorkerAckTimeout is the default time limit that a policy
 	// eval must be ACK'd.
 	defaultPolicyEvalAckTimeout = 5 * time.Minute
+
+	// defaultLockPath is the default path used for the lock that syncs the leader
+	// election.
+	defaultLockPath = "nomad-autoscaler/lock"
+	// defaultLockTTL is the default ttl used for the lock that syncs the leader
+	// election.
+	defaultLockTTL = 60 * time.Second
+	// defaultLockDelay is the default lockDelay used for the lock that syncs the leader
+	// election.
+	defaultLockDelay = 30 * time.Second
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the
@@ -420,6 +455,12 @@ func Default() (*Agent, error) {
 		Targets: []*Plugin{
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
+		HighAvailability: &HighAvailability{
+			Enabled:   ptr.BoolToPtr(false),
+			LockPath:  defaultLockPath,
+			LockTTL:   defaultLockTTL,
+			LockDelay: defaultLockDelay,
+		},
 	}, nil
 }
 
@@ -446,6 +487,10 @@ func (a *Agent) Merge(b *Agent) *Agent {
 
 	if b.DynamicApplicationSizing != nil {
 		result.DynamicApplicationSizing = result.DynamicApplicationSizing.merge(b.DynamicApplicationSizing)
+	}
+
+	if b.HighAvailability != nil {
+		result.HighAvailability = result.HighAvailability.merge(b.HighAvailability)
 	}
 
 	if b.HTTP != nil {
@@ -685,6 +730,32 @@ func (t *Telemetry) merge(b *Telemetry) *Telemetry {
 	}
 	if b.CirconusBrokerSelectTag != "" {
 		result.CirconusBrokerSelectTag = b.CirconusBrokerSelectTag
+	}
+
+	return &result
+}
+
+func (ha *HighAvailability) merge(b *HighAvailability) *HighAvailability {
+
+	if ha == nil {
+		return b
+	}
+
+	result := *ha
+	if b.Enabled != nil {
+		result.Enabled = b.Enabled
+	}
+
+	if b.LockPath != "" {
+		result.LockPath = b.LockPath
+	}
+
+	if b.LockTTL != 0 {
+		result.LockTTL = b.LockTTL
+	}
+
+	if b.LockDelay != 0 {
+		result.LockDelay = b.LockDelay
 	}
 
 	return &result
@@ -987,6 +1058,23 @@ func parseFile(file string, cfg *Agent) error {
 
 		if cfg.PolicyEval.DeliveryLimitPtr != nil {
 			cfg.PolicyEval.DeliveryLimit = *cfg.PolicyEval.DeliveryLimitPtr
+		}
+	}
+
+	if cfg.HighAvailability != nil {
+		if cfg.HighAvailability.LockDelayHCL != "" {
+			d, err := time.ParseDuration(cfg.HighAvailability.LockDelayHCL)
+			if err != nil {
+				return err
+			}
+			cfg.HighAvailability.LockDelay = d
+		}
+		if cfg.HighAvailability.LockTTLHCL != "" {
+			d, err := time.ParseDuration(cfg.HighAvailability.LockTTLHCL)
+			if err != nil {
+				return err
+			}
+			cfg.HighAvailability.LockTTL = d
 		}
 	}
 

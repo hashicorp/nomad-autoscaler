@@ -36,6 +36,10 @@ func Test_Default(t *testing.T) {
 	assert.Len(t, def.Strategies, 4)
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
+	assert.False(t, *def.HighAvailability.Enabled, "ensure high availability is disabled by default")
+	assert.Equal(t, defaultLockPath, def.HighAvailability.LockPath)
+	assert.Equal(t, defaultLockTTL, def.HighAvailability.LockTTL)
+	assert.Equal(t, defaultLockDelay, def.HighAvailability.LockDelay)
 }
 
 func TestAgent_Merge(t *testing.T) {
@@ -73,6 +77,10 @@ func TestAgent_Merge(t *testing.T) {
 				Driver: "prometheus",
 				Config: map[string]string{"address": "http://prometheus.systems:9090"},
 			},
+		},
+		HighAvailability: &HighAvailability{
+			Enabled:  ptr.BoolToPtr(false),
+			LockPath: "original/path",
 		},
 	}
 
@@ -171,6 +179,10 @@ func TestAgent_Merge(t *testing.T) {
 				Name:   "pid",
 				Driver: "pid",
 			},
+		},
+		HighAvailability: &HighAvailability{
+			Enabled:  ptr.BoolToPtr(true),
+			LockPath: "second/path",
 		},
 	}
 
@@ -299,6 +311,10 @@ func TestAgent_Merge(t *testing.T) {
 				Driver: "pid",
 			},
 		},
+		HighAvailability: &HighAvailability{
+			Enabled:  ptr.BoolToPtr(true),
+			LockPath: "second/path",
+		},
 	}
 
 	actualResult := baseCfg.Merge(cfg1)
@@ -340,7 +356,7 @@ func TestAgent_parseFile(t *testing.T) {
 	defer os.RemoveAll(fh.Name())
 
 	// Write some nonsense content and expect to receive a non-nil response.
-	if _, err := fh.WriteString("¿que?"); err != nil {
+	if _, err := fh.WriteString("¿qué?"); err != nil {
 		t.Fatalf("err: %s", err)
 	}
 	assert.NotNil(t, parseFile(fh.Name(), &Agent{}))

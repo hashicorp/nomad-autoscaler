@@ -19,6 +19,7 @@ import (
 	flaghelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/flag"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/version"
+	"github.com/hashicorp/nomad/api"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -259,6 +260,26 @@ Telemetry Options:
   -telemetry-circonus-broker-select-tag
     A tag which is used to select a broker ID when an explicit broker ID is not
     provided.
+  
+High Availability Options:
+  -high-availability-enabled
+	On cases when multiple instances of the autoscaler need to be run at the same
+	time, the high-availability option triggers a leader election using a lock 
+	for sync among the different lock instances. It defaults to false.
+  
+  -high-availability-lock-path
+    When using the high-availability mode, the path to the lock to be used for the
+	leader election can be provided using the high-availability-lock-path flag. 
+	The same path must be provided to every instance of the autoscaler in order 
+	to be included in the election.
+
+  -high-availability-lock-ttl
+    When using the high-availability mode, the TTL for the lock to be used for the
+	leader election can be provided using the high-availability-lock-ttl flag.
+
+  -high-availability-lock-delay
+    When using the high-availability mode, the delay for the lock to be used for the
+	leader election can be provided using the high-availability-lock-delay flag.
 `
 	return strings.TrimSpace(helpText)
 }
@@ -338,10 +359,47 @@ func (c *AgentCommand) Run(args []string) int {
 
 	ctx := context.Background()
 
-	if err := c.agent.Run(ctx); err != nil {
-		logger.Error("failed to start agent", "error", err)
+	// Generate the Nomad client.
+	if err := c.agent.GenerateNomadClient(); err != nil {
+		logger.Error("failed to start the nomad client", "error", err)
 		return 1
 	}
+
+	switch *parsedConfig.HighAvailability.Enabled {
+	case true:
+		logger.Info("running in HA mode with lock path %s, lock TTL %v and lock delay %v",
+			parsedConfig.HighAvailability.LockPath,
+			parsedConfig.HighAvailability.LockTTL,
+			parsedConfig.HighAvailability.LockDelay,
+		)
+
+		asLock := api.Variable{
+			Path: parsedConfig.HighAvailability.LockPath,
+			Lock: &api.VariableLock{
+				TTL:       parsedConfig.HighAvailability.LockTTL.String(),
+				LockDelay: parsedConfig.HighAvailability.LockDelay.String(),
+			},
+		}
+
+		locker, err := c.agent.NomadClient.Locks(api.WriteOptions{}, asLock)
+		if err != nil {
+			logger.Error("failed to start locker", "error", err)
+			return 1
+		}
+
+		ll := c.agent.NomadClient.NewLockLeaser(locker)
+		if err := ll.Start(ctx, c.agent.Run); err != nil {
+			logger.Error("failed to start agent", "error", err)
+			return 1
+		}
+
+	default:
+		if err := c.agent.Run(ctx); err != nil {
+			logger.Error("failed to start agent", "error", err)
+			return 1
+		}
+	}
+
 	return 0
 }
 
@@ -356,12 +414,14 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		Policy: &config.Policy{
 			Sources: []*config.PolicySource{},
 		},
-		PolicyEval: &config.PolicyEval{},
-		Telemetry:  &config.Telemetry{},
+		PolicyEval:       &config.PolicyEval{},
+		Telemetry:        &config.Telemetry{},
+		HighAvailability: &config.HighAvailability{},
 	}
 
 	var disableFileSource bool
 	var disableNomadSource bool
+	var enableHighAvailability bool
 
 	modeChecker := config.NewModeChecker()
 
@@ -480,6 +540,12 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerID, "telemetry-circonus-broker-id", "", "")
 	flags.StringVar(&cmdConfig.Telemetry.CirconusBrokerSelectTag, "telemetry-circonus-broker-select-tag", "", "")
 
+	// Specify our High Availability flags.
+	flags.BoolVar(&enableHighAvailability, "high-availability-enabled", false, "")
+	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
+	flags.DurationVar(&cmdConfig.HighAvailability.LockTTL, "high-availability-lock-ttl", 0, "")
+	flags.DurationVar(&cmdConfig.HighAvailability.LockDelay, "high-availability-lock-delay", 0, "")
+
 	if err := flags.Parse(c.args); err != nil {
 		return nil, configPath
 	}
@@ -502,6 +568,9 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 		})
 	}
 
+	if enableHighAvailability {
+		cmdConfig.HighAvailability.Enabled = ptr.BoolToPtr(true)
+	}
 	// Validate config values from flags.
 	if err := cmdConfig.Validate(); err != nil {
 		fmt.Printf("%s\n", err)

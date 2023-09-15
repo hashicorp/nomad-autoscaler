@@ -188,6 +188,23 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			}),
 		},
 		{
+			name: "high availlability flags",
+			args: []string{
+				"-high-availability-enabled",
+				"-high-availability-lock-path", "test/merge/path",
+				"-high-availability-lock-ttl", "4m",
+				"-high-availability-lock-delay", "2m",
+			},
+			want: defaultConfig.Merge(&config.Agent{
+				HighAvailability: &config.HighAvailability{
+					Enabled:   ptr.BoolToPtr(true),
+					LockPath:  "test/merge/path",
+					LockTTL:   4 * time.Minute,
+					LockDelay: 2 * time.Minute,
+				},
+			}),
+		},
+		{
 			name: "from file",
 			args: []string{
 				"-config", "./test-fixtures/agent_config_full.hcl",

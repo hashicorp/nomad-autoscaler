@@ -24,10 +24,11 @@ import (
 )
 
 type Agent struct {
+	NomadClient *api.Client
+
 	logger        hclog.Logger
 	config        *config.Agent
 	configPaths   []string
-	nomadClient   *api.Client
 	pluginManager *manager.PluginManager
 	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
@@ -55,11 +56,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	// Create context to handle propagation to downstream routines.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-
-	// Generate the Nomad client.
-	if err := a.generateNomadClient(); err != nil {
-		return err
-	}
 
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
@@ -150,7 +146,7 @@ func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
 
 		switch policy.SourceName(s.Name) {
 		case policy.SourceNameNomad:
-			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.nomadClient, policyProcessor)
+			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.NomadClient, policyProcessor)
 		case policy.SourceNameFile:
 			// Only setup the file source if operators have configured a
 			// scaling policy directory to read from.
@@ -179,15 +175,15 @@ func (a *Agent) stop() {
 	}
 }
 
-// generateNomadClient creates a Nomad client for use within the agent.
-func (a *Agent) generateNomadClient() error {
+// GenerateNomadClient creates a Nomad client for use within the agent.
+func (a *Agent) GenerateNomadClient() error {
 
 	// Generate the Nomad client.
 	client, err := api.NewClient(a.nomadCfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
-	a.nomadClient = client
+	a.NomadClient = client
 
 	return nil
 }
@@ -209,7 +205,7 @@ func (a *Agent) reload() {
 	a.config = newCfg
 	a.nomadCfg = nomadHelper.MergeDefaultWithAgentConfig(newCfg.Nomad)
 
-	if err := a.generateNomadClient(); err != nil {
+	if err := a.GenerateNomadClient(); err != nil {
 		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
 		os.Exit(1)
 	}
@@ -218,7 +214,7 @@ func (a *Agent) reload() {
 	// Set new Nomad client in the Nomad policy source.
 	ps, ok := a.policySources[policy.SourceNameNomad]
 	if ok {
-		ps.(*nomadPolicy.Source).SetNomadClient(a.nomadClient)
+		ps.(*nomadPolicy.Source).SetNomadClient(a.NomadClient)
 	}
 	a.policyManager.ReloadSources()
 

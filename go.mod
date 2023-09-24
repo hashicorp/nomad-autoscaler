@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0
 	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/armon/go-metrics v0.4.1
-	github.com/aws/aws-sdk-go-v2 v1.20.3
+	github.com/aws/aws-sdk-go-v2 v1.21.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.35
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.34
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.30.5

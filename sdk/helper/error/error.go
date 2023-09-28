@@ -4,9 +4,11 @@
 package error
 
 import (
+	"errors"
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad/api"
 )
 
 // MultiErrorFunc is a helper to convert the standard multierror output into
@@ -27,4 +29,20 @@ func FormattedMultiError(err *multierror.Error) error {
 		err.ErrorFormat = MultiErrorFunc
 	}
 	return err.ErrorOrNil()
+}
+
+// APIErrIs attempts to coerce err into an UnexpectedResponseError to check
+// its status code. Failing that, it will look for str in the error string.
+// If code==0 it will be ignored, same for str==""
+func APIErrIs(err error, code int, str string) bool {
+	if err == nil {
+		return false
+	}
+	if code > 0 {
+		URerr := &api.UnexpectedResponseError{}
+		if errors.As(err, URerr) {
+			return URerr.StatusCode() == code
+		}
+	}
+	return str != "" && strings.Contains(err.Error(), str)
 }

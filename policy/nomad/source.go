@@ -220,7 +220,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				log.Trace("done with policy monitoring")

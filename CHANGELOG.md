@@ -10,6 +10,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
  * plugin/apm/datadog: Fixed a panic when Datadog queries return `null` values [[GH-606](https://github.com/hashicorp/nomad-autoscaler/pull/606)]
+ * agent: Re-start monitoring a job's scale info when a job is deleted then re-created [[GH-724](https://github.com/hashicorp/nomad-autoscaler/pull/724)]
 
 ## 0.3.7 (June 10, 2022)
 

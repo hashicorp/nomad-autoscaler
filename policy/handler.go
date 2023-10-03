@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 )
 
 const (
@@ -145,7 +147,14 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 				}
 				h.log.Error(errors[0], "errors", errors[1:])
 			} else {
-				h.log.Error("encountered an error monitoring policy", "error", err)
+				if errHelper.APIErrIs(err, http.StatusNotFound, "not found") {
+					// the policy is gone, so this handler should stop,
+					// but the monitor manager will handle that.
+					// here we just log for potential future debugging.
+					h.log.Debug("policy gone away", "message", err)
+				} else {
+					h.log.Error("encountered an error monitoring policy", "error", err)
+				}
 			}
 			continue
 

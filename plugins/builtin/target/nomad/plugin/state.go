@@ -5,14 +5,15 @@ package nomad
 
 import (
 	"fmt"
+	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
+	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -178,12 +179,11 @@ func (jsh *jobScaleStatusHandler) start() {
 		jsh.updateStatusState(status, err)
 
 		if err != nil {
-			jsh.logger.Debug("failed to read job scale status, retrying", "error", err)
-
 			// If the job is not found on the cluster, stop the handlers loop
 			// process and set terminal state. It is still possible to read the
 			// state from the handler until it is deleted by the GC.
-			if strings.Contains(err.Error(), "404") {
+			if errHelper.APIErrIs(err, http.StatusNotFound, "not found") {
+				jsh.logger.Debug("job gone away", "message", err)
 				jsh.setStopState()
 				return
 			}
@@ -195,6 +195,7 @@ func (jsh *jobScaleStatusHandler) start() {
 
 			// If the error was anything other than the job not being found,
 			// try again.
+			jsh.logger.Warn("failed to read job scale status, retrying in 10 seconds", "error", err)
 			time.Sleep(10 * time.Second)
 			continue
 		}

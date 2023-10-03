@@ -88,6 +88,13 @@ func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog
 	return jsh, nil
 }
 
+// running returns whether the start() loop is actively running.
+func (jsh *jobScaleStatusHandler) running() bool {
+	jsh.lock.RLock()
+	defer jsh.lock.RUnlock()
+	return jsh.isRunning
+}
+
 // status returns the cached scaling status of the passed group.
 func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error) {
 	jsh.lock.RLock()

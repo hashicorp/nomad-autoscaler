@@ -189,8 +189,9 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	t.statusHandlersLock.Lock()
 	defer t.statusHandlersLock.Unlock()
 
-	// Create a handler for the job if one does not currently exist.
-	if _, ok := t.statusHandlers[nsID]; !ok {
+	// Create a handler for the job if one does not currently exist,
+	// or if an existing one has stopped running but is not yet GC'd.
+	if h, ok := t.statusHandlers[nsID]; !ok || !h.running() {
 		jsh, err := newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
 		if err != nil {
 			return nil, err

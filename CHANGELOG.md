@@ -7,6 +7,7 @@ IMPROVEMENTS:
  * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)
  * agent: Update Nomad API dependency to v1.6.0 [[GH-671](https://github.com/hashicorp/nomad-autoscaler/pull/671)]
  * agent: Add specific metadata to drained nodes to allow for later identification [[GH-636](https://github.com/hashicorp/nomad-autoscaler/issues/627)]
+ * agent: Logged 404s from jobs/policies going away lowered to debug [[GH-723](https://github.com/hashicorp/nomad-autoscaler/pull/723/)]
 
 BUG FIXES:
  * plugin/apm/datadog: Fixed a panic when Datadog queries return `null` values [[GH-606](https://github.com/hashicorp/nomad-autoscaler/pull/606)]

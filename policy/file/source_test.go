@@ -4,9 +4,13 @@
 package file
 
 import (
+	"context"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,5 +53,110 @@ func TestSource_getFilePolicyID(t *testing.T) {
 			assert.Equal(t, policyID, outputID, tc.name)
 			assert.True(t, ok, tc.name)
 		})
+	}
+}
+
+func testFileSource(t *testing.T, dir string) (*Source, []policy.PolicyID) {
+	t.Helper()
+	src := NewFileSource(
+		hclog.Default(),
+		dir, // should contain real policy files.
+		policy.NewProcessor(
+			&policy.ConfigDefaults{
+				DefaultEvaluationInterval: time.Second,
+				DefaultCooldown:           time.Second},
+			[]string{},
+		),
+	)
+	s := src.(*Source)
+	ids, err := s.handleDir() // populate idMap and policyMap
+	if err != nil {
+		t.Fatalf("error from handleDir: %v", err)
+	}
+	if len(ids) == 0 {
+		t.Fatalf("uh oh, no policies in %v", dir)
+	}
+	return s, ids
+}
+
+func TestSource_MonitorPolicy(t *testing.T) {
+	s, ids := testFileSource(t, "./test-fixtures")
+	pid := ids[0]
+
+	// running MonitorPolicy() twice should have the same result.
+	for _, n := range []string{"round one", "round two"} {
+
+		// not using sub-tests here, because if round one fails,
+		// there's no sense running round two.
+		// this little helper gives context for any failures.
+		fatal := func(msg string, args ...any) {
+			t.Helper()
+			t.Fatalf(n+": "+msg, args...)
+		}
+
+		errCh := make(chan error)
+		resultCh := make(chan sdk.ScalingPolicy)
+		reloadCh := make(chan struct{}, 1)
+		req := policy.MonitorPolicyReq{
+			ID:       pid,
+			ErrCh:    errCh,
+			ResultCh: resultCh,
+			ReloadCh: reloadCh,
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		// cancel called at the bottom
+
+		// method under test
+		go s.MonitorPolicy(ctx, req)
+
+		// expect initial policy
+		select {
+		case <-time.After(time.Second): // plenty long enough
+			fatal("failed to receive policy in time")
+		case err := <-errCh:
+			fatal("error in test: %s", err)
+		case i := <-resultCh:
+			t.Logf("good show, got initial policy: %+v", i)
+		}
+
+		// test reload with no changes
+		select {
+		case reloadCh <- struct{}{}: // cause reload
+		case <-time.After(time.Millisecond * 10):
+			fatal("unable to write to reloadCh")
+		}
+		select {
+		case <-time.After(time.Millisecond * 100):
+			t.Log("good show, not expecting any updates")
+		case err := <-errCh:
+			fatal("error in reload test: %s", err)
+		case i := <-resultCh:
+			fatal("did not expect a result from no-op reload, got: %v", i)
+		}
+
+		// modify the policy, then test reload again. should get changes.
+		s.policyMapLock.Lock()
+		s.policyMap[pid].policy.Max = 99
+		s.policyMapLock.Unlock()
+		select {
+		case reloadCh <- struct{}{}: // cause reload
+		case <-time.After(time.Millisecond * 10):
+			fatal("unable to write to reloadCh")
+		}
+		select {
+		case <-time.After(time.Second):
+			fatal("should have received updated policy")
+		case err := <-errCh:
+			fatal("error in second reload test: %s", err)
+		case i := <-resultCh:
+			t.Logf("good show, got update from disk: %+v", i)
+			// it should be set back to what's on disk.
+			if i.Max == 99 {
+				fatal("max should not still be test value 99")
+			}
+		}
+
+		cancel()
 	}
 }

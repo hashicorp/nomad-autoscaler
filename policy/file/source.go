@@ -133,7 +133,8 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		p, _, err := s.handleIndividualPolicyRead(req.ID, file, name)
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s: %w", req.ID, err), req.ErrCh)
+			return
 		}
 		s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
 		// We must send to ResultCh each time a Handler invokes this method,

@@ -12,7 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.21.1
 	github.com/aws/aws-sdk-go-v2/config v1.18.44
 	github.com/aws/aws-sdk-go-v2/credentials v1.13.42
-	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.30.6
+	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.30.7
 	github.com/golang/protobuf v1.5.3
 	github.com/google/go-cmp v0.5.9
 	github.com/hashicorp/go-hclog v1.5.0

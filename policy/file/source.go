@@ -186,7 +186,8 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 // true to indicate that reload is required.
 // This function is not thread safe, so the caller should obtain at least
 // a read lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (policy *sdk.ScalingPolicy, changed bool, err error) {
+func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (
+	policy *sdk.ScalingPolicy, changed bool, err error) {
 
 	// Decode the file into a new policy to allow comparison to our stored
 	// policy. Make sure to add the ID string and defaults, we are responsible
@@ -220,10 +221,9 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 
 	// Check the new policy against the stored. If they are the same, and
 	// therefore the policy has not changed indicate that to the caller.
-	if reflect.DeepEqual(newPolicy, val.policy) {
-		return newPolicy, false, nil
-	}
-	return newPolicy, true, nil
+	changed = !reflect.DeepEqual(newPolicy, val.policy)
+
+	return newPolicy, changed, nil
 }
 
 // identifyPolicyIDs iterates the configured directory, identifying the

@@ -104,8 +104,11 @@ func (s *Source) ReloadIDsMonitor() {
 	<-s.reloadCompleteCh
 }
 
-// MonitorPolicy satisfies the MonitorPolicy function of the policy.Source
-// interface.
+// MonitorPolicy reads policy from a file on disk and writes it to req.ResultCh.
+// Any error doing so will be sent to req.ErrCh.
+// If MonitorPolicy receives on s.ReloadCh, it will re-check the file on disk,
+// and write again to req.ResultCh if the policy has changed.
+// Note: MonitorPolicy should only return when ctx is done.
 func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
@@ -134,12 +137,12 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		p, _, err := s.handleIndividualPolicyRead(req.ID, file, name)
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s: %w", req.ID, err), req.ErrCh)
-			return
+		} else {
+			s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
+			// We must send to ResultCh each time a Handler invokes this method,
+			// or the Handler will error "failed to read policy in time"
+			req.ResultCh <- *p
 		}
-		s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
-		// We must send to ResultCh each time a Handler invokes this method,
-		// or the Handler will error "failed to read policy in time"
-		req.ResultCh <- *p
 	}
 	s.policyMapLock.Unlock()
 

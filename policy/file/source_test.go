@@ -160,3 +160,53 @@ func TestSource_MonitorPolicy(t *testing.T) {
 		cancel()
 	}
 }
+
+func TestSource_MonitorPolicy_ContinueOnError(t *testing.T) {
+	// start with a happy source
+	src, ids := testFileSource(t, "./test-fixtures")
+	pid := ids[0]
+
+	// then break it
+	src.policyMap[pid].file = "/nowhere"
+
+	errCh := make(chan error)
+	resultCh := make(chan sdk.ScalingPolicy)
+	reloadCh := make(chan struct{}, 1)
+	req := policy.MonitorPolicyReq{
+		ID:       pid,
+		ErrCh:    errCh,
+		ResultCh: resultCh,
+		ReloadCh: reloadCh,
+	}
+
+	// done chan separate from ctx to ensure the goroutine completes
+	done := make(chan struct{})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		src.MonitorPolicy(ctx, req)
+
+		select {
+		case <-ctx.Done():
+			t.Logf("good, context done")
+		default:
+			t.Error("MonitorPolicy should only return if the context is done")
+		}
+
+		close(done)
+	}()
+
+	select {
+	case <-time.After(time.Millisecond * 200):
+		t.Fatal("no error in time")
+	case err := <-errCh:
+		t.Logf("good show, got error as expected: %v", err)
+	case i := <-resultCh:
+		t.Fatalf("not expecting a policy, got: %+v", i)
+	}
+
+	cancel()
+	<-done
+}

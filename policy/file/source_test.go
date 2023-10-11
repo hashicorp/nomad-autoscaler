@@ -105,7 +105,7 @@ func TestSource_MonitorPolicy(t *testing.T) {
 		}
 
 		ctx, cancel := context.WithCancel(context.Background())
-		// cancel called at the bottom
+		t.Cleanup(cancel)
 
 		// method under test
 		go s.MonitorPolicy(ctx, req)
@@ -183,7 +183,7 @@ func TestSource_MonitorPolicy_ContinueOnError(t *testing.T) {
 	done := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 
 	go func() {
 		src.MonitorPolicy(ctx, req)

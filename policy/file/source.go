@@ -104,8 +104,11 @@ func (s *Source) ReloadIDsMonitor() {
 	<-s.reloadCompleteCh
 }
 
-// MonitorPolicy satisfies the MonitorPolicy function of the policy.Source
-// interface.
+// MonitorPolicy reads policy from a file on disk and writes it to req.ResultCh.
+// Any error doing so will be sent to req.ErrCh.
+// If MonitorPolicy receives on s.ReloadCh, it will re-check the file on disk,
+// and write again to req.ResultCh if the policy has changed.
+// Note: MonitorPolicy should only return when ctx is done.
 func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
@@ -131,13 +134,14 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		file = val.file
 		name = val.name
 
-		p, err := s.handleIndividualPolicyRead(req.ID, file, name)
+		p, _, err := s.handleIndividualPolicyRead(req.ID, file, name)
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
-		}
-		if p != nil {
-			req.ResultCh <- *p
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s: %w", req.ID, err), req.ErrCh)
+		} else {
 			s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
+			// We must send to ResultCh each time a Handler invokes this method,
+			// or the Handler will error "failed to read policy in time"
+			req.ResultCh <- *p
 		}
 	}
 	s.policyMapLock.Unlock()
@@ -159,7 +163,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 			// Grab a lock as required by the function and the call.
 			s.policyMapLock.Lock()
-			newPolicy, err := s.handleIndividualPolicyRead(req.ID, file, name)
+			p, changed, err := s.handleIndividualPolicyRead(req.ID, file, name)
 			s.policyMapLock.Unlock()
 
 			// An error indicates the policy failed to be decoded properly. It
@@ -170,22 +174,23 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 				continue
 			}
 
-			// A non-nil policy indicates a change, therefore we send this to
-			// the handler.
-			if newPolicy != nil {
-				s.log.Info("file policy content has changed")
-				req.ResultCh <- *newPolicy
+			if changed {
+				log.Info("file policy content has changed")
+				req.ResultCh <- *p
+			} else {
+				log.Debug("no change in file policy")
 			}
 		}
 	}
 }
 
 // handleIndividualPolicyRead reads the policy from disk and compares it to the
-// stored version if there is one. If there is a difference the new policy will
-// be returned, otherwise we return nil to indicate no reload is required. This
-// function is not thread safe, so the caller should obtain at least a read
-// lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (*sdk.ScalingPolicy, error) {
+// stored version if there is one. If there is a difference, `changed` will be
+// true to indicate that reload is required.
+// This function is not thread safe, so the caller should obtain at least
+// a read lock on policyMapLock.
+func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (
+	policy *sdk.ScalingPolicy, changed bool, err error) {
 
 	// Decode the file into a new policy to allow comparison to our stored
 	// policy. Make sure to add the ID string and defaults, we are responsible
@@ -193,19 +198,19 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 	// difference.
 	policies, err := decodeFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode file %s: %v", path, err)
+		return nil, false, fmt.Errorf("failed to decode file %s: %v", path, err)
 	}
 
 	newPolicy, ok := policies[name]
 	if !ok {
-		return nil, fmt.Errorf("policy %q doesn't exist in file %s", name, path)
+		return nil, false, fmt.Errorf("policy %q doesn't exist in file %s", name, path)
 	}
 
 	newPolicy.ID = ID.String()
 	s.policyProcessor.ApplyPolicyDefaults(newPolicy)
 
 	if err := s.policyProcessor.ValidatePolicy(newPolicy); err != nil {
-		return nil, fmt.Errorf("failed to validate file %s: %v", path, err)
+		return nil, false, fmt.Errorf("failed to validate file %s: %v", path, err)
 	}
 
 	for _, c := range newPolicy.Checks {
@@ -214,15 +219,14 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 
 	val, ok := s.policyMap[ID]
 	if !ok || val.policy == nil {
-		return newPolicy, nil
+		return newPolicy, true, nil
 	}
 
 	// Check the new policy against the stored. If they are the same, and
 	// therefore the policy has not changed indicate that to the caller.
-	if reflect.DeepEqual(newPolicy, val.policy) {
-		return nil, nil
-	}
-	return newPolicy, nil
+	changed = !reflect.DeepEqual(newPolicy, val.policy)
+
+	return newPolicy, changed, nil
 }
 
 // identifyPolicyIDs iterates the configured directory, identifying the

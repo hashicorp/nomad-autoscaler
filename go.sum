@@ -75,8 +75,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.37 h1:JRVhO25+r3ar2mKGP7
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.4.37/go.mod h1:Qe+2KtKml+FEsQF/DHmDV+xjtche/hwoF75EG4UlHW8=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.45 h1:hze8YsjSh8Wl1rYa1CJpRmXP21BvOBuc76YhW0HsuQ4=
 github.com/aws/aws-sdk-go-v2/internal/ini v1.3.45/go.mod h1:lD5M20o09/LCuQ2mE62Mb/iSdSlCNuj6H5ci7tW7OsE=
-github.com/aws/aws-sdk-go-v2/service/autoscaling v1.31.0 h1:71Sptj0YBk/w3Q/7o0BRpTuggS8e8Y9k0zpArf2qW20=
-github.com/aws/aws-sdk-go-v2/service/autoscaling v1.31.0/go.mod h1:wJGfoc78LfCPzl0VQPdU3wOXgyikdwXZKaV8i3Ot0UM=
+github.com/aws/aws-sdk-go-v2/service/autoscaling v1.32.0 h1:96UNFH/G80b93LKyiB+l5PSSAtwpuX9+8jYjSOoU4c4=
+github.com/aws/aws-sdk-go-v2/service/autoscaling v1.32.0/go.mod h1:wJGfoc78LfCPzl0VQPdU3wOXgyikdwXZKaV8i3Ot0UM=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.37 h1:WWZA/I2K4ptBS1kg0kV1JbBtG/umed0vwHRrmcr9z7k=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.9.37/go.mod h1:vBmDnwWXWxNPFRMmG2m/3MKOe+xEcMDo1tanpaWCcck=
 github.com/aws/aws-sdk-go-v2/service/sso v1.15.2 h1:JuPGc7IkOP4AaqcZSIcyqLpFSqBWK32rM9+a1g6u73k=

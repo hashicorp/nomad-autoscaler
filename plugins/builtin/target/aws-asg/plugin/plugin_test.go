@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -66,7 +67,7 @@ func Test_processLastActivity(t *testing.T) {
 	}{
 		{
 			inputActivity: types.Activity{
-				Progress: int32(75),
+				Progress: ptr.Int32ToPtr(75),
 			},
 			inputStatus: &sdk.TargetStatus{
 				Ready: true,
@@ -82,7 +83,7 @@ func Test_processLastActivity(t *testing.T) {
 		},
 		{
 			inputActivity: types.Activity{
-				Progress: int32(100),
+				Progress: ptr.Int32ToPtr(100),
 				EndTime:  &testTime,
 			},
 			inputStatus: &sdk.TargetStatus{
@@ -121,8 +122,4 @@ func Test_processLastActivity(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, tc.inputStatus, tc.name)
 		})
 	}
-}
-
-func int64ToPtr(v int64) *int64 {
-	return &v
 }

@@ -251,7 +251,7 @@ func processLastActivity(activity types.Activity, status *sdk.TargetStatus) {
 	// If the last activities progress is not nil then check whether this
 	// finished or not. In the event there is a current activity in progress
 	// set ready to false so the autoscaler will not perform any actions.
-	if activity.Progress != 100 {
+	if activity.Progress == nil || *activity.Progress != 100 {
 		status.Ready = false
 	}
 

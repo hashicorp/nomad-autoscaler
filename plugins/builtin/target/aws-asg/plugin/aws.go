@@ -290,7 +290,7 @@ func (t *TargetPlugin) ensureActivitiesComplete(ctx context.Context, asg string,
 		// Iterate each activity, check the progress and add any incomplete
 		// activities to the ID list for rechecking.
 		for _, activity := range activities {
-			if activity.Progress != 100 {
+			if activity.Progress == nil || *activity.Progress != 100 {
 				ids = append(ids, *activity.ActivityId)
 			}
 		}

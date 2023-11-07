@@ -25,23 +25,23 @@ tools: lint-tools test-tools generate-tools
 .PHONY: generate-tools
 generate-tools: ## Install the tools used to generate code
 	@echo "==> Installing code generate tools..."
-	cd tools && go install github.com/bufbuild/buf/cmd/buf@v0.36.0
-	cd tools && go install github.com/golang/protobuf/protoc-gen-go@v1.4.3
+	go install github.com/bufbuild/buf/cmd/buf@v1.27.2
+	go install github.com/golang/protobuf/protoc-gen-go@v1.5.3
 	@echo "==> Done"
 
 .PHONY: test-tools
 test-tools: ## Install the tools used to run tests
 	@echo "==> Installing test tools..."
-	cd tools && go install gotest.tools/gotestsum@v1.8.2
+	go install gotest.tools/gotestsum@v1.8.2
 	@echo "==> Done"
 
 .PHONY: lint-tools
 lint-tools: ## Install the tools used to lint
 	@echo "==> Installing lint tools..."
-	cd tools && go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.0
-	cd tools && go install honnef.co/go/tools/cmd/staticcheck@2023.1.3
-	cd tools && go install github.com/hashicorp/go-hclog/hclogvet@v0.1.5
-	cd tools && go install github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.0
+	go install honnef.co/go/tools/cmd/staticcheck@2023.1.3
+	go install github.com/hashicorp/go-hclog/hclogvet@v0.1.5
+	go install github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
 	@echo "==> Done"
 
 pkg/%/nomad-autoscaler: GO_OUT ?= $@
@@ -91,7 +91,7 @@ hclfmt: ## Format HCL files with hclfmt
 	@if (git status -s | grep -q -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'); then echo the following HCL files are out of sync; git status -s | grep -e '\.hcl$$' -e '\.nomad$$' -e '\.tf$$'; exit 1; fi
 
 .PHONY: check
-check: tools check-sdk check-tools-mod check-root-mod check-protobuf ## Lint the source code and check other properties
+check: tools check-sdk check-root-mod check-protobuf ## Lint the source code and check other properties
 
 .PHONY: check-sdk
 check-sdk: ## Checks the SDK pkg is isolated
@@ -107,17 +107,6 @@ check-root-mod: ## Checks the root Go mod is tidy
 	@go mod tidy
 	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
 		echo go.mod or go.sum needs updating; \
-		git --no-pager diff go.mod; \
-		git --no-pager diff go.sum; \
-		exit 1; fi
-	@echo "==> Done"
-
-.PHONY: check-tools-mod
-check-tools-mod: ## Checks the tools Go mod is tidy
-	@echo "==> Checking tools Go mod and Go sum..."
-	@cd tools && go mod tidy
-	@if (git status --porcelain | grep -Eq "go\.(mod|sum)"); then \
-		echo tools go.mod or go.sum needs updating; \
 		git --no-pager diff go.mod; \
 		git --no-pager diff go.sum; \
 		exit 1; fi

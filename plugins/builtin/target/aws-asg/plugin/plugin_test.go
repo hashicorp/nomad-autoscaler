@@ -67,7 +67,7 @@ func Test_processLastActivity(t *testing.T) {
 	}{
 		{
 			inputActivity: types.Activity{
-				Progress: ptr.Int32ToPtr(75),
+				Progress: ptr.Of(int32(75)),
 			},
 			inputStatus: &sdk.TargetStatus{
 				Ready: true,
@@ -83,7 +83,7 @@ func Test_processLastActivity(t *testing.T) {
 		},
 		{
 			inputActivity: types.Activity{
-				Progress: ptr.Int32ToPtr(100),
+				Progress: ptr.Of(int32(100)),
 				EndTime:  &testTime,
 			},
 			inputStatus: &sdk.TargetStatus{

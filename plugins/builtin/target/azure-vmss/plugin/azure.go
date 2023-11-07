@@ -79,7 +79,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 
 	future, err := t.vmss.Update(ctx, resourceGroup, vmScaleSet, compute.VirtualMachineScaleSetUpdate{
 		Sku: &compute.Sku{
-			Capacity: ptr.Int64ToPtr(count),
+			Capacity: ptr.Of(count),
 		},
 	})
 	if err != nil {
@@ -155,7 +155,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	log.Debug("deleting Azure ScaleSet instances", "instances", instanceIDs)
 
 	future, err := t.vmss.DeleteInstances(ctx, resourceGroup, vmScaleSet, compute.VirtualMachineScaleSetVMInstanceRequiredIDs{
-		InstanceIds: ptr.StringArrToPtr(instanceIDs),
+		InstanceIds: ptr.Of(instanceIDs),
 	})
 
 	if err != nil {

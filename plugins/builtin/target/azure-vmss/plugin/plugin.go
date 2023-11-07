@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 )
 
@@ -117,7 +116,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		return fmt.Errorf("failed to get Azure vmss: %v", err)
 	}
 
-	capacity := ptr.PtrToInt64(currVMSS.Sku.Capacity)
+	capacity := *currVMSS.Sku.Capacity
 
 	// The Azure VMSS target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
@@ -182,7 +181,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// Set our initial status.
 	resp := sdk.TargetStatus{
 		Ready: true,
-		Count: ptr.PtrToInt64(vmss.Sku.Capacity),
+		Count: *vmss.Sku.Capacity,
 		Meta:  make(map[string]string),
 	}
 

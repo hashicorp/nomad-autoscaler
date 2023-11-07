@@ -132,7 +132,7 @@ func validatePolicy(p map[string]interface{}) error {
 //  2. Block must have a label.
 //  3. Block structure should be valid.
 func validateTarget(t map[string]interface{}, path string) error {
-	return validateLabeledBlocks(t, path, nil, ptr.IntToPtr(1), nil)
+	return validateLabeledBlocks(t, path, nil, ptr.Of(1), nil)
 }
 
 // validateChecks validates the set of check blocks within policy.
@@ -157,7 +157,7 @@ func validateTarget(t map[string]interface{}, path string) error {
 //  2. All check blocks should have labels.
 //  3. All check blocks structure should be valid.
 func validateChecks(in map[string]interface{}, path string) error {
-	return validateLabeledBlocks(in, path, ptr.IntToPtr(1), nil, validateCheck)
+	return validateLabeledBlocks(in, path, ptr.Of(1), nil, validateCheck)
 }
 
 // validateCheck validates the content of a check block.
@@ -253,7 +253,7 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 //  2. Block must have a label.
 //  3. Block structure should be valid.
 func validateStrategy(s map[string]interface{}, path string, validator validatorWithLabelFunc) error {
-	return validateLabeledBlocks(s, path, ptr.IntToPtr(1), ptr.IntToPtr(1), validator)
+	return validateLabeledBlocks(s, path, ptr.Of(1), ptr.Of(1), validator)
 }
 
 // validateStrategyWithoutMetric validates strategy block contents for strategies

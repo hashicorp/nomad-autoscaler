@@ -434,8 +434,8 @@ func Default() (*Agent, error) {
 			DefaultCooldown:           defaultPolicyCooldown,
 			DefaultEvaluationInterval: defaultEvaluationInterval,
 			Sources: []*PolicySource{
-				{Name: policySourceFile, Enabled: ptr.BoolToPtr(true)},
-				{Name: policySourceNomad, Enabled: ptr.BoolToPtr(true)},
+				{Name: policySourceFile, Enabled: ptr.Of(true)},
+				{Name: policySourceNomad, Enabled: ptr.Of(true)},
 			},
 		},
 		PolicyEval: &PolicyEval{
@@ -456,7 +456,7 @@ func Default() (*Agent, error) {
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:   ptr.BoolToPtr(false),
+			Enabled:   ptr.Of(false),
 			LockPath:  defaultLockPath,
 			LockTTL:   defaultLockTTL,
 			LockDelay: defaultLockDelay,
@@ -877,7 +877,7 @@ func (s *PolicySource) copy() *PolicySource {
 
 	var enabled *bool
 	if s.Enabled != nil {
-		enabled = ptr.BoolToPtr(*s.Enabled)
+		enabled = ptr.Of(*s.Enabled)
 	}
 
 	return &PolicySource{
@@ -1025,7 +1025,7 @@ func parseFile(file string, cfg *Agent) error {
 		for _, source := range cfg.Policy.Sources {
 			if source.Enabled == nil {
 				// Default to true if source block is defined.
-				source.Enabled = ptr.BoolToPtr(true)
+				source.Enabled = ptr.Of(true)
 			}
 		}
 	}

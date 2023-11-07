@@ -281,43 +281,43 @@ func Test_computeNodeAllocatedResources(t *testing.T) {
 				{
 					ClientStatus: "running",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 				{
 					ClientStatus: "complete",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 				{
 					ClientStatus: "failed",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 				{
 					ClientStatus: "pending",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 				{
 					ClientStatus: "running",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 				{
 					ClientStatus: "lost",
 					Resources: &api.Resources{
-						CPU:      ptr.IntToPtr(100),
-						MemoryMB: ptr.IntToPtr(50),
+						CPU:      ptr.Of(100),
+						MemoryMB: ptr.Of(50),
 					},
 				},
 			},

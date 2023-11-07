@@ -141,7 +141,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	// prevent any scaling action while a refresh is Pending or InProgress
 	input := autoscaling.DescribeInstanceRefreshesInput{
 		AutoScalingGroupName: &asgName,
-		MaxRecords:           ptr.Int32ToPtr(1),
+		MaxRecords:           ptr.Of(int32(1)),
 	}
 
 	refreshes, err := t.asg.DescribeInstanceRefreshes(ctx, &input)

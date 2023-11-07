@@ -49,7 +49,7 @@ func validateHorizontalPolicy(policy *api.ScalingPolicy) error {
 }
 
 func validateChecksHorizontal(in map[string]interface{}, path string) error {
-	return validateLabeledBlocks(in, path, ptr.IntToPtr(1), nil, validateCheckHorizontal)
+	return validateLabeledBlocks(in, path, ptr.Of(1), nil, validateCheckHorizontal)
 }
 
 func validateCheckHorizontal(c map[string]interface{}, path string, label string) error {

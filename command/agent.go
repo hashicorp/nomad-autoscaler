@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -313,14 +314,16 @@ func (c *AgentCommand) Run(args []string) int {
 		JSONFormat: parsedConfig.LogJson,
 	})
 
-	logger.Info("Starting Nomad Autoscaler agent")
+	logger.Info("starting Nomad Autoscaler agent")
+
 	// Compile agent information for output later
 	info := make(map[string]string)
-	info["bind addrs"] = parsedConfig.HTTP.BindAddress
-	info["log level"] = parsedConfig.LogLevel
+	info["bind_addrs"] = parsedConfig.HTTP.BindAddress
+	info["log_level"] = parsedConfig.LogLevel
 	info["version"] = version.GetHumanVersion()
 	info["plugins"] = parsedConfig.PluginDir
 	info["policies"] = parsedConfig.Policy.Dir
+	info["high_availability"] = strconv.FormatBool(*parsedConfig.HighAvailability.Enabled)
 
 	// Sort the keys for output
 	infoKeys := make([]string, 0, len(info))
@@ -329,20 +332,36 @@ func (c *AgentCommand) Run(args []string) int {
 	}
 	sort.Strings(infoKeys)
 
-	// Agent configuration output
-	padding := 18
-	logger.Info("Nomad Autoscaler agent configuration:")
-	logger.Info("")
-	for _, k := range infoKeys {
-		logger.Info(fmt.Sprintf(
-			"%s%s: %s",
-			strings.Repeat(" ", padding-len(k)),
-			cases.Title(language.English, cases.NoLower).String(k),
-			info[k]))
+	// If the operators is using JSON logging, ensure the output is not weirdly
+	// padded and can be parsed by log aggregators. Otherwise, pretty-print the
+	// configuration detail.
+	switch parsedConfig.LogJson {
+	case true:
+
+		var logKVs []interface{}
+		for _, k := range infoKeys {
+			logKVs = append(logKVs, k, info[k])
+		}
+
+		logger.Info("Nomad Autoscaler agent configuration", logKVs...)
+
+	default:
+
+		padding := 18
+		logger.Info("Nomad Autoscaler agent configuration:")
+		logger.Info("")
+		for _, k := range infoKeys {
+			logger.Info(fmt.Sprintf(
+				"%s%s: %s",
+				strings.Repeat(" ", padding-len(k)),
+				cases.Title(language.English, cases.NoLower).String(strings.Replace(k, "_", " ", -1)),
+				info[k]))
+		}
+		logger.Info("")
 	}
-	logger.Info("")
+
 	// Output the header that the server has started
-	logger.Info("Nomad Autoscaler agent started! Log data will stream in below:")
+	logger.Info("Nomad Autoscaler agent started! Log data will stream in below")
 
 	// create and run agent and HTTP server
 	c.agent = agent.NewAgent(parsedConfig, configPaths, logger)

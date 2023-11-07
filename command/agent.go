@@ -169,8 +169,8 @@ Policy Evaluation Options:
   -policy-eval-workers=<key:value>
     The number of workers to initialize for each queue, formatted as
     <queue1>:<num>,<queue2>:<num>. Nomad Autoscaler supports "cluster" and
-	"horizontal" queues. Nomad Autoscaler Enterprise supports additional
-	"vertical_mem" and "vertical_cpu" queues.
+    "horizontal" queues. Nomad Autoscaler Enterprise supports additional
+    "vertical_mem" and "vertical_cpu" queues.
 
 Policy Source Options:
 
@@ -262,24 +262,25 @@ Telemetry Options:
     provided.
   
 High Availability Options:
+
   -high-availability-enabled
-	On cases when multiple instances of the autoscaler need to be run at the same
-	time, the high-availability option triggers a leader election using a lock 
-	for sync among the different lock instances. It defaults to false.
+    On cases when multiple instances of the autoscaler need to be run at the same
+    time, the high-availability option triggers a leader election using a lock 
+    for sync among the different lock instances. It defaults to false.
   
   -high-availability-lock-path
     When using the high-availability mode, the path to the lock to be used for the
-	leader election can be provided using the high-availability-lock-path flag. 
-	The same path must be provided to every instance of the autoscaler in order 
-	to be included in the election.
+    leader election can be provided using the high-availability-lock-path flag. 
+    The same path must be provided to every instance of the autoscaler in order 
+    to be included in the election.
 
   -high-availability-lock-ttl
     When using the high-availability mode, the TTL for the lock to be used for the
-	leader election can be provided using the high-availability-lock-ttl flag.
+    leader election can be provided using the high-availability-lock-ttl flag.
 
   -high-availability-lock-delay
     When using the high-availability mode, the delay for the lock to be used for the
-	leader election can be provided using the high-availability-lock-delay flag.
+    leader election can be provided using the high-availability-lock-delay flag.
 `
 	return strings.TrimSpace(helpText)
 }

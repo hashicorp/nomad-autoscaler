@@ -367,11 +367,10 @@ func (c *AgentCommand) Run(args []string) int {
 
 	switch *parsedConfig.HighAvailability.Enabled {
 	case true:
-		logger.Info("running in HA mode with lock path %s, lock TTL %v and lock delay %v",
-			parsedConfig.HighAvailability.LockPath,
-			parsedConfig.HighAvailability.LockTTL,
-			parsedConfig.HighAvailability.LockDelay,
-		)
+		logger.Info("running in HA mode",
+			"lock_path", parsedConfig.HighAvailability.LockPath,
+			"lock_ttl", parsedConfig.HighAvailability.LockTTL,
+			"lock_delay", parsedConfig.HighAvailability.LockDelay)
 
 		asLock := api.Variable{
 			Path: parsedConfig.HighAvailability.LockPath,

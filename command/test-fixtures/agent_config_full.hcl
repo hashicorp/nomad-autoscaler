@@ -48,3 +48,10 @@ policy_eval {
     horizontal = 1
   }
 }
+
+high_availability {
+  enabled    = true
+  lock_path  = "my/custom/path"
+  lock_ttl   = "30s"
+  lock_delay = "15s"
+}

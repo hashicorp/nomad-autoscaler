@@ -249,6 +249,12 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"horizontal": 1,
 					},
 				},
+				HighAvailability: &config.HighAvailability{
+					Enabled:   ptr.BoolToPtr(true),
+					LockPath:  "my/custom/path",
+					LockTTL:   30 * time.Second,
+					LockDelay: 15 * time.Second,
+				},
 			}),
 		},
 		{
@@ -327,6 +333,12 @@ func TestCommandAgent_readConfig(t *testing.T) {
 						"cluster":    3,
 						"horizontal": 1,
 					},
+				},
+				HighAvailability: &config.HighAvailability{
+					Enabled:   ptr.BoolToPtr(true),
+					LockPath:  "my/custom/path",
+					LockTTL:   30 * time.Second,
+					LockDelay: 15 * time.Second,
 				},
 			}),
 		},

@@ -280,17 +280,17 @@ type HighAvailability struct {
 
 	// LockPath defines the path of the variable that will be used to sync the
 	// leader when running on high availability mode.
-	LockPath string `hcl:"path,optional" json:"-"`
+	LockPath string `hcl:"lock_path,optional" json:"-"`
 
 	// Lock ttl defines the lease period or ttl of the lock used to sync the
 	// leader when running on high availability mode.
-	LockTTLHCL string `hcl:"ttl,optional" json:"-"`
+	LockTTLHCL string `hcl:"lock_ttl,optional" json:"-"`
 	LockTTL    time.Duration
 
 	// Lock delay defines the period the lock used used to sync the
 	// leader when running on high availability mode will be unattainable if its
 	// not renewed or release properly.
-	LockDelayHCL string `hcl:"delay,optional" json:"-"`
+	LockDelayHCL string `hcl:"lock_delay,optional" json:"-"`
 	LockDelay    time.Duration
 }
 

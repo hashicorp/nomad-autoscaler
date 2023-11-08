@@ -2,7 +2,7 @@
 
 IMPROVEMENTS:
  * Add support for high availability by allowing multiple instances of the autoscaler to run at the same time, but having only one actively executing.
- * build: Updated to Go 1.21.3 [[GH-734](https://github.com/hashicorp/nomad-autoscaler/pull/734)]
+ * build: Updated to Go 1.21.4 [[GH-767](https://github.com/hashicorp/nomad-autoscaler/pull/767)]
  * plugin/target/aws: Prevent scaling if an instance refresh is in progress [[GH-597](https://github.com/hashicorp/nomad-autoscaler/pull/597)]
  * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)
  * agent: Update Nomad API dependency to v1.6.0 [[GH-671](https://github.com/hashicorp/nomad-autoscaler/pull/671)]

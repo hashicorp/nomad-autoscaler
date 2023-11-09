@@ -67,7 +67,7 @@ func TestAgent_Merge(t *testing.T) {
 			Sources: []*PolicySource{
 				{
 					Name:    "nomad",
-					Enabled: ptr.BoolToPtr(false),
+					Enabled: ptr.Of(false),
 				},
 			},
 		},
@@ -79,7 +79,7 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.BoolToPtr(false),
+			Enabled:  ptr.Of(false),
 			LockPath: "original/path",
 		},
 	}
@@ -122,16 +122,16 @@ func TestAgent_Merge(t *testing.T) {
 			Sources: []*PolicySource{
 				{
 					Name:    "file",
-					Enabled: ptr.BoolToPtr(false),
+					Enabled: ptr.Of(false),
 				},
 				{
 					Name:    "nomad",
-					Enabled: ptr.BoolToPtr(true),
+					Enabled: ptr.Of(true),
 				},
 			},
 		},
 		PolicyEval: &PolicyEval{
-			DeliveryLimitPtr: ptr.IntToPtr(10),
+			DeliveryLimitPtr: ptr.Of(10),
 			DeliveryLimit:    10,
 			AckTimeout:       3 * time.Minute,
 			Workers: map[string]int{
@@ -181,7 +181,7 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.BoolToPtr(true),
+			Enabled:  ptr.Of(true),
 			LockPath: "second/path",
 		},
 	}
@@ -225,16 +225,16 @@ func TestAgent_Merge(t *testing.T) {
 			Sources: []*PolicySource{
 				{
 					Name:    "file",
-					Enabled: ptr.BoolToPtr(false),
+					Enabled: ptr.Of(false),
 				},
 				{
 					Name:    "nomad",
-					Enabled: ptr.BoolToPtr(true),
+					Enabled: ptr.Of(true),
 				},
 			},
 		},
 		PolicyEval: &PolicyEval{
-			DeliveryLimitPtr: ptr.IntToPtr(10),
+			DeliveryLimitPtr: ptr.Of(10),
 			DeliveryLimit:    10,
 			AckTimeout:       3 * time.Minute,
 			Workers: map[string]int{
@@ -312,7 +312,7 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.BoolToPtr(true),
+			Enabled:  ptr.Of(true),
 			LockPath: "second/path",
 		},
 	}
@@ -469,7 +469,7 @@ policy {
 	expected := []*PolicySource{
 		{
 			Name:    "nomad",
-			Enabled: ptr.BoolToPtr(true),
+			Enabled: ptr.Of(true),
 		},
 	}
 	assert.ElementsMatch(t, expected, cfg.Policy.Sources)
@@ -498,11 +498,11 @@ policy {
 	expected = []*PolicySource{
 		{
 			Name:    "file",
-			Enabled: ptr.BoolToPtr(true),
+			Enabled: ptr.Of(true),
 		},
 		{
 			Name:    "nomad",
-			Enabled: ptr.BoolToPtr(false),
+			Enabled: ptr.Of(false),
 		},
 	}
 	assert.ElementsMatch(t, expected, result.Policy.Sources)
@@ -531,11 +531,11 @@ policy {
 	expected = []*PolicySource{
 		{
 			Name:    "file",
-			Enabled: ptr.BoolToPtr(false),
+			Enabled: ptr.Of(false),
 		},
 		{
 			Name:    "nomad",
-			Enabled: ptr.BoolToPtr(true),
+			Enabled: ptr.Of(true),
 		},
 	}
 	assert.ElementsMatch(t, expected, result.Policy.Sources)

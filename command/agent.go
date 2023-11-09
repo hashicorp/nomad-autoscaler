@@ -577,18 +577,18 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	if disableFileSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
 			Name:    string(policy.SourceNameFile),
-			Enabled: ptr.BoolToPtr(false),
+			Enabled: ptr.Of(false),
 		})
 	}
 	if disableNomadSource {
 		cmdConfig.Policy.Sources = append(cmdConfig.Policy.Sources, &config.PolicySource{
 			Name:    string(policy.SourceNameNomad),
-			Enabled: ptr.BoolToPtr(false),
+			Enabled: ptr.Of(false),
 		})
 	}
 
 	if enableHighAvailability {
-		cmdConfig.HighAvailability.Enabled = ptr.BoolToPtr(true)
+		cmdConfig.HighAvailability.Enabled = ptr.Of(true)
 	}
 	// Validate config values from flags.
 	if err := cmdConfig.Validate(); err != nil {

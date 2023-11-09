@@ -127,8 +127,8 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			want: defaultConfig.Merge(&config.Agent{
 				Policy: &config.Policy{
 					Sources: []*config.PolicySource{
-						{Name: "file", Enabled: ptr.BoolToPtr(false)},
-						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+						{Name: "file", Enabled: ptr.Of(false)},
+						{Name: "nomad", Enabled: ptr.Of(false)},
 					},
 				},
 			}),
@@ -197,7 +197,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			},
 			want: defaultConfig.Merge(&config.Agent{
 				HighAvailability: &config.HighAvailability{
-					Enabled:   ptr.BoolToPtr(true),
+					Enabled:   ptr.Of(true),
 					LockPath:  "test/merge/path",
 					LockTTL:   4 * time.Minute,
 					LockDelay: 2 * time.Minute,
@@ -236,13 +236,13 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
 					Sources: []*config.PolicySource{
-						{Name: "file", Enabled: ptr.BoolToPtr(false)},
-						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+						{Name: "file", Enabled: ptr.Of(false)},
+						{Name: "nomad", Enabled: ptr.Of(false)},
 					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
-					DeliveryLimitPtr: ptr.IntToPtr(10),
+					DeliveryLimitPtr: ptr.Of(10),
 					AckTimeout:       3 * time.Minute,
 					Workers: map[string]int{
 						"cluster":    3,
@@ -321,13 +321,13 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					DefaultCooldown:           12 * time.Second,
 					DefaultEvaluationInterval: 50 * time.Minute,
 					Sources: []*config.PolicySource{
-						{Name: "file", Enabled: ptr.BoolToPtr(false)},
-						{Name: "nomad", Enabled: ptr.BoolToPtr(false)},
+						{Name: "file", Enabled: ptr.Of(false)},
+						{Name: "nomad", Enabled: ptr.Of(false)},
 					},
 				},
 				PolicyEval: &config.PolicyEval{
 					DeliveryLimit:    10,
-					DeliveryLimitPtr: ptr.IntToPtr(10),
+					DeliveryLimitPtr: ptr.Of(10),
 					AckTimeout:       3 * time.Minute,
 					Workers: map[string]int{
 						"cluster":    3,

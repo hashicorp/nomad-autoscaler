@@ -59,6 +59,9 @@ Options:
   -log-json
     Output logs in a JSON format. The default is false.
 
+  -log-include-location
+    Include file and line information in each log line. The default is false.
+
   -enable-debug
     Enable the agent debugging HTTP endpoints. The default is false.
 
@@ -310,9 +313,10 @@ func (c *AgentCommand) Run(args []string) int {
 
 	// Create the agent logger.
 	logger := hclog.NewInterceptLogger(&hclog.LoggerOptions{
-		Name:       "agent",
-		Level:      hclog.LevelFromString(parsedConfig.LogLevel),
-		JSONFormat: parsedConfig.LogJson,
+		Name:            "agent",
+		Level:           hclog.LevelFromString(parsedConfig.LogLevel),
+		JSONFormat:      parsedConfig.LogJson,
+		IncludeLocation: parsedConfig.LogIncludeLocation,
 	})
 
 	logger.Info("starting Nomad Autoscaler agent")
@@ -451,6 +455,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.Var((*flaghelper.StringFlag)(&configPath), "config", "")
 	flags.StringVar(&cmdConfig.LogLevel, "log-level", "", "")
 	flags.BoolVar(&cmdConfig.LogJson, "log-json", false, "")
+	flags.BoolVar(&cmdConfig.LogIncludeLocation, "log-include-location", false, "")
 	flags.BoolVar(&cmdConfig.EnableDebug, "enable-debug", false, "")
 	flags.StringVar(&cmdConfig.PluginDir, "plugin-dir", "", "")
 

@@ -22,6 +22,7 @@ func Test_Default(t *testing.T) {
 	assert.NotNil(t, def)
 	assert.False(t, def.LogJson)
 	assert.Equal(t, def.LogLevel, "info")
+	assert.False(t, def.LogIncludeLocation)
 	assert.True(t, strings.HasSuffix(def.PluginDir, "/plugins"))
 	assert.Equal(t, def.Policy.DefaultEvaluationInterval, 10*time.Second)
 	assert.Equal(t, "127.0.0.1", def.HTTP.BindAddress)
@@ -85,10 +86,11 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	cfg2 := &Agent{
-		EnableDebug: true,
-		LogLevel:    "trace",
-		LogJson:     true,
-		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug:        true,
+		LogLevel:           "trace",
+		LogJson:            true,
+		LogIncludeLocation: true,
+		PluginDir:          "/var/lib/nomad-autoscaler/plugins",
 		DynamicApplicationSizing: &DynamicApplicationSizing{
 			MetricsPreloadThreshold: 12 * time.Hour,
 			EvaluateAfter:           2 * time.Hour,
@@ -187,10 +189,11 @@ func TestAgent_Merge(t *testing.T) {
 	}
 
 	expectedResult := &Agent{
-		EnableDebug: true,
-		LogLevel:    "trace",
-		LogJson:     true,
-		PluginDir:   "/var/lib/nomad-autoscaler/plugins",
+		EnableDebug:        true,
+		LogLevel:           "trace",
+		LogJson:            true,
+		LogIncludeLocation: true,
+		PluginDir:          "/var/lib/nomad-autoscaler/plugins",
 		DynamicApplicationSizing: &DynamicApplicationSizing{
 			MetricsPreloadThreshold: 12 * time.Hour,
 			EvaluateAfter:           2 * time.Hour,

@@ -37,6 +37,11 @@ type Agent struct {
 	// LogJson enables log output in JSON format.
 	LogJson bool `hcl:"log_json,optional"`
 
+	// LogIncludeLocation dictates whether the logger includes file and line
+	// information on each log line. This is useful for development and
+	// debugging.
+	LogIncludeLocation bool `hcl:"log_include_location,optional"`
+
 	// EnableDebug is used to enable debugging HTTP endpoints.
 	EnableDebug bool `hcl:"enable_debug,optional"`
 
@@ -480,6 +485,9 @@ func (a *Agent) Merge(b *Agent) *Agent {
 	}
 	if b.LogJson {
 		result.LogJson = true
+	}
+	if b.LogIncludeLocation {
+		result.LogIncludeLocation = true
 	}
 	if b.PluginDir != "" {
 		result.PluginDir = b.PluginDir

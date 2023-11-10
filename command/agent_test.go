@@ -31,14 +31,16 @@ func TestCommandAgent_readConfig(t *testing.T) {
 			args: []string{
 				"-log-level", "WARN",
 				"-log-json",
+				"-log-include-location",
 				"-enable-debug",
 				"-plugin-dir", "./plugins",
 			},
 			want: defaultConfig.Merge(&config.Agent{
-				LogLevel:    "WARN",
-				LogJson:     true,
-				EnableDebug: true,
-				PluginDir:   "./plugins",
+				LogLevel:           "WARN",
+				LogJson:            true,
+				LogIncludeLocation: true,
+				EnableDebug:        true,
+				PluginDir:          "./plugins",
 			}),
 		},
 		{
@@ -210,10 +212,11 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				"-config", "./test-fixtures/agent_config_full.hcl",
 			},
 			want: defaultConfig.Merge(&config.Agent{
-				LogLevel:    "TRACE",
-				LogJson:     true,
-				EnableDebug: true,
-				PluginDir:   "./plugin_dir_from_file",
+				LogLevel:           "TRACE",
+				LogJson:            true,
+				LogIncludeLocation: true,
+				EnableDebug:        true,
+				PluginDir:          "./plugin_dir_from_file",
 				HTTP: &config.HTTP{
 					BindAddress: "10.0.0.2",
 					BindPort:    8888,
@@ -250,7 +253,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					},
 				},
 				HighAvailability: &config.HighAvailability{
-					Enabled:   ptr.BoolToPtr(true),
+					Enabled:   ptr.Of(true),
 					LockPath:  "my/custom/path",
 					LockTTL:   30 * time.Second,
 					LockDelay: 15 * time.Second,
@@ -295,10 +298,11 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				"-config", "./test-fixtures",
 			},
 			want: defaultConfig.Merge(&config.Agent{
-				LogLevel:    "ERROR",
-				LogJson:     true,
-				EnableDebug: true,
-				PluginDir:   "./plugin_dir_from_file",
+				LogLevel:           "ERROR",
+				LogJson:            true,
+				LogIncludeLocation: true,
+				EnableDebug:        true,
+				PluginDir:          "./plugin_dir_from_file",
 				HTTP: &config.HTTP{
 					BindAddress: "10.0.0.2",
 					BindPort:    8888,
@@ -335,7 +339,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 					},
 				},
 				HighAvailability: &config.HighAvailability{
-					Enabled:   ptr.BoolToPtr(true),
+					Enabled:   ptr.Of(true),
 					LockPath:  "my/custom/path",
 					LockTTL:   30 * time.Second,
 					LockDelay: 15 * time.Second,

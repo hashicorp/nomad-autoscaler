@@ -1,10 +1,11 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-log_level    = "TRACE"
-log_json     = true
-enable_debug = true
-plugin_dir   = "./plugin_dir_from_file"
+log_level            = "TRACE"
+log_json             = true
+log_include_location = true
+enable_debug         = true
+plugin_dir           = "./plugin_dir_from_file"
 
 http {
   bind_address = "10.0.0.2"

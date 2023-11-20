@@ -212,8 +212,8 @@ github.com/hashicorp/golang-lru v0.5.4 h1:YDjusn29QI/Das2iO9M0BHnIbxPeyuCHsjMW+l
 github.com/hashicorp/golang-lru v0.5.4/go.mod h1:iADmTwqILo4mZ8BN3D2Q6+9jd8WM5uGBxy+E8yxSoD4=
 github.com/hashicorp/hcl/v2 v2.19.1 h1://i05Jqznmb2EXqa39Nsvyan2o5XyMowW5fnCKW5RPI=
 github.com/hashicorp/hcl/v2 v2.19.1/go.mod h1:ThLC89FV4p9MPW804KVbe/cEXoQ8NZEh+JtMeeGErHE=
-github.com/hashicorp/nomad/api v0.0.0-20231002174902-3d624388765f h1:8PjWyYMqO9xLuYctvFeBvohptBbbDM88I+utzWwknCQ=
-github.com/hashicorp/nomad/api v0.0.0-20231002174902-3d624388765f/go.mod h1:glQSmiY2VCQDT0MBiWKr5YDU9PpwVNOcrovlDczoKoI=
+github.com/hashicorp/nomad/api v0.0.0-20231110155500-62007e3b1819 h1:61k3uQgzhA7/h8LS46VyWTey98GQkoktMKewpYf8PvU=
+github.com/hashicorp/nomad/api v0.0.0-20231110155500-62007e3b1819/go.mod h1:ijDwa6o1uG1jFSq6kERiX2PamKGpZzTmo0XOFNeFZgw=
 github.com/hashicorp/yamux v0.1.1 h1:yrQxtgseBDrq9Y652vSRDvsKCJKOUD+GzTS4Y0Y8pvE=
 github.com/hashicorp/yamux v0.1.1/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=

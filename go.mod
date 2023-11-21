@@ -20,7 +20,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-plugin v1.5.2
 	github.com/hashicorp/hcl/v2 v2.19.1
-	github.com/hashicorp/nomad/api v0.0.0-20231002174902-3d624388765f
+	github.com/hashicorp/nomad/api v0.0.0-20231110155500-62007e3b1819
 	github.com/mitchellh/cli v1.1.5
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0

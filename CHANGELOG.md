@@ -7,7 +7,7 @@ IMPROVEMENTS:
  * build: Updated to Go 1.21.5 [[GH-790](https://github.com/hashicorp/nomad-autoscaler/pull/790)]
  * plugin/target/aws: Prevent scaling if an instance refresh is in progress [[GH-597](https://github.com/hashicorp/nomad-autoscaler/pull/597)]
  * plugin/target/aws: Add new configuration `retry_attempts` to account for potentially slow ASG update operations [[GH-594](https://github.com/hashicorp/nomad-autoscaler/pull/594)
- * agent: Update Nomad API dependency to v1.6.0 [[GH-671](https://github.com/hashicorp/nomad-autoscaler/pull/671)]
+ * agent: Update Nomad API dependency to v1.7.1 [[GH-796](https://github.com/hashicorp/nomad-autoscaler/pull/796)]
  * agent: Add specific metadata to drained nodes to allow for later identification [[GH-636](https://github.com/hashicorp/nomad-autoscaler/issues/627)]
  * agent: Logged 404s from jobs/policies going away lowered to debug [[GH-723](https://github.com/hashicorp/nomad-autoscaler/pull/723/)]
  * agent: Added config option to enable file and line log detail [[GH-769](https://github.com/hashicorp/nomad-autoscaler/pull/769/files)]

@@ -3,7 +3,7 @@ module github.com/hashicorp/nomad-autoscaler/plugins/test/noop-strategy
 go 1.21
 
 require (
-	github.com/hashicorp/go-hclog v1.5.0
+	github.com/hashicorp/go-hclog v1.6.1
 	github.com/hashicorp/nomad-autoscaler v0.3.1
 	github.com/stretchr/testify v1.8.4
 )

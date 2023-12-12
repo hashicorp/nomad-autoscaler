@@ -14,11 +14,18 @@ project "nomad-autoscaler" {
     repository   = "nomad-autoscaler"
     release_branches = [
       "main",
+      "release/**",
     ]
   }
 }
 
-event "build" {}
+event "build" {
+  action "build" {
+    organization = "hashicorp"
+    repository   = "nomad-autoscaler"
+    workflow     = "build"
+  }
+}
 
 event "prepare" {
   depends = ["build"]
@@ -30,7 +37,7 @@ event "prepare" {
   }
 
   notification {
-    on = "fail"
+    on = "always"
   }
 }
 

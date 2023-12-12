@@ -1,7 +1,7 @@
 ## UNRELEASED
 
 FEATURES:
- * **High Availability** Added support for high availability by allowing multiple instances of the autoscaler to run at the same time, but having only one actively executing [[GH-649](https://github.com/hashicorp/nomad-autoscaler/pull/649)]
+ * **High Availability**: Added support for high availability by allowing multiple instances of the autoscaler to run at the same time, but having only one actively executing [[GH-649](https://github.com/hashicorp/nomad-autoscaler/pull/649)]
 
 IMPROVEMENTS:
  * build: Updated to Go 1.21.5 [[GH-790](https://github.com/hashicorp/nomad-autoscaler/pull/790)]

@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.0-rc.1 (December 19, 2023)
 
 FEATURES:
  * **High Availability**: Added support for high availability by allowing multiple instances of the autoscaler to run at the same time, but having only one actively executing [[GH-649](https://github.com/hashicorp/nomad-autoscaler/pull/649)]

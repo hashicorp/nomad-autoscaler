@@ -6,23 +6,25 @@ package nomad
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad/api"
 )
 
 const (
-	configKeyNomadAddress       = "nomad_address"
-	configKeyNomadRegion        = "nomad_region"
-	configKeyNomadNamespace     = "nomad_namespace"
-	configKeyNomadToken         = "nomad_token"
-	configKeyNomadHTTPAuth      = "nomad_http-auth"
-	configKeyNomadCACert        = "nomad_ca-cert"
-	configKeyNomadCAPath        = "nomad_ca-path"
-	configKeyNomadClientCert    = "nomad_client-cert"
-	configKeyNomadClientKey     = "nomad_client-key"
-	configKeyNomadTLSServerName = "nomad_tls-server-name"
-	configKeyNomadSkipVerify    = "nomad_skip-verify"
+	configKeyNomadAddress            = "nomad_address"
+	configKeyNomadRegion             = "nomad_region"
+	configKeyNomadNamespace          = "nomad_namespace"
+	configKeyNomadToken              = "nomad_token"
+	configKeyNomadHTTPAuth           = "nomad_http-auth"
+	configKeyNomadCACert             = "nomad_ca-cert"
+	configKeyNomadCAPath             = "nomad_ca-path"
+	configKeyNomadClientCert         = "nomad_client-cert"
+	configKeyNomadClientKey          = "nomad_client-key"
+	configKeyNomadTLSServerName      = "nomad_tls-server-name"
+	configKeyNomadSkipVerify         = "nomad_skip-verify"
+	configKeyNomadBlockQueryWaitTime = "nomad_block-query-wait-time"
 )
 
 // ConfigFromNamespacedMap converts the map representation of a Nomad config to
@@ -68,6 +70,11 @@ func ConfigFromNamespacedMap(cfg map[string]string) *api.Config {
 	}
 	if httpAuth, ok := cfg[configKeyNomadHTTPAuth]; ok {
 		c.HttpAuth = HTTPAuthFromString(httpAuth)
+	}
+	// We may ignore errors from ParseDuration() here as the provided argument
+	// has already passed general validation as part of being a DurationVar flag.
+	if blockQueryWaitTime, ok := cfg[configKeyNomadBlockQueryWaitTime]; ok {
+		c.WaitTime, _ = time.ParseDuration(blockQueryWaitTime)
 	}
 
 	return c
@@ -141,6 +148,9 @@ func MergeMapWithAgentConfig(m map[string]string, cfg *api.Config) {
 		}
 		m[configKeyNomadHTTPAuth] = auth
 	}
+	if cfg.WaitTime != 0 && m[configKeyNomadBlockQueryWaitTime] == "" {
+		m[configKeyNomadBlockQueryWaitTime] = cfg.WaitTime.String()
+	}
 }
 
 // MergeDefaultWithAgentConfig merges the agent Nomad configuration with the
@@ -192,6 +202,9 @@ func MergeDefaultWithAgentConfig(agentCfg *config.Nomad) *api.Config {
 	}
 	if agentCfg.SkipVerify {
 		cfg.TLSConfig.Insecure = agentCfg.SkipVerify
+	}
+	if agentCfg.BlockQueryWaitTime != 0 {
+		cfg.WaitTime = agentCfg.BlockQueryWaitTime
 	}
 
 	return cfg

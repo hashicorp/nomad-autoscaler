@@ -89,7 +89,7 @@ func (s *Source) ReloadIDsMonitor() {
 func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
-	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
+	q := &api.QueryOptions{WaitIndex: 1}
 
 	for {
 		var (
@@ -179,7 +179,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 	log.Trace("starting policy blocking query watcher")
 
-	q := &api.QueryOptions{WaitTime: 5 * time.Minute, WaitIndex: 1}
+	q := &api.QueryOptions{WaitIndex: 1}
 	for {
 		var (
 			p    *api.ScalingPolicy

@@ -168,7 +168,6 @@ func (jsh *jobScaleStatusHandler) start() {
 
 	q := &api.QueryOptions{
 		Namespace: jsh.namespace,
-		WaitTime:  5 * time.Minute,
 		WaitIndex: 1,
 	}
 

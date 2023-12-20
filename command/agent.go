@@ -149,6 +149,10 @@ Nomad Options:
   -nomad-skip-verify
     Do not verify TLS certificates. This is strongly discouraged.
 
+  -nomad-block-query-wait-time=<dur>
+    How long applicable Nomad API requests supporting blocking queries are held
+    open. Defaults to 5m.
+
 Policy Options:
 
   -policy-dir=<path>
@@ -507,6 +511,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	flags.StringVar(&cmdConfig.Nomad.ClientKey, "nomad-client-key", "", "")
 	flags.StringVar(&cmdConfig.Nomad.TLSServerName, "nomad-tls-server-name", "", "")
 	flags.BoolVar(&cmdConfig.Nomad.SkipVerify, "nomad-skip-verify", false, "")
+	flags.DurationVar(&cmdConfig.Nomad.BlockQueryWaitTime, "nomad-block-query-wait-time", 0, "")
 
 	// Specify our Policy CLI flags.
 	flags.StringVar(&cmdConfig.Policy.Dir, "policy-dir", "", "")

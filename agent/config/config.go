@@ -160,6 +160,11 @@ type Nomad struct {
 
 	// SkipVerify enables or disables SSL verification.
 	SkipVerify bool `hcl:"skip_verify,optional"`
+
+	// BlockQueryWaitTime controls how long Nomad API requests supporting blocking queries
+	// are held open. Defaults to 5m.
+	BlockQueryWaitTime    time.Duration
+	BlockQueryWaitTimeHCL string `hcl:"block_query_wait_time,optional"`
 }
 
 // Telemetry holds the user specified configuration for metrics collection.
@@ -395,6 +400,10 @@ const (
 	// defaultLockDelay is the default lockDelay used for the lock that syncs the leader
 	// election.
 	defaultLockDelay = 30 * time.Second
+
+	// defaultBlockQueryWaitTime is the default duration Nomad API requests supporting
+	// blocking queries are held open.
+	defaultBlockQueryWaitTime = 5 * time.Minute
 )
 
 // TODO: there's an unexpected import cycle that prevents us from using the
@@ -431,7 +440,9 @@ func Default() (*Agent, error) {
 			BindAddress: defaultHTTPBindAddress,
 			BindPort:    defaultHTTPBindPort,
 		},
-		Nomad: &Nomad{},
+		Nomad: &Nomad{
+			BlockQueryWaitTime: defaultBlockQueryWaitTime,
+		},
 		Telemetry: &Telemetry{
 			CollectionInterval: defaultTelemetryCollectionInterval,
 		},
@@ -664,6 +675,9 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	}
 	if b.SkipVerify {
 		result.SkipVerify = b.SkipVerify
+	}
+	if b.BlockQueryWaitTime != 0 {
+		result.BlockQueryWaitTime = b.BlockQueryWaitTime
 	}
 
 	return &result
@@ -1011,6 +1025,16 @@ func policySourceConfigSetMerge(first, second []*PolicySource) []*PolicySource {
 func parseFile(file string, cfg *Agent) error {
 	if err := hclsimple.DecodeFile(file, nil, cfg); err != nil {
 		return err
+	}
+
+	if cfg.Nomad != nil {
+		if cfg.Nomad.BlockQueryWaitTimeHCL != "" {
+			w, err := time.ParseDuration(cfg.Nomad.BlockQueryWaitTimeHCL)
+			if err != nil {
+				return err
+			}
+			cfg.Nomad.BlockQueryWaitTime = w
+		}
 	}
 
 	if cfg.Policy != nil {

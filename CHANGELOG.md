@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
+
 ## 0.4.0 (December 20, 2023)
 
 FEATURES:
@@ -18,7 +21,6 @@ BUG FIXES:
  * plugin/apm/datadog: Fixed a panic when Datadog queries return `null` values [[GH-606](https://github.com/hashicorp/nomad-autoscaler/pull/606)]
  * agent: Re-start monitoring a job's scale info when a job is deleted then re-created [[GH-724](https://github.com/hashicorp/nomad-autoscaler/pull/724)]
  * agent: File policy sources now resume working after recovering from Nomad API errors [[GH-733](https://github.com/hashicorp/nomad-autoscaler/pull/733)]
- * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
 
 ## 0.3.7 (June 10, 2022)
 

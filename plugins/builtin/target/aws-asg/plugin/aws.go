@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -115,12 +116,24 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 	// would like on all log lines.
 	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
 
+	// Check if policy overrides the plugin configuration for
+	// scale_in_protection.
+	scaleInProtection := t.scaleInProtectionEnabled
+	if str, ok := config[configKeyScaleInProtection]; ok {
+		b, err := strconv.ParseBool(str)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s value from policy: %v", configKeyScaleInProtection, err)
+		}
+		scaleInProtection = b
+	}
+	log = log.With("scale_in_protection", scaleInProtection)
+
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
 	for _, inst := range asg.Instances {
 		skip := *inst.HealthStatus != "Healthy" ||
 			inst.LifecycleState != types.LifecycleStateInService ||
-			(t.scaleInProtectionEnabled && *inst.ProtectedFromScaleIn)
+			(scaleInProtection && *inst.ProtectedFromScaleIn)
 		if skip {
 			log.Debug("skipping instance",
 				"instance_id", *inst.InstanceId,

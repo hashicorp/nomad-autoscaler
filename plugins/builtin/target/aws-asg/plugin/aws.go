@@ -96,8 +96,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *types.AutoScalingGroup
 		DesiredCapacity:      aws.Int32(int32(count)),
 	}
 
-	// Ignore the response from Send() as its empty.
-
+	// Ignore the response from UpdateAutoScalingGroup() as its empty.
 	_, err := t.asg.UpdateAutoScalingGroup(ctx, &input)
 	if err != nil {
 		return fmt.Errorf("failed to update Autoscaling Group: %v", err)
@@ -119,12 +118,21 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
 	for _, inst := range asg.Instances {
-		if *inst.HealthStatus == "Healthy" && inst.LifecycleState == types.LifecycleStateInService {
-			log.Debug("found healthy instance", "instance_id", *inst.InstanceId)
-			remoteIDs = append(remoteIDs, *inst.InstanceId)
-		} else {
-			log.Debug("skipping instance", "instance_id", *inst.InstanceId, "health_status", *inst.HealthStatus, "lifecycle_state", inst.LifecycleState)
+		skip := *inst.HealthStatus != "Healthy" ||
+			inst.LifecycleState != types.LifecycleStateInService ||
+			(t.scaleInProtectionEnabled && *inst.ProtectedFromScaleIn)
+		if skip {
+			log.Debug("skipping instance",
+				"instance_id", *inst.InstanceId,
+				"health_status", *inst.HealthStatus,
+				"lifecycle_state", inst.LifecycleState,
+				"protected_from_scale_in", *inst.ProtectedFromScaleIn,
+			)
+			continue
 		}
+
+		log.Debug("foud eligible instance", "instance_id", *inst.InstanceId)
+		remoteIDs = append(remoteIDs, *inst.InstanceId)
 	}
 
 	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))

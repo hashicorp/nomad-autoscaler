@@ -67,6 +67,11 @@ const (
 	// the clients node_class configuration param.
 	TargetConfigKeyClass = "node_class"
 
+	// TargetConfigKeyNodePool is the horizontal cluster scaling target config
+	// key which identifies nodes as part of a pool of resources using the
+	// clients node_pool configuration param.
+	TargetConfigKeyNodePool = "node_pool"
+
 	// TargetConfigKeyDatacenter is the horizontal cluster scaling target
 	// config key which identifies nodes as part of a pool of resources using
 	// the agents datacenter configuration param.

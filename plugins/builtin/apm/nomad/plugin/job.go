@@ -18,6 +18,7 @@ import (
 // group.
 type taskGroupQuery struct {
 	metric    string
+	namespace string
 	job       string
 	group     string
 	operation string
@@ -49,9 +50,12 @@ func (a *APMPlugin) queryTaskGroup(q string) (sdk.TimestampedMetrics, error) {
 // getTaskGroupResourceUsage iterates the allocations within a job and
 // identifies those which meet the criteria for being part of the calculation.
 func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64, error) {
+	q := &api.QueryOptions{
+		Namespace: query.namespace,
+	}
 
 	// Grab the list of allocations assigned to the job in question.
-	allocs, _, err := a.client.Jobs().Allocations(query.job, false, nil)
+	allocs, _, err := a.client.Jobs().Allocations(query.job, false, q)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get alloc listing for job: %v", err)
 	}
@@ -77,7 +81,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 		// out of amount allocated for taskgroups, the calculation must be done here.
 		// The total CPU allocated to the task group is retrieved once here since it
 		// does not vary between allocations.
-		allocatedCPU, err := a.getAllocatedCPUForTaskGroup(query.job, query.group)
+		allocatedCPU, err := a.getAllocatedCPUForTaskGroup(query.namespace, query.job, query.group)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get total allocated CPU for taskgroup: %v", err)
 		}
@@ -94,7 +98,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 
 		// Similarly to `queryMetricCPUAllocated` we must calculate the allocated
 		// memory since it's not provided as a metric.
-		allocatedMem, err := a.getAllocatedMemForTaskGroup(query.job, query.group)
+		allocatedMem, err := a.getAllocatedMemForTaskGroup(query.namespace, query.job, query.group)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get total allocated memory for taskgroup: %v", err)
 		}
@@ -124,7 +128,7 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 		// When calling Stats an entire Allocation object is needed, but only
 		// the ID is used within the call. Further details:
 		// https://github.com/hashicorp/nomad/issues/7955
-		allocStats, err := a.client.Allocations().Stats(&api.Allocation{ID: alloc.ID}, nil)
+		allocStats, err := a.client.Allocations().Stats(&api.Allocation{ID: alloc.ID}, q)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get alloc stats: %v", err)
 		}
@@ -143,8 +147,8 @@ func (a *APMPlugin) getTaskGroupResourceUsage(query *taskGroupQuery) ([]float64,
 }
 
 // getAllocatedCPUForTaskGroup calculates the total allocated CPU in MHz for a taskgroup
-func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, error) {
-	taskGroupConfig, err := a.getTaskGroup(job, taskgroup)
+func (a *APMPlugin) getAllocatedCPUForTaskGroup(ns, job, taskgroup string) (int, error) {
+	taskGroupConfig, err := a.getTaskGroup(ns, job, taskgroup)
 	if err != nil {
 		return -1, err
 	}
@@ -160,8 +164,8 @@ func (a *APMPlugin) getAllocatedCPUForTaskGroup(job, taskgroup string) (int, err
 }
 
 // getAllocatedMemForTaskGroup calculates the total allocated memory in MiB for a taskgroup
-func (a *APMPlugin) getAllocatedMemForTaskGroup(job, taskgroup string) (int, error) {
-	taskGroupConfig, err := a.getTaskGroup(job, taskgroup)
+func (a *APMPlugin) getAllocatedMemForTaskGroup(ns, job, taskgroup string) (int, error) {
+	taskGroupConfig, err := a.getTaskGroup(ns, job, taskgroup)
 	if err != nil {
 		return -1, err
 	}
@@ -177,8 +181,10 @@ func (a *APMPlugin) getAllocatedMemForTaskGroup(job, taskgroup string) (int, err
 }
 
 // getTaskGroup returns a task group configuration from a job.
-func (a *APMPlugin) getTaskGroup(job, taskgroup string) (*api.TaskGroup, error) {
-	jobInfo, _, err := a.client.Jobs().Info(job, nil)
+func (a *APMPlugin) getTaskGroup(ns, job, taskgroup string) (*api.TaskGroup, error) {
+	jobInfo, _, err := a.client.Jobs().Info(job, &api.QueryOptions{
+		Namespace: ns,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get info for job: %v", err)
 	}
@@ -237,12 +243,29 @@ func calculateTaskGroupResult(op string, metrics []float64) sdk.TimestampedMetri
 func parseTaskGroupQuery(q string) (*taskGroupQuery, error) {
 	mainParts := strings.SplitN(q, "/", 3)
 	if len(mainParts) != 3 {
-		return nil, fmt.Errorf("expected <query>/<group>/<job>, received %s", q)
+		return nil, fmt.Errorf("expected <query>/<group>/<job>@<namespace>, received %s", q)
+	}
+
+	nsJob := mainParts[2]
+	nsJobSepIdx := strings.LastIndex(nsJob, "@")
+	if nsJobSepIdx == -1 {
+		return nil, fmt.Errorf("missing namespace from query %s", q)
+	}
+
+	ns := nsJob[nsJobSepIdx+1:]
+	if len(ns) == 0 {
+		return nil, fmt.Errorf("missing namespace from query %s", q)
+	}
+
+	job := nsJob[:nsJobSepIdx]
+	if len(job) == 0 {
+		return nil, fmt.Errorf("missing job from query %s", q)
 	}
 
 	query := &taskGroupQuery{
-		group: mainParts[1],
-		job:   mainParts[2],
+		group:     mainParts[1],
+		job:       job,
+		namespace: ns,
 	}
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)

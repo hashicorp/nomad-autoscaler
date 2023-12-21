@@ -108,8 +108,14 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	// If the target is a Nomad job task group, format the query in the
 	// expected manner.
 	if t.IsJobTaskGroupTarget() {
-		c.Query = fmt.Sprintf("%s_%s/%s/%s",
-			nomadAPM.QueryTypeTaskGroup, c.Query, t.Config[sdk.TargetConfigKeyTaskGroup], t.Config[sdk.TargetConfigKeyJob])
+		c.Query = fmt.Sprintf(
+			"%s_%s/%s/%s@%s",
+			nomadAPM.QueryTypeTaskGroup,
+			c.Query,
+			t.Config[sdk.TargetConfigKeyTaskGroup],
+			t.Config[sdk.TargetConfigKeyJob],
+			t.Config[sdk.TargetConfigKeyNamespace],
+		)
 		return
 	}
 

@@ -313,6 +313,11 @@ func (w *BaseWorker) scaleTarget(
 			"reason", action.Reason, "meta", action.Meta)
 	}
 
+	metricLabels := []metrics.Label{
+		{Name: "policy_id", Value: policy.ID},
+		{Name: "target_name", Value: policy.Target.Name},
+	}
+
 	err := runTargetScale(targetImpl, policy, action)
 	if err != nil {
 		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
@@ -320,13 +325,13 @@ func (w *BaseWorker) scaleTarget(
 			return nil
 		}
 
-		metrics.IncrCounter([]string{"scale", "invoke", "error_count"}, 1)
+		metrics.IncrCounterWithLabels([]string{"scale", "invoke", "error_count"}, 1, metricLabels)
 		return fmt.Errorf("failed to scale target: %v", err)
 	}
 
 	logger.Debug("successfully submitted scaling action to target",
 		"desired_count", action.Count)
-	metrics.IncrCounter([]string{"scale", "invoke", "success_count"}, 1)
+	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, metricLabels)
 
 	// Enforce the cooldown after a successful scaling event.
 	w.policyManager.EnforceCooldown(policy.ID, policy.Cooldown)

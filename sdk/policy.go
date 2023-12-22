@@ -92,6 +92,11 @@ func (p *ScalingPolicy) Validate() error {
 	}
 
 	for _, c := range p.Checks {
+		if c.Strategy == nil || c.Strategy.Name == "" {
+			result = multierror.Append(result, fmt.Errorf("invalid check %s: missing strategy value", c.Name))
+			continue
+		}
+
 		if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {
 			if strings.HasPrefix(c.Strategy.Name, "app-sizing") {
 				err := fmt.Errorf("invalid strategy in check %s: plugin %s can only be used with Dynamic Application Sizing", c.Name, c.Strategy.Name)

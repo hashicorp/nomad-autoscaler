@@ -210,7 +210,12 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 	}
 
 	// Filter our nodes to select only those within our identified pool.
-	filteredNodes, err := FilterNodes(nodes, poolID.IsPoolMember)
+	filterOpts, err := NewNodeFilterOptions(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredNodes, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +372,11 @@ func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 		return false, fmt.Errorf("failed to list Nomad nodes: %v", err)
 	}
 
-	if _, err := FilterNodes(nodes, poolID.IsPoolMember); err != nil {
+	filterOpts, err := NewNodeFilterOptions(cfg)
+	if err != nil {
+		return false, err
+	}
+	if _, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts); err != nil {
 		c.log.Warn("node pool status readiness check failed", "error", err)
 		return false, nil
 	}

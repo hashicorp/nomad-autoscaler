@@ -164,8 +164,8 @@ func (b *Broker) enqueueLocked(eval *sdk.ScalingEvaluation, token string) {
 				pending[i] = eval
 				heap.Fix(&pending, i)
 			}
-			return
 		}
+		return
 	}
 
 	heap.Push(&pending, eval)

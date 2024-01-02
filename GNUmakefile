@@ -9,6 +9,12 @@ GO_LDFLAGS := "$(GO_LDFLAGS) -X github.com/hashicorp/nomad-autoscaler/version.Gi
 # Attempt to use gotestsum for running tests, otherwise fallback to go test.
 GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
 
+# Respect $GOBIN if set in environment or via $GOENV file.
+BIN := $(shell go env GOBIN)
+ifndef BIN
+BIN := $(GOPATH)/bin
+endif
+
 HELP_FORMAT="    \033[36m%-25s\033[0m %s\n"
 .PHONY: help
 help: ## Display this usage information
@@ -61,10 +67,10 @@ pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOA
 .PHONY: dev
 dev: lint ## Build for the current development version
 	@echo "==> Building autoscaler..."
-	@CGO_ENABLED=0 \
-	go build \
-	-ldflags $(GO_LDFLAGS) \
-	-o ./bin/nomad-autoscaler
+	@CGO_ENABLED=0 go build \
+		-ldflags $(GO_LDFLAGS) \
+		-o ./bin/nomad-autoscaler
+	@rm -f $(BIN)/nomad-autoscaler && cp ./bin/nomad-autoscaler $(BIN)/
 	@echo "==> Done"
 
 .PHONY: proto

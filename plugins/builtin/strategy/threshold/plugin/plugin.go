@@ -236,9 +236,9 @@ func parseBound(bound string, input string) (float64, error) {
 
 	switch bound {
 	case runConfigKeyLowerBound:
-		defaultValue = -math.MaxFloat64
+		defaultValue = math.Inf(-1)
 	case runConfigKeyUpperBound:
-		defaultValue = math.MaxFloat64
+		defaultValue = math.Inf(1)
 	}
 
 	if input == "" {

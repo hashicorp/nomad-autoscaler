@@ -22,6 +22,62 @@ func TestThresholdPlugin(t *testing.T) {
 		expectedErr    string
 	}{
 		{
+			name:    "lower_bound is inclusive",
+			count:   1,
+			metrics: []float64{10, 10, 10, 10, 10},
+			config: map[string]string{
+				"lower_bound": "10",
+				"delta":       "-1",
+			},
+			expectedAction: &sdk.ScalingAction{
+				Count:     0,
+				Direction: sdk.ScaleDirectionDown,
+				Reason:    "scaling down because metric is within bounds",
+			},
+		},
+		{
+			name:    "upper_bound is exclusive",
+			count:   1,
+			metrics: []float64{10, 10, 10, 10, 10},
+			config: map[string]string{
+				"upper_bound": "10",
+				"delta":       "1",
+			},
+			expectedAction: &sdk.ScalingAction{
+				Direction: sdk.ScaleDirectionNone,
+			},
+		},
+		{
+			name:    "lower_bound is inclusive and upper_bound is exclusive/no action",
+			count:   1,
+			metrics: []float64{10, 10, 20, 20, 20},
+			config: map[string]string{
+				"lower_bound":           "10",
+				"upper_bound":           "20",
+				"delta":                 "1",
+				"within_bounds_trigger": "3",
+			},
+			expectedAction: &sdk.ScalingAction{
+				Direction: sdk.ScaleDirectionNone,
+			},
+		},
+		{
+			name:    "lower_bound is inclusive and upper_bound is exclusive/scale",
+			count:   1,
+			metrics: []float64{10, 10, 20, 20, 20},
+			config: map[string]string{
+				"lower_bound":           "10",
+				"upper_bound":           "20",
+				"delta":                 "1",
+				"within_bounds_trigger": "2",
+			},
+			expectedAction: &sdk.ScalingAction{
+				Count:     2,
+				Direction: sdk.ScaleDirectionUp,
+				Reason:    "scaling up because metric is within bounds",
+			},
+		},
+		{
 			name:    "delta scale up",
 			count:   1,
 			metrics: []float64{10, 10, 10, 10, 10, 10},

@@ -33,6 +33,7 @@ const (
 	configKeyASGName            = "aws_asg_name"
 	configKeyCredentialProvider = "aws_credential_provider"
 	configKeyRetryAttempts      = "retry_attempts"
+	configKeyScaleInProtection  = "scale_in_protection"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
@@ -67,6 +68,10 @@ type TargetPlugin struct {
 	// retryAttempts is the number of times operations such as wating for a
 	// given ASG state should be retried.
 	retryAttempts int
+
+	// scaleInProtectionEnabled is true when instance scale-in protection
+	// should be applied.
+	scaleInProtectionEnabled bool
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
@@ -104,6 +109,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 		return err
 	}
 	t.retryAttempts = retryLimit
+
+	scaleInProtection, err := strconv.ParseBool(getConfigValue(config, configKeyScaleInProtection, "false"))
+	if err != nil {
+		return err
+	}
+	t.scaleInProtectionEnabled = scaleInProtection
 
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -96,8 +97,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *types.AutoScalingGroup
 		DesiredCapacity:      aws.Int32(int32(count)),
 	}
 
-	// Ignore the response from Send() as its empty.
-
+	// Ignore the response from UpdateAutoScalingGroup() as its empty.
 	_, err := t.asg.UpdateAutoScalingGroup(ctx, &input)
 	if err != nil {
 		return fmt.Errorf("failed to update Autoscaling Group: %v", err)
@@ -112,19 +112,43 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *types.AutoScalingGroup
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup, num int64, config map[string]string) error {
+	// Check if policy overrides the plugin configuration for
+	// scale_in_protection.
+	scaleInProtection := t.scaleInProtectionEnabled
+	if str, ok := config[configKeyScaleInProtection]; ok {
+		b, err := strconv.ParseBool(str)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s value from policy: %w", configKeyScaleInProtection, err)
+		}
+		scaleInProtection = b
+	}
+
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
+	log := t.logger.With(
+		"action", "scale_in",
+		"asg_name", *asg.AutoScalingGroupName,
+		"scale_in_protection", scaleInProtection,
+	)
 
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
 	for _, inst := range asg.Instances {
-		if *inst.HealthStatus == "Healthy" && inst.LifecycleState == types.LifecycleStateInService {
-			log.Debug("found healthy instance", "instance_id", *inst.InstanceId)
-			remoteIDs = append(remoteIDs, *inst.InstanceId)
-		} else {
-			log.Debug("skipping instance", "instance_id", *inst.InstanceId, "health_status", *inst.HealthStatus, "lifecycle_state", inst.LifecycleState)
+		skip := *inst.HealthStatus != "Healthy" ||
+			inst.LifecycleState != types.LifecycleStateInService ||
+			(scaleInProtection && *inst.ProtectedFromScaleIn)
+		if skip {
+			log.Debug("skipping instance",
+				"instance_id", *inst.InstanceId,
+				"health_status", *inst.HealthStatus,
+				"lifecycle_state", inst.LifecycleState,
+				"protected_from_scale_in", *inst.ProtectedFromScaleIn,
+			)
+			continue
 		}
+
+		log.Debug("found eligible instance", "instance_id", *inst.InstanceId)
+		remoteIDs = append(remoteIDs, *inst.InstanceId)
 	}
 
 	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))

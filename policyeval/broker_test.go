@@ -11,12 +11,10 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test/must"
 )
 
 func TestBroker(t *testing.T) {
-	assert := assert.New(t)
-
 	l := hclog.Default()
 	l.SetLevel(hclog.Debug)
 
@@ -44,6 +42,11 @@ func TestBroker(t *testing.T) {
 		Policy:     eval1.Policy,
 		CreateTime: time.Date(2020, time.October, 12, 21, 0, 0, 0, time.UTC),
 	}
+	eval1d := &sdk.ScalingEvaluation{
+		ID:         "eval1d",
+		Policy:     eval1.Policy,
+		CreateTime: time.Date(2020, time.October, 12, 24, 0, 0, 0, time.UTC),
+	}
 
 	// Create an older eval.
 	eval2 := &sdk.ScalingEvaluation{
@@ -65,75 +68,90 @@ func TestBroker(t *testing.T) {
 		},
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	// Enqueue the first eval for policy1.
 	b.Enqueue(eval1b)
-	assert.Equal(eval1b, b.pendingEvals["horizontal"][0])
+	must.Eq(t, eval1b, b.pendingEvals["horizontal"][0])
 
 	// Enqueue eval1 and see if replaced eval1b since it has the same policy
 	// but was created before.
 	b.Enqueue(eval1)
-	assert.Equal(eval1, b.pendingEvals["horizontal"][0])
+	must.Eq(t, eval1, b.pendingEvals["horizontal"][0])
+
+	// Dequeue eval1 to simulate it being processed and try to enqueue a new
+	// eval for the same policy before eval1 is ack'ed or nack'ed.
+	e, token, err := b.Dequeue(ctx, "horizontal")
+	must.NoError(t, err)
+	must.Eq(t, eval1, e)
+
+	// Verify eval1d is not enqueued since its policy is still being processed
+	// due to eval1.
+	b.Enqueue(eval1d)
+	must.Len(t, 0, b.pendingEvals["horizontal"])
+
+	// NACK eval1 so it's enqueued again.
+	err = b.Nack(e.ID, token)
+	must.NoError(t, err)
 
 	// Try to enqueue another eval for policy1 that is older than the current
 	// enqueued eval.
 	b.Enqueue(eval1c)
-	assert.Equal(eval1, b.pendingEvals["horizontal"][0])
+	must.Eq(t, eval1, b.pendingEvals["horizontal"][0])
 
 	// Make sure only one eval was enqueued.
-	assert.Equal(b.pendingEvals["horizontal"].Len(), 1)
+	must.Len(t, 1, b.pendingEvals["horizontal"])
 
 	// Enqueue other evals.
 	b.Enqueue(eval2)
 	b.Enqueue(eval3)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Check if broker dedups evals.
 	b.Enqueue(eval2)
-	assert.Equal(3, b.pendingEvals["horizontal"].Len())
+	must.Len(t, 3, b.pendingEvals["horizontal"])
 
 	// Check if eval3 is first, since it has the highest priority.
-	e, token, err := b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.Equal(eval3, e)
-	assert.NotEmpty(token)
+	e, token, err = b.Dequeue(ctx, "horizontal")
+	must.NoError(t, err)
+	must.Eq(t, eval3, e)
+	must.NotEq(t, "", token)
 
 	// Ack eval3.
 	err = b.Ack(e.ID, token)
-	assert.NoError(err)
+	must.NoError(t, err)
 
 	// Check if eval2 is next since it's older.
 	e, token, err = b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.Equal(eval2, e)
-	assert.NotEmpty(token)
+	must.NoError(t, err)
+	must.Eq(t, eval2, e)
+	must.NotEq(t, "", token)
 
 	// Nack eval2 and see if pops out again.
 	err = b.Nack(e.ID, token)
-	assert.NoError(err)
+	must.NoError(t, err)
 	e, token, err = b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.Equal(eval2, e)
-	assert.NotEmpty(token)
+	must.NoError(t, err)
+	must.Eq(t, eval2, e)
+	must.NotEq(t, "", token)
 
 	// Nack eval2 again and it should be marked as failed since the broker is
 	// configured to only dequeue twice.
 	err = b.Nack(e.ID, token)
-	assert.NoError(err)
+	must.NoError(t, err)
 	e, token, err = b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.NotEqual(eval2, e)
+	must.NoError(t, err)
+	must.NotEq(t, eval2, e)
 	// It should be eval1
-	assert.Equal(eval1, e)
-	assert.NotEmpty(token)
+	must.Eq(t, eval1, e)
+	must.NotEq(t, "", token)
 
 	// Ack with wrong token, and it should fail.
 	err = b.Ack(e.ID, "not-the-chosen-one")
-	assert.Error(err)
+	must.Error(t, err)
 	// Ack with the right token
 	err = b.Ack(e.ID, token)
-	assert.NoError(err)
+	must.NoError(t, err)
 
 	// Wait for work that will arrive after 1s.
 	eval4 := &sdk.ScalingEvaluation{
@@ -149,16 +167,16 @@ func TestBroker(t *testing.T) {
 	}()
 	// Dequeue will block until eval4 is enqueued.
 	e, token, err = b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.Equal(eval4, e)
-	assert.NotEmpty(token)
+	must.NoError(t, err)
+	must.Eq(t, eval4, e)
+	must.NotEq(t, "", token)
 
 	// Don't ack eval before the nack timer is triggered.
 	time.Sleep(2 * nackTimeout)
 	e, token, err = b.Dequeue(ctx, "horizontal")
-	assert.NoError(err)
-	assert.Equal(eval4, e)
-	assert.NotEmpty(token)
+	must.NoError(t, err)
+	must.Eq(t, eval4, e)
+	must.NotEq(t, "", token)
 	// Ack eval.
 	b.Ack(e.ID, token)
 
@@ -167,8 +185,8 @@ func TestBroker(t *testing.T) {
 	defer cancelTO()
 	e, token, err = b.Dequeue(ctxTO, "horizontal")
 	<-ctxTO.Done()
-	assert.Nil(e)
-	assert.NoError(ctx.Err())
-	assert.Empty(token)
-	assert.Nil(err)
+	must.Nil(t, e)
+	must.NoError(t, ctx.Err())
+	must.Eq(t, "", token)
+	must.NoError(t, err)
 }

@@ -54,6 +54,10 @@ const (
 	// cooldown where out-of-band scaling activities have been triggered.
 	TargetStatusMetaKeyLastEvent = "nomad_autoscaler.last_event"
 
+	// TargetConfigKeyNamespace is the config key used within horizontal app
+	// scaling to identify the Nomad namespace targeted for autoscaling.
+	TargetConfigKeyNamespace = "Namespace"
+
 	// TargetConfigKeyJob is the config key used within horizontal app scaling
 	// to identify the Nomad job targeted for autoscaling.
 	TargetConfigKeyJob = "Job"

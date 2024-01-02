@@ -59,9 +59,10 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 	}{
 		{
 			name:  "avg_cpu",
-			input: "taskgroup_avg_cpu/group/job",
+			input: "taskgroup_avg_cpu/group/job@default",
 			expected: &taskGroupQuery{
 				metric:    "cpu",
+				namespace: "default",
 				job:       "job",
 				group:     "group",
 				operation: "avg",
@@ -70,9 +71,10 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 		},
 		{
 			name:  "avg_cpu-allocated",
-			input: "taskgroup_avg_cpu-allocated/group/job",
+			input: "taskgroup_avg_cpu-allocated/group/job@ns",
 			expected: &taskGroupQuery{
 				metric:    "cpu-allocated",
+				namespace: "ns",
 				job:       "job",
 				group:     "group",
 				operation: "avg",
@@ -81,9 +83,10 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 		},
 		{
 			name:  "avg_memory",
-			input: "taskgroup_avg_memory/group/job",
+			input: "taskgroup_avg_memory/group/job@dev",
 			expected: &taskGroupQuery{
 				metric:    "memory",
+				namespace: "dev",
 				job:       "job",
 				group:     "group",
 				operation: "avg",
@@ -92,9 +95,10 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 		},
 		{
 			name:  "avg_memory-allocated",
-			input: "taskgroup_avg_memory-allocated/group/job",
+			input: "taskgroup_avg_memory-allocated/group/job@dev",
 			expected: &taskGroupQuery{
 				metric:    "memory-allocated",
+				namespace: "dev",
 				job:       "job",
 				group:     "group",
 				operation: "avg",
@@ -103,10 +107,23 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 		},
 		{
 			name:  "job with fwd slashes",
-			input: "taskgroup_avg_cpu/group/my/super/job//",
+			input: "taskgroup_avg_cpu/group/my/super/job//@dev",
 			expected: &taskGroupQuery{
 				metric:    "cpu",
+				namespace: "dev",
 				job:       "my/super/job//",
+				group:     "group",
+				operation: "avg",
+			},
+			expectError: false,
+		},
+		{
+			name:  "job with at signs",
+			input: "taskgroup_avg_cpu/group/job@job@@dev",
+			expected: &taskGroupQuery{
+				metric:    "cpu",
+				namespace: "dev",
+				job:       "job@job@",
 				group:     "group",
 				operation: "avg",
 			},
@@ -121,6 +138,12 @@ func Test_parseTaskGroupQuery(t *testing.T) {
 		{
 			name:        "invalid query format",
 			input:       "invalid",
+			expected:    nil,
+			expectError: true,
+		},
+		{
+			name:        "missing namspace",
+			input:       "avg_cpu/group/job",
 			expected:    nil,
 			expectError: true,
 		},

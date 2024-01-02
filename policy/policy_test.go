@@ -178,12 +178,16 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			},
 			inputAPMNames: []string{"nomad-apm"},
 			inputTarget: &sdk.ScalingPolicyTarget{
-				Config: map[string]string{"Job": "example", "Group": "cache"},
+				Config: map[string]string{
+					"Namespace": "dev",
+					"Job":       "example",
+					"Group":     "cache",
+				},
 			},
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "taskgroup_avg_cpu/cache/example",
+				Query:  "taskgroup_avg_cpu/cache/example@dev",
 			},
 			name: "correctly formatted taskgroup target short query",
 		},

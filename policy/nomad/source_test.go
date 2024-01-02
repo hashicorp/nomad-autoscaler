@@ -110,8 +110,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			input: &sdk.ScalingPolicy{
 				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Namespace": "dev",
+						"Job":       "job",
+						"Group":     "group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -126,14 +127,15 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Namespace": "dev",
+						"Job":       "job",
+						"Group":     "group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source:      plugins.InternalAPMNomad,
-						Query:       "taskgroup_avg_cpu/group/job",
+						Query:       "taskgroup_avg_cpu/group/job@dev",
 						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
@@ -147,8 +149,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			input: &sdk.ScalingPolicy{
 				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Namespace": "dev",
+						"Job":       "job",
+						"Group":     "group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -164,14 +167,15 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Namespace": "dev",
+						"Job":       "job",
+						"Group":     "group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source:      plugins.InternalAPMNomad,
-						Query:       "taskgroup_avg_cpu/group/job",
+						Query:       "taskgroup_avg_cpu/group/job@dev",
 						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},
@@ -185,8 +189,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			input: &sdk.ScalingPolicy{
 				Target: &sdk.ScalingPolicyTarget{
 					Config: map[string]string{
-						"Job":   "my_job",
-						"Group": "my_group",
+						"Namespace": "my_ns",
+						"Job":       "my_job",
+						"Group":     "my_group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -201,14 +206,15 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":   "my_job",
-						"Group": "my_group",
+						"Namespace": "my_ns",
+						"Job":       "my_job",
+						"Group":     "my_group",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
 						Source:      plugins.InternalAPMNomad,
-						Query:       "taskgroup_avg_cpu/my_group/my_job",
+						Query:       "taskgroup_avg_cpu/my_group/my_job@my_ns",
 						QueryWindow: policy.DefaultQueryWindow,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Config: map[string]string{},

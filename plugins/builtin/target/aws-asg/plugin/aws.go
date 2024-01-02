@@ -112,21 +112,24 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, asg *types.AutoScalingGroup
 }
 
 func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup, num int64, config map[string]string) error {
-	// Create a logger for this action to pre-populate useful information we
-	// would like on all log lines.
-	log := t.logger.With("action", "scale_in", "asg_name", *asg.AutoScalingGroupName)
-
 	// Check if policy overrides the plugin configuration for
 	// scale_in_protection.
 	scaleInProtection := t.scaleInProtectionEnabled
 	if str, ok := config[configKeyScaleInProtection]; ok {
 		b, err := strconv.ParseBool(str)
 		if err != nil {
-			return fmt.Errorf("failed to parse %s value from policy: %v", configKeyScaleInProtection, err)
+			return fmt.Errorf("failed to parse %s value from policy: %w", configKeyScaleInProtection, err)
 		}
 		scaleInProtection = b
 	}
-	log = log.With("scale_in_protection", scaleInProtection)
+
+	// Create a logger for this action to pre-populate useful information we
+	// would like on all log lines.
+	log := t.logger.With(
+		"action", "scale_in",
+		"asg_name", *asg.AutoScalingGroupName,
+		"scale_in_protection", scaleInProtection,
+	)
 
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
@@ -144,7 +147,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 			continue
 		}
 
-		log.Debug("foud eligible instance", "instance_id", *inst.InstanceId)
+		log.Debug("found eligible instance", "instance_id", *inst.InstanceId)
 		remoteIDs = append(remoteIDs, *inst.InstanceId)
 	}
 

@@ -4,7 +4,7 @@ IMPROVEMENTS:
  * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
 
 BUG FIXES:
- * agent: Fixed a bug that could cause scaling policies to be evaluated concurrently [[GH-812](https://github.com/hashicorp/nomad-autoscaler/pull/812)]
+ * agent: Fixed a bug that could cause the same scaling policy to be evaluated multiple times concurrently [[GH-812](https://github.com/hashicorp/nomad-autoscaler/pull/812)]
 
 ## 0.4.0 (December 20, 2023)
 

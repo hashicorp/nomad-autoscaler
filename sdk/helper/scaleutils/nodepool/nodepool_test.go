@@ -47,11 +47,36 @@ func Test_NewClusterNodePoolIdentifier(t *testing.T) {
 			name:                "node_class configured in config",
 		},
 		{
+			inputCfg:            map[string]string{"node_pool": "gpu"},
+			expectedOutputKey:   "node_pool",
+			expectedOutputValue: "gpu",
+			expectedOutputErr:   nil,
+			name:                "node_pool configured in config",
+		},
+		{
 			inputCfg:            map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
 			expectedOutputKey:   "combined_identifier",
 			expectedOutputValue: "node_class:high-memory and datacenter:dc1",
 			expectedOutputErr:   nil,
 			name:                "node_class and datacenter are configured in config",
+		},
+		{
+			inputCfg:            map[string]string{"node_pool": "gpu", "datacenter": "dc1"},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "datacenter:dc1 and node_pool:gpu",
+			expectedOutputErr:   nil,
+			name:                "node_pool and datacenter are configured in config",
+		},
+		{
+			inputCfg: map[string]string{
+				"node_class": "high-memory",
+				"node_pool":  "gpu",
+				"datacenter": "dc1",
+			},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "node_class:high-memory and datacenter:dc1 and node_pool:gpu",
+			expectedOutputErr:   nil,
+			name:                "node_class, node_pool, and datacenter are configured in config",
 		},
 	}
 

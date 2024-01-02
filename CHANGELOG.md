@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
  * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
+ * scaleutils: Add new node filter option `node_pool` to select nodes by their node pool value [[GH-810](https://github.com/hashicorp/nomad-autoscaler/pull/810)]
 
 ## 0.4.0 (December 20, 2023)
 

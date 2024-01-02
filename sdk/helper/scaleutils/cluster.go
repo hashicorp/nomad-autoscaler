@@ -204,8 +204,10 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 
 	if c.log.IsDebug() {
 		for _, n := range nodes {
-			c.log.Debug("found node", "node_id", n.ID, "datacenter", n.Datacenter, "node_class", n.NodeClass,
-				"status", n.Status, "eligibility", n.SchedulingEligibility, "draining", n.Drain)
+			c.log.Debug("found node",
+				"node_id", n.ID, "datacenter", n.Datacenter, "node_class", n.NodeClass, "node_pool", n.NodePool,
+				"status", n.Status, "eligibility", n.SchedulingEligibility, "draining", n.Drain,
+			)
 		}
 	}
 

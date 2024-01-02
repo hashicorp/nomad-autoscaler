@@ -7,6 +7,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
  * agent: Fixed a bug that could cause the same scaling policy to be evaluated multiple times concurrently [[GH-812](https://github.com/hashicorp/nomad-autoscaler/pull/812)]
+ * agent: Fixed a bug that caused the agent to panic when trying to evaluate a policy with a missing `check.strategy` block [[GH-813](https://github.com/hashicorp/nomad-autoscaler/pull/813)]
  * plugin/apm/nomad: Set correct namespace when querying group metrics [[GH-808](https://github.com/hashicorp/nomad-autoscaler/pull/808)]
 
 ## 0.4.0 (December 20, 2023)

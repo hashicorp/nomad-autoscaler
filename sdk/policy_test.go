@@ -74,6 +74,18 @@ func TestScalingPolicy_Validate(t *testing.T) {
 			expectedError: "can only be used with Dynamic Application Sizing",
 		},
 		{
+			name: "invalid check without strategy",
+			policy: &ScalingPolicy{
+				Type: "horizontal",
+				Checks: []*ScalingPolicyCheck{
+					{
+						Name: "missing-strategy",
+					},
+				},
+			},
+			expectedError: "missing strategy",
+		},
+		{
 			name: "valid policy",
 			policy: &ScalingPolicy{
 				Type:         "horizontal",

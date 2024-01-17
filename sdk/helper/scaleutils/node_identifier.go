@@ -49,7 +49,7 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 	return FilterNodesWithOptions(n, idFn, nil)
 }
 
-// FilterNodesWithOptions is an experimental function.Use FilterNodes instead.
+// FilterNodesWithOptions is an experimental function. Use FilterNodes instead.
 func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool, opts *NodeFilterOptions) ([]*api.NodeListStub, error) {
 
 	// Create our output list object.

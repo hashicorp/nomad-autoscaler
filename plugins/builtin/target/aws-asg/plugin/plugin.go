@@ -35,6 +35,10 @@ const (
 	configKeyRetryAttempts      = "retry_attempts"
 	configKeyScaleInProtection  = "scale_in_protection"
 
+	// EXPERIMENTAL
+	// The configKeys below are considered experimental and should not be used.
+	xConfigKeyIgnoreASGEvents = "ignore_asg_events"
+
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
 	configValueRegionDefault        = "us-east-1"
@@ -234,6 +238,17 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 		Ready: asg.Status == nil,
 		Count: int64(*asg.DesiredCapacity),
 		Meta:  make(map[string]string),
+	}
+
+	// Return early if policy is configured to ignore ASG events.
+	if str, ok := config[xConfigKeyIgnoreASGEvents]; ok {
+		ignoreEvents, err := strconv.ParseBool(str)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse config %s: %v", xConfigKeyIgnoreASGEvents, err)
+		}
+		if ignoreEvents {
+			return &resp, nil
+		}
 	}
 
 	// If we have previous activities then process the last.

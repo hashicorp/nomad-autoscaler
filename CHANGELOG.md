@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
  * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
+ * build: Updated to Go 1.21.6 [[GH-831](https://github.com/hashicorp/nomad-autoscaler/pull/831)]
  * metrics: Add `policy_id` and `target_name` labels to `scale.invoke.success_count` and `scale.invoke.error_count` metrics [[GH-814](https://github.com/hashicorp/nomad-autoscaler/pull/814)]
  * plugin/target/aws: Add `scale_in_protection` configuration [[GH-807](https://github.com/hashicorp/nomad-autoscaler/pull/807)]
  * scaleutils: Add new node filter option `node_pool` to select nodes by their node pool value [[GH-810](https://github.com/hashicorp/nomad-autoscaler/pull/810)]

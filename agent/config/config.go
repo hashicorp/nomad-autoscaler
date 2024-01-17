@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
+	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/copystructure"
 )
 
@@ -288,6 +289,10 @@ type HighAvailability struct {
 	// is successfully acquired.
 	Enabled *bool `hcl:"enabled"`
 
+	// LockNamespace defines the namespace where the high availability lock
+	// variable is written.
+	LockNamespace string `hcl:"lock_namespace,optional" json:"-"`
+
 	// LockPath defines the path of the variable that will be used to sync the
 	// leader when running on high availability mode.
 	LockPath string `hcl:"lock_path,optional" json:"-"`
@@ -472,10 +477,11 @@ func Default() (*Agent, error) {
 			{Name: plugins.InternalTargetNomad, Driver: plugins.InternalTargetNomad},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:   ptr.Of(false),
-			LockPath:  defaultLockPath,
-			LockTTL:   defaultLockTTL,
-			LockDelay: defaultLockDelay,
+			Enabled:       ptr.Of(false),
+			LockNamespace: api.DefaultNamespace,
+			LockPath:      defaultLockPath,
+			LockTTL:       defaultLockTTL,
+			LockDelay:     defaultLockDelay,
 		},
 	}, nil
 }
@@ -766,6 +772,10 @@ func (ha *HighAvailability) merge(b *HighAvailability) *HighAvailability {
 	result := *ha
 	if b.Enabled != nil {
 		result.Enabled = b.Enabled
+	}
+
+	if b.LockNamespace != "" {
+		result.LockNamespace = b.LockNamespace
 	}
 
 	if b.LockPath != "" {

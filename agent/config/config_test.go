@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
+	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -38,6 +39,7 @@ func Test_Default(t *testing.T) {
 	assert.Equal(t, 1*time.Second, def.Telemetry.CollectionInterval)
 	assert.False(t, def.EnableDebug, "ensure debugging is disabled by default")
 	assert.False(t, *def.HighAvailability.Enabled, "ensure high availability is disabled by default")
+	assert.Equal(t, api.DefaultNamespace, def.HighAvailability.LockNamespace)
 	assert.Equal(t, defaultLockPath, def.HighAvailability.LockPath)
 	assert.Equal(t, defaultLockTTL, def.HighAvailability.LockTTL)
 	assert.Equal(t, defaultLockDelay, def.HighAvailability.LockDelay)
@@ -80,8 +82,9 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.Of(false),
-			LockPath: "original/path",
+			Enabled:       ptr.Of(false),
+			LockNamespace: "ns-1",
+			LockPath:      "original/path",
 		},
 	}
 
@@ -183,8 +186,9 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.Of(true),
-			LockPath: "second/path",
+			Enabled:       ptr.Of(true),
+			LockNamespace: "ns-2",
+			LockPath:      "second/path",
 		},
 	}
 
@@ -316,8 +320,9 @@ func TestAgent_Merge(t *testing.T) {
 			},
 		},
 		HighAvailability: &HighAvailability{
-			Enabled:  ptr.Of(true),
-			LockPath: "second/path",
+			Enabled:       ptr.Of(true),
+			LockNamespace: "ns-2",
+			LockPath:      "second/path",
 		},
 	}
 

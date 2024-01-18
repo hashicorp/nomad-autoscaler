@@ -268,18 +268,24 @@ Telemetry Options:
   -telemetry-circonus-broker-select-tag
     A tag which is used to select a broker ID when an explicit broker ID is not
     provided.
-  
+
 High Availability Options:
 
   -high-availability-enabled
     On cases when multiple instances of the autoscaler need to be run at the same
-    time, the high-availability option triggers a leader election using a lock 
+    time, the high-availability option triggers a leader election using a lock
     for sync among the different lock instances. It defaults to false.
-  
+
+  -high-availability-lock-namepsace
+    When using the high-availability mode, the namepsace where the lock is
+    written for leader election can be provided using the
+    high-availability-lock-namespace flag. The same namespace must be provided
+    to every instance of the autoscaler in order to be included in the election.
+
   -high-availability-lock-path
     When using the high-availability mode, the path to the lock to be used for the
-    leader election can be provided using the high-availability-lock-path flag. 
-    The same path must be provided to every instance of the autoscaler in order 
+    leader election can be provided using the high-availability-lock-path flag.
+    The same path must be provided to every instance of the autoscaler in order
     to be included in the election.
 
   -high-availability-lock-ttl
@@ -396,6 +402,7 @@ func (c *AgentCommand) Run(args []string) int {
 	switch *parsedConfig.HighAvailability.Enabled {
 	case true:
 		logger.Info("running in HA mode",
+			"lock_namespace", parsedConfig.HighAvailability.LockNamespace,
 			"lock_path", parsedConfig.HighAvailability.LockPath,
 			"lock_ttl", parsedConfig.HighAvailability.LockTTL,
 			"lock_delay", parsedConfig.HighAvailability.LockDelay)
@@ -408,7 +415,9 @@ func (c *AgentCommand) Run(args []string) int {
 			},
 		}
 
-		locker, err := c.agent.NomadClient.Locks(api.WriteOptions{}, asLock)
+		locker, err := c.agent.NomadClient.Locks(api.WriteOptions{
+			Namespace: parsedConfig.HighAvailability.LockNamespace,
+		}, asLock)
 		if err != nil {
 			logger.Error("failed to start locker", "error", err)
 			return 1
@@ -571,6 +580,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 
 	// Specify our High Availability flags.
 	flags.BoolVar(&enableHighAvailability, "high-availability-enabled", false, "")
+	flags.StringVar(&cmdConfig.HighAvailability.LockNamespace, "high-availability-lock-namespace", "", "")
 	flags.StringVar(&cmdConfig.HighAvailability.LockPath, "high-availability-lock-path", "", "")
 	flags.DurationVar(&cmdConfig.HighAvailability.LockTTL, "high-availability-lock-ttl", 0, "")
 	flags.DurationVar(&cmdConfig.HighAvailability.LockDelay, "high-availability-lock-delay", 0, "")

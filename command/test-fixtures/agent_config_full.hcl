@@ -51,8 +51,9 @@ policy_eval {
 }
 
 high_availability {
-  enabled    = true
-  lock_path  = "my/custom/path"
-  lock_ttl   = "30s"
-  lock_delay = "15s"
+  enabled        = true
+  lock_namespace = "my-namespace"
+  lock_path      = "my/custom/path"
+  lock_ttl       = "30s"
+  lock_delay     = "15s"
 }

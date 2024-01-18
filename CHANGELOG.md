@@ -1,7 +1,7 @@
-## UNRELEASED
+## 0.4.1 (January 18, 2024)
 
 IMPROVEMENTS:
- * agent: Add `BlockQueryWaitTime` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
+ * agent: Add `nomad.block_query_wait_time` config option for Nomad API connectivity [[GH-755](https://github.com/hashicorp/nomad-autoscaler/pull/755)]
  * agent: Add `high_availability.lock_namespace` configuration to specify the namespace used for writing the high availability lock variable. [[GH-832](https://github.com/hashicorp/nomad-autoscaler/pull/832)]
  * build: Updated to Go 1.21.6 [[GH-831](https://github.com/hashicorp/nomad-autoscaler/pull/831)]
  * metrics: Add `policy_id` and `target_name` labels to `scale.invoke.success_count` and `scale.invoke.error_count` metrics [[GH-814](https://github.com/hashicorp/nomad-autoscaler/pull/814)]

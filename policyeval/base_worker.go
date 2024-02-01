@@ -267,14 +267,6 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	// the scaling action.
 	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
 
-	// If the policy is configured with dry-run:true then we set the
-	// action count to nil so its no-nop. This allows us to still
-	// submit the job, but not alter its state.
-	if val, ok := eval.Policy.Target.Config["dry-run"]; ok && val == "true" {
-		logger.Info("scaling dry-run is enabled, using no-op task group count")
-		winner.action.SetDryRun()
-	}
-
 	// Last check for early exit before scaling the target, which we consider
 	// a non-preemptable action since we cannot be sure that a scaling action can
 	// be cancelled halfway through or undone.
@@ -303,6 +295,14 @@ func (w *BaseWorker) scaleTarget(
 	action sdk.ScalingAction,
 	currentStatus *sdk.TargetStatus,
 ) error {
+
+	// If the policy is configured with dry-run:true then we set the
+	// action count to nil so its no-nop. This allows us to still
+	// submit the job, but not alter its state.
+	if val, ok := policy.Target.Config["dry-run"]; ok && val == "true" {
+		logger.Info("scaling dry-run is enabled, using no-op task group count")
+		action.SetDryRun()
+	}
 
 	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		logger.Debug("registering scaling event",

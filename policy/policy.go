@@ -11,6 +11,7 @@ import (
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
+	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -38,6 +39,12 @@ func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 	}
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = pr.defaults.DefaultEvaluationInterval
+	}
+
+	// we limit the grpc timeout to a 75% of the evaluation interval
+	if p.Target != nil {
+		grpcTimeout := p.EvaluationInterval * 75 / 100
+		p.Target.Config[shared.PluginConfigKeyGRPCTimeout] = grpcTimeout.String()
 	}
 
 	for i := 0; i < len(p.Checks); i++ {

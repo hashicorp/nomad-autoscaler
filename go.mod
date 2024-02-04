@@ -29,7 +29,7 @@ require (
 	github.com/shoenig/test v1.7.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/text v0.14.0
-	google.golang.org/api v0.159.0
+	google.golang.org/api v0.161.0
 	google.golang.org/grpc v1.61.0
 	google.golang.org/protobuf v1.32.0
 )

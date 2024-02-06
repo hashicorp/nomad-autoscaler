@@ -79,6 +79,32 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "0", "max_scale_up": "not-the-int-you're-looking-for"},
+					},
+				},
+			},
+			expectedResp:  nil,
+			expectedError: errors.New("invalid value for `max_scale_up`: not-the-int-you're-looking-for (string)"),
+			name:          "incorrect input strategy config max_scale_up value",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "0", "max_scale_down": "not-the-int-you're-looking-for"},
+					},
+				},
+			},
+			expectedResp:  nil,
+			expectedError: errors.New("invalid value for `max_scale_down`: not-the-int-you're-looking-for (string)"),
+			name:          "incorrect input strategy config max_scale_down value",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
 				Metrics: sdk.TimestampedMetrics{},
 				Check: &sdk.ScalingPolicyCheck{
 					Strategy: &sdk.ScalingPolicyStrategy{
@@ -336,6 +362,60 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			},
 			expectedError: nil,
 			name:          "properly handle multiple input",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 210}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "50", "max_scale_up": "2"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 1,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 210}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "50", "max_scale_up": "2"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Count:     3,
+					Reason:    "scaling up because factor is 4.200000",
+					Direction: sdk.ScaleDirectionUp,
+				},
+			},
+			expectedError: nil,
+			name:          "scale up limited to max_scale_up",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 10}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "210", "max_scale_down": "1"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 5,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 10}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"target": "210", "max_scale_down": "1"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Count:     4,
+					Reason:    "scaling down because factor is 0.047619",
+					Direction: sdk.ScaleDirectionDown,
+				},
+			},
+			expectedError: nil,
+			name:          "scale down limited to max_scale_down",
 		},
 	}
 

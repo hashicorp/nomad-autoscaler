@@ -39,6 +39,10 @@ type Agent struct {
 	// setting up all clients. It is the result of the Nomad api.DefaultConfig
 	// merged with the user-specified Nomad config.Nomad.
 	nomadCfg *api.Config
+
+	// entReload is used to notify the Enterprise license watcher to reload its
+	// configuration.
+	entReload chan any
 }
 
 func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent {
@@ -47,6 +51,7 @@ func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent
 		config:      c,
 		configPaths: configPaths,
 		nomadCfg:    nomadHelper.MergeDefaultWithAgentConfig(c.Nomad),
+		entReload:   make(chan any),
 	}
 }
 
@@ -83,7 +88,7 @@ func (a *Agent) Run(ctx context.Context) error {
 		a.config.PolicyEval.DeliveryLimit)
 	a.initWorkers(ctx)
 
-	a.initEnt(ctx)
+	a.initEnt(ctx, a.entReload)
 
 	// Launch the eval handler.
 	go a.runEvalHandler(ctx, policyEvalCh)
@@ -209,6 +214,8 @@ func (a *Agent) reload() {
 		a.logger.Error("failed to reload Autoscaler configuration", "error", err)
 		os.Exit(1)
 	}
+
+	a.entReload <- struct{}{}
 
 	a.logger.Debug("reloading policy sources")
 	// Set new Nomad client in the Nomad policy source.

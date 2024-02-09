@@ -5,6 +5,7 @@ package target
 
 import (
 	"context"
+	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
@@ -37,8 +38,19 @@ func (p *pluginClient) Scale(action sdk.ScalingAction, config map[string]string)
 // Status is the gRPC client implementation of the Target.Status interface
 // function.
 func (p *pluginClient) Status(config map[string]string) (*sdk.TargetStatus, error) {
+	ctx := p.doneCTX
+	if timeoutString, ok := config[shared.PluginConfigKeyGRPCTimeout]; ok {
+		timeout, err := time.ParseDuration(timeoutString)
+		if err != nil {
+			return nil, err
+		}
 
-	statusResp, err := p.client.Status(p.doneCTX, &proto.StatusRequest{Config: config})
+		var cancel func()
+		ctx, cancel = context.WithTimeout(p.doneCTX, timeout)
+		defer cancel()
+	}
+
+	statusResp, err := p.client.Status(ctx, &proto.StatusRequest{Config: config})
 	if err != nil {
 		return nil, err
 	}

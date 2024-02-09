@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+ * agent: Fixed a bug that caused a target in dry-run mode to scale when outside of its min/max range [[GH-845](https://github.com/hashicorp/nomad-autoscaler/pull/845)]
+
 ## 0.4.1 (January 18, 2024)
 
 IMPROVEMENTS:

@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+ * agent: Fixed a bug that caused the Enterprise license checker to not be reloaded on `SIGHUP` [[GH-849](https://github.com/hashicorp/nomad-autoscaler/pull/849)]
+
 ## 0.4.1 (January 18, 2024)
 
 IMPROVEMENTS:

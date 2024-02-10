@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
  * plugin/strategy/target-value: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-848](https://github.com/hashicorp/nomad-autoscaler/pull/848)]
+ * policy: Add new configuration `query_window_offset` to apply a time offset to the query window [[GH-850](https://github.com/hashicorp/nomad-autoscaler/pull/850)]
 
 BUG FIXES:
  * agent: Fixed a bug that caused a target in dry-run mode to scale when outside of its min/max range [[GH-845](https://github.com/hashicorp/nomad-autoscaler/pull/845)]

@@ -32,11 +32,12 @@ func Test_decodeFile(t *testing.T) {
 					OnCheckError:       "error",
 					Checks: []*sdk.ScalingPolicyCheck{
 						{
-							Name:        "cpu_nomad",
-							Group:       "cpu",
-							Source:      "nomad_apm",
-							Query:       "cpu_high-memory",
-							QueryWindow: time.Minute,
+							Name:              "cpu_nomad",
+							Group:             "cpu",
+							Source:            "nomad_apm",
+							Query:             "cpu_high-memory",
+							QueryWindow:       time.Minute,
+							QueryWindowOffset: 2 * time.Minute,
 							Strategy: &sdk.ScalingPolicyStrategy{
 								Name: "target-value",
 								Config: map[string]string{

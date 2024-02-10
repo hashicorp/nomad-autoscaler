@@ -111,14 +111,15 @@ func parseChecks(cs interface{}) []*sdk.ScalingPolicyCheck {
 //
 //	scaling {
 //	  policy {
-//	  +--------------------------------+
-//	  | check "name" {                 |
-//	  |   source = "source"            |
-//	  |   query = "query"              |
-//	  |   query_window = "5m"          |
-//	  |   strategy "strategy" { ... }  |
-//	  | }                              |
-//	  +--------------------------------+
+//	  +---------------------------------+
+//	  | check "name" {                  |
+//	  |   source = "source"             |
+//	  |   query               = "query" |
+//	  |   query_window        = "5m"    |
+//	  |   query_window_offset = "1m"    |
+//	  |   strategy "strategy" { ... }   |
+//	  | }                               |
+//	  +---------------------------------+
 //	  }
 //	}
 func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
@@ -148,19 +149,24 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	on_error, _ := checkMap[keyOnError].(string)
 	group, _ := checkMap[keyGroup].(string)
 
-	// Parse query_window ignoring errors since we assume policy has been validated.
-	var queryWindow time.Duration
+	// Parse query_window and query_window_offset ignoring errors since we
+	// assume policy has been validated.
+	var queryWindow, queryWindowOffset time.Duration
 	if queryWindowStr, ok := checkMap[keyQueryWindow].(string); ok {
 		queryWindow, _ = time.ParseDuration(queryWindowStr)
 	}
+	if queryWindowOffsetStr, ok := checkMap[keyQueryWindowOffset].(string); ok {
+		queryWindowOffset, _ = time.ParseDuration(queryWindowOffsetStr)
+	}
 
 	return &sdk.ScalingPolicyCheck{
-		Group:       group,
-		Query:       query,
-		QueryWindow: queryWindow,
-		Source:      source,
-		Strategy:    strategy,
-		OnError:     on_error,
+		Group:             group,
+		Query:             query,
+		QueryWindow:       queryWindow,
+		QueryWindowOffset: queryWindowOffset,
+		Source:            source,
+		Strategy:          strategy,
+		OnError:           on_error,
 	}
 }
 

@@ -139,6 +139,10 @@ type ScalingPolicyCheck struct {
 	// metrics.
 	QueryWindow time.Duration
 
+	// QueryWindowOffset defines an offset from the current time to apply to
+	// the query window.
+	QueryWindowOffset time.Duration
+
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
 	Strategy *ScalingPolicyStrategy
@@ -227,14 +231,16 @@ type FileDecodePolicyDoc struct {
 }
 
 type FileDecodePolicyCheckDoc struct {
-	Name           string `hcl:"name,label"`
-	Group          string `hcl:"group,optional"`
-	Source         string `hcl:"source,optional"`
-	Query          string `hcl:"query,optional"`
-	QueryWindow    time.Duration
-	QueryWindowHCL string                 `hcl:"query_window,optional"`
-	OnError        string                 `hcl:"on_error,optional"`
-	Strategy       *ScalingPolicyStrategy `hcl:"strategy,block"`
+	Name                 string `hcl:"name,label"`
+	Group                string `hcl:"group,optional"`
+	Source               string `hcl:"source,optional"`
+	Query                string `hcl:"query,optional"`
+	QueryWindow          time.Duration
+	QueryWindowHCL       string `hcl:"query_window,optional"`
+	QueryWindowOffset    time.Duration
+	QueryWindowOffsetHCL string                 `hcl:"query_window_offset,optional"`
+	OnError              string                 `hcl:"on_error,optional"`
+	Strategy             *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
 
 // Translate all values from the decoded policy file into our internal policy
@@ -275,6 +281,7 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Source = fdc.Source
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
+	c.QueryWindowOffset = fdc.QueryWindowOffset
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

@@ -14,10 +14,11 @@ scaling "full-cluster-policy" {
     on_check_error      = "error"
 
     check "cpu_nomad" {
-      source       = "nomad_apm"
-      query        = "cpu_high-memory"
-      query_window = "1m"
-      group        = "cpu"
+      source              = "nomad_apm"
+      query               = "cpu_high-memory"
+      query_window        = "1m"
+      query_window_offset = "2m"
+      group               = "cpu"
 
       strategy "target-value" {
         target = "80"

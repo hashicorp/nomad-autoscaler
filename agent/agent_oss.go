@@ -8,4 +8,15 @@ package agent
 
 import "context"
 
-func (a *Agent) initEnt(_ context.Context) {}
+func (a *Agent) initEnt(ctx context.Context, reload <-chan any) {
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-reload:
+				continue
+			}
+		}
+	}()
+}

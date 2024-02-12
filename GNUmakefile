@@ -5,6 +5,7 @@ GIT_COMMIT := $(shell git rev-parse --short HEAD)
 GIT_DIRTY := $(if $(shell git status --porcelain),+CHANGES)
 
 GO_LDFLAGS := "$(GO_LDFLAGS) -X github.com/hashicorp/nomad-autoscaler/version.GitCommit=$(GIT_COMMIT)$(GIT_DIRTY)"
+GO_TAGS := ""
 
 # Attempt to use gotestsum for running tests, otherwise fallback to go test.
 GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
@@ -67,8 +68,9 @@ pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOA
 .PHONY: dev
 dev: lint ## Build for the current development version
 	@echo "==> Building autoscaler..."
-	@CGO_ENABLED=0 go build \
+	@CGO_ENABLED=0 GOPROXY=direct go build \
 		-ldflags $(GO_LDFLAGS) \
+		-tags "$(GO_TAGS)" \
 		-o ./bin/nomad-autoscaler
 	@rm -f $(BIN)/nomad-autoscaler && cp ./bin/nomad-autoscaler $(BIN)/
 	@echo "==> Done"
@@ -82,7 +84,8 @@ proto: ## Generate the protocol buffers
 .PHONY: lint
 lint: lint-tools generate-tools hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
-	@golangci-lint run -j 1
+	@GOPROXY=direct \
+	golangci-lint run -j 1 --build-tags "$(GO_TAGS)"
 	@staticcheck ./...
 	@hclogvet .
 	@buf lint --config=./tools/buf/buf.yaml
@@ -129,7 +132,8 @@ check-protobuf: ## Checks the protobuf files are in-sync
 test: ## Test the source code
 	@$(MAKE) -C plugins/test
 	@echo "==> Testing source code..."
-	@$(GO_TEST_CMD) -v -race -cover ./...
+	@GOPROXY=direct \
+    	$(GO_TEST_CMD) -v -race -cover ./... -tags "$(GO_TAGS)"
 	@echo "==> Done"
 
 .PHONY: clean-plugins

@@ -13,6 +13,12 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+const (
+	// PluginConfigKeyGRPCTimeout is the config key used internaly to provide a
+	// timeout value for GRPC calls
+	PluginConfigKeyGRPCTimeout = "_nomad_autoscaler_grpc_timeout"
+)
+
 // ScalingDirectionToProto converts the input scale direction to the proto
 // equivalent.
 func ScalingDirectionToProto(input sdk.ScaleDirection) (proto.ScalingDirection, error) {

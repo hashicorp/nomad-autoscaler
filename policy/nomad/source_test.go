@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
@@ -65,10 +66,11 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: "target",
 					Config: map[string]string{
-						"target_config":  "yes",
-						"target_config2": "no",
-						"Job":            "job",
-						"Group":          "group",
+						"target_config":                   "yes",
+						"target_config2":                  "no",
+						"Job":                             "job",
+						"Group":                           "group",
+						shared.PluginConfigKeyGRPCTimeout: "750ms",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -127,9 +129,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Namespace": "dev",
-						"Job":       "job",
-						"Group":     "group",
+						"Namespace":                       "dev",
+						"Job":                             "job",
+						"Group":                           "group",
+						shared.PluginConfigKeyGRPCTimeout: "7.5s",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -167,9 +170,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Namespace": "dev",
-						"Job":       "job",
-						"Group":     "group",
+						"Namespace":                       "dev",
+						"Job":                             "job",
+						"Group":                           "group",
+						shared.PluginConfigKeyGRPCTimeout: "7.5s",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -206,9 +210,10 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Namespace": "my_ns",
-						"Job":       "my_job",
-						"Group":     "my_group",
+						"Namespace":                       "my_ns",
+						"Job":                             "my_job",
+						"Group":                           "my_group",
+						shared.PluginConfigKeyGRPCTimeout: "7.5s",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -245,8 +250,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Job":                             "job",
+						"Group":                           "group",
+						shared.PluginConfigKeyGRPCTimeout: "7.5s",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
@@ -282,8 +288,9 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				Target: &sdk.ScalingPolicyTarget{
 					Name: plugins.InternalTargetNomad,
 					Config: map[string]string{
-						"Job":   "job",
-						"Group": "group",
+						"Job":                             "job",
+						"Group":                           "group",
+						shared.PluginConfigKeyGRPCTimeout: "7.5s",
 					},
 				},
 				Checks: []*sdk.ScalingPolicyCheck{

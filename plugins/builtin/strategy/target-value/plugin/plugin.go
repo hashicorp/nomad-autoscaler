@@ -22,8 +22,10 @@ const (
 	pluginName = "target-value"
 
 	// These are the keys read from the RunRequest.Config map.
-	runConfigKeyTarget    = "target"
-	runConfigKeyThreshold = "threshold"
+	runConfigKeyTarget       = "target"
+	runConfigKeyThreshold    = "threshold"
+	runConfigKeyMaxScaleUp   = "max_scale_up"
+	runConfigKeyMaxScaleDown = "max_scale_down"
 
 	// defaultThreshold controls how significant is a change in the input
 	// metric value.
@@ -103,6 +105,32 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		return nil, fmt.Errorf("invalid value for `threshold`: %v (%T)", th, th)
 	}
 
+	// Read and parse max_scale_up from req.Config.
+	var maxScaleUp *int64
+	maxScaleUpStr := eval.Check.Strategy.Config[runConfigKeyMaxScaleUp]
+	if maxScaleUpStr != "" {
+		msu, err := strconv.ParseInt(maxScaleUpStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for `max_scale_up`: %v (%T)", maxScaleUpStr, maxScaleUpStr)
+		}
+		maxScaleUp = &msu
+	} else {
+		maxScaleUpStr = "+Inf"
+	}
+
+	// Read and parse max_scale_down from req.Config.
+	var maxScaleDown *int64
+	maxScaleDownStr := eval.Check.Strategy.Config[runConfigKeyMaxScaleDown]
+	if maxScaleDownStr != "" {
+		msd, err := strconv.ParseInt(maxScaleDownStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for `max_scale_down`: %v (%T)", maxScaleDownStr, maxScaleDownStr)
+		}
+		maxScaleDown = &msd
+	} else {
+		maxScaleDownStr = "-Inf"
+	}
+
 	var factor float64
 
 	// Use only the latest value for now.
@@ -136,13 +164,21 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		newCount = int64(math.Ceil(float64(count) * factor))
 	}
 
+	// Limit the increase or decrease with the values specified in max_scale_up and max_scale_down.
+	if maxScaleDown != nil && newCount < count-(*maxScaleDown) {
+		newCount = count - *maxScaleDown
+	}
+	if maxScaleUp != nil && newCount > count+(*maxScaleUp) {
+		newCount = count + *maxScaleUp
+	}
+
 	// Log at trace level the details of the strategy calculation. This is
 	// helpful in ultra-debugging situations when there is a need to understand
 	// all the calculations made.
 	s.logger.Trace("calculated scaling strategy results",
 		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
 		"metric_value", metric.Value, "metric_time", metric.Timestamp, "factor", factor,
-		"direction", eval.Action.Direction)
+		"direction", eval.Action.Direction, "max_scale_up", maxScaleUpStr, "max_scale_down", maxScaleDownStr)
 
 	// If the calculated newCount is the same as the current count, we do not
 	// need to scale so return an empty response.

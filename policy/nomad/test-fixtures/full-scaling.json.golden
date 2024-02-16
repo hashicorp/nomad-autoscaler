@@ -3,20 +3,23 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "CreateIndex": 195,
+    "ConsulNamespace": "",
+    "ConsulToken": "",
+    "CreateIndex": 9,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 195,
+    "JobModifyIndex": 9,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 199,
+    "ModifyIndex": 14,
     "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
+    "NodePool": "default",
     "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
@@ -30,21 +33,28 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1645143603621529000,
+    "SubmitTime": 1707527436368244000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
+        "Consul": {
+          "Cluster": "default",
+          "Namespace": "",
+          "Partition": ""
+        },
         "Count": 2,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
           "Sticky": false
         },
+        "MaxClientDisconnect": null,
         "Meta": null,
         "Migrate": null,
         "Name": "test",
         "Networks": null,
+        "PreventRescheduleOnLost": false,
         "ReschedulePolicy": {
           "Attempts": 1,
           "Delay": 5000000000,
@@ -57,24 +67,25 @@
           "Attempts": 3,
           "Delay": 15000000000,
           "Interval": 86400000000000,
-          "Mode": "fail"
+          "Mode": "fail",
+          "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 195,
+          "CreateIndex": 9,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 195,
+          "ModifyIndex": 9,
           "Namespace": "",
           "Policy": {
             "target": [
               {
                 "target": [
                   {
-                    "bool_config": true,
-                    "int_config": 2,
-                    "str_config": "str"
+                    "int_config": 2.0,
+                    "str_config": "str",
+                    "bool_config": true
                   }
                 ]
               }
@@ -83,21 +94,22 @@
               {
                 "check-1": [
                   {
+                    "on_error": "ignore",
+                    "query": "query-1",
                     "query_window": "1m",
+                    "query_window_offset": "2m",
                     "source": "source-1",
                     "strategy": [
                       {
                         "strategy-1": [
                           {
-                            "int_config": 2,
                             "str_config": "str",
-                            "bool_config": true
+                            "bool_config": true,
+                            "int_config": 2.0
                           }
                         ]
                       }
-                    ],
-                    "on_error": "ignore",
-                    "query": "query-1"
+                    ]
                   }
                 ]
               },
@@ -111,9 +123,9 @@
                       {
                         "strategy-2": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
@@ -139,24 +151,41 @@
         "StopAfterClientDisconnect": null,
         "Tasks": [
           {
+            "Actions": null,
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
+            "Consul": null,
             "DispatchPayload": null,
             "Driver": "raw_exec",
             "Env": null,
+            "Identities": null,
+            "Identity": {
+              "Audience": [
+                "nomadproject.io"
+              ],
+              "ChangeMode": "",
+              "ChangeSignal": "",
+              "Env": false,
+              "File": false,
+              "Name": "default",
+              "ServiceName": "",
+              "TTL": 0
+            },
             "KillSignal": "",
             "KillTimeout": 5000000000,
             "Kind": "",
             "Leader": false,
             "Lifecycle": null,
             "LogConfig": {
+              "Disabled": false,
+              "Enabled": null,
               "MaxFileSizeMB": 10,
               "MaxFiles": 10
             },
@@ -170,13 +199,15 @@
               "IOPS": 0,
               "MemoryMB": 300,
               "MemoryMaxMB": 0,
+              "NUMA": null,
               "Networks": null
             },
             "RestartPolicy": {
               "Attempts": 3,
               "Delay": 15000000000,
               "Interval": 86400000000000,
-              "Mode": "fail"
+              "Mode": "fail",
+              "RenderTemplates": false
             },
             "ScalingPolicies": null,
             "Services": null,

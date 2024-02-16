@@ -23,10 +23,11 @@ job "full-scaling" {
         }
 
         check "check-1" {
-          source       = "source-1"
-          query        = "query-1"
-          query_window = "1m"
-          on_error     = "ignore"
+          source              = "source-1"
+          query               = "query-1"
+          query_window        = "1m"
+          query_window_offset = "2m"
+          on_error            = "ignore"
 
           strategy "strategy-1" {
             int_config  = 2

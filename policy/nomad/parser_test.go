@@ -44,11 +44,12 @@ func Test_parsePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:        "check-1",
-						Source:      "source-1",
-						Query:       "query-1",
-						QueryWindow: time.Minute,
-						OnError:     "ignore",
+						Name:              "check-1",
+						Source:            "source-1",
+						Query:             "query-1",
+						QueryWindow:       time.Minute,
+						QueryWindowOffset: 2 * time.Minute,
+						OnError:           "ignore",
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy-1",
 							Config: map[string]string{

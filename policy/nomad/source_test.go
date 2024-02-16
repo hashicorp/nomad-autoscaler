@@ -42,10 +42,11 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:        "check",
-						Source:      "source",
-						Query:       "query",
-						QueryWindow: 5 * time.Minute,
+						Name:              "check",
+						Source:            "source",
+						Query:             "query",
+						QueryWindow:       5 * time.Minute,
+						QueryWindowOffset: 2 * time.Minute,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{
@@ -75,10 +76,11 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 				},
 				Checks: []*sdk.ScalingPolicyCheck{
 					{
-						Name:        "check",
-						Source:      "source",
-						Query:       "query",
-						QueryWindow: 5 * time.Minute,
+						Name:              "check",
+						Source:            "source",
+						Query:             "query",
+						QueryWindow:       5 * time.Minute,
+						QueryWindowOffset: 2 * time.Minute,
 						Strategy: &sdk.ScalingPolicyStrategy{
 							Name: "strategy",
 							Config: map[string]string{

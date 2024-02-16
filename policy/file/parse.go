@@ -61,16 +61,21 @@ func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 	for i := 0; i < len(decodePolicy.Doc.Checks); i++ {
 		check := decodePolicy.Doc.Checks[i]
 
-		// Skip parsing if query_window not set.
-		if check.QueryWindowHCL == "" {
-			continue
+		if check.QueryWindowHCL != "" {
+			w, err := time.ParseDuration(check.QueryWindowHCL)
+			if err != nil {
+				return err
+			}
+			decodePolicy.Doc.Checks[i].QueryWindow = w
 		}
 
-		w, err := time.ParseDuration(check.QueryWindowHCL)
-		if err != nil {
-			return err
+		if check.QueryWindowOffsetHCL != "" {
+			o, err := time.ParseDuration(check.QueryWindowOffsetHCL)
+			if err != nil {
+				return err
+			}
+			decodePolicy.Doc.Checks[i].QueryWindowOffset = o
 		}
-		decodePolicy.Doc.Checks[i].QueryWindow = w
 	}
 
 	return nil

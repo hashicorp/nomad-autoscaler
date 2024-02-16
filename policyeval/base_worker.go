@@ -501,7 +501,7 @@ func (h *checkHandler) runAPMQuery(apmImpl apm.APM) (sdk.TimestampedMetrics, err
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
 
 	// Calculate query range from the query window defined in the check.
-	to := time.Now()
+	to := time.Now().Add(-h.checkEval.Check.QueryWindowOffset)
 	from := to.Add(-h.checkEval.Check.QueryWindow)
 	r := sdk.TimeRange{From: from, To: to}
 

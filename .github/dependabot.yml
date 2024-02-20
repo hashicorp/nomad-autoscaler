@@ -8,3 +8,10 @@ updates:
       time: "09:00"
     labels:
       - "theme/dependencies"
+    ignore:
+      # All modules for The AWS SDK must be updated together, including
+      # indirect dependencies. Refer to #826 for more details.
+      #
+      # Ignoring on dependabot for now until we can validate and properly
+      # automate the upgrade path.
+      - dependency-name: "github.com/aws/aws-sdk-go-v2*"

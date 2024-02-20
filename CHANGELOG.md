@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.2 (February 20, 2024)
 
 IMPROVEMENTS:
  * plugin/strategy/target-value: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-848](https://github.com/hashicorp/nomad-autoscaler/pull/848)]

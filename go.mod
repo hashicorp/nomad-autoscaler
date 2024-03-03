@@ -24,7 +24,7 @@ require (
 	github.com/mitchellh/cli v1.1.5
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/prometheus/client_golang v1.18.1-0.20240223185837-14259fa70cfb
+	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/common v0.48.0
 	github.com/shoenig/test v1.7.0
 	github.com/stretchr/testify v1.8.4

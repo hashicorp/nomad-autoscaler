@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/hashicorp/go-hclog v1.6.2
 	github.com/hashicorp/nomad-autoscaler v0.3.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 )
 
 require (

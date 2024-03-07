@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+* build: Updated to Go 1.22.1 [[GH-872](https://github.com/hashicorp/nomad-autoscaler/pull/872)]
+
 ## 0.4.2 (February 20, 2024)
 
 IMPROVEMENTS:

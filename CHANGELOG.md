@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+ * plugin/strategy/pass-through: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-881](https://github.com/hashicorp/nomad-autoscaler/pull/881)]
+
 ## 0.4.3 (March 12, 2024)
 
 IMPROVEMENTS:

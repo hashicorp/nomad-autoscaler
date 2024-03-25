@@ -5,6 +5,7 @@ package plugin
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -17,6 +18,10 @@ const (
 	// pluginName is the unique name of the this plugin amongst strategy
 	// plugins.
 	pluginName = "pass-through"
+
+	// These are the keys read from the RunRequest.Config map.
+	runConfigKeyMaxScaleUp   = "max_scale_up"
+	runConfigKeyMaxScaleDown = "max_scale_down"
 )
 
 var (
@@ -64,6 +69,32 @@ func (s *StrategyPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Run satisfies the Run function on the strategy.Strategy interface.
 func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	// Read and parse max_scale_up from req.Config.
+	var maxScaleUp *int64
+	maxScaleUpStr := eval.Check.Strategy.Config[runConfigKeyMaxScaleUp]
+	if maxScaleUpStr != "" {
+		msu, err := strconv.ParseInt(maxScaleUpStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for `max_scale_up`: %v (%T)", maxScaleUpStr, maxScaleUpStr)
+		}
+		maxScaleUp = &msu
+	} else {
+		maxScaleUpStr = "+Inf"
+	}
+
+	// Read and parse max_scale_down from req.Config.
+	var maxScaleDown *int64
+	maxScaleDownStr := eval.Check.Strategy.Config[runConfigKeyMaxScaleDown]
+	if maxScaleDownStr != "" {
+		msd, err := strconv.ParseInt(maxScaleDownStr, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid value for `max_scale_down`: %v (%T)", maxScaleDownStr, maxScaleDownStr)
+		}
+		maxScaleDown = &msd
+	} else {
+		maxScaleDownStr = "-Inf"
+	}
+
 	if len(eval.Metrics) == 0 {
 		return nil, nil
 	}
@@ -77,8 +108,27 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		return eval, nil
 	}
 
-	eval.Action.Count = int64(metric.Value)
-	eval.Action.Reason = fmt.Sprintf("scaling %s because metric is %d", eval.Action.Direction, eval.Action.Count)
+	newCount := int64(metric.Value)
+
+	switch eval.Action.Direction {
+	case sdk.ScaleDirectionUp:
+		if maxScaleUp != nil && newCount > count+*maxScaleUp {
+			newCount = count + *maxScaleUp
+		}
+	case sdk.ScaleDirectionDown:
+		if maxScaleDown != nil && newCount < count-*maxScaleDown {
+			newCount = count - *maxScaleDown
+		}
+	}
+
+	// Log at trace level the details of the strategy calculation.
+	s.logger.Trace("calculated scaling strategy results",
+		"check_name", eval.Check.Name, "current_count", count, "new_count", newCount,
+		"metric_value", metric.Value, "metric_time", metric.Timestamp,
+		"direction", eval.Action.Direction, "max_scale_up", maxScaleUpStr, "max_scale_down", maxScaleDownStr)
+
+	eval.Action.Count = newCount
+	eval.Action.Reason = fmt.Sprintf("scaling %s because metric is %d", eval.Action.Direction, int64(metric.Value))
 
 	return eval, nil
 }

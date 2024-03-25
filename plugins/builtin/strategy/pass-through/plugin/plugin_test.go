@@ -4,6 +4,7 @@
 package plugin
 
 import (
+	"errors"
 	"testing"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -35,6 +36,32 @@ func TestStrategyPlugin_Run(t *testing.T) {
 		expectedError error
 		name          string
 	}{
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_up": "not-the-int-you're-looking-for"},
+					},
+				},
+			},
+			expectedResp:  nil,
+			expectedError: errors.New("invalid value for `max_scale_up`: not-the-int-you're-looking-for (string)"),
+			name:          "incorrect input strategy config max_scale_up value",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_down": "not-the-int-you're-looking-for"},
+					},
+				},
+			},
+			expectedResp:  nil,
+			expectedError: errors.New("invalid value for `max_scale_down`: not-the-int-you're-looking-for (string)"),
+			name:          "incorrect input strategy config max_scale_down value",
+		},
 		{
 			inputEval: &sdk.ScalingCheckEvaluation{
 				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
@@ -128,6 +155,60 @@ func TestStrategyPlugin_Run(t *testing.T) {
 			expectedResp:  nil,
 			expectedError: nil,
 			name:          "no scaling - empty metric timeseries",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_up": "3"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 2,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 13}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_up": "3"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Count:     5,
+					Direction: sdk.ScaleDirectionUp,
+					Reason:    "scaling up because metric is 13",
+				},
+			},
+			expectedError: nil,
+			name:          "pass-through scale up, but max_scale_up is set",
+		},
+		{
+			inputEval: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 3}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_down": "1"},
+					},
+				},
+				Action: &sdk.ScalingAction{},
+			},
+			inputCount: 10,
+			expectedResp: &sdk.ScalingCheckEvaluation{
+				Metrics: sdk.TimestampedMetrics{sdk.TimestampedMetric{Value: 3}},
+				Check: &sdk.ScalingPolicyCheck{
+					Strategy: &sdk.ScalingPolicyStrategy{
+						Config: map[string]string{"max_scale_down": "1"},
+					},
+				},
+				Action: &sdk.ScalingAction{
+					Count:     9,
+					Direction: sdk.ScaleDirectionDown,
+					Reason:    "scaling down because metric is 3",
+				},
+			},
+			expectedError: nil,
+			name:          "pass-through scale down, but max_scale_down is set",
 		},
 	}
 

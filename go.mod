@@ -15,7 +15,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.36.5
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
-	github.com/hashicorp/go-hclog v1.6.2
+	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-plugin v1.6.0

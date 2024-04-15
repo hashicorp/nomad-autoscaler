@@ -1,5 +1,5 @@
 # Blanket ownership of all PRs.
-* @jrasell @Juanadelacuesta @lgfa29
+* @jrasell @Juanadelacuesta
 
 # release configuration
 /.release/                              @hashicorp/nomad-eng

@@ -29,14 +29,14 @@ require (
 	github.com/shoenig/test v1.8.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/text v0.14.0
-	google.golang.org/api v0.175.0
+	google.golang.org/api v0.176.1
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 )
 
 require (
-	cloud.google.com/go/auth v0.2.2 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.1 // indirect
+	cloud.google.com/go/auth v0.3.0 // indirect
+	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.22 // indirect

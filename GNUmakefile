@@ -63,6 +63,7 @@ pkg/%/nomad-autoscaler: ## Build Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linu
 .PRECIOUS: pkg/%/nomad-autoscaler
 pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOARCH, e.g. pkg/linux_amd64.zip
 	@echo "==> Packaging for $@..."
+	@cp LICENSE $(dir $<)LICENSE.txt
 	zip -j $@ $(dir $<)*
 
 .PHONY: dev

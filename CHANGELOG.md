@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.4 (June 4, 2024)
 
 IMPROVEMENTS:
  * agent: Update Nomad API dependency to v1.8.0 [[GH-909](https://github.com/hashicorp/nomad-autoscaler/pull/909)]

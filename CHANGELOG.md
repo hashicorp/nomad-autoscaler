@@ -1,5 +1,7 @@
 ## UNRELEASED
 
+## 0.4.4 (June 4, 2024)
+
 IMPROVEMENTS:
  * agent: Update Nomad API dependency to v1.8.0 [[GH-909](https://github.com/hashicorp/nomad-autoscaler/pull/909)]
  * plugin/strategy/pass-through: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-881](https://github.com/hashicorp/nomad-autoscaler/pull/881)]

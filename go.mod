@@ -26,7 +26,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/common v0.54.0
-	github.com/shoenig/test v1.8.1
+	github.com/shoenig/test v1.8.2
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/text v0.16.0
 	google.golang.org/api v0.183.0

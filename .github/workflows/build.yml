@@ -143,7 +143,7 @@ jobs:
       - get-go-version
       - get-product-version
       - generate-ldflags
-    runs-on: macos
+    runs-on: macos-latest
     strategy:
       matrix:
         goos: ["darwin"]

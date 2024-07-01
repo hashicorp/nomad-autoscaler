@@ -8,7 +8,7 @@ jobs:
     name: "Run checks"
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: hashicorp/setup-golang@v1
       - name: "Run checks"
         run: |
@@ -19,7 +19,7 @@ jobs:
     name: "Run dev"
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: hashicorp/setup-golang@v1
       - name: "Build dev binary"
         run: |
@@ -30,7 +30,7 @@ jobs:
     name: "Run tests"
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
       - uses: hashicorp/setup-golang@v1
       - name: "Run tests"
         run: |

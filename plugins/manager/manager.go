@@ -187,25 +187,45 @@ func (pm *PluginManager) killPluginLocked(pID plugins.PluginID) {
 // Dispense returns a PluginInstance for use by safely obtaining the
 // PluginInstance from storage if we have it.
 func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, error) {
-
 	// Measure the time taken to dispense a plugin. This helps identify
 	// contention and pressure obtaining plugin client handles.
 	labels := []metrics.Label{{Name: "plugin_name", Value: name}, {Name: "plugin_type", Value: pluginType}}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "manager", "access_ms"}, time.Now(), labels)
 
-	pm.pluginInstancesLock.RLock()
-	defer pm.pluginInstancesLock.RUnlock()
+	pID := plugins.PluginID{Name: name, PluginType: pluginType}
 
 	// Attempt to pull our plugin instance from the store and pass this to the
-	// caller.
-	//
-	// TODO(jrasell) if we do not find the instance, we should probably try and
-	//  dispense the plugin. We should also check the plugin instance has not
-	//  exited.
-	inst, ok := pm.pluginInstances[plugins.PluginID{Name: name, PluginType: pluginType}]
+	// caller. If the plugin isn't in the store, try to instantiate it; if it
+	// is, do a health check and attempt to re-instantiate if it fails.
+	pm.pluginInstancesLock.Lock()
+	inst, exists := pm.pluginInstances[pID]
+
+	if exists {
+		if _, err := pm.pluginInfo(pID, inst); err == nil {
+			// Plugin is fine, return it
+			pm.pluginInstancesLock.Unlock()
+			return inst, nil
+		}
+
+		// The plugin exists, but is broken. Remove it.
+		pm.logger.Warn("plugin failed healthcheck", "plugin_name", pID.Name)
+		pm.killPluginLocked(pID)
+	} else {
+		pm.logger.Warn("plugin not in store", "plugin_name", pID.Name)
+	}
+	pm.pluginInstancesLock.Unlock()
+
+	if err := pm.dispensePlugins(); err != nil {
+		return nil, fmt.Errorf("failed to dispense plugin: %q of type %q: %w", name, pluginType, err)
+	}
+
+	pm.pluginInstancesLock.RLock()
+	inst, ok := pm.pluginInstances[pID]
+	pm.pluginInstancesLock.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("failed to dispense plugin: %q of type %q is not stored", name, pluginType)
 	}
+
 	return inst, nil
 }
 
@@ -322,7 +342,23 @@ func (pm *PluginManager) launchExternalPlugin(id plugins.PluginID, info *pluginI
 }
 
 func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo, raw interface{}) (*base.PluginInfo, error) {
+	pluginInfo, err := pm.pluginInfo(id, raw)
+	if err != nil {
+		return nil, err
+	}
 
+	// If the plugin name, or plugin do not match it means the executed plugin
+	// has returned its metadata that is different to the configured. This is a
+	// problem, particularly in the PluginType sense as it means it will be
+	// unable to fulfill its role.
+	if pluginInfo.Name != info.driver || pluginInfo.PluginType != id.PluginType {
+		return nil, fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
+	}
+
+	return pluginInfo, nil
+}
+
+func (pm *PluginManager) pluginInfo(id plugins.PluginID, raw interface{}) (*base.PluginInfo, error) {
 	// Check that the plugin implements the base plugin interface. As these are
 	// external plugins we need to check this safely, otherwise an incorrect
 	// plugin can cause the core application to panic.
@@ -334,14 +370,6 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	pluginInfo, err := b.PluginInfo()
 	if err != nil {
 		return nil, fmt.Errorf("failed to call PluginInfo on %s: %v", id.Name, err)
-	}
-
-	// If the plugin name, or plugin do not match it means the executed plugin
-	// has returned its metadata that is different to the configured. This is a
-	// problem, particularly in the PluginType sense as it means it will be
-	// unable to fulfill its role.
-	if pluginInfo.Name != info.driver || pluginInfo.PluginType != id.PluginType {
-		return nil, fmt.Errorf("plugin %s remote info doesn't match local config: %v", id.Name, err)
 	}
 
 	return pluginInfo, nil

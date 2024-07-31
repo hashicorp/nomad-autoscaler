@@ -138,42 +138,6 @@ jobs:
           name: ${{ env.DEB_PACKAGE }}
           path: out/${{ env.DEB_PACKAGE }}
 
-  build-darwin:
-    needs:
-      - get-go-version
-      - get-product-version
-      - generate-ldflags
-    runs-on: macos-latest
-    strategy:
-      matrix:
-        goos: ["darwin"]
-        goarch: ["amd64", "arm64"]
-      fail-fast: true
-
-    name: Go ${{ needs.get-go-version.outputs.go-version }} ${{ matrix.goos }} ${{ matrix.goarch }} build
-
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-      - name: Setup go
-        uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
-        with:
-          go-version: ${{ needs.get-go-version.outputs.go-version }}
-      - name: Build
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          GO_LDFLAGS: ${{ needs.generate-ldflags.outputs.ldflags }}
-        run: |
-          make pkg/${{ matrix.goos }}_${{ matrix.goarch }}.zip
-          mv \
-            pkg/${{ matrix.goos }}_${{ matrix.goarch }}.zip \
-            ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        if: ${{ !env.ACT }}
-        with:
-          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-          path: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
-
   build-other:
     needs:
       - get-go-version
@@ -182,7 +146,7 @@ jobs:
     runs-on: ubuntu-20.04
     strategy:
       matrix:
-        goos: ["freebsd", "windows"]
+        goos: ["freebsd", "windows", "darwin"]
         goarch: ["amd64", "arm64"]
         exclude:
           - goos: "windows"

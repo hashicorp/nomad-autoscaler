@@ -1,6 +1,6 @@
 module github.com/hashicorp/nomad-autoscaler/plugins/test/noop-strategy
 
-go 1.21
+go 1.22
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3

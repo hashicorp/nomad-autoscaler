@@ -276,16 +276,16 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// Convert the last event string. If an error occurs, just log and
 	// continue with the evaluation. A malformed timestamp shouldn't mean
 	// we skip scaling.
-	lastTS, err := strconv.ParseUint(ts, 10, 64)
+	lastTS, err := strconv.ParseInt(ts, 10, 64)
 	if err != nil {
-		h.log.Error("failed to parse last event timestamp as uint64", "error", err)
+		h.log.Error("failed to parse last event timestamp as int64", "error", err)
 		return eval, nil
 	}
 
 	// Calculate the remaining time period left on the cooldown. If this is
 	// cooldownIgnoreTime or below, we do not need to enter cooldown. Reasoning
 	// on ignoring small variations can be seen within GH-138.
-	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, int64(lastTS))
+	cdPeriod := h.calculateRemainingCooldown(policy.Cooldown, curTime, lastTS)
 	if cdPeriod <= cooldownIgnoreTime {
 		return eval, nil
 	}

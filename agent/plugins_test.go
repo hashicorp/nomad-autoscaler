@@ -8,7 +8,6 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
-	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,24 +24,19 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				nomadCfg: &api.Config{
-					Address:   "test",
-					Region:    "test",
-					SecretID:  "test",
-					Namespace: "test",
-					HttpAuth: &api.HttpBasicAuth{
-						Username: "test",
-						Password: "test",
-					},
-					TLSConfig: &api.TLSConfig{
-						CACert:        "test",
-						CAPath:        "test",
-						ClientCert:    "test",
-						ClientKey:     "test",
-						TLSServerName: "test",
-						Insecure:      true,
-					},
-				},
+				config: &config.Agent{Nomad: &config.Nomad{
+					Address:       "test",
+					Region:        "test",
+					Namespace:     "test",
+					Token:         "test",
+					HTTPAuth:      "test:test",
+					CACert:        "test",
+					CAPath:        "test",
+					ClientCert:    "test",
+					ClientKey:     "test",
+					TLSServerName: "test",
+					SkipVerify:    true,
+				}},
 			},
 			expectedOutputCfg: map[string]string{
 				"nomad_config_inherit": "false",
@@ -55,24 +49,19 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				nomadCfg: &api.Config{
-					Address:   "test",
-					Region:    "test",
-					SecretID:  "test",
-					Namespace: "test",
-					HttpAuth: &api.HttpBasicAuth{
-						Username: "test",
-						Password: "test",
-					},
-					TLSConfig: &api.TLSConfig{
-						CACert:        "test",
-						CAPath:        "test",
-						ClientCert:    "test",
-						ClientKey:     "test",
-						TLSServerName: "test",
-						Insecure:      true,
-					},
-				},
+				config: &config.Agent{Nomad: &config.Nomad{
+					Address:       "test",
+					Region:        "test",
+					Namespace:     "test",
+					Token:         "test",
+					HTTPAuth:      "test:test",
+					CACert:        "test",
+					CAPath:        "test",
+					ClientCert:    "test",
+					ClientKey:     "test",
+					TLSServerName: "test",
+					SkipVerify:    true,
+				}},
 			},
 			expectedOutputCfg: map[string]string{
 				"nomad_config_inherit": "falso",
@@ -85,24 +74,19 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				nomadCfg: &api.Config{
-					Address:   "test",
-					Region:    "test",
-					SecretID:  "test",
-					Namespace: "test",
-					HttpAuth: &api.HttpBasicAuth{
-						Username: "test",
-						Password: "test",
-					},
-					TLSConfig: &api.TLSConfig{
-						CACert:        "test",
-						CAPath:        "test",
-						ClientCert:    "test",
-						ClientKey:     "test",
-						TLSServerName: "test",
-						Insecure:      true,
-					},
-				},
+				config: &config.Agent{Nomad: &config.Nomad{
+					Address:       "test",
+					Region:        "test",
+					Namespace:     "test",
+					Token:         "test",
+					HTTPAuth:      "test:test",
+					CACert:        "test",
+					CAPath:        "test",
+					ClientCert:    "test",
+					ClientKey:     "test",
+					TLSServerName: "test",
+					SkipVerify:    true,
+				}},
 			},
 			expectedOutputCfg: map[string]string{
 				"nomad_config_inherit":  "true",
@@ -124,24 +108,19 @@ func TestAgent_setupPluginConfig(t *testing.T) {
 			inputCfg: map[string]string{},
 			inputAgent: &Agent{
 				logger: hclog.NewNullLogger(),
-				nomadCfg: &api.Config{
-					Address:   "test",
-					Region:    "test",
-					SecretID:  "test",
-					Namespace: "test",
-					HttpAuth: &api.HttpBasicAuth{
-						Username: "test",
-						Password: "test",
-					},
-					TLSConfig: &api.TLSConfig{
-						CACert:        "test",
-						CAPath:        "test",
-						ClientCert:    "test",
-						ClientKey:     "test",
-						TLSServerName: "test",
-						Insecure:      true,
-					},
-				},
+				config: &config.Agent{Nomad: &config.Nomad{
+					Address:       "test",
+					Region:        "test",
+					Namespace:     "test",
+					Token:         "test",
+					HTTPAuth:      "test:test",
+					CACert:        "test",
+					CAPath:        "test",
+					ClientCert:    "test",
+					ClientKey:     "test",
+					TLSServerName: "test",
+					SkipVerify:    true,
+				}},
 			},
 			expectedOutputCfg: map[string]string{
 				"nomad_address":         "test",

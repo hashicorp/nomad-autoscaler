@@ -106,7 +106,7 @@ func HTTPAuthFromString(auth string) *api.HttpBasicAuth {
 // with the map config taking precedence. This allows users to override only a
 // subset of params, while inheriting the agent configured items which are also
 // derived from Nomad API default and env vars.
-func MergeMapWithAgentConfig(m map[string]string, cfg *api.Config) {
+func MergeMapWithAgentConfig(m map[string]string, cfg *config.Nomad) {
 	if cfg == nil {
 		return
 	}
@@ -120,36 +120,32 @@ func MergeMapWithAgentConfig(m map[string]string, cfg *api.Config) {
 	if cfg.Namespace != "" && m[configKeyNomadNamespace] == "" {
 		m[configKeyNomadNamespace] = cfg.Namespace
 	}
-	if cfg.SecretID != "" && m[configKeyNomadToken] == "" {
-		m[configKeyNomadToken] = cfg.SecretID
+	if cfg.Token != "" && m[configKeyNomadToken] == "" {
+		m[configKeyNomadToken] = cfg.Token
 	}
-	if cfg.TLSConfig.CACert != "" && m[configKeyNomadCACert] == "" {
-		m[configKeyNomadCACert] = cfg.TLSConfig.CACert
+	if cfg.CACert != "" && m[configKeyNomadCACert] == "" {
+		m[configKeyNomadCACert] = cfg.CACert
 	}
-	if cfg.TLSConfig.CAPath != "" && m[configKeyNomadCAPath] == "" {
-		m[configKeyNomadCAPath] = cfg.TLSConfig.CAPath
+	if cfg.CAPath != "" && m[configKeyNomadCAPath] == "" {
+		m[configKeyNomadCAPath] = cfg.CAPath
 	}
-	if cfg.TLSConfig.ClientCert != "" && m[configKeyNomadClientCert] == "" {
-		m[configKeyNomadClientCert] = cfg.TLSConfig.ClientCert
+	if cfg.ClientCert != "" && m[configKeyNomadClientCert] == "" {
+		m[configKeyNomadClientCert] = cfg.ClientCert
 	}
-	if cfg.TLSConfig.ClientKey != "" && m[configKeyNomadClientKey] == "" {
-		m[configKeyNomadClientKey] = cfg.TLSConfig.ClientKey
+	if cfg.ClientKey != "" && m[configKeyNomadClientKey] == "" {
+		m[configKeyNomadClientKey] = cfg.ClientKey
 	}
-	if cfg.TLSConfig.TLSServerName != "" && m[configKeyNomadTLSServerName] == "" {
-		m[configKeyNomadTLSServerName] = cfg.TLSConfig.TLSServerName
+	if cfg.TLSServerName != "" && m[configKeyNomadTLSServerName] == "" {
+		m[configKeyNomadTLSServerName] = cfg.TLSServerName
 	}
-	if cfg.TLSConfig.Insecure && m[configKeyNomadSkipVerify] == "" {
-		m[configKeyNomadSkipVerify] = strconv.FormatBool(cfg.TLSConfig.Insecure)
+	if cfg.SkipVerify && m[configKeyNomadSkipVerify] == "" {
+		m[configKeyNomadSkipVerify] = strconv.FormatBool(cfg.SkipVerify)
 	}
-	if cfg.HttpAuth != nil && m[configKeyNomadHTTPAuth] == "" {
-		auth := cfg.HttpAuth.Username
-		if cfg.HttpAuth.Password != "" {
-			auth += ":" + cfg.HttpAuth.Password
-		}
-		m[configKeyNomadHTTPAuth] = auth
+	if cfg.HTTPAuth != "" && m[configKeyNomadHTTPAuth] == "" {
+		m[configKeyNomadHTTPAuth] = cfg.HTTPAuth
 	}
-	if cfg.WaitTime != 0 && m[configKeyNomadBlockQueryWaitTime] == "" {
-		m[configKeyNomadBlockQueryWaitTime] = cfg.WaitTime.String()
+	if cfg.BlockQueryWaitTime != 0 && m[configKeyNomadBlockQueryWaitTime] == "" {
+		m[configKeyNomadBlockQueryWaitTime] = cfg.BlockQueryWaitTime.String()
 	}
 }
 

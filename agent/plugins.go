@@ -65,7 +65,7 @@ func (a *Agent) setupPluginConfig(cfg map[string]string) {
 	// Nomad config from the agent. If we do not find it, opt-in by default.
 	val, ok := cfg[plugins.ConfigKeyNomadConfigInherit]
 	if !ok {
-		nomadHelper.MergeMapWithAgentConfig(cfg, a.nomadCfg)
+		nomadHelper.MergeMapWithAgentConfig(cfg, a.config.Nomad)
 		return
 	}
 
@@ -79,7 +79,7 @@ func (a *Agent) setupPluginConfig(cfg map[string]string) {
 		return
 	}
 	if boolVal {
-		nomadHelper.MergeMapWithAgentConfig(cfg, a.nomadCfg)
+		nomadHelper.MergeMapWithAgentConfig(cfg, a.config.Nomad)
 	}
 }
 

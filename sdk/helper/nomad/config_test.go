@@ -88,30 +88,25 @@ func Test_HTTPAuthFromString(t *testing.T) {
 func Test_MergeMapWithAgentConfig(t *testing.T) {
 	testCases := []struct {
 		inputMap          map[string]string
-		inputAPIConfig    *api.Config
+		inputConfig       *config.Nomad
 		expectedOutputMap map[string]string
 		name              string
 	}{
 		{
 			inputMap: map[string]string{},
-			inputAPIConfig: &api.Config{
-				Address:   "test",
-				Region:    "test",
-				Namespace: "test",
-				SecretID:  "test",
-				HttpAuth: &api.HttpBasicAuth{
-					Username: "test",
-					Password: "test",
-				},
-				TLSConfig: &api.TLSConfig{
-					CACert:        "test",
-					CAPath:        "test",
-					ClientCert:    "test",
-					ClientKey:     "test",
-					TLSServerName: "test",
-					Insecure:      true,
-				},
-				WaitTime: 2 * time.Minute,
+			inputConfig: &config.Nomad{
+				Address:            "test",
+				Region:             "test",
+				Namespace:          "test",
+				Token:              "test",
+				HTTPAuth:           "test:test",
+				CACert:             "test",
+				CAPath:             "test",
+				ClientCert:         "test",
+				ClientKey:          "test",
+				TLSServerName:      "test",
+				SkipVerify:         true,
+				BlockQueryWaitTime: 2 * time.Minute,
 			},
 			expectedOutputMap: map[string]string{
 				"nomad_address":               "test",
@@ -133,7 +128,7 @@ func Test_MergeMapWithAgentConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			MergeMapWithAgentConfig(tc.inputMap, tc.inputAPIConfig)
+			MergeMapWithAgentConfig(tc.inputMap, tc.inputConfig)
 			assert.Equal(t, tc.expectedOutputMap, tc.inputMap, tc.name)
 		})
 	}

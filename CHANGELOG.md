@@ -2,7 +2,9 @@
 
 IMPROVEMENTS:
  * build: Updated to Go 1.22.6 and alpine to 3.20 [[GH-943](https://github.com/hashicorp/nomad-autoscaler/pull/943)]
- * bug: Fix incorrect conversion between integer types [[GH-946](https://github.com/hashicorp/nomad-autoscaler/pull/946)]
+
+BUG FIXES:
+ * security: Fix incorrect conversion between integer types [[GH-946](https://github.com/hashicorp/nomad-autoscaler/pull/946)]
 
 ## 0.4.4 (June 4, 2024)
 

@@ -1,7 +1,14 @@
 name: Check Copywrite Headers
 
 on:
-  push: {}
+  pull_request:
+    paths-ignore:
+      - '*.md'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
 
 jobs:
   copywrite:

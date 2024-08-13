@@ -1,5 +1,7 @@
 ## UNRELEASED
 
+## 0.4.5 (August 13, 2024)
+
 IMPROVEMENTS:
  * build: Updated to Go 1.22.6 and alpine to 3.20 [[GH-943](https://github.com/hashicorp/nomad-autoscaler/pull/943)]
  * build: Updated Nomad API dependency to 1.8.3 [[GH-950](https://github.com/hashicorp/nomad-autoscaler/pull/950)]

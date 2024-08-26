@@ -49,7 +49,7 @@ func Test_oldestClusterScaleInNodeSelector_Select(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := newNewestCreateIndexClusterScaleInNodeSelector().Select(tc.inputNodes, tc.inputNum)
+			actualOutput := newOldestCreateIndexClusterScaleInNodeSelector().Select(tc.inputNodes, tc.inputNum)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.inputNodes)
 		})
 	}

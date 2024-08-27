@@ -43,7 +43,7 @@ func Test_oldestClusterScaleInNodeSelector_Select(t *testing.T) {
 				{ID: "a6604683-fd65-c913-77ee-a0a15b8e88e9"},
 				{ID: "8d01d8fe-3c6b-0fdd-ebbc-a8b5cbb9c00c"},
 			},
-			name: "single selection needed",
+			name: "multiple selection",
 		},
 	}
 

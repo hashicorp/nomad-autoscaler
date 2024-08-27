@@ -30,13 +30,14 @@ func (n *oldestCreateIndexClusterScaleInNodeSelector) Name() string {
 // interface.
 func (n *oldestCreateIndexClusterScaleInNodeSelector) Select(nodes []*api.NodeListStub, num int) []*api.NodeListStub {
 
+	last_index := len(nodes) - 1
 	if len(nodes) < num {
 		num = len(nodes)
 	}
 	out := make([]*api.NodeListStub, num)
 
 	for i := num - 1; i >= 0; i-- {
-		out[i] = nodes[i]
+		out[i] = nodes[(last_index)-i]
 	}
 	return out
 }

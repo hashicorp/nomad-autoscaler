@@ -124,6 +124,10 @@ const (
 	// node selection strategy that only picks nodes without non-terminal
 	// allocations, without considering system jobs.
 	TargetNodeSelectorStrategyEmptyIgnoreSystemJobs = "empty_ignore_system"
+
+	// TargetNodeSelectorStrategyEmptyIgnoreSystemJobs is the cluster scale-in
+	// node selection strategy that picks the oldest running nodes
+	TargetNodeSelectorStrategyOldestCreateIndex = "oldest_create_index"
 )
 
 // TargetConfigConflictingClusterParams is a list containing horizontal cluster

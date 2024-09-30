@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+  * scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
+
 ## 0.4.5 (August 13, 2024)
 
 IMPROVEMENTS:

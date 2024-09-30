@@ -7,11 +7,11 @@ import (
 	"testing"
 
 	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test/must"
 )
 
 func Test_oldestClusterScaleInNodeSelectorName(t *testing.T) {
-	assert.Equal(t, "oldest_create_index", newOldestCreateIndexClusterScaleInNodeSelector().Name())
+	must.Eq(t, "oldest_create_index", newOldestCreateIndexClusterScaleInNodeSelector().Name())
 }
 
 func Test_oldestClusterScaleInNodeSelector_Select(t *testing.T) {
@@ -50,7 +50,7 @@ func Test_oldestClusterScaleInNodeSelector_Select(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := newOldestCreateIndexClusterScaleInNodeSelector().Select(tc.inputNodes, tc.inputNum)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.inputNodes)
+			must.Eq(t, tc.expectedOutput, actualOutput)
 		})
 	}
 }

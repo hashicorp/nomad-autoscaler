@@ -112,7 +112,11 @@ func MergeMapWithAgentConfig(m map[string]string, cfg *api.Config) {
 	}
 
 	if cfg.Address != "" && m[configKeyNomadAddress] == "" {
-		m[configKeyNomadAddress] = cfg.Address
+		if cfg.URL() != nil {
+			m[configKeyNomadAddress] = cfg.URL().String()
+		} else {
+			m[configKeyNomadAddress] = cfg.Address
+		}
 	}
 	if cfg.Region != "" && m[configKeyNomadRegion] == "" {
 		m[configKeyNomadRegion] = cfg.Region

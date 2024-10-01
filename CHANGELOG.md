@@ -1,22 +1,25 @@
 ## UNRELEASED
 
+BUG FIXES:
+* config: Fixed a bug where the Nomad strategy and target plugins would fail to connect to Nomad's Task API socket [[GH-966](https://github.com/hashicorp/nomad-autoscaler/pull/966)]
+
 IMPROVEMENTS:
-  * scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
+* scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
 
 ## 0.4.5 (August 13, 2024)
 
 IMPROVEMENTS:
- * build: Updated to Go 1.22.6 and alpine to 3.20 [[GH-943](https://github.com/hashicorp/nomad-autoscaler/pull/943)]
- * build: Updated Nomad API dependency to 1.8.3 [[GH-950](https://github.com/hashicorp/nomad-autoscaler/pull/950)]
+* build: Updated to Go 1.22.6 and alpine to 3.20 [[GH-943](https://github.com/hashicorp/nomad-autoscaler/pull/943)]
+* build: Updated Nomad API dependency to 1.8.3 [[GH-950](https://github.com/hashicorp/nomad-autoscaler/pull/950)]
 
 BUG FIXES:
- * security: Fix incorrect conversion between integer types [[GH-946](https://github.com/hashicorp/nomad-autoscaler/pull/946)]
+* security: Fix incorrect conversion between integer types [[GH-946](https://github.com/hashicorp/nomad-autoscaler/pull/946)]
 
 ## 0.4.4 (June 4, 2024)
 
 IMPROVEMENTS:
- * agent: Update Nomad API dependency to v1.8.0 [[GH-909](https://github.com/hashicorp/nomad-autoscaler/pull/909)]
- * plugin/strategy/pass-through: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-881](https://github.com/hashicorp/nomad-autoscaler/pull/881)]
+* agent: Update Nomad API dependency to v1.8.0 [[GH-909](https://github.com/hashicorp/nomad-autoscaler/pull/909)]
+* plugin/strategy/pass-through: Add new configuration `max_scale_up` and `max_scale_down` to allow restricting how much change is applied on each scaling event [[GH-881](https://github.com/hashicorp/nomad-autoscaler/pull/881)]
 
 ## 0.4.3 (March 12, 2024)
 

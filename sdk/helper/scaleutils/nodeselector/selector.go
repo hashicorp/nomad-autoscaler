@@ -49,6 +49,8 @@ func NewSelector(cfg map[string]string, client *api.Client, log hclog.Logger) (C
 		return newEmptyClusterScaleInNodeSelector(client, log, false), nil
 	case sdk.TargetNodeSelectorStrategyEmptyIgnoreSystemJobs:
 		return newEmptyClusterScaleInNodeSelector(client, log, true), nil
+	case sdk.TargetNodeSelectorStrategyOldestCreateIndex:
+		return newOldestCreateIndexClusterScaleInNodeSelector(), nil
 	default:
 		return nil, fmt.Errorf("unsupported node selector strategy: %v", val)
 	}

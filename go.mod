@@ -28,7 +28,7 @@ require (
 	github.com/prometheus/common v0.60.0
 	github.com/shoenig/test v1.11.0
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/text v0.18.0
+	golang.org/x/text v0.19.0
 	google.golang.org/api v0.199.0
 	google.golang.org/grpc v1.67.1
 	google.golang.org/protobuf v1.34.2

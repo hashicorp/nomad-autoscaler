@@ -32,7 +32,7 @@ tools: lint-tools test-tools generate-tools
 .PHONY: generate-tools
 generate-tools: ## Install the tools used to generate code
 	@echo "==> Installing code generate tools..."
-	go install github.com/bufbuild/buf/cmd/buf@v1.27.2
+	go install github.com/bufbuild/buf/cmd/buf@v1.45.0
 	go install github.com/golang/protobuf/protoc-gen-go@v1.5.3
 	@echo "==> Done"
 
@@ -45,8 +45,8 @@ test-tools: ## Install the tools used to run tests
 .PHONY: lint-tools
 lint-tools: ## Install the tools used to lint
 	@echo "==> Installing lint tools..."
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
-	go install honnef.co/go/tools/cmd/staticcheck@2023.1.3
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
 	go install github.com/hashicorp/go-hclog/hclogvet@v0.2.0
 	go install github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
 	@echo "==> Done"
@@ -86,7 +86,7 @@ proto: ## Generate the protocol buffers
 lint: lint-tools generate-tools hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
 	@GOPROXY=direct \
-	golangci-lint run -j 1 --build-tags "$(GO_TAGS)"
+	golangci-lint run -j 1 --build-tags "$(GO_TAGS)" --timeout=8m
 	@staticcheck ./...
 	@hclogvet .
 	@buf lint --config=./tools/buf/buf.yaml

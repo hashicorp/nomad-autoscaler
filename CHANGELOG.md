@@ -4,6 +4,7 @@ BUG FIXES:
 * config: Fixed a bug where the Nomad strategy and target plugins would fail to connect to Nomad's Task API socket [[GH-966](https://github.com/hashicorp/nomad-autoscaler/pull/966)]
 
 IMPROVEMENTS:
+* build: Updated to Go 1.23.2 [[GH-985](https://github.com/hashicorp/nomad-autoscaler/pull/985)]
 * scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
 
 ## 0.4.5 (August 13, 2024)

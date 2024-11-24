@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/common v0.60.1
 	github.com/shoenig/test v1.12.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	golang.org/x/text v0.20.0
 	google.golang.org/api v0.206.0
 	google.golang.org/grpc v1.68.0

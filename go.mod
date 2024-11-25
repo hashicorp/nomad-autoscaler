@@ -29,7 +29,7 @@ require (
 	github.com/shoenig/test v1.12.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/text v0.20.0
-	google.golang.org/api v0.206.0
+	google.golang.org/api v0.209.0
 	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.35.2
 )
@@ -127,6 +127,6 @@ require (
 	golang.org/x/sync v0.9.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241104194629-dd2ea8efbc28 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241113202542-65e8d215514f // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

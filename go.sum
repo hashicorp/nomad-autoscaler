@@ -219,6 +219,8 @@ github.com/hashicorp/hcl/v2 v2.23.0 h1:Fphj1/gCylPxHutVSEOf2fBOh1VE4AuLV7+kbJf3q
 github.com/hashicorp/hcl/v2 v2.23.0/go.mod h1:62ZYHrXgPoX8xBnzl8QzbWq4dyDsDtfCRgIq1rbJEvA=
 github.com/hashicorp/nomad/api v0.0.0-20241010071343-7ad36851ec02 h1:F8HtCIEvLRK6Y1bTASTKsJ2gG1w3uwY2bmjq18RknXE=
 github.com/hashicorp/nomad/api v0.0.0-20241010071343-7ad36851ec02/go.mod h1:svtxn6QnrQ69P23VvIWMR34tg3vmwLz4UdUzm1dSCgE=
+github.com/hashicorp/nomad/api v0.0.0-20241111163541-d92bf1014886 h1:dJzU4tRIy/Y0DB1UyRcl8fHLox7I/bz8gsVTu0aDOkc=
+github.com/hashicorp/nomad/api v0.0.0-20241111163541-d92bf1014886/go.mod h1:svtxn6QnrQ69P23VvIWMR34tg3vmwLz4UdUzm1dSCgE=
 github.com/hashicorp/yamux v0.1.1 h1:yrQxtgseBDrq9Y652vSRDvsKCJKOUD+GzTS4Y0Y8pvE=
 github.com/hashicorp/yamux v0.1.1/go.mod h1:CtWFDAQgb7dxtzFs4tWbplKIe2jSi3+5vKbgIO0SLnQ=
 github.com/huandu/xstrings v1.3.1/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=

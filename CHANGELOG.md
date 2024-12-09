@@ -5,7 +5,7 @@ BUG FIXES:
 
 IMPROVEMENTS:
 * build: Updated to Go 1.23.2 [[GH-985](https://github.com/hashicorp/nomad-autoscaler/pull/985)]
-* build: Updated Nomad API dependency to 1.9.0 [[GH-986](https://github.com/hashicorp/nomad-autoscaler/pull/986)]
+* build: Updated Nomad API dependency to 1.9.3 [[GH-1010](https://github.com/hashicorp/nomad-autoscaler/pull/1010)]
 * scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
 
 ## 0.4.5 (August 13, 2024)

@@ -1,6 +1,2 @@
 # Blanket ownership of all PRs.
-* @jrasell @Juanadelacuesta
-
-# release configuration
-/.release/                              @hashicorp/nomad-eng
-/.github/workflows/build.yml            @hashicorp/nomad-eng
+* @hashicorp/github-nomad-core @hashicorp/nomad-eng

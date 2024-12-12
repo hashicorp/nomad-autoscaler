@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.6 (December 12, 2024)
 
 BUG FIXES:
 * config: Fixed a bug where the Nomad strategy and target plugins would fail to connect to Nomad's Task API socket [[GH-966](https://github.com/hashicorp/nomad-autoscaler/pull/966)]

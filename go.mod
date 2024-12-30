@@ -31,7 +31,7 @@ require (
 	golang.org/x/text v0.21.0
 	google.golang.org/api v0.211.0
 	google.golang.org/grpc v1.69.0
-	google.golang.org/protobuf v1.35.2
+	google.golang.org/protobuf v1.36.0
 )
 
 require (

@@ -110,6 +110,41 @@ func Test_parsePolicy(t *testing.T) {
 			},
 		},
 		{
+			name:  "scaling-policy-check-with-min-max-scaling",
+			input: "scaling-policy-check-with-min-max-scaling",
+			expected: sdk.ScalingPolicy{
+				ID:      "id",
+				Min:     1,
+				Max:     10,
+				Enabled: true,
+				Type:    "horizontal",
+				Target: &sdk.ScalingPolicyTarget{
+					Name: "",
+					Config: map[string]string{
+						"Namespace": "default",
+						"Job":       "scaling-policy-check-with-min-max-scaling",
+						"Group":     "test",
+					},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:  "check",
+						Query: "query",
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "strategy",
+							Config: map[string]string{
+								"int_config":  "2",
+								"bool_config": "true",
+								"str_config":  "str",
+							},
+						},
+						ScalingMin: 3,
+						ScalingMax: 9,
+					},
+				},
+			},
+		},
+		{
 			name:     "missing scaling",
 			input:    "missing-scaling",
 			expected: sdk.ScalingPolicy{},

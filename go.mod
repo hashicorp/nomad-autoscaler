@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-plugin v1.6.2
+	github.com/hashicorp/go-plugin v1.6.3
 	github.com/hashicorp/hcl/v2 v2.23.0
 	github.com/hashicorp/nomad/api v0.0.0-20241111163541-d92bf1014886
 	github.com/mitchellh/cli v1.1.5

@@ -1,6 +1,7 @@
 module github.com/hashicorp/nomad-autoscaler
 
-go 1.23
+go 1.23.5
+
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.30

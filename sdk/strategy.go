@@ -14,6 +14,8 @@ const (
 	strategyActionMetaKeyCountCapped   = "nomad_autoscaler.count.capped"
 	strategyActionMetaKeyCountOriginal = "nomad_autoscaler.count.original"
 	strategyActionMetaKeyReasonHistory = "nomad_autoscaler.reason_history"
+	strategyActionMetaKeyIgnored       = "nomad_autoscaler.ignored"
+	strategyActionMetaKeyCountIgnored  = "nomad_autoscaler.count.ignored"
 
 	// StrategyActionMetaValueDryRunCount is a special count value used when
 	// performing dry-run scaling activities. The Autoscaler will never set a
@@ -119,6 +121,47 @@ func (a *ScalingAction) CapCount(min, max int64) {
 		a.pushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
 		a.Count = newCount
 	}
+}
+
+func (a *ScalingAction) IgnoreOutOfBounds(current, min, max int64) {
+	if a.Count == StrategyActionMetaValueDryRunCount {
+		return
+	}
+
+	if a.Count == current {
+		return
+	}
+
+	var boundInclusiveUp int64 = 0
+	var boundInclusiveDown int64 = 0
+	if a.Count > current {
+		if max > 0 {
+			boundInclusiveUp = max - 1
+		}
+		boundInclusiveDown = min
+	}
+
+	if a.Count < current {
+		boundInclusiveUp = max
+		boundInclusiveDown = min + 1
+	}
+
+	// The current number of allocations is within scaling_min
+	// and scaling_max defined in the check. It makes the check
+	// eligible, we don't want to ignore it
+	if current >= boundInclusiveDown && (current <= boundInclusiveUp || boundInclusiveUp == 0) {
+		return
+	}
+
+	// The current number of allocations does not fit within
+	// the bounds defined in
+	// check.scaling_min ; check.scaling_max.
+	// Hence, we want to prevent this check from doing
+	// anything: it should ScaleNone.
+	a.Meta[strategyActionMetaKeyIgnored] = true
+	a.Meta[strategyActionMetaKeyCountIgnored] = a.Count
+	a.pushReason(fmt.Sprintf("ignored count of %d because the current number of allocations if off this check's scaling_min and scaling_max. Fell back to %d, the current number of allocations", a.Count, current))
+	a.Count = current
 }
 
 // PushReason updates the Reason value and stores previous Reason into Meta.

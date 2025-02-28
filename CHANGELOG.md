@@ -2,7 +2,7 @@
 
 IMPROVEMENTS:
 
-* build: Updated to Go 1.23.5 [[GH-1030](https://github.com/hashicorp/nomad-autoscaler/pull/1030)]
+* build: Updated to Go 1.24.0 [[GH-1045](https://github.com/hashicorp/nomad-autoscaler/pull/1045)]
 
 ## 0.4.6 (December 12, 2024)
 

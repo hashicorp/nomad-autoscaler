@@ -45,9 +45,9 @@ test-tools: ## Install the tools used to run tests
 .PHONY: lint-tools
 lint-tools: ## Install the tools used to lint
 	@echo "==> Installing lint tools..."
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
-	go install honnef.co/go/tools/cmd/staticcheck@2024.1.1
-	go install github.com/hashicorp/go-hclog/hclogvet@v0.2.0
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.5
+	go install honnef.co/go/tools/cmd/staticcheck@2025.1
+	go install github.com/hashicorp/go-hclog/hclogvet@feaf6d2ec20fd895e711195c99e3fde93a68afc5
 	go install github.com/hashicorp/hcl/v2/cmd/hclfmt@d0c4fa8b0bbc2e4eeccd1ed2a32c2089ed8c5cf1
 	@echo "==> Done"
 

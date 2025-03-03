@@ -214,6 +214,8 @@ func ScalingPolicyCheckToProto(input *sdk.ScalingPolicyCheck) *proto.ScalingPoli
 			Name:   input.Strategy.Name,
 			Config: input.Strategy.Config,
 		},
+		ScalingMin: input.ScalingMin,
+		ScalingMax: input.ScalingMax,
 	}
 }
 
@@ -235,5 +237,7 @@ func ProtoToScalingPolicyCheck(input *proto.ScalingPolicyCheck) (*sdk.ScalingPol
 			Name:   input.GetStrategy().GetName(),
 			Config: input.GetStrategy().GetConfig(),
 		},
+		ScalingMin: input.ScalingMin,
+		ScalingMax: input.ScalingMax,
 	}, nil
 }

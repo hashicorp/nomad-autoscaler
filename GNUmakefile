@@ -13,6 +13,9 @@ GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go tes
 # Respect $GOBIN if set in environment or via $GOENV file.
 BIN := $(shell go env GOBIN)
 ifndef BIN
+ifndef GOPATH
+GOPATH := $(shell go env GOPATH)
+endif
 BIN := $(GOPATH)/bin
 endif
 
@@ -134,7 +137,7 @@ test: ## Test the source code
 	@$(MAKE) -C plugins/test
 	@echo "==> Testing source code..."
 	@GOPROXY=direct \
-    	$(GO_TEST_CMD) -v -race -cover ./... -tags "$(GO_TAGS)"
+		$(GO_TEST_CMD) -v -race -cover ./... -tags "$(GO_TAGS)"
 	@echo "==> Done"
 
 .PHONY: clean-plugins
@@ -215,6 +218,12 @@ bin/plugins/gce-mig:
 	@cd ./plugins/builtin/target/gce-mig && go build -o ../../../../$@
 	@echo "==> Done"
 
+bin/plugins/ibmcloud-ig:
+	@echo "==> Building $@..."
+	@mkdir -p $$(dirname $@)
+	@cd ./plugins/builtin/target/ibmcloud-ig && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../../../../$@
+	@echo "==> Done"
+
 .PHONY: plugins
 plugins: \
 	bin/plugins/nomad-apm \
@@ -226,6 +235,7 @@ plugins: \
 	bin/plugins/threshold \
 	bin/plugins/aws-asg \
 	bin/plugins/datadog \
+	bin/plugins/ibmcloud-ig \
 	bin/plugins/azure-vmss \
 	bin/plugins/gce-mig
 

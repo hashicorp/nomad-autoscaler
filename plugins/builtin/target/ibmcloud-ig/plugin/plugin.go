@@ -73,7 +73,7 @@ func (n *IBMCloudIG) Scale(action sdk.ScalingAction, config map[string]string) e
 				Authenticator: &core.IamAuthenticator{ApiKey: api_key},
 			})
 		if verr != nil {
-			fmt.Errorf("Exception in NewVpcV1UsingExternalConfig: %v\n", verr)
+			return fmt.Errorf("failed to construct VPC instance: %w", verr)
 		}
 		n.vpc = vpc
 	}

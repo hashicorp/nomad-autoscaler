@@ -24,8 +24,8 @@ const (
 
 var (
 	// this should catch IBMCloudIG not fulfilling the contract of the Target plugin as a
-        // build-time failure.  If maintenance removes or fails to keep up, it's caught here
-        // in a predictable place.
+  // build-time failure.  If maintenance removes or fails to keep up, it's caught here
+  // in a predictable place.
 	_ target.Target = (*IBMCloudIG)(nil)
 
 	PluginConfig = &plugins.InternalPluginConfig{

@@ -2,6 +2,7 @@
 
 IMPROVEMENTS:
 
+* build: Updated Nomad API dependency to 1.10.0 [[GH-1061](https://github.com/hashicorp/nomad-autoscaler/pull/1061)]
 * build: Updated to Go 1.24.0 [[GH-1045](https://github.com/hashicorp/nomad-autoscaler/pull/1045)]
 
 ## 0.4.6 (December 12, 2024)
@@ -14,7 +15,7 @@ IMPROVEMENTS:
 * build: Updated Nomad API dependency to 1.9.3 [[GH-1010](https://github.com/hashicorp/nomad-autoscaler/pull/1010)]
 * build: Updated to Go 1.23.4 [[GH-1009](https://github.com/hashicorp/nomad-autoscaler/pull/1009)]
 
-* scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)] 
+* scaleutils: Add new node selector option `oldest_create_index` to select nodes with the oldest creation date  [[GH-961](https://github.com/hashicorp/nomad-autoscaler/pull/961)]
 
 ## 0.4.5 (August 13, 2024)
 

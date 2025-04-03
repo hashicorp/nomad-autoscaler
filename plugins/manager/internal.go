@@ -19,6 +19,7 @@ import (
 	awsASG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/aws-asg/plugin"
 	azureVMSS "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/azure-vmss/plugin"
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
+	ibmcloudIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/ibmcloud-ig/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
 )
 
@@ -62,6 +63,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
+	case plugins.InternalTargetIBMIG:
+		info.factory = ibmcloudIG.PluginConfig.Factory
+		info.driver = "ibmcloud-ig"
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
 		return
@@ -108,6 +112,7 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetAWSASG,
 		plugins.InternalTargetAzureVMSS,
 		plugins.InternalTargetGCEMIG,
+		plugins.InternalTargetIBMIG,
 		plugins.InternalAPMDatadog:
 		return true
 	default:

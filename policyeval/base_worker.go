@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-metrics"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"

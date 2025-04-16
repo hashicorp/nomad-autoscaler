@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+* plugin/strategy/threshold: do not return negative newCount
+
 IMPROVEMENTS:
 
 * build: Updated Nomad API dependency to 1.10.0 [[GH-1061](https://github.com/hashicorp/nomad-autoscaler/pull/1061)]

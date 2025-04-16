@@ -108,6 +108,20 @@ func TestThresholdPlugin(t *testing.T) {
 			},
 		},
 		{
+			name:    "delta scale down, no negative",
+			count:   0,
+			metrics: []float64{10, 10, 10, 10, 10, 10},
+			config: map[string]string{
+				"lower_bound": "5",
+				"upper_bound": "20",
+				"delta":       "-1",
+			},
+			expectedAction: &sdk.ScalingAction{
+				Count:     0,
+				Direction: sdk.ScaleDirectionNone,
+			},
+		},
+		{
 			name:    "percentage scale up",
 			count:   10,
 			metrics: []float64{10, 10, 10, 10, 10, 10},

@@ -122,6 +122,10 @@ func (s *StrategyPlugin) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sd
 		newCount = runValue(config.actionValue)
 	}
 
+	if newCount < 0 {
+		newCount = 0
+	}
+
 	// Identify the direction of scaling, and exit early if none.
 	eval.Action.Direction = calculateDirection(count, newCount)
 	if eval.Action.Direction == sdk.ScaleDirectionNone {

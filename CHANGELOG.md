@@ -2,6 +2,7 @@
 
 BUG FIXES:
 * plugin/strategy/threshold: do not return negative newCount
+* policy: Fix race between worker and policy hander
 
 IMPROVEMENTS:
 

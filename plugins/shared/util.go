@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -65,15 +66,9 @@ func ProtoToScalingDirection(input proto.ScalingDirection) (sdk.ScaleDirection, 
 // equivalent.
 func TimeRangeToProto(input sdk.TimeRange) (*proto.TimeRange, error) {
 
-	toTS, err := ptypes.TimestampProto(input.To)
-	if err != nil {
-		return nil, err
-	}
+	toTS := timestamppb.New(input.To)
 
-	fromTS, err := ptypes.TimestampProto(input.From)
-	if err != nil {
-		return nil, err
-	}
+	fromTS := timestamppb.New(input.From)
 
 	return &proto.TimeRange{
 		To:   toTS,
@@ -84,20 +79,9 @@ func TimeRangeToProto(input sdk.TimeRange) (*proto.TimeRange, error) {
 // ProtoToTimeRange converts the input proto definition of TimeRange and
 // returns the Autoscaler equivalent.
 func ProtoToTimeRange(input *proto.TimeRange) (*sdk.TimeRange, error) {
-
-	toTS, err := ptypes.Timestamp(input.GetTo())
-	if err != nil {
-		return nil, err
-	}
-
-	fromTS, err := ptypes.Timestamp(input.GetFrom())
-	if err != nil {
-		return nil, err
-	}
-
 	return &sdk.TimeRange{
-		To:   toTS,
-		From: fromTS,
+		To:   input.GetTo().AsTime(),
+		From: input.GetFrom().AsTime(),
 	}, nil
 }
 
@@ -108,7 +92,7 @@ func TimestampedMetricsToProto(input sdk.TimestampedMetrics) []*proto.Timestampe
 	out := make([]*proto.TimestampedMetric, len(input))
 
 	for i, m := range input {
-		ts, _ := ptypes.TimestampProto(m.Timestamp)
+		ts := timestamppb.New(m.Timestamp)
 		out[i] = &proto.TimestampedMetric{Timestamp: ts, Value: m.Value}
 	}
 	return out
@@ -121,7 +105,7 @@ func ProtoToTimestampedMetrics(input []*proto.TimestampedMetric) sdk.Timestamped
 	out := make(sdk.TimestampedMetrics, len(input))
 
 	for i, m := range input {
-		ts, _ := ptypes.Timestamp(m.Timestamp)
+		ts := m.Timestamp.AsTime()
 		out[i] = sdk.TimestampedMetric{Timestamp: ts, Value: m.Value}
 	}
 	return out
@@ -209,7 +193,7 @@ func ScalingPolicyCheckToProto(input *sdk.ScalingPolicyCheck) *proto.ScalingPoli
 		Name:        input.Name,
 		Source:      input.Source,
 		Query:       input.Query,
-		QueryWindow: ptypes.DurationProto(input.QueryWindow),
+		QueryWindow: durationpb.New(input.QueryWindow),
 		Strategy: &proto.ScalingPolicyStrategy{
 			Name:   input.Strategy.Name,
 			Config: input.Strategy.Config,
@@ -221,16 +205,11 @@ func ScalingPolicyCheckToProto(input *sdk.ScalingPolicyCheck) *proto.ScalingPoli
 // and returns the the Autoscaler equivalent.
 func ProtoToScalingPolicyCheck(input *proto.ScalingPolicyCheck) (*sdk.ScalingPolicyCheck, error) {
 
-	queryWindow, err := ptypes.Duration(input.GetQueryWindow())
-	if err != nil {
-		return nil, err
-	}
-
 	return &sdk.ScalingPolicyCheck{
 		Name:        input.GetName(),
 		Source:      input.GetSource(),
 		Query:       input.GetQuery(),
-		QueryWindow: queryWindow,
+		QueryWindow: input.GetQueryWindow().AsDuration(),
 		Strategy: &sdk.ScalingPolicyStrategy{
 			Name:   input.GetStrategy().GetName(),
 			Config: input.GetStrategy().GetConfig(),

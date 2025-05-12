@@ -178,7 +178,7 @@ func TestBroker(t *testing.T) {
 	must.Eq(t, eval4, e)
 	must.NotEq(t, "", token)
 	// Ack eval.
-	b.Ack(e.ID, token)
+	_ = b.Ack(e.ID, token)
 
 	// Wait for work, but timeout afer 1s.
 	ctxTO, cancelTO := context.WithTimeout(context.Background(), time.Second)

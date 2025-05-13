@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -337,7 +337,7 @@ func Test_ScalingPolicyCheckToProto(t *testing.T) {
 				Name:        "foo-bar-check",
 				Source:      "prometheus",
 				Query:       "some(super-weird/query).format()",
-				QueryWindow: ptypes.DurationProto(5 * time.Second),
+				QueryWindow: durationpb.New(5 * time.Second),
 				Strategy: &proto.ScalingPolicyStrategy{
 					Name:   "target-value",
 					Config: map[string]string{"target": "13"},
@@ -361,7 +361,7 @@ func Test_ProtoToScalingPolicyCheck(t *testing.T) {
 				Name:        "foo-bar-check",
 				Source:      "prometheus",
 				Query:       "some(super-weird/query).format()",
-				QueryWindow: ptypes.DurationProto(5 * time.Second),
+				QueryWindow: durationpb.New(5 * time.Second),
 				Strategy: &proto.ScalingPolicyStrategy{
 					Name:   "target-value",
 					Config: map[string]string{"target": "13"},

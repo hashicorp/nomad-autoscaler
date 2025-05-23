@@ -77,8 +77,12 @@ func newJobScaleStatusHandler(client *api.Client, ns, jobID string, logger hclog
 	}, 1)
 
 	go func() {
-		q := &api.QueryOptions{} // No context support
+		q := &api.QueryOptions{
+			Namespace: jsh.namespace,
+		}
+
 		status, _, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
+
 		resultCh <- struct {
 			status *api.JobScaleStatusResponse
 			err    error

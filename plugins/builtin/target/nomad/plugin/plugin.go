@@ -199,12 +199,16 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 			return nil, err
 		}
 
-		func() {
-			go jsh.start()
+		t.statusHandlers[nsID] = jsh
+
+		go func() {
+			// This is a blocking function that will only return if there is
+			// and error or the job has stopped.
+			jsh.start()
+
 			delete(t.statusHandlers, nsID)
 		}()
 
-		t.statusHandlers[nsID] = jsh
 	}
 
 	return t.statusHandlers[nsID].status(group)

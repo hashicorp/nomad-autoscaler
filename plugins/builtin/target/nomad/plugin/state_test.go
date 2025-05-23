@@ -59,7 +59,6 @@ func Test_newJobStateHandler(t *testing.T) {
 
 	assert.NotNil(t, jsh.client)
 	assert.Equal(t, "test", jsh.jobID)
-	assert.NotNil(t, jsh.initialDone)
 	assert.NotNil(t, jsh.client)
 }
 
@@ -151,7 +150,6 @@ func Test_jobStateHandler_status(t *testing.T) {
 
 func Test_jobStateHandler_updateStatusState(t *testing.T) {
 	jsh := &jobScaleStatusHandler{}
-	jsh.initialDone = make(chan bool)
 
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.
@@ -179,12 +177,12 @@ func Test_jobStateHandler_stop(t *testing.T) {
 	assert.Equal(t, int64(0), jsh.lastUpdated)
 
 	// Set some data that will be overwritten by stop().
-	jsh.isRunning = true
+	jsh.jobRunning = true
 	jsh.scaleStatus = &api.JobScaleStatusResponse{JobID: "test"}
 
 	// Call stop and make assertions.
 	jsh.setStopState()
-	assert.False(t, jsh.isRunning)
+	assert.False(t, jsh.jobRunning)
 	assert.Nil(t, jsh.scaleStatus)
 	assert.Nil(t, jsh.scaleStatusError)
 	assert.Greater(t, jsh.lastUpdated, int64(0))

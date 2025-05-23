@@ -150,7 +150,6 @@ func Test_jobStateHandler_status(t *testing.T) {
 
 func Test_jobStateHandler_updateStatusState(t *testing.T) {
 	jsh := &jobScaleStatusHandler{}
-
 	// Assert that the lastUpdated timestamp is default. This helps confirm it
 	// gets updated later in the test.
 	assert.Equal(t, int64(0), jsh.lastUpdated)

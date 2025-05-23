@@ -228,7 +228,10 @@ func (jsh *jobScaleStatusHandler) updateStatusState(status *api.JobScaleStatusRe
 	jsh.lock.Lock()
 	defer jsh.lock.Unlock()
 
-	jsh.jobRunning = !status.JobStopped
+	if status != nil {
+		jsh.jobRunning = !status.JobStopped
+	}
+
 	jsh.scaleStatus = status
 	jsh.scaleStatusError = err
 	jsh.lastUpdated = time.Now().UTC().UnixNano()

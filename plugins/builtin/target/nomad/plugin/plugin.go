@@ -204,13 +204,6 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 			delete(t.statusHandlers, nsID)
 		}()
 
-		select {
-		case <-jsh.initialDone:
-		case <-time.After(statusHandlerInitTimeout):
-			jsh.setStopState()
-			return nil, fmt.Errorf("timeout while waiting for job scale status handler")
-		}
-
 		t.statusHandlers[nsID] = jsh
 	}
 

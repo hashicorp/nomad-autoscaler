@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/rate_limiter"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad/api"
@@ -98,6 +99,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	}
 
 	cfg := nomadHelper.ConfigFromNamespacedMap(config)
+	cfg.HttpClient = rate_limiter.NewInstrumentedWrapper("target", -1, cfg.HttpClient)
 
 	client, err := api.NewClient(cfg)
 	if err != nil {
@@ -191,13 +193,22 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// Create a handler for the job if one does not currently exist,
 	// or if an existing one has stopped running but is not yet GC'd.
-	if h, ok := t.statusHandlers[nsID]; !ok || !h.running() {
+	if _, ok := t.statusHandlers[nsID]; !ok {
 		jsh, err := newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
 		if err != nil {
 			return nil, err
 		}
 
 		t.statusHandlers[nsID] = jsh
+
+		go func() {
+			// This is a blocking function that will only return if there is
+			// and error or the job has stopped.
+			jsh.start()
+
+			delete(t.statusHandlers, nsID)
+		}()
+
 	}
 
 	return t.statusHandlers[nsID].status(group)

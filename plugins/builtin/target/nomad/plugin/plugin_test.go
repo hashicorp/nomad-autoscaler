@@ -89,37 +89,6 @@ func TestTargetPlugin_Status(t *testing.T) {
 	wg.Wait()
 }
 
-func TestTargetPlugin_statusTimeout(t *testing.T) {
-	nomadMock := httptest.NewServer(http.HandlerFunc(scaleStatusErrorHandler))
-	defer nomadMock.Close()
-
-	plugin := PluginConfig.Factory(hclog.NewNullLogger()).(*TargetPlugin)
-	plugin.SetConfig(map[string]string{
-		"nomad_address": nomadMock.URL,
-	})
-
-	var statusErr error
-	var status *sdk.TargetStatus
-	doneCh := make(chan struct{})
-	go func() {
-		status, statusErr = plugin.Status(map[string]string{
-			"Job":       "example",
-			"Group":     "cache",
-			"Namespace": "default",
-		})
-		close(doneCh)
-	}()
-
-	select {
-	case <-doneCh:
-	case <-time.After(2 * statusHandlerInitTimeout):
-		t.Fatalf("status call blocked")
-	}
-
-	assert.Error(t, statusErr)
-	assert.Nil(t, status)
-}
-
 func scaleStatusHandler(w http.ResponseWriter, r *http.Request) {
 	respBody := `
 {

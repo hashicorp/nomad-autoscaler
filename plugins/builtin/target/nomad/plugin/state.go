@@ -162,6 +162,7 @@ func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error
 // start runs the blocking query loop that processes changes from the API and
 // reflects the status internally.
 func (jsh *jobScaleStatusHandler) start() {
+	defer jsh.setStopState()
 
 	// Log that we are starting, useful for debugging.
 	jsh.logger.Debug("starting job status handler")
@@ -182,7 +183,6 @@ func (jsh *jobScaleStatusHandler) start() {
 			// state from the handler until it is deleted by the GC.
 			if errHelper.APIErrIs(err, http.StatusNotFound, "not found") {
 				jsh.logger.Debug("job gone away", "message", err)
-				jsh.setStopState()
 				return
 			}
 

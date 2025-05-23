@@ -25,12 +25,12 @@ func TestTargetPlugin_garbageCollect(t *testing.T) {
 	targetPlugin := TargetPlugin{
 		logger: hclog.NewNullLogger(),
 		statusHandlers: map[namespacedJobID]*jobScaleStatusHandler{
-			{"default", "running"}:               {isRunning: true, lastUpdated: curTime},
-			{"default", "recently-stopped"}:      {isRunning: false, lastUpdated: curTime - 1800000000000},
-			{"default", "stopped-long-time-ago"}: {isRunning: false, lastUpdated: curTime - 18000000000000},
-			{"special", "running"}:               {isRunning: true, lastUpdated: curTime},
-			{"special", "recently-stopped"}:      {isRunning: false, lastUpdated: curTime - 1800000000000},
-			{"special", "stopped-long-time-ago"}: {isRunning: false, lastUpdated: curTime - 18000000000000},
+			{"default", "running"}:               {jobRunning: true, lastUpdated: curTime},
+			{"default", "recently-stopped"}:      {jobRunning: false, lastUpdated: curTime - 1800000000000},
+			{"default", "stopped-long-time-ago"}: {jobRunning: false, lastUpdated: curTime - 18000000000000},
+			{"special", "running"}:               {jobRunning: true, lastUpdated: curTime},
+			{"special", "recently-stopped"}:      {jobRunning: false, lastUpdated: curTime - 1800000000000},
+			{"special", "stopped-long-time-ago"}: {jobRunning: false, lastUpdated: curTime - 18000000000000},
 		},
 	}
 

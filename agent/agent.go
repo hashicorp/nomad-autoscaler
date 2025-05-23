@@ -18,6 +18,7 @@ import (
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
+	"github.com/hashicorp/nomad-autoscaler/rate_limiter"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad/api"
@@ -182,7 +183,7 @@ func (a *Agent) stop() {
 
 // GenerateNomadClient creates a Nomad client for use within the agent.
 func (a *Agent) GenerateNomadClient() error {
-
+	a.nomadCfg.HttpClient = rate_limiter.NewInstrumentedWrapper("agent", -1, a.nomadCfg.HttpClient)
 	// Generate the Nomad client.
 	client, err := api.NewClient(a.nomadCfg)
 	if err != nil {

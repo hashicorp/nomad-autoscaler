@@ -34,7 +34,7 @@ const (
 	keyGroup                   = "group"
 	keyStrategy                = "strategy"
 	keyCooldown                = "cooldown"
-	policiesIDsPollingInterval = 500 * time.Millisecond
+	policiesIDsPollingInterval = time.Second
 )
 
 // Ensure NomadSource satisfies the Source interface.

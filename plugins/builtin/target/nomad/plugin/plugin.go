@@ -188,11 +188,11 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	nsID := namespacedJobID{namespace: namespace, job: jobID}
 
 	// Create a read/write lock on the handlers so we can safely interact.
-	t.statusHandlersLock.Lock()
-	defer t.statusHandlersLock.Unlock()
 
 	// Create a handler for the job if one does not currently exist,
 	// or if an existing one has stopped running but is not yet GC'd.
+	t.statusHandlersLock.Lock()
+	defer t.statusHandlersLock.Unlock()
 	if _, ok := t.statusHandlers[nsID]; !ok {
 		jsh, err := newJobScaleStatusHandler(t.client, namespace, jobID, t.logger)
 		if err != nil {
@@ -206,7 +206,10 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 			// and error or the job has stopped.
 			jsh.start()
 
+			t.statusHandlersLock.Lock()
 			delete(t.statusHandlers, nsID)
+			t.statusHandlersLock.Unlock()
+
 		}()
 
 	}

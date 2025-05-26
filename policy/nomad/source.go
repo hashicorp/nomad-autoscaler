@@ -213,12 +213,6 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		case <-blockingQueryCompleteCh:
 		}
 
-		// Return immediately if context is closed.
-		if ctx.Err() != nil {
-			log.Trace("done with policy monitoring")
-			return
-		}
-
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", err), req.ErrCh)

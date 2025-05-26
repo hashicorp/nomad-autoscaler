@@ -159,6 +159,11 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 			continue
 
 		case p := <-h.ch:
+			if !p.Enabled {
+				monitorCtx.Done()
+				break
+			}
+
 			h.applyMutators(&p)
 			h.updateHandler(currentPolicy, &p)
 			currentPolicy = &p

@@ -82,7 +82,7 @@ func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Sou
 		ch:         make(chan sdk.ScalingPolicy),
 		errCh:      make(chan error),
 		doneCh:     make(chan struct{}),
-		cooldownCh: make(chan time.Duration),
+		cooldownCh: make(chan time.Duration, 1),
 		reloadCh:   make(chan struct{}),
 	}
 }

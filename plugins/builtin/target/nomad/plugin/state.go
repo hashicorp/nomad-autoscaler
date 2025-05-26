@@ -25,7 +25,7 @@ const (
 	// to the status response detailing the jobs current stopped status.
 	metaKeyJobStoppedSuffix = ".stopped"
 
-	TargetPollingInterval = 500 * time.Millisecond
+	TargetPollingInterval = time.Second
 )
 
 var (

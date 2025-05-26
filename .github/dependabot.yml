@@ -1,7 +1,11 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: "/"
+    directories:
+      - "/"
+      - "/plugins/test/noop-apm"
+      - "/plugins/test/noop-strategy"
+      - "/plugins/test/noop-target"
     schedule:
       interval: "weekly"
       day: "sunday"

@@ -12,7 +12,6 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
-	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
@@ -25,6 +24,8 @@ const (
 	// metaKeyJobStoppedSuffix is the key suffix used when adding a meta item
 	// to the status response detailing the jobs current stopped status.
 	metaKeyJobStoppedSuffix = ".stopped"
+
+	TargetPollingInterval = 500 * time.Millisecond
 )
 
 var (
@@ -168,11 +169,13 @@ func (jsh *jobScaleStatusHandler) start() {
 
 	q := &api.QueryOptions{
 		Namespace: jsh.namespace,
-		WaitIndex: 1,
 	}
 
+	ticker := time.NewTicker(TargetPollingInterval)
+	defer ticker.Stop()
+
 	for {
-		status, meta, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
+		status, _, err := jsh.client.Jobs().ScaleStatus(jsh.jobID, q)
 
 		// Update the handlers state.
 		jsh.updateStatusState(status, err)
@@ -195,14 +198,15 @@ func (jsh *jobScaleStatusHandler) start() {
 			// If the error was anything other than the job not being found,
 			// try again.
 			jsh.logger.Warn("failed to read job scale status, retrying in 10 seconds", "error", err)
+
 			time.Sleep(10 * time.Second)
+
 			continue
 		}
 
 		// Read handler state into local variables so we don't starve the lock.
 		jsh.lock.RLock()
 		isRunning := jsh.isRunning
-		scaleStatus := jsh.scaleStatus
 		jsh.lock.RUnlock()
 
 		// Stop loop if handler is not running anymore.
@@ -210,17 +214,9 @@ func (jsh *jobScaleStatusHandler) start() {
 			return
 		}
 
-		// If the index has not changed, the query returned because the timeout
-		// was reached, therefore start the next query loop.
-		// The index could also be the same when a reconnect happens, in which
-		// case the handler state needs to be updated regardless of the index.
-		if scaleStatus != nil && !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
-			continue
+		select {
+		case <-ticker.C:
 		}
-
-		// Modify the wait index on the QueryOptions so the blocking query
-		// is using the latest index value.
-		q.WaitIndex = meta.LastIndex
 	}
 }
 

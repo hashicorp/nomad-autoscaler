@@ -47,6 +47,7 @@ type Source struct {
 	nomad           *api.Client
 	nomadLock       sync.RWMutex
 	policyProcessor *policy.Processor
+	currentindex    uint64
 
 	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
 	reloadCh chan struct{}
@@ -59,6 +60,7 @@ func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy
 		nomad:           nomad,
 		policyProcessor: policyProcessor,
 		reloadCh:        make(chan struct{}),
+		currentindex:    1,
 	}
 }
 
@@ -94,18 +96,13 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	q := &api.QueryOptions{}
 	ticker := time.NewTicker(policiesIDsPollingInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		var (
 			policies []*api.ScalingPolicyListStub
 			meta     *api.QueryMeta
 			err      error
 		)
-
-		// Perform a blocking query on the Nomad API that returns a stub list
-		// of scaling policies. The call is done in a goroutine so we can
-		// still listen for the context closing or a reload request.
-		//blockingQueryCompleteCh := make(chan struct{})
 
 		// Obtain a handler now so we can release the lock before starting
 		// the blocking query.
@@ -114,10 +111,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		s.nomadLock.RUnlock()
 
 		policies, meta, err = scaling.ListPolicies(q)
-		//close(blockingQueryCompleteCh)
 
-		/*
-		 */
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
 			policy.HandleSourceError(s.Name(),
@@ -129,29 +123,24 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
-			continue
-		}
+		if blocking.IndexHasChanged(meta.LastIndex, s.currentindex) {
+			s.currentindex = meta.LastIndex
 
-		var policyIDs []policy.PolicyID
+			var policyIDs []policy.PolicyID
 
-		// Iterate over all policies in the list and filter out policies
-		// that are not enabled.
-		for _, p := range policies {
-			if p.Enabled {
-				policyIDs = append(policyIDs, policy.PolicyID(p.ID))
-			} else {
-				s.log.Info("policy not enabled", "policy_id", p.ID)
+			// Iterate over all policies in the list and filter out policies
+			// that are not enabled.
+			for _, p := range policies {
+				if p.Enabled {
+					policyIDs = append(policyIDs, policy.PolicyID(p.ID))
+				} else {
+					s.log.Info("policy not enabled", "policy_id", p.ID)
+				}
 			}
+
+			// Send new policy IDs in the channel.
+			req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
 		}
-
-		// Update the Nomad API wait index to start long polling from the
-		// correct point and update our recorded lastChangeIndex so we have the
-		// correct point to use during the next API return.
-		q.WaitIndex = meta.LastIndex
-
-		// Send new policy IDs in the channel.
-		req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
 
 		select {
 		case <-ctx.Done():

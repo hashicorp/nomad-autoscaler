@@ -22,18 +22,19 @@ import (
 // Keys represent the scaling policy document keys and help translate
 // the opaque object into a usable autoscaling policy.
 const (
-	keySource             = "source"
-	keyQuery              = "query"
-	keyQueryWindow        = "query_window"
-	keyQueryWindowOffset  = "query_window_offset"
-	keyEvaluationInterval = "evaluation_interval"
-	keyOnCheckError       = "on_check_error"
-	keyOnError            = "on_error"
-	keyTarget             = "target"
-	keyChecks             = "check"
-	keyGroup              = "group"
-	keyStrategy           = "strategy"
-	keyCooldown           = "cooldown"
+	keySource                  = "source"
+	keyQuery                   = "query"
+	keyQueryWindow             = "query_window"
+	keyQueryWindowOffset       = "query_window_offset"
+	keyEvaluationInterval      = "evaluation_interval"
+	keyOnCheckError            = "on_check_error"
+	keyOnError                 = "on_error"
+	keyTarget                  = "target"
+	keyChecks                  = "check"
+	keyGroup                   = "group"
+	keyStrategy                = "strategy"
+	keyCooldown                = "cooldown"
+	policiesIDsPollingInterval = 500 * time.Millisecond
 )
 
 // Ensure NomadSource satisfies the Source interface.
@@ -90,7 +91,8 @@ func (s *Source) ReloadIDsMonitor() {
 func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
-	q := &api.QueryOptions{WaitIndex: 1}
+	q := &api.QueryOptions{}
+	ticker := time.NewTicker(policiesIDsPollingInterval)
 
 	for {
 		var (
@@ -102,41 +104,26 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
 		// still listen for the context closing or a reload request.
-		blockingQueryCompleteCh := make(chan struct{})
-		go func() {
-			// Obtain a handler now so we can release the lock before starting
-			// the blocking query.
-			s.nomadLock.RLock()
-			scaling := s.nomad.Scaling()
-			s.nomadLock.RUnlock()
+		//blockingQueryCompleteCh := make(chan struct{})
 
-			policies, meta, err = scaling.ListPolicies(q)
-			close(blockingQueryCompleteCh)
-		}()
+		// Obtain a handler now so we can release the lock before starting
+		// the blocking query.
+		s.nomadLock.RLock()
+		scaling := s.nomad.Scaling()
+		s.nomadLock.RUnlock()
 
-		select {
-		case <-ctx.Done():
-			s.log.Trace("stopping ID subscription")
-			return
-		case <-s.reloadCh:
-			s.log.Trace("reloading policies")
-			continue
-		case <-blockingQueryCompleteCh:
-		}
+		policies, meta, err = scaling.ListPolicies(q)
+		//close(blockingQueryCompleteCh)
 
+		/*
+		 */
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
-			select {
-			case <-ctx.Done():
-				s.log.Trace("stopping ID subscription")
-				return
-			case <-s.reloadCh:
-				s.log.Trace("reloading policies")
-				continue
-			case <-time.After(10 * time.Second):
-				continue
-			}
+			policy.HandleSourceError(s.Name(),
+				fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
+			time.Sleep(10 * time.Second)
+
+			continue
 		}
 
 		// If the index has not changed, the query returned because the timeout
@@ -164,6 +151,16 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// Send new policy IDs in the channel.
 		req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
+
+		select {
+		case <-ctx.Done():
+			s.log.Trace("stopping ID subscription")
+			return
+		case <-s.reloadCh:
+			s.log.Trace("reloading policies")
+			continue
+		case <-ticker.C:
+		}
 	}
 }
 

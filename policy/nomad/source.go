@@ -93,7 +93,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 	q := &api.QueryOptions{}
 	ticker := time.NewTicker(policiesIDsPollingInterval)
-
+	defer ticker.Stop()
+	
 	for {
 		var (
 			policies []*api.ScalingPolicyListStub

@@ -7,7 +7,7 @@ BUG FIXES:
 IMPROVEMENTS:
 
 * build: Updated Nomad API dependency to 1.10.0 [[GH-1061](https://github.com/hashicorp/nomad-autoscaler/pull/1061)]
-* build: Updated to Go 1.24.0 [[GH-1045](https://github.com/hashicorp/nomad-autoscaler/pull/1045)]
+* build: Updated to Go 1.24.3 [[GH-1091](https://github.com/hashicorp/nomad-autoscaler/pull/1091)]
 
 ## 0.4.6 (December 12, 2024)
 

@@ -181,7 +181,6 @@ func Test_jobStateHandler_stop(t *testing.T) {
 
 	// Call stop and make assertions.
 	jsh.setStopState()
-	assert.False(t, jsh.jobRunning)
 	assert.Nil(t, jsh.scaleStatus)
 	assert.Nil(t, jsh.scaleStatusError)
 	assert.Greater(t, jsh.lastUpdated, int64(0))

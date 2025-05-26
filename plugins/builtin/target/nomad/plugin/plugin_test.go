@@ -64,11 +64,13 @@ func TestTargetPlugin_Status(t *testing.T) {
 			"nomad_autoscaler.target.nomad.example.stopped": "false",
 		},
 	}
+
 	got, err := plugin.Status(map[string]string{
 		"Job":       "example",
 		"Group":     "cache",
 		"Namespace": "default",
 	})
+
 	require.NoError(t, err)
 	assert.Equal(t, expected, got)
 

@@ -203,7 +203,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 		go func() {
 			// This is a blocking function that will only return if there is
-			// and error or the job has stopped.
+			// an error or the job has stopped.
 			jsh.start()
 
 			t.statusHandlersLock.Lock()

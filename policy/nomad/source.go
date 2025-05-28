@@ -97,32 +97,36 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	ticker := time.NewTicker(policiesIDsPollingInterval)
 	defer ticker.Stop()
 
+	var (
+		policies []*api.ScalingPolicyListStub
+		meta     *api.QueryMeta
+		err      error
+	)
+
+	// Obtain a handler now so we can release the lock before starting.
+	s.nomadLock.RLock()
+	scaling := s.nomad.Scaling()
+	s.nomadLock.RUnlock()
+
 	for {
-		var (
-			policies []*api.ScalingPolicyListStub
-			meta     *api.QueryMeta
-			err      error
-		)
-
-		// Obtain a handler now so we can release the lock before starting
-		// the blocking query.
-		s.nomadLock.RLock()
-		scaling := s.nomad.Scaling()
-		s.nomadLock.RUnlock()
-
 		policies, meta, err = scaling.ListPolicies(q)
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
 			policy.HandleSourceError(s.Name(),
 				fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
-			time.Sleep(10 * time.Second)
-
-			continue
+			select {
+			case <-ctx.Done():
+				return
+			case <-s.reloadCh:
+				s.log.Trace("reloading policies")
+				continue
+			case <-time.After(10 * time.Second):
+				continue
+			}
 		}
 
-		// If the index has not changed, the query returned because the timeout
-		// was reached, therefore start the next query loop.
+		// If the index has not changed, there is nothing to update.
 		if blocking.IndexHasChanged(meta.LastIndex, s.currentindex) {
 			s.currentindex = meta.LastIndex
 

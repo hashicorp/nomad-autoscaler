@@ -41,8 +41,6 @@ type Manager struct {
 	// running on each policy source. It is passed down as part of the MonitorIDsReq
 	// along with policyIDsCh.
 	policyIDsErrCh chan error
-
-	handlersCancelFunc context.CancelFunc
 }
 
 // Local struct used to wrap the policy handlers and save them with their respective
@@ -178,7 +176,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 				go func(ID PolicyID) {
 					h.Run(handlerCtx, evalCh)
-
+					m.log.Debug(" ********* we will remove the handler *****")
 					// Remove the handler when it stops running.
 					m.lock.Lock()
 					delete(m.handlers, ID)

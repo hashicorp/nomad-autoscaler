@@ -8,7 +8,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -270,7 +269,7 @@ func parseSample(s interface{}) (sdk.TimestampedMetric, error) {
 	valFloat := float64(val)
 	// Check whether the sample value is an IEEE 754 not-a-number value.
 	if math.IsNaN(valFloat) {
-		return result, errors.New("query result value is not-a-number")
+		return result, fmt.Errorf("query result value is not-a-number: %+v", valFloat)
 	}
 
 	tsTime := time.Unix(int64(ts)/1e3, 0)

@@ -91,10 +91,10 @@ func (s *Source) ReloadIDsMonitor() {
 func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
-	q := &api.QueryOptions{}
-	ticker := time.NewTicker(policiesIDsPollingInterval)
+	q := &api.QueryOptions{WaitIndex: 1}
 
 	for {
+
 		var (
 			policies []*api.ScalingPolicyListStub
 			meta     *api.QueryMeta
@@ -104,32 +104,42 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
 		// still listen for the context closing or a reload request.
-		//blockingQueryCompleteCh := make(chan struct{})
+		blockingQueryCompleteCh := make(chan struct{})
 
-		// Obtain a handler now so we can release the lock before starting
-		// the blocking query.
-		s.nomadLock.RLock()
-		scaling := s.nomad.Scaling()
-		s.nomadLock.RUnlock()
+		go func() {
+			// Obtain a handler now so we can release the lock before starting
+			// the blocking query.
+			s.nomadLock.RLock()
+			scaling := s.nomad.Scaling()
+			s.nomadLock.RUnlock()
 
-		policies, meta, err = scaling.ListPolicies(q)
-		//close(blockingQueryCompleteCh)
+			policies, meta, err = scaling.ListPolicies(q)
+			close(blockingQueryCompleteCh)
+		}()
+
+		select {
+		case <-ctx.Done():
+			s.log.Trace("stopping ID subscription")
+			return
+		case <-s.reloadCh:
+			s.log.Trace("reloading policies")
+			continue
+		case <-blockingQueryCompleteCh:
+		}
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
-			policy.HandleSourceError(s.Name(),
-				fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				s.log.Trace("stopping ID subscription")
 				return
 			case <-s.reloadCh:
 				s.log.Trace("reloading policies")
-
+				continue
 			case <-time.After(10 * time.Second):
+				continue
 			}
-
-			continue
 		}
 
 		// If the index has not changed, the query returned because the timeout
@@ -143,11 +153,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// Iterate over all policies in the list and filter out policies
 		// that are not enabled.
 		for _, p := range policies {
-			if p.Enabled {
-				policyIDs = append(policyIDs, policy.PolicyID(p.ID))
-			} else {
-				s.log.Info("policy not enabled", "policy_id", p.ID)
-			}
+			s.log.Trace("  ***** updatng policies ", p.ID, p.Enabled)
+			policyIDs = append(policyIDs, policy.PolicyID(p.ID))
 		}
 
 		// Update the Nomad API wait index to start long polling from the
@@ -156,17 +163,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		q.WaitIndex = meta.LastIndex
 
 		// Send new policy IDs in the channel.
+		s.log.Trace("  ***** puttinh things", s.Name())
 		req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
-
-		select {
-		case <-ctx.Done():
-			s.log.Trace("stopping ID subscription")
-			return
-		case <-s.reloadCh:
-			s.log.Trace("reloading policies")
-			continue
-		case <-ticker.C:
-		}
 	}
 }
 
@@ -223,7 +221,8 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		// If we get an errors at this point, we should sleep and try again.
 		if res.err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", res.err), req.ErrCh)
+			log.Trace(fmt.Sprintf("%+v", s))
+			//policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", res.err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				log.Trace("done with policy monitoring")

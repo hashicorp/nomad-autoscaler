@@ -113,7 +113,7 @@ func (jsh *jobScaleStatusHandler) status(group string) (*sdk.TargetStatus, error
 
 	// If the scale status is nil, it means the main loop is stopped and
 	// therefore the job is not found on the cluster.
-	if jsh.scaleStatus == nil {
+	if jsh.scaleStatus == nil || jsh.scaleStatus.JobStopped {
 		return nil, nil
 	}
 

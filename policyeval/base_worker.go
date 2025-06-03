@@ -114,7 +114,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 	currentStatus, err := runTargetStatus(target, eval.Policy)
 	if err != nil {
-		return fmt.Errorf("failed to get target status: %v", err)
+		return fmt.Errorf("base worker: failed to get target status: %v", err)
 	}
 
 	if !currentStatus.Ready {

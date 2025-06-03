@@ -230,10 +230,11 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 
 	status, err := target.Status(policy.Target.Config)
 	if err != nil {
-		h.log.Warn("failed to get target status", "error", err)
+		h.log.Warn("handler: failed to get target status", "error", err)
 		return nil, err
 	}
 
+	h.log.Debug(" ****** checking teh status", "target", policy.Target.Name)
 	// A nil status indicates the target doesn't exist, so we don't need to
 	// monitor the policy anymore.
 	if status == nil {

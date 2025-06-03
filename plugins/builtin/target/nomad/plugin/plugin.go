@@ -187,8 +187,6 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	nsID := namespacedJobID{namespace: namespace, job: jobID}
 
-	// Create a read/write lock on the handlers so we can safely interact.
-
 	// Create a handler for the job if one does not currently exist,
 	// or if an existing one has stopped running but is not yet GC'd.
 	t.statusHandlersLock.Lock()

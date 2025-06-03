@@ -115,13 +115,19 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		policies, meta, err = scaling.ListPolicies(q)
 		//close(blockingQueryCompleteCh)
 
-		/*
-		 */
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
 			policy.HandleSourceError(s.Name(),
 				fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
-			time.Sleep(10 * time.Second)
+			select {
+			case <-ctx.Done():
+				s.log.Trace("stopping ID subscription")
+				return
+			case <-s.reloadCh:
+				s.log.Trace("reloading policies")
+
+			case <-time.After(10 * time.Second):
+			}
 
 			continue
 		}
@@ -170,25 +176,24 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 // This function blocks until the context is closed.
 func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 	log := s.log.With("policy_id", req.ID)
-
-	// Close channels when done with the monitoring loop.
-	defer close(req.ResultCh)
-	defer close(req.ErrCh)
-
 	log.Trace("starting policy blocking query watcher")
+
+	type result struct {
+		p    *api.ScalingPolicy
+		meta *api.QueryMeta
+		err  error
+	}
+
+	results := make(chan result)
+	defer close(results)
 
 	q := &api.QueryOptions{WaitIndex: 1}
 	for {
-		var (
-			p    *api.ScalingPolicy
-			meta *api.QueryMeta
-			err  error
-		)
 
 		// Perform a blocking query on the Nomad API that returns a scaling
 		// policy. The call is done in a goroutine so we can still listen for
 		// the context closing or a reload request.
-		blockingQueryCompleteCh := make(chan struct{})
+
 		go func() {
 			// Obtain a handler now so we can release the lock before starting
 			// the blocking query.
@@ -196,10 +201,16 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			scaling := s.nomad.Scaling()
 			s.nomadLock.RUnlock()
 
-			p, meta, err = scaling.GetPolicy(string(req.ID), q)
-			close(blockingQueryCompleteCh)
+			p, meta, err := scaling.GetPolicy(string(req.ID), q)
+			results <- result{
+				p:    p,
+				meta: meta,
+				err:  err,
+			}
+
 		}()
 
+		var res result
 		select {
 		case <-ctx.Done():
 			log.Trace("done with policy monitoring")
@@ -207,12 +218,12 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		case <-req.ReloadCh:
 			log.Trace("reloading policy monitor")
 			continue
-		case <-blockingQueryCompleteCh:
+		case res = <-results:
 		}
 
 		// If we get an errors at this point, we should sleep and try again.
-		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", err), req.ErrCh)
+		if res.err != nil {
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %w", res.err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				log.Trace("done with policy monitoring")
@@ -227,16 +238,16 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+		if !blocking.IndexHasChanged(res.meta.LastIndex, q.WaitIndex) {
 			continue
 		}
 
 		// GH-165: update the wait index. After this point there is a
 		// possibility of continuing the loop and without setting the index
 		// we will just fast loop indefinitely.
-		q.WaitIndex = meta.LastIndex
+		q.WaitIndex = res.meta.LastIndex
 
-		if err := validateScalingPolicy(p); err != nil {
+		if err := validateScalingPolicy(res.p); err != nil {
 			errMsg := "policy validation failed"
 			if _, ok := err.(*multierror.Error); ok {
 				// Add new error message as first error item.
@@ -249,7 +260,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			continue
 		}
 
-		autoPolicy := parsePolicy(p)
+		autoPolicy := parsePolicy(res.p)
 		s.canonicalizePolicy(&autoPolicy)
 
 		req.ResultCh <- autoPolicy

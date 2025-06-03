@@ -4,7 +4,6 @@
 package rate_limiter
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -14,17 +13,16 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// CustomRoundTRipper wraps http.RoundTripper to observe metrics and rate limit if necessary
-type CustomRoundTRipper struct {
+// CustomRoundTripper wraps http.RoundTripper to observe metrics and rate limit if necessary
+type CustomRoundTripper struct {
 	rateLimiter *rate.Limiter
 	source      string
 	rt          http.RoundTripper
 }
 
-func (irt *CustomRoundTRipper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (irt *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if irt.rateLimiter != nil {
-		ctx := context.Background()
-		err := irt.rateLimiter.Wait(ctx)
+		err := irt.rateLimiter.Wait(req.Context())
 		if err != nil {
 			return nil, fmt.Errorf("transport: unable to ratelimit: %w", err)
 		}
@@ -34,6 +32,10 @@ func (irt *CustomRoundTRipper) RoundTrip(req *http.Request) (*http.Response, err
 		{
 			Name:  "method",
 			Value: req.Method,
+		},
+		{
+			Name:  "Path",
+			Value: req.URL.Path,
 		},
 		{
 			Name:  "source",
@@ -51,7 +53,7 @@ func (irt *CustomRoundTRipper) RoundTrip(req *http.Request) (*http.Response, err
 	return resp, err
 }
 
-// NewWarpper returns the provided http client with a rate limiter, if no client
+// NewWrapper returns the provided http client with a rate limiter, if no client
 // is provided, a new one will be created using github.com/hashicorp/go-cleanhttp.
 // To disable rate limiting, set the ratePerSec to -1. Setting it to 0 blocks all
 // requests. Source is used as a label for metrics.
@@ -63,7 +65,7 @@ func NewInstrumentedWrapper(source string, ratePerSec int, client *http.Client) 
 
 	httpClient.Transport.(*http.Transport).MaxConnsPerHost = 50
 
-	crt := &CustomRoundTRipper{
+	crt := &CustomRoundTripper{
 		rt:     httpClient.Transport,
 		source: source,
 	}

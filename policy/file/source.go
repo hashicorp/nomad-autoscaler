@@ -108,7 +108,9 @@ func (s *Source) ReloadIDsMonitor() {
 // Any error doing so will be sent to req.ErrCh.
 // If MonitorPolicy receives on s.ReloadCh, it will re-check the file on disk,
 // and write again to req.ResultCh if the policy has changed.
-// Note: MonitorPolicy should only return when ctx is done.
+// Note: MonitorPolicy should only return when ctx is done and will not be
+// monitoring changes in policies, a call to Reload is necessary for changes
+// in policies to become effective.
 func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
@@ -245,9 +247,8 @@ func (s *Source) identifyPolicyIDs(resultCh chan<- policy.IDMessage, errCh chan<
 }
 
 // handleDir iterates through the configured directory, attempting to decode
-// and store all HCL and JSON files as scaling policies. If the policy is not
-// enabled it will be ignored.
-func (s *Source) handleDir() ([]policy.PolicyID, error) {
+// and store all HCL and JSON files as scaling policies.
+func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
 
 	// Obtain a list of all files in the directory which have the suffixes we
 	// can handle as scaling policies.
@@ -256,7 +257,7 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 		return nil, fmt.Errorf("failed to list files in directory: %v", err)
 	}
 
-	var policyIDs []policy.PolicyID
+	var policyIDs map[policy.PolicyID]policy.PolicyUpdate
 	var mErr *multierror.Error
 
 	for _, file := range files {
@@ -277,12 +278,14 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			policyID := s.getFilePolicyID(file, name)
 			scalingPolicy.ID = string(policyID)
 
-			// Ignore the policy if its disabled. The log line is because I
-			// (jrasell) have spent too much time figuring out why a policy doesn't
-			// get tracked here.
 			if !scalingPolicy.Enabled {
-				s.log.Trace("policy is disabled therefore ignoring",
+				s.log.Trace("policy is disabled",
 					"policy_id", scalingPolicy.ID, "file", file)
+
+				policyIDs[policyID] = policy.PolicyUpdate{
+					Enabled: false,
+				}
+
 				continue
 			}
 
@@ -313,7 +316,11 @@ func (s *Source) handleDir() ([]policy.PolicyID, error) {
 			}
 			s.policyMapLock.Unlock()
 
-			policyIDs = append(policyIDs, policyID)
+			// The Updated field is never used for the file source because
+			// currently changes can only be picked up by a full source reload.
+			policyIDs[policyID] = policy.PolicyUpdate{
+				Enabled: true,
+			}
 		}
 	}
 
@@ -347,4 +354,24 @@ func (s *Source) getFilePolicyID(file, name string) policy.PolicyID {
 
 func md5Sum(i interface{}) [16]byte {
 	return md5.Sum([]byte(fmt.Sprintf("%v", i)))
+}
+
+func (s *Source) GetLatestPolicy(_ context.Context, policyID string) (*sdk.ScalingPolicy, error) {
+	s.policyMapLock.Lock()
+	defer s.policyMapLock.Unlock()
+
+	val, ok := s.policyMap[policy.PolicyID(policyID)]
+	if !ok {
+		return nil, fmt.Errorf("failed to get policy %s", policyID)
+	}
+
+	p, _, err := s.handleIndividualPolicyRead(policy.PolicyID(policyID), val.file, val.name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get policy %s: %w", policyID, err)
+	}
+
+	// Update the policy
+	s.policyMap[policy.PolicyID(policyID)].policy = p
+
+	return p, nil
 }

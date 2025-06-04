@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"time"
 
@@ -39,13 +40,48 @@ const (
 // Ensure NomadSource satisfies the Source interface.
 var _ policy.Source = (*Source)(nil)
 
+type policiesGetter interface {
+	ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error)
+	GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error)
+}
+
+type nomadPolicyGetter struct {
+	nomadLock sync.RWMutex
+	nomad     *api.Client
+}
+
+func newNomadPolicyGetter(nomad *api.Client) *nomadPolicyGetter {
+	return &nomadPolicyGetter{
+		nomad: nomad,
+	}
+}
+
+func (npg *nomadPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
+	npg.nomadLock.RLock()
+	scaling := npg.nomad.Scaling()
+	npg.nomadLock.RUnlock()
+
+	return scaling.ListPolicies(q)
+}
+
+func (npg *nomadPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error) {
+	npg.nomadLock.RLock()
+	scaling := npg.nomad.Scaling()
+	npg.nomadLock.RUnlock()
+
+	return scaling.GetPolicy(id, q)
+}
+
 // Source is an implementation of the Source interface that retrieves
 // policies from a Nomad cluster.
 type Source struct {
-	log             hclog.Logger
-	nomad           *api.Client
-	nomadLock       sync.RWMutex
+	log            hclog.Logger
+	policiesGetter policiesGetter
+
 	policyProcessor *policy.Processor
+
+	// Map of the current policies used to track changes
+	policies map[policy.PolicyID]*api.ScalingPolicyListStub
 
 	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
 	reloadCh chan struct{}
@@ -55,16 +91,18 @@ type Source struct {
 func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
 	return &Source{
 		log:             log.ResetNamed("nomad_policy_source"),
-		nomad:           nomad,
+		policiesGetter:  newNomadPolicyGetter(nomad),
 		policyProcessor: policyProcessor,
 		reloadCh:        make(chan struct{}),
 	}
 }
 
 func (s *Source) SetNomadClient(nomad *api.Client) {
-	s.nomadLock.Lock()
-	defer s.nomadLock.Unlock()
-	s.nomad = nomad
+	if pg, ok := s.policiesGetter.(*nomadPolicyGetter); ok {
+		pg.nomadLock.Lock()
+		pg.nomad = nomad
+		pg.nomadLock.Unlock()
+	}
 }
 
 // Name satisfies the Name function of the policy.Source interface.
@@ -90,30 +128,37 @@ func (s *Source) ReloadIDsMonitor() {
 func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
+	type results struct {
+		policies []*api.ScalingPolicyListStub
+		meta     *api.QueryMeta
+		err      error
+	}
+
 	q := &api.QueryOptions{WaitIndex: 1}
 
 	for {
-		var (
-			policies []*api.ScalingPolicyListStub
-			meta     *api.QueryMeta
-			err      error
-		)
-
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
 		// still listen for the context closing or a reload request.
-		blockingQueryCompleteCh := make(chan struct{})
+		blockingQueryCompleteCh := make(chan results)
 		go func() {
-			// Obtain a handler now so we can release the lock before starting
-			// the blocking query.
-			s.nomadLock.RLock()
-			scaling := s.nomad.Scaling()
-			s.nomadLock.RUnlock()
+			// There is no access to the call context, but to avoid wrutting to
+			// a closed channel first check if teh context was cancelled.
+			ps, meta, err := s.policiesGetter.ListPolicies(q)
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
 
-			policies, meta, err = scaling.ListPolicies(q)
-			close(blockingQueryCompleteCh)
+			blockingQueryCompleteCh <- results{
+				policies: ps,
+				meta:     meta,
+				err:      err,
+			}
 		}()
 
+		r := results{}
 		select {
 		case <-ctx.Done():
 			s.log.Trace("stopping ID subscription")
@@ -121,11 +166,11 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		case <-s.reloadCh:
 			s.log.Trace("reloading policies")
 			continue
-		case <-blockingQueryCompleteCh:
+		case r = <-blockingQueryCompleteCh:
 		}
 
 		// If we get an errors at this point, we should sleep and try again.
-		if err != nil {
+		if r.err != nil {
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
@@ -141,29 +186,45 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+		if !blocking.IndexHasChanged(r.meta.LastIndex, q.WaitIndex) {
 			continue
 		}
 
-		var policyIDs []policy.PolicyID
+		policyUpdates := map[policy.PolicyID]policy.PolicyUpdate{}
 
-		// Iterate over all policies in the list and filter out policies
-		// that are not enabled.
-		for _, p := range policies {
-			if p.Enabled {
-				policyIDs = append(policyIDs, policy.PolicyID(p.ID))
-			} else {
-				s.log.Info("policy not enabled", "policy_id", p.ID)
+		// If the index has changed, let's remove the policies that are no longer
+		// present and check which policies have been updated.
+		for policyID, oldPolicy := range s.policies {
+			pi := slices.IndexFunc(r.policies, func(np *api.ScalingPolicyListStub) bool {
+				return np.ID == policyID.String()
+			})
+			if pi == -1 {
+				delete(s.policies, policyID)
+				continue
 			}
+
+			newPolicy := r.policies[pi]
+
+			update := policy.PolicyUpdate{
+				Enabled: newPolicy.Enabled,
+			}
+
+			if oldPolicy.ModifyIndex < newPolicy.ModifyIndex {
+				s.policies[policyID] = newPolicy
+				update.Updated = true
+			}
+
+			policyUpdates[policyID] = update
+
 		}
 
 		// Update the Nomad API wait index to start long polling from the
 		// correct point and update our recorded lastChangeIndex so we have the
 		// correct point to use during the next API return.
-		q.WaitIndex = meta.LastIndex
+		q.WaitIndex = r.meta.LastIndex
 
 		// Send new policy IDs in the channel.
-		req.ResultCh <- policy.IDMessage{IDs: policyIDs, Source: s.Name()}
+		req.ResultCh <- policy.IDMessage{IDs: policyUpdates, Source: s.Name()}
 	}
 }
 
@@ -195,11 +256,8 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 		go func() {
 			// Obtain a handler now so we can release the lock before starting
 			// the blocking query.
-			s.nomadLock.RLock()
-			scaling := s.nomad.Scaling()
-			s.nomadLock.RUnlock()
 
-			p, meta, err = scaling.GetPolicy(string(req.ID), q)
+			p, meta, err = s.policiesGetter.GetPolicy(string(req.ID), q)
 			close(blockingQueryCompleteCh)
 		}()
 
@@ -326,4 +384,33 @@ func (s *Source) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPoli
 
 	// Canonicalize the check.
 	s.policyProcessor.CanonicalizeCheck(c, t)
+}
+
+func (s *Source) GetLatestPolicy(ctx context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+	p, _, err := s.policiesGetter.GetPolicy(string(policyID), &api.QueryOptions{})
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	default:
+		if err != nil {
+			return nil, fmt.Errorf("nomad source: unable to get policy")
+		}
+	}
+
+	if err := validateScalingPolicy(p); err != nil {
+		errMsg := "policy validation failed"
+		if _, ok := err.(*multierror.Error); ok {
+			// Add new error message as first error item.
+			err = multierror.Append(errors.New(errMsg), err)
+		} else {
+			err = fmt.Errorf("%s: %v", errMsg, err)
+		}
+
+		return nil, err
+	}
+
+	autoPolicy := parsePolicy(p)
+	s.canonicalizePolicy(&autoPolicy)
+
+	return &autoPolicy, nil
 }

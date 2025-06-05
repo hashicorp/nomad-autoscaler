@@ -257,7 +257,7 @@ func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
 		return nil, fmt.Errorf("failed to list files in directory: %v", err)
 	}
 
-	var policyIDs map[policy.PolicyID]policy.PolicyUpdate
+	policyIDs := map[policy.PolicyID]policy.PolicyUpdate{}
 	var mErr *multierror.Error
 
 	for _, file := range files {
@@ -356,22 +356,22 @@ func md5Sum(i interface{}) [16]byte {
 	return md5.Sum([]byte(fmt.Sprintf("%v", i)))
 }
 
-func (s *Source) GetLatestPolicy(_ context.Context, policyID string) (*sdk.ScalingPolicy, error) {
+func (s *Source) GetLatestPolicy(_ context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	s.policyMapLock.Lock()
 	defer s.policyMapLock.Unlock()
 
-	val, ok := s.policyMap[policy.PolicyID(policyID)]
+	val, ok := s.policyMap[policyID]
 	if !ok {
 		return nil, fmt.Errorf("failed to get policy %s", policyID)
 	}
 
-	p, _, err := s.handleIndividualPolicyRead(policy.PolicyID(policyID), val.file, val.name)
+	p, _, err := s.handleIndividualPolicyRead(policyID, val.file, val.name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policy %s: %w", policyID, err)
 	}
 
 	// Update the policy
-	s.policyMap[policy.PolicyID(policyID)].policy = p
+	s.policyMap[policyID].policy = p
 
 	return p, nil
 }

@@ -143,7 +143,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		blockingQueryCompleteCh := make(chan results)
 		go func() {
 			// There is no access to the call context, but to avoid wrutting to
-			// a closed channel first check if teh context was cancelled.
+			// a closed channel first check if the context was cancelled.
 			ps, meta, err := s.policiesGetter.ListPolicies(q)
 			select {
 			case <-ctx.Done():
@@ -171,7 +171,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If we get an errors at this point, we should sleep and try again.
 		if r.err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
+			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", r.err), req.ErrCh)
 			select {
 			case <-ctx.Done():
 				s.log.Trace("stopping ID subscription")

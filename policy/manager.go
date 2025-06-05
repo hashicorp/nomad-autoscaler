@@ -132,7 +132,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 			m.keep = make(map[PolicyID]bool)
 
 			// Iterate over policy IDs and create new handlers if necessary
-			for _, policyID := range policyIDs.IDs {
+			for policyID := range policyIDs.IDs {
 
 				// Mark policy as must-keep so it doesn't get removed.
 				m.keep[policyID] = true

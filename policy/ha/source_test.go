@@ -6,6 +6,7 @@ package ha
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 
@@ -39,19 +40,23 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	}()
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
-		"abcde",
-		"a1234",
-		"aaaaa",
+	expected := map[policy.PolicyID]policy.PolicyUpdate{
+		"abcde": policy.PolicyUpdate{},
+		"a1234": policy.PolicyUpdate{},
+		"aaaaa": policy.PolicyUpdate{},
 	}
-	unexpected := []policy.PolicyID{
-		"badbad",
-		"zzzzzz",
-		"123456",
+
+	unexpected := map[policy.PolicyID]policy.PolicyUpdate{
+		"badbad": policy.PolicyUpdate{},
+		"zzzzzz": policy.PolicyUpdate{},
+		"123456": policy.PolicyUpdate{},
 	}
+
+	maps.Copy(expected, unexpected)
+
 	go func() {
 		inputCh <- policy.IDMessage{
-			IDs:    append(expected, unexpected...),
+			IDs:    expected,
 			Source: "test",
 		}
 	}()
@@ -160,19 +165,23 @@ func TestFilteredSource_Reload(t *testing.T) {
 	})
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
-		"abcde",
-		"a1234",
-		"aaaaa",
+	expected := map[policy.PolicyID]policy.PolicyUpdate{
+		"abcde": policy.PolicyUpdate{},
+		"a1234": policy.PolicyUpdate{},
+		"aaaaa": policy.PolicyUpdate{},
 	}
-	unexpected := []policy.PolicyID{
-		"badbad",
-		"zzzzzz",
-		"123456",
+
+	unexpected := map[policy.PolicyID]policy.PolicyUpdate{
+		"badbad": policy.PolicyUpdate{},
+		"zzzzzz": policy.PolicyUpdate{},
+		"123456": policy.PolicyUpdate{},
 	}
+
+	maps.Copy(expected, unexpected)
+
 	go func() {
 		inputCh <- policy.IDMessage{
-			IDs:    append(expected, unexpected...),
+			IDs:    expected,
 			Source: "test",
 		}
 	}()

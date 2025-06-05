@@ -4,9 +4,11 @@
 package nomad
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/policy"
@@ -347,4 +349,39 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			assert.Equal(t, tc.expected, tc.input)
 		})
 	}
+}
+
+type mockPolicyGetter struct {
+}
+
+func (npg *mockPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
+	return nil, nil, nil
+}
+
+func (npg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error) {
+	return nil, nil, nil
+}
+
+func TestMonitoringIDs(t *testing.T) {
+	mpg := &mockPolicyGetter{}
+
+	pr := policy.NewProcessor(
+		&policy.ConfigDefaults{
+			DefaultEvaluationInterval: time.Second,
+			DefaultCooldown:           time.Second},
+		[]string{},
+	)
+
+	testSource := Source{
+		log:             hclog.NewNullLogger(),
+		policiesGetter:  mpg,
+		policyProcessor: pr,
+	}
+
+	tRequest := policy.MonitorIDsReq{
+		ResultCh: make(chan policy.IDMessage, 2),
+		ErrCh:    make(chan error, 2),
+	}
+
+	go testSource.MonitorIDs(context.TODO(), tRequest)
 }

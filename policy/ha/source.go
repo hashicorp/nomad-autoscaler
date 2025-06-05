@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // NewFilteredSource accepts an upstream policy.Source and an ha.PolicyFilter
@@ -57,7 +58,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 	})
 
 	// keep track of the previous policyIDs, in case the filter updates
-	var policyIDs []policy.PolicyID
+	var policyIDs map[policy.PolicyID]policy.PolicyUpdate
 	// don't emit policy IDs until both the  filter and the upstream policy
 	// source have sent their first update
 	haveFirstPolicies, haveFirstFilter := false, false
@@ -120,4 +121,9 @@ func (fs *FilteredSource) Name() policy.SourceName {
 func (fs *FilteredSource) ReloadIDsMonitor() {
 	fs.upstreamSource.ReloadIDsMonitor()
 	fs.policyFilter.ReloadFilterMonitor()
+}
+
+func (fs *FilteredSource) GetLatestPolicy(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+	fs.log.Trace("delegating GetPolicy", "policy_id", pID)
+	return fs.upstreamSource.GetLatestPolicy(ctx, pID)
 }

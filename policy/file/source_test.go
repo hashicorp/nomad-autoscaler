@@ -56,7 +56,7 @@ func TestSource_getFilePolicyID(t *testing.T) {
 	}
 }
 
-func testFileSource(t *testing.T, dir string) (*Source, []policy.PolicyID) {
+func testFileSource(t *testing.T, dir string) (*Source, map[policy.PolicyID]policy.PolicyUpdate) {
 	t.Helper()
 	src := NewFileSource(
 		hclog.Default(),
@@ -81,7 +81,12 @@ func testFileSource(t *testing.T, dir string) (*Source, []policy.PolicyID) {
 
 func TestSource_MonitorPolicy(t *testing.T) {
 	s, ids := testFileSource(t, "./test-fixtures")
-	pid := ids[0]
+	var pid policy.PolicyID
+
+	for id := range ids {
+		pid = id
+		break
+	}
 
 	// running MonitorPolicy() twice should have the same result.
 	for _, n := range []string{"round one", "round two"} {
@@ -164,7 +169,12 @@ func TestSource_MonitorPolicy(t *testing.T) {
 func TestSource_MonitorPolicy_ContinueOnError(t *testing.T) {
 	// start with a happy source
 	src, ids := testFileSource(t, "./test-fixtures")
-	pid := ids[0]
+	var pid policy.PolicyID
+
+	for id := range ids {
+		pid = id
+		break
+	}
 
 	// then break it
 	src.policyMap[pid].file = "/nowhere"

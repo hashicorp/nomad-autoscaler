@@ -136,6 +136,12 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 	q := &api.QueryOptions{WaitIndex: 1}
 
+	r := results{
+		policies: []*api.ScalingPolicyListStub{},
+		meta:     &api.QueryMeta{},
+		err:      nil,
+	}
+
 	for {
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
@@ -157,12 +163,6 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 				err:      err,
 			}
 		}()
-
-		r := results{
-			policies: []*api.ScalingPolicyListStub{},
-			meta:     &api.QueryMeta{},
-			err:      nil,
-		}
 
 		select {
 		case <-ctx.Done():

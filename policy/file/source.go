@@ -276,7 +276,7 @@ func (s *Source) handleDir() (map[policy.PolicyID]bool, error) {
 		for name, scalingPolicy := range policies {
 			// Get the policyID for the file.
 			policyID := s.getFilePolicyID(file, name)
-			scalingPolicy.ID = string(policyID)
+			scalingPolicy.ID = policyID
 
 			if !scalingPolicy.Enabled {
 				s.log.Trace("policy is disabled",
@@ -341,7 +341,7 @@ func (s *Source) getFilePolicyID(file, name string) policy.PolicyID {
 	// and store this.
 	policyID, ok := s.idMap[md5Sum]
 	if !ok {
-		policyID = policy.PolicyID(uuid.Generate())
+		policyID = uuid.Generate()
 		s.idMap[md5Sum] = policyID
 	}
 

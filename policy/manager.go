@@ -212,7 +212,7 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 	// duration based on the remaining time between calling this function and
 	// it actually running. Obtaining the lock could cause a delay which may
 	// skew the cooldown period, but this is likely very small.
-	if handler, ok := m.handlers[PolicyID(id)]; ok && handler.cooldownCh != nil {
+	if handler, ok := m.handlers[id]; ok && handler.cooldownCh != nil {
 		handler.cooldownCh <- t
 	} else {
 		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)

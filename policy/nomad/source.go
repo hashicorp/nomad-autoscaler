@@ -159,7 +159,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			q.WaitIndex = s.latestIndex
 			ps, meta, err := s.policiesGetter.ListPolicies(q)
 
-			// There is no access to the call context, but to avoid writting to
+			// There is no access to the call context, but to avoid writing to
 			// a closed channel first check if the context was cancelled.
 			select {
 			case <-ctx.Done():

@@ -158,7 +158,12 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			}
 		}()
 
-		r := results{}
+		r := results{
+			policies: []*api.ScalingPolicyListStub{},
+			meta:     &api.QueryMeta{},
+			err:      nil,
+		}
+
 		select {
 		case <-ctx.Done():
 			s.log.Trace("stopping ID subscription")

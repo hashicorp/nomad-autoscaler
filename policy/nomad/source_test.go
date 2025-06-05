@@ -14,7 +14,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test/must"
 )
 
 func TestSource_canonicalizePolicy(t *testing.T) {
@@ -346,7 +346,7 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := TestNomadSource(t, tc.cb)
 			s.canonicalizePolicy(tc.input)
-			assert.Equal(t, tc.expected, tc.input)
+			must.Eq(t, tc.expected, tc.input)
 		})
 	}
 }

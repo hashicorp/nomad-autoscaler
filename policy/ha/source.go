@@ -58,7 +58,7 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 	})
 
 	// keep track of the previous policyIDs, in case the filter updates
-	var policyIDs map[policy.PolicyID]policy.PolicyUpdate
+	var policyIDs map[policy.PolicyID]bool
 	// don't emit policy IDs until both the  filter and the upstream policy
 	// source have sent their first update
 	haveFirstPolicies, haveFirstFilter := false, false

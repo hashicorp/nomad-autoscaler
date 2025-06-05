@@ -208,7 +208,7 @@ func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name strin
 		return nil, false, fmt.Errorf("policy %q doesn't exist in file %s", name, path)
 	}
 
-	newPolicy.ID = ID.String()
+	newPolicy.ID = ID
 	s.policyProcessor.ApplyPolicyDefaults(newPolicy)
 
 	if err := s.policyProcessor.ValidatePolicy(newPolicy); err != nil {
@@ -248,7 +248,7 @@ func (s *Source) identifyPolicyIDs(resultCh chan<- policy.IDMessage, errCh chan<
 
 // handleDir iterates through the configured directory, attempting to decode
 // and store all HCL and JSON files as scaling policies.
-func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
+func (s *Source) handleDir() (map[policy.PolicyID]bool, error) {
 
 	// Obtain a list of all files in the directory which have the suffixes we
 	// can handle as scaling policies.
@@ -257,7 +257,7 @@ func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
 		return nil, fmt.Errorf("failed to list files in directory: %v", err)
 	}
 
-	policyIDs := map[policy.PolicyID]policy.PolicyUpdate{}
+	policyIDs := map[policy.PolicyID]bool{}
 	var mErr *multierror.Error
 
 	for _, file := range files {
@@ -281,11 +281,8 @@ func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
 			if !scalingPolicy.Enabled {
 				s.log.Trace("policy is disabled",
 					"policy_id", scalingPolicy.ID, "file", file)
-
-				policyIDs[policyID] = policy.PolicyUpdate{
-					Enabled: false,
-				}
-
+				// If the policy is disabled, we do not need to process it
+				// further. We can skip it and continue to the next one.
 				continue
 			}
 
@@ -316,11 +313,10 @@ func (s *Source) handleDir() (map[policy.PolicyID]policy.PolicyUpdate, error) {
 			}
 			s.policyMapLock.Unlock()
 
-			// The Updated field is never used for the file source because
-			// currently changes can only be picked up by a full source reload.
-			policyIDs[policyID] = policy.PolicyUpdate{
-				Enabled: true,
-			}
+			// The update is always true because the file source only reads the
+			// policies from disk once at the start of MonitorIDs, when all the
+			// policies are loaded.
+			policyIDs[policyID] = true
 		}
 	}
 

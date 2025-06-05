@@ -40,6 +40,8 @@ const (
 // Ensure NomadSource satisfies the Source interface.
 var _ policy.Source = (*Source)(nil)
 
+type modifyIndex = uint64
+
 type policiesGetter interface {
 	ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error)
 	GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error)
@@ -81,19 +83,23 @@ type Source struct {
 	policyProcessor *policy.Processor
 
 	// Map of the current policies used to track changes
-	policies map[policy.PolicyID]*api.ScalingPolicyListStub
+	monitoredPolicies map[policy.PolicyID]modifyIndex
 
 	// reloadCh helps coordinate reloading the of the MonitorIDs routine.
 	reloadCh chan struct{}
+
+	latestIndex modifyIndex
 }
 
 // NewNomadSource returns a new Nomad policy source.
 func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
 	return &Source{
-		log:             log.ResetNamed("nomad_policy_source"),
-		policiesGetter:  newNomadPolicyGetter(nomad),
-		policyProcessor: policyProcessor,
-		reloadCh:        make(chan struct{}),
+		log:               log.ResetNamed("nomad_policy_source"),
+		policiesGetter:    newNomadPolicyGetter(nomad),
+		policyProcessor:   policyProcessor,
+		reloadCh:          make(chan struct{}),
+		monitoredPolicies: map[policy.PolicyID]modifyIndex{},
+		latestIndex:       1,
 	}
 }
 
@@ -133,8 +139,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		meta     *api.QueryMeta
 		err      error
 	}
-
-	q := &api.QueryOptions{WaitIndex: 1}
+	q := &api.QueryOptions{WaitIndex: s.latestIndex}
 
 	r := results{
 		policies: []*api.ScalingPolicyListStub{},
@@ -142,15 +147,20 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		err:      nil,
 	}
 
+	blockingQueryCompleteCh := make(chan results)
+	defer close(blockingQueryCompleteCh)
+
 	for {
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
 		// still listen for the context closing or a reload request.
-		blockingQueryCompleteCh := make(chan results)
 		go func() {
-			// There is no access to the call context, but to avoid wrutting to
-			// a closed channel first check if the context was cancelled.
+
+			q.WaitIndex = s.latestIndex
 			ps, meta, err := s.policiesGetter.ListPolicies(q)
+
+			// There is no access to the call context, but to avoid writting to
+			// a closed channel first check if the context was cancelled.
 			select {
 			case <-ctx.Done():
 				return
@@ -191,42 +201,50 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(r.meta.LastIndex, q.WaitIndex) {
+		if !blocking.IndexHasChanged(r.meta.LastIndex, s.latestIndex) {
 			continue
 		}
 
-		policyUpdates := map[policy.PolicyID]policy.PolicyUpdate{}
+		policyUpdates := map[policy.PolicyID]bool{}
 
 		// If the index has changed, let's remove the policies that are no longer
 		// present and check which policies have been updated.
-		for policyID, oldPolicy := range s.policies {
+		for policyID, oldPolicyModifyIndex := range s.monitoredPolicies {
 			pi := slices.IndexFunc(r.policies, func(np *api.ScalingPolicyListStub) bool {
-				return np.ID == policyID.String()
+				return np.ID == policyID
 			})
-			if pi == -1 {
-				delete(s.policies, policyID)
+
+			if pi == -1 || !r.policies[pi].Enabled {
+				delete(s.monitoredPolicies, policyID)
 				continue
 			}
 
-			newPolicy := r.policies[pi]
+			policyUpdates[policyID] = false
+			if oldPolicyModifyIndex < r.policies[pi].ModifyIndex {
+				// The policy has been updated, so we need to send the update and
+				// add it to the monitored policies map.
+				s.monitoredPolicies[policyID] = r.policies[pi].ModifyIndex
+				policyUpdates[policyID] = true
+			}
+		}
 
-			update := policy.PolicyUpdate{
-				Enabled: newPolicy.Enabled,
+		// Now let's add the new policies that were not present in the previous
+		// list.
+		for _, newPolicy := range r.policies {
+			if _, ok := s.monitoredPolicies[newPolicy.ID]; ok {
+				// Policy already exists, skip it.
+				continue
 			}
 
-			if oldPolicy.ModifyIndex < newPolicy.ModifyIndex {
-				s.policies[policyID] = newPolicy
-				update.Updated = true
-			}
-
-			policyUpdates[policyID] = update
-
+			// This is a new policy, add it to the map and to the updates
+			s.monitoredPolicies[newPolicy.ID] = newPolicy.ModifyIndex
+			policyUpdates[newPolicy.ID] = true
 		}
 
 		// Update the Nomad API wait index to start long polling from the
 		// correct point and update our recorded lastChangeIndex so we have the
 		// correct point to use during the next API return.
-		q.WaitIndex = r.meta.LastIndex
+		s.latestIndex = r.meta.LastIndex
 
 		// Send new policy IDs in the channel.
 		req.ResultCh <- policy.IDMessage{IDs: policyUpdates, Source: s.Name()}

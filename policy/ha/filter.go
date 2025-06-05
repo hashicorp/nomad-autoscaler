@@ -26,5 +26,5 @@ type PolicyFilter interface {
 	// FilterPolicies should return a list of policies appropriate for this
 	// autoscaler agent; policies for other autoscaler agents in the HA pool
 	// should be neglected from the returned slice.
-	FilterPolicies(policyIDs map[policy.PolicyID]policy.PolicyUpdate) map[policy.PolicyID]policy.PolicyUpdate
+	FilterPolicies(policyIDs map[policy.PolicyID]bool) map[policy.PolicyID]bool
 }

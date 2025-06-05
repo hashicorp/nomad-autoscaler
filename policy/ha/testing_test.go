@@ -14,7 +14,7 @@ import (
 
 // filterFunc is a simple function to return a list of desired PolicyID
 // from a larger list
-type filterFunc func(map[policy.PolicyID]policy.PolicyUpdate) map[policy.PolicyID]policy.PolicyUpdate
+type filterFunc func(map[policy.PolicyID]bool) map[policy.PolicyID]bool
 
 // testFilter implements ha.PolicyFilter for the purpose of testing.
 // It adds a method UpdateFilter which persists the provided
@@ -71,7 +71,7 @@ func (f *testFilter) ReloadFilterMonitor() {
 
 // FilterPolicies implements ha.PolicyFilter by applying the specified
 // filterFunc to the provided policies.
-func (f *testFilter) FilterPolicies(policyIDs map[policy.PolicyID]policy.PolicyUpdate) map[policy.PolicyID]policy.PolicyUpdate {
+func (f *testFilter) FilterPolicies(policyIDs map[policy.PolicyID]bool) map[policy.PolicyID]bool {
 	f.filterLock.RLock()
 	defer f.filterLock.RUnlock()
 	if f.filter == nil {
@@ -83,10 +83,10 @@ func (f *testFilter) FilterPolicies(policyIDs map[policy.PolicyID]policy.PolicyU
 // startsWith is a filterFunc which accepts any PolicyID which starts with the
 // configured string.
 func startsWith(prefix string) filterFunc {
-	return func(input map[policy.PolicyID]policy.PolicyUpdate) map[policy.PolicyID]policy.PolicyUpdate {
-		output := make(map[policy.PolicyID]policy.PolicyUpdate, 0)
+	return func(input map[policy.PolicyID]bool) map[policy.PolicyID]bool {
+		output := make(map[policy.PolicyID]bool, 0)
 		for pid, pu := range input {
-			if strings.HasPrefix(pid.String(), prefix) {
+			if strings.HasPrefix(pid, prefix) {
 				output[pid] = pu
 			}
 		}

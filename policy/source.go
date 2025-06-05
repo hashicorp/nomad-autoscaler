@@ -17,7 +17,7 @@ const DefaultQueryWindow = time.Minute
 
 // PolicyID contains identifying information about a policy, as returned by
 // policy.Source.MonitorIDs()
-type PolicyID string
+type PolicyID = string
 
 // ConfigDefaults holds default configuration for unspecified values.
 type ConfigDefaults struct {
@@ -58,11 +58,6 @@ type Source interface {
 	MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
 }
 
-// String satisfies the Stringer interface.
-func (p PolicyID) String() string {
-	return string(p)
-}
-
 // SourceName differentiates policies from different sources. This allows the
 // policy manager to use the correct Source interface implementation to launch
 // the MonitorPolicy function for the PolicyID.
@@ -100,13 +95,9 @@ func HandleSourceError(name SourceName, err error, errCha chan<- error) {
 // IDMessage encapsulates the required information that allows the policy
 // manager to launch the correct MonitorPolicy interface function where it
 // needs to handle policies which originate from different sources.
-type PolicyUpdate struct {
-	Enabled bool
-	Updated bool
-}
-
+// It contains a map of PolicyID to a boolean indicating whether the policy was
+// recently updated.
 type IDMessage struct {
-	// The IDs also have the enable/disable status of the policy.
-	IDs    map[PolicyID]PolicyUpdate
+	IDs    map[PolicyID]bool
 	Source SourceName
 }

@@ -56,7 +56,7 @@ func TestSource_getFilePolicyID(t *testing.T) {
 	}
 }
 
-func testFileSource(t *testing.T, dir string) (*Source, map[policy.PolicyID]policy.PolicyUpdate) {
+func testFileSource(t *testing.T, dir string) (*Source, map[policy.PolicyID]bool) {
 	t.Helper()
 	src := NewFileSource(
 		hclog.Default(),

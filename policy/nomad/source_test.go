@@ -349,11 +349,17 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 	}
 }
 
+/*
 type mockPolicyGetter struct {
+	ps   []*api.ScalingPolicyListStub
+	meta *api.QueryMeta
+	err  error
 }
 
 func (npg *mockPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
-	return nil, nil, nil
+	time.Sleep(time.Second) // Simulate some delay
+
+	return npg.ps, npg.meta, npg.err
 }
 
 func (npg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error) {
@@ -361,27 +367,120 @@ func (npg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.Sca
 }
 
 func TestMonitoringIDs(t *testing.T) {
-	/*
-		 	mpg := &mockPolicyGetter{}
 
-			pr := policy.NewProcessor(
-				&policy.ConfigDefaults{
-					DefaultEvaluationInterval: time.Second,
-					DefaultCooldown:           time.Second},
-				[]string{},
-			)
+	pr := policy.NewProcessor(
+		&policy.ConfigDefaults{
+			DefaultEvaluationInterval: time.Second,
+			DefaultCooldown:           time.Second},
+		[]string{},
+	)
+
+	testCases := []struct {
+		name string
+		// Initial setup
+		sourcePolicies           []*api.ScalingPolicyListStub
+		listModifyIndex          uint64
+		initialMonitoredPolicies map[policy.PolicyID]modifyIndex
+
+		// Expected results
+		expectedUpdates           map[policy.PolicyID]policy.PolicyUpdate
+		expectedMonitoredPolicies map[policy.PolicyID]modifyIndex
+	}{
+		{
+			name:                     "brand_new_policy",
+			policyEnabled:            true,
+			policyModifyIndex:        1,
+			listModifyIndex:          2,
+			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 1,
+			},
+		},
+		{
+			name:              "policy_is_updated",
+			policyEnabled:     true,
+			policyModifyIndex: 2,
+			listModifyIndex:   2,
+			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 1,
+			},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 2,
+			},
+		},
+		{
+			name:              "policy_is_removed",
+			policyEnabled:     true,
+			policyModifyIndex: 2,
+			listModifyIndex:   3,
+			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"existing-policy": 1,
+			},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 2,
+			},
+		},
+		{
+			name:              "policy_is_disabled",
+			policyEnabled:     false,
+			policyModifyIndex: 2,
+			listModifyIndex:   3,
+			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 1,
+			},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"test-policy": 2,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			mpg := &mockPolicyGetter{
+				ps: []*api.ScalingPolicyListStub{
+					{
+						ID:          "test-policy",
+						Enabled:     tc.policyEnabled,
+						ModifyIndex: tc.policyModifyIndex,
+					},
+				},
+				meta: &api.QueryMeta{
+					LastIndex: tc.listModifyIndex,
+				},
+			}
 
 			testSource := Source{
 				log:             hclog.NewNullLogger(),
 				policiesGetter:  mpg,
 				policyProcessor: pr,
+				policies:        map[policy.PolicyID]modifyIndex{},
+				latestIndex:     1,
 			}
+
+			resultsChannel := make(chan policy.IDMessage, 1)
+			errChannel := make(chan error, 1)
 
 			tRequest := policy.MonitorIDsReq{
-				ResultCh: make(chan policy.IDMessage, 2),
-				ErrCh:    make(chan error, 2),
+				ResultCh: resultsChannel,
+				ErrCh:    errChannel,
 			}
 
-			go testSource.MonitorIDs(context.TODO(), tRequest)
-	*/
+			go testSource.MonitorIDs(context.Background(), tRequest)
+			// Optionally, add assertions or checks, here as needed.
+
+			select {
+			case mes := <-resultsChannel:
+
+				must.Eq(t, len(testSource.monitoredPolicies, len(mes.IDs)))
+					must.Eq(t, tc.expectedUpdates[id], update)
+					must.Eq(t, tc.expectedMonitoredPolicies, testSource.policies)
+				}
+
+			case <-time.After(2 * time.Second):
+				t.Errorf("timed out waiting for results or error")
+			}
+		})
+	}
 }
+*/

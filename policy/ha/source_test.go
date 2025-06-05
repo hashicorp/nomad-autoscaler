@@ -39,19 +39,19 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	}()
 
 	// send the message from the upstream
-	expected := map[policy.PolicyID]policy.PolicyUpdate{
-		"abcde": {},
-		"a1234": {},
-		"aaaaa": {},
+	expected := map[policy.PolicyID]bool{
+		"abcde": true,
+		"a1234": true,
+		"aaaaa": true,
 	}
 
-	unexpected := map[policy.PolicyID]policy.PolicyUpdate{
-		"badbad": {},
-		"zzzzzz": {},
-		"123456": {},
+	unexpected := map[policy.PolicyID]bool{
+		"badbad": true,
+		"zzzzzz": true,
+		"123456": true,
 	}
 
-	allMessages := map[policy.PolicyID]policy.PolicyUpdate{}
+	allMessages := map[policy.PolicyID]bool{}
 
 	maps.Copy(allMessages, expected)
 	maps.Copy(allMessages, unexpected)
@@ -86,7 +86,7 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	testFilter.UpdateFilter(startsWith("z"))
 	select {
 	case results := <-outputCh:
-		must.Eq(t, map[policy.PolicyID]policy.PolicyUpdate{"zzzzzz": {}}, results.IDs)
+		must.Eq(t, map[policy.PolicyID]bool{"zzzzzz": true}, results.IDs)
 	case <-time.After(2 * time.Second):
 		t.Errorf("timed out waiting for output message")
 	}
@@ -168,19 +168,19 @@ func TestFilteredSource_Reload(t *testing.T) {
 	})
 
 	// send the message from the upstream
-	expected := map[policy.PolicyID]policy.PolicyUpdate{
-		"abcde": {},
-		"a1234": {},
-		"aaaaa": {},
+	expected := map[policy.PolicyID]bool{
+		"abcde": true,
+		"a1234": true,
+		"aaaaa": true,
 	}
 
-	unexpected := map[policy.PolicyID]policy.PolicyUpdate{
-		"badbad": {},
-		"zzzzzz": {},
-		"123456": {},
+	unexpected := map[policy.PolicyID]bool{
+		"badbad": true,
+		"zzzzzz": true,
+		"123456": true,
 	}
 
-	allMessages := map[policy.PolicyID]policy.PolicyUpdate{}
+	allMessages := map[policy.PolicyID]bool{}
 
 	maps.Copy(allMessages, expected)
 	maps.Copy(allMessages, unexpected)

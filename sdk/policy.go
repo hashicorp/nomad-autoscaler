@@ -156,6 +156,15 @@ type ScalingPolicyCheck struct {
 	// If "fail" the the entire policy evaluation will stop and no action will
 	// be taken.
 	OnError string
+
+	// Prevent this check to recommend to ScaleIn if the current number of
+	// allocations is lower or equal to ScalingMin.
+	ScalingMin int64
+
+	// Ignored if equals to 0.
+	// Prevent this check to recommend to ScaleOut if the current number of
+	// allocations is greater or equal to ScalingMax.
+	ScalingMax int64
 }
 
 // ScalingPolicyStrategy contains the plugin and configuration details for
@@ -241,6 +250,8 @@ type FileDecodePolicyCheckDoc struct {
 	QueryWindowOffsetHCL string                 `hcl:"query_window_offset,optional"`
 	OnError              string                 `hcl:"on_error,optional"`
 	Strategy             *ScalingPolicyStrategy `hcl:"strategy,block"`
+	ScalingMin           int64                  `hcl:"scaling_min,optional"`
+	ScalingMax           int64                  `hcl:"scaling_max,optional"`
 }
 
 // Translate all values from the decoded policy file into our internal policy
@@ -284,4 +295,6 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.QueryWindowOffset = fdc.QueryWindowOffset
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
+	c.ScalingMin = fdc.ScalingMin
+	c.ScalingMax = fdc.ScalingMax
 }

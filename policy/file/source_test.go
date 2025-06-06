@@ -56,7 +56,9 @@ func TestSource_getFilePolicyID(t *testing.T) {
 	}
 }
 
-func testFileSource(t *testing.T, dir string) (*Source, map[policy.PolicyID]bool) {
+// testFileSource reads the policies from the given directory
+// and returns a Source and one policyID from that directory.
+func testFileSource(t *testing.T, dir string) (*Source, policy.PolicyID) {
 	t.Helper()
 	src := NewFileSource(
 		hclog.Default(),
@@ -69,24 +71,27 @@ func testFileSource(t *testing.T, dir string) (*Source, map[policy.PolicyID]bool
 		),
 	)
 	s := src.(*Source)
-	ids, err := s.handleDir() // populate idMap and policyMap
+
+	idsMap, err := s.handleDir() // populate idMap and policyMap
 	if err != nil {
 		t.Fatalf("error from handleDir: %v", err)
 	}
-	if len(ids) == 0 {
+	if len(idsMap) == 0 {
 		t.Fatalf("uh oh, no policies in %v", dir)
 	}
-	return s, ids
+
+	id := ""
+	for k := range idsMap {
+		id = k
+		break // just take the first one
+
+	}
+
+	return s, id
 }
 
 func TestSource_MonitorPolicy(t *testing.T) {
-	s, ids := testFileSource(t, "./test-fixtures")
-	var pid policy.PolicyID
-
-	for id := range ids {
-		pid = id
-		break
-	}
+	s, pid := testFileSource(t, "./test-fixtures")
 
 	// running MonitorPolicy() twice should have the same result.
 	for _, n := range []string{"round one", "round two"} {
@@ -168,13 +173,7 @@ func TestSource_MonitorPolicy(t *testing.T) {
 
 func TestSource_MonitorPolicy_ContinueOnError(t *testing.T) {
 	// start with a happy source
-	src, ids := testFileSource(t, "./test-fixtures")
-	var pid policy.PolicyID
-
-	for id := range ids {
-		pid = id
-		break
-	}
+	src, pid := testFileSource(t, "./test-fixtures")
 
 	// then break it
 	src.policyMap[pid].file = "/nowhere"

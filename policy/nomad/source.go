@@ -140,27 +140,19 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		meta     *api.QueryMeta
 		err      error
 	}
-	q := &api.QueryOptions{WaitIndex: s.latestIndex}
 
-	blockingQueryCompleteCh := make(chan results)
-	defer close(blockingQueryCompleteCh)
+	q := &api.QueryOptions{WaitIndex: s.latestIndex}
 
 	for {
 		// Perform a blocking query on the Nomad API that returns a stub list
 		// of scaling policies. The call is done in a goroutine so we can
 		// still listen for the context closing or a reload request.
+		blockingQueryCompleteCh := make(chan results)
 		go func() {
 
 			q.WaitIndex = s.latestIndex
 			ps, meta, err := s.policiesGetter.ListPolicies(q)
-
-			// There is no access to the call context, but to avoid writing to
-			// a closed channel first check if the context was cancelled.
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
+			close(blockingQueryCompleteCh)
 
 			blockingQueryCompleteCh <- results{
 				policies: ps,
@@ -168,11 +160,8 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 				err:      err,
 			}
 		}()
-		r := results{
-			policies: []*api.ScalingPolicyListStub{},
-			meta:     &api.QueryMeta{},
-			err:      nil,
-		}
+
+		r := results{}
 
 		select {
 		case <-ctx.Done():

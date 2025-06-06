@@ -361,13 +361,5 @@ func (s *Source) GetLatestVersion(_ context.Context, policyID policy.PolicyID) (
 		return nil, fmt.Errorf("failed to get policy %s", policyID)
 	}
 
-	p, _, err := s.handleIndividualPolicyRead(policyID, val.file, val.name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get policy %s: %w", policyID, err)
-	}
-
-	// Update the policy
-	s.policyMap[policyID].policy = p
-
-	return p, nil
+	return val.policy, nil
 }

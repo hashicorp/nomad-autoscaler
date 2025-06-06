@@ -41,7 +41,7 @@ type MonitorPolicyReq struct {
 // the canonical source for scaling policies.
 type Source interface {
 	// MonitorIDs will return a list of all existing policies every time there
-	// is a change in one of them, but each policy will have a falg indicating
+	// is a change in one of them, but each policy will have a flag indicating
 	// if it was the one that generated the update.
 	MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq)
 

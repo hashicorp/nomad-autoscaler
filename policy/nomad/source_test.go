@@ -4,9 +4,11 @@
 package nomad
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/policy"
@@ -349,15 +351,16 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 	}
 }
 
-/*
 type mockPolicyGetter struct {
-	ps   []*api.ScalingPolicyListStub
-	meta *api.QueryMeta
-	err  error
+	callsCounter int
+	ps           []*api.ScalingPolicyListStub
+	meta         *api.QueryMeta
+	err          error
 }
 
 func (npg *mockPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
-	time.Sleep(time.Second) // Simulate some delay
+	npg.callsCounter++
+	time.Sleep(500 * time.Millisecond) // Simulate some delay
 
 	return npg.ps, npg.meta, npg.err
 }
@@ -383,54 +386,104 @@ func TestMonitoringIDs(t *testing.T) {
 		initialMonitoredPolicies map[policy.PolicyID]modifyIndex
 
 		// Expected results
-		expectedUpdates           map[policy.PolicyID]policy.PolicyUpdate
+		expectedUpdates           map[policy.PolicyID]bool
 		expectedMonitoredPolicies map[policy.PolicyID]modifyIndex
 	}{
 		{
-			name:                     "brand_new_policy",
-			policyEnabled:            true,
-			policyModifyIndex:        1,
+			name: "new_policy_is_added",
+			sourcePolicies: []*api.ScalingPolicyListStub{
+				{
+					ID:          "policy1",
+					Enabled:     true,
+					ModifyIndex: 1,
+				},
+			},
 			listModifyIndex:          2,
 			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
+			expectedUpdates: map[policy.PolicyID]bool{
+				"policy1": true,
+			},
 			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 1,
+				"policy1": 1,
 			},
 		},
 		{
-			name:              "policy_is_updated",
-			policyEnabled:     true,
-			policyModifyIndex: 2,
-			listModifyIndex:   2,
+			name: "policy_is_updated",
+			sourcePolicies: []*api.ScalingPolicyListStub{
+				{
+					ID:          "policy1",
+					Enabled:     true,
+					ModifyIndex: 2,
+				},
+				{
+					ID:          "policy2",
+					Enabled:     true,
+					ModifyIndex: 1,
+				},
+			},
+			listModifyIndex: 2,
 			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 1,
+				"policy1": 1,
+				"policy2": 1,
+			},
+			expectedUpdates: map[policy.PolicyID]bool{
+				"policy1": true,
+				"policy2": false,
 			},
 			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 2,
+				"policy1": 2,
+				"policy2": 1,
 			},
 		},
 		{
-			name:              "policy_is_removed",
-			policyEnabled:     true,
-			policyModifyIndex: 2,
-			listModifyIndex:   3,
+			name: "policy_is_disabled",
+			sourcePolicies: []*api.ScalingPolicyListStub{
+				{
+					ID:          "policy1",
+					Enabled:     false,
+					ModifyIndex: 2,
+				},
+				{
+					ID:          "policy2",
+					Enabled:     true,
+					ModifyIndex: 1,
+				},
+			},
+			listModifyIndex: 2,
 			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"existing-policy": 1,
+				"policy1": 1,
+				"policy2": 1,
+			},
+			expectedUpdates: map[policy.PolicyID]bool{
+				"policy2": false,
 			},
 			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 2,
+				"policy2": 1,
 			},
 		},
 		{
-			name:              "policy_is_disabled",
-			policyEnabled:     false,
-			policyModifyIndex: 2,
-			listModifyIndex:   3,
+			name:            "policy_is_removed",
+			sourcePolicies:  []*api.ScalingPolicyListStub{},
+			listModifyIndex: 2,
 			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 1,
+				"policy1": 1,
 			},
-			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
-				"test-policy": 2,
+			expectedUpdates:           map[policy.PolicyID]bool{},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
+		},
+		{
+			name: "dissabled_is_added",
+			sourcePolicies: []*api.ScalingPolicyListStub{
+				{
+					ID:          "policy1",
+					Enabled:     false,
+					ModifyIndex: 1,
+				},
 			},
+			listModifyIndex:           2,
+			initialMonitoredPolicies:  map[policy.PolicyID]modifyIndex{},
+			expectedUpdates:           map[policy.PolicyID]bool{},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
 		},
 	}
 
@@ -438,24 +491,19 @@ func TestMonitoringIDs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 
 			mpg := &mockPolicyGetter{
-				ps: []*api.ScalingPolicyListStub{
-					{
-						ID:          "test-policy",
-						Enabled:     tc.policyEnabled,
-						ModifyIndex: tc.policyModifyIndex,
-					},
-				},
+				callsCounter: 0,
+				ps:           tc.sourcePolicies,
 				meta: &api.QueryMeta{
 					LastIndex: tc.listModifyIndex,
 				},
 			}
 
 			testSource := Source{
-				log:             hclog.NewNullLogger(),
-				policiesGetter:  mpg,
-				policyProcessor: pr,
-				policies:        map[policy.PolicyID]modifyIndex{},
-				latestIndex:     1,
+				log:               hclog.NewNullLogger(),
+				policiesGetter:    mpg,
+				policyProcessor:   pr,
+				monitoredPolicies: tc.initialMonitoredPolicies,
+				latestIndex:       1,
 			}
 
 			resultsChannel := make(chan policy.IDMessage, 1)
@@ -467,15 +515,11 @@ func TestMonitoringIDs(t *testing.T) {
 			}
 
 			go testSource.MonitorIDs(context.Background(), tRequest)
-			// Optionally, add assertions or checks, here as needed.
 
 			select {
 			case mes := <-resultsChannel:
-
-				must.Eq(t, len(testSource.monitoredPolicies, len(mes.IDs)))
-					must.Eq(t, tc.expectedUpdates[id], update)
-					must.Eq(t, tc.expectedMonitoredPolicies, testSource.policies)
-				}
+				must.Eq(t, tc.expectedUpdates, mes.IDs)
+				must.Eq(t, tc.expectedMonitoredPolicies, testSource.monitoredPolicies)
 
 			case <-time.After(2 * time.Second):
 				t.Errorf("timed out waiting for results or error")
@@ -483,4 +527,43 @@ func TestMonitoringIDs(t *testing.T) {
 		})
 	}
 }
-*/
+
+func TestMonitoringIDs_NoUpdates(t *testing.T) {
+	// This test checks that if the source does not return any updates, the
+	// monitorIDs function does not send any messages.
+	mpg := &mockPolicyGetter{
+		ps: []*api.ScalingPolicyListStub{},
+		meta: &api.QueryMeta{
+			LastIndex: 1,
+		},
+	}
+
+	testSource := Source{
+		log:            hclog.NewNullLogger(),
+		policiesGetter: mpg,
+		policyProcessor: policy.NewProcessor(
+			&policy.ConfigDefaults{},
+			[]string{},
+		),
+		monitoredPolicies: map[policy.PolicyID]modifyIndex{},
+		latestIndex:       1,
+	}
+
+	resultsChannel := make(chan policy.IDMessage, 1)
+	errChannel := make(chan error, 1)
+
+	tRequest := policy.MonitorIDsReq{
+		ResultCh: resultsChannel,
+		ErrCh:    errChannel,
+	}
+
+	go testSource.MonitorIDs(context.Background(), tRequest)
+
+	select {
+	case <-resultsChannel:
+		t.Errorf("expected no results, but got a message")
+	case <-time.After(3 * time.Second):
+		// expected the policy getter to be called at least once
+		must.NonZero(t, mpg.callsCounter)
+	}
+}

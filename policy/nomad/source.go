@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -141,12 +142,6 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	}
 	q := &api.QueryOptions{WaitIndex: s.latestIndex}
 
-	r := results{
-		policies: []*api.ScalingPolicyListStub{},
-		meta:     &api.QueryMeta{},
-		err:      nil,
-	}
-
 	blockingQueryCompleteCh := make(chan results)
 	defer close(blockingQueryCompleteCh)
 
@@ -173,6 +168,11 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 				err:      err,
 			}
 		}()
+		r := results{
+			policies: []*api.ScalingPolicyListStub{},
+			meta:     &api.QueryMeta{},
+			err:      nil,
+		}
 
 		select {
 		case <-ctx.Done():
@@ -205,40 +205,29 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			continue
 		}
 
-		policyUpdates := map[policy.PolicyID]bool{}
+		// Let's remove all the dissabled policies from the updates.
+		r.policies = slices.DeleteFunc(r.policies, func(p *api.ScalingPolicyListStub) bool {
+			return !p.Enabled
+		})
 
-		// If the index has changed, let's remove the policies that are no longer
-		// present and check which policies have been updated.
-		for policyID, oldPolicyModifyIndex := range s.monitoredPolicies {
-			pi := slices.IndexFunc(r.policies, func(np *api.ScalingPolicyListStub) bool {
-				return np.ID == policyID
+		// Now removed the policies that are no longer present  in the
+		// updated list of policies meanning they were deleted or disabled.
+		maps.DeleteFunc(s.monitoredPolicies, func(policyID policy.PolicyID, _ modifyIndex) bool {
+			return !slices.ContainsFunc(r.policies, func(p *api.ScalingPolicyListStub) bool {
+				return p.ID == string(policyID)
 			})
+		})
 
-			if pi == -1 || !r.policies[pi].Enabled {
-				delete(s.monitoredPolicies, policyID)
-				continue
-			}
-
-			policyUpdates[policyID] = false
-			if oldPolicyModifyIndex < r.policies[pi].ModifyIndex {
-				// The policy has been updated, so we need to send the update and
-				// add it to the monitored policies map.
-				s.monitoredPolicies[policyID] = r.policies[pi].ModifyIndex
-				policyUpdates[policyID] = true
-			}
-		}
-
-		// Now let's add the new policies that were not present in the previous
-		// list.
+		// Now let's add all the updated and all the new policies.
+		policyUpdates := map[policy.PolicyID]bool{}
 		for _, newPolicy := range r.policies {
-			if _, ok := s.monitoredPolicies[newPolicy.ID]; ok {
-				// Policy already exists, skip it.
-				continue
+			policyUpdates[newPolicy.ID] = true
+
+			if oldPolicyModifyIndex, ok := s.monitoredPolicies[newPolicy.ID]; ok {
+				policyUpdates[newPolicy.ID] = oldPolicyModifyIndex < newPolicy.ModifyIndex
 			}
 
-			// This is a new policy, add it to the map and to the updates
 			s.monitoredPolicies[newPolicy.ID] = newPolicy.ModifyIndex
-			policyUpdates[newPolicy.ID] = true
 		}
 
 		// Update the Nomad API wait index to start long polling from the

@@ -9,11 +9,12 @@ import (
 	"sync"
 
 	"github.com/hashicorp/nomad-autoscaler/policy"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 // filterFunc is a simple function to return a list of desired PolicyID
 // from a larger list
-type filterFunc func(policies []policy.PolicyID) []policy.PolicyID
+type filterFunc func(map[policy.PolicyID]bool) map[policy.PolicyID]bool
 
 // testFilter implements ha.PolicyFilter for the purpose of testing.
 // It adds a method UpdateFilter which persists the provided
@@ -70,7 +71,7 @@ func (f *testFilter) ReloadFilterMonitor() {
 
 // FilterPolicies implements ha.PolicyFilter by applying the specified
 // filterFunc to the provided policies.
-func (f *testFilter) FilterPolicies(policyIDs []policy.PolicyID) []policy.PolicyID {
+func (f *testFilter) FilterPolicies(policyIDs map[policy.PolicyID]bool) map[policy.PolicyID]bool {
 	f.filterLock.RLock()
 	defer f.filterLock.RUnlock()
 	if f.filter == nil {
@@ -82,13 +83,14 @@ func (f *testFilter) FilterPolicies(policyIDs []policy.PolicyID) []policy.Policy
 // startsWith is a filterFunc which accepts any PolicyID which starts with the
 // configured string.
 func startsWith(prefix string) filterFunc {
-	return func(input []policy.PolicyID) []policy.PolicyID {
-		output := make([]policy.PolicyID, 0)
-		for _, pid := range input {
-			if strings.HasPrefix(pid.String(), prefix) {
-				output = append(output, pid)
+	return func(input map[policy.PolicyID]bool) map[policy.PolicyID]bool {
+		output := make(map[policy.PolicyID]bool, 0)
+		for pid, pu := range input {
+			if strings.HasPrefix(pid, prefix) {
+				output[pid] = pu
 			}
 		}
+
 		return output
 	}
 }
@@ -133,4 +135,8 @@ func (t *testSource) Name() policy.SourceName {
 
 // ReloadIDsMonitor is a no-op
 func (t *testSource) ReloadIDsMonitor() {
+}
+
+func (t *testSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+	panic("implement me")
 }

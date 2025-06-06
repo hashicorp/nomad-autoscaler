@@ -6,18 +6,18 @@ package ha
 import (
 	"context"
 	"errors"
+	"maps"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/policy"
-	"github.com/stretchr/testify/require"
+	"github.com/shoenig/test/must"
 )
 
 // TestFilteredSource_MonitorIDs_FilterInput tests that MonitorIDs
 // filters the upstream policy IDs
 func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
-	require := require.New(t)
 
 	monitorCtx, monitorCancel := context.WithCancel(context.Background())
 
@@ -39,19 +39,26 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	}()
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
-		"abcde",
-		"a1234",
-		"aaaaa",
+	expected := map[policy.PolicyID]bool{
+		"abcde": true,
+		"a1234": true,
+		"aaaaa": true,
 	}
-	unexpected := []policy.PolicyID{
-		"badbad",
-		"zzzzzz",
-		"123456",
+
+	unexpected := map[policy.PolicyID]bool{
+		"badbad": true,
+		"zzzzzz": true,
+		"123456": true,
 	}
+
+	allMessages := map[policy.PolicyID]bool{}
+
+	maps.Copy(allMessages, expected)
+	maps.Copy(allMessages, unexpected)
+
 	go func() {
 		inputCh <- policy.IDMessage{
-			IDs:    append(expected, unexpected...),
+			IDs:    allMessages,
 			Source: "test",
 		}
 	}()
@@ -59,7 +66,7 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	// should not receive a message before BOTH filter and upstream have messaged
 	select {
 	case <-outputCh:
-		require.Fail("received message before filter sent message")
+		t.Errorf("received message before filter sent message")
 	case <-time.After(2 * time.Second):
 	}
 
@@ -69,27 +76,30 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 	// check that the policies returned from upstream are filtered
 	select {
 	case results := <-outputCh:
-		require.ElementsMatch(expected, results.IDs)
+		must.Eq(t, expected, results.IDs)
+
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for output message")
+		t.Errorf("timed out waiting for output message")
 	}
 
 	// update the filter, should get new entries
 	testFilter.UpdateFilter(startsWith("z"))
 	select {
 	case results := <-outputCh:
-		require.ElementsMatch([]policy.PolicyID{"zzzzzz"}, results.IDs)
+		must.Eq(t, map[policy.PolicyID]bool{"zzzzzz": true}, results.IDs)
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for output message")
+		t.Errorf("timed out waiting for output message")
 	}
 
 	// check that MonitorIDs returns on context cancel
 	monitorCancel()
 	select {
 	case exited := <-monitorExited:
-		require.True(exited)
+		//monitor should exit on cancel
+		must.True(t, exited)
+
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for monitor to exit")
+		t.Errorf("timed out waiting for monitor to exit")
 	}
 }
 
@@ -97,7 +107,6 @@ func TestFilteredSource_MonitorIDs_FilterInput(t *testing.T) {
 // propagates errors from the underlying policy source and
 // filter.
 func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
-	require := require.New(t)
 
 	filterErrCh := make(chan error)
 	testFilter := NewTesterFilter(filterErrCh)
@@ -122,9 +131,9 @@ func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
 	// check that the policies returned from policy filter are propagated
 	select {
 	case err := <-outputErrCh:
-		require.EqualError(err, "error from policy filter monitor: filter_error")
+		must.StrContains(t, err.Error(), "error from policy filter monitor: filter_error")
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for filter error")
+		t.Errorf("timed out waiting for filter error")
 	}
 
 	// send an error from the upstream source
@@ -135,16 +144,15 @@ func TestFilteredSource_MonitorIDs_Errors(t *testing.T) {
 	// check that the policies returned from upstream policy source are propagated
 	select {
 	case err := <-outputErrCh:
-		require.EqualError(err, "error from upstream policy source monitor: source_error")
+		must.StrContains(t, err.Error(), "error from upstream policy source monitor: source_error")
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for source error")
+		t.Errorf("timed out waiting for source error")
 	}
 }
 
 // TestFilteredSource_Reload verifies that reload will, at least,
 // call the ReloadFilterMonitor() method on the ha.PolicyFilter
 func TestFilteredSource_Reload(t *testing.T) {
-	require := require.New(t)
 
 	inputCh := make(chan policy.IDMessage)
 	errCh := make(chan error)
@@ -160,19 +168,26 @@ func TestFilteredSource_Reload(t *testing.T) {
 	})
 
 	// send the message from the upstream
-	expected := []policy.PolicyID{
-		"abcde",
-		"a1234",
-		"aaaaa",
+	expected := map[policy.PolicyID]bool{
+		"abcde": true,
+		"a1234": true,
+		"aaaaa": true,
 	}
-	unexpected := []policy.PolicyID{
-		"badbad",
-		"zzzzzz",
-		"123456",
+
+	unexpected := map[policy.PolicyID]bool{
+		"badbad": true,
+		"zzzzzz": true,
+		"123456": true,
 	}
+
+	allMessages := map[policy.PolicyID]bool{}
+
+	maps.Copy(allMessages, expected)
+	maps.Copy(allMessages, unexpected)
+
 	go func() {
 		inputCh <- policy.IDMessage{
-			IDs:    append(expected, unexpected...),
+			IDs:    allMessages,
 			Source: "test",
 		}
 	}()
@@ -182,9 +197,9 @@ func TestFilteredSource_Reload(t *testing.T) {
 	// check that the policies returned from upstream are filtered
 	select {
 	case results := <-outputCh:
-		require.ElementsMatch(expected, results.IDs)
+		must.Eq(t, expected, results.IDs)
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for output message")
+		t.Errorf("timed out waiting for output message")
 	}
 
 	// call reload, this should trigger another message send
@@ -193,8 +208,8 @@ func TestFilteredSource_Reload(t *testing.T) {
 	// check that the policies returned from upstream are filtered
 	select {
 	case results := <-outputCh:
-		require.ElementsMatch(expected, results.IDs)
+		must.Eq(t, expected, results.IDs)
 	case <-time.After(2 * time.Second):
-		require.Fail("timed out waiting for output message")
+		t.Errorf("timed out waiting for output message")
 	}
 }

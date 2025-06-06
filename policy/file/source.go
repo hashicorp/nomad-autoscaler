@@ -352,7 +352,7 @@ func md5Sum(i interface{}) [16]byte {
 	return md5.Sum([]byte(fmt.Sprintf("%v", i)))
 }
 
-func (s *Source) GetLatestPolicy(_ context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+func (s *Source) GetLatestVersion(_ context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	s.policyMapLock.Lock()
 	defer s.policyMapLock.Unlock()
 

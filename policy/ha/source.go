@@ -123,7 +123,7 @@ func (fs *FilteredSource) ReloadIDsMonitor() {
 	fs.policyFilter.ReloadFilterMonitor()
 }
 
-func (fs *FilteredSource) GetLatestPolicy(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+func (fs *FilteredSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	fs.log.Trace("delegating GetPolicy", "policy_id", pID)
-	return fs.upstreamSource.GetLatestPolicy(ctx, pID)
+	return fs.upstreamSource.GetLatestVersion(ctx, pID)
 }

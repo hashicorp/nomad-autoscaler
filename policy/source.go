@@ -45,7 +45,7 @@ type Source interface {
 	// if it was the one that generated the update.
 	MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq)
 
-	GetLatestPolicy(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error)
+	GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error)
 
 	// Name returns the SourceName for the implementation. This helps handlers
 	// identify the source implementation which is responsible for policies.

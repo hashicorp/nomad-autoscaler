@@ -398,7 +398,7 @@ func (s *Source) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPoli
 	s.policyProcessor.CanonicalizeCheck(c, t)
 }
 
-func (s *Source) GetLatestPolicy(ctx context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
+func (s *Source) GetLatestVersion(ctx context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	p, _, err := s.policiesGetter.GetPolicy(policyID, &api.QueryOptions{})
 	select {
 	case <-ctx.Done():

@@ -5,6 +5,7 @@ package nomad
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -352,20 +353,24 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 }
 
 type mockPolicyGetter struct {
+	counterLock  sync.Mutex
 	callsCounter int
 	ps           []*api.ScalingPolicyListStub
 	meta         *api.QueryMeta
 	err          error
 }
 
-func (npg *mockPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
-	npg.callsCounter++
+func (mpg *mockPolicyGetter) ListPolicies(q *api.QueryOptions) ([]*api.ScalingPolicyListStub, *api.QueryMeta, error) {
+	mpg.counterLock.Lock()
+	defer mpg.counterLock.Unlock()
+	mpg.callsCounter++
+
 	time.Sleep(500 * time.Millisecond) // Simulate some delay
 
-	return npg.ps, npg.meta, npg.err
+	return mpg.ps, mpg.meta, mpg.err
 }
 
-func (npg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error) {
+func (mpg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.ScalingPolicy, *api.QueryMeta, error) {
 	return nil, nil, nil
 }
 
@@ -564,6 +569,10 @@ func TestMonitoringIDs_NoUpdates(t *testing.T) {
 		t.Errorf("expected no results, but got a message")
 	case <-time.After(3 * time.Second):
 		// expected the policy getter to be called at least once
+
+		mpg.counterLock.Lock()
+		defer mpg.counterLock.Unlock()
+
 		must.NonZero(t, mpg.callsCounter)
 	}
 }

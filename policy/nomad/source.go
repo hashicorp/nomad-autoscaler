@@ -214,7 +214,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// updated list of policies meanning they were deleted or disabled.
 		maps.DeleteFunc(s.monitoredPolicies, func(policyID policy.PolicyID, _ modifyIndex) bool {
 			return !slices.ContainsFunc(r.policies, func(p *api.ScalingPolicyListStub) bool {
-				return p.ID == string(policyID)
+				return p.ID == policyID
 			})
 		})
 
@@ -269,7 +269,7 @@ func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq)
 			// Obtain a handler now so we can release the lock before starting
 			// the blocking query.
 
-			p, meta, err = s.policiesGetter.GetPolicy(string(req.ID), q)
+			p, meta, err = s.policiesGetter.GetPolicy(req.ID, q)
 			close(blockingQueryCompleteCh)
 		}()
 
@@ -399,7 +399,7 @@ func (s *Source) canonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPoli
 }
 
 func (s *Source) GetLatestPolicy(ctx context.Context, policyID policy.PolicyID) (*sdk.ScalingPolicy, error) {
-	p, _, err := s.policiesGetter.GetPolicy(string(policyID), &api.QueryOptions{})
+	p, _, err := s.policiesGetter.GetPolicy(policyID, &api.QueryOptions{})
 	select {
 	case <-ctx.Done():
 		return nil, nil

@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"maps"
 	"strings"
 	"sync"
 	"time"
@@ -15,20 +16,23 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+type handlerTracker struct {
+	cancel     context.CancelFunc
+	updates    chan<- *sdk.ScalingPolicy
+	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
+}
+
 // Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
-	policySource  map[SourceName]Source
+	policySources map[SourceName]Source
 	pluginManager *manager.PluginManager
 
 	// lock is used to synchronize parallel access to the maps below.
 	lock sync.RWMutex
 
 	// handlers are used to track the Go routines monitoring policies.
-	handlers map[PolicyID]*Handler
-
-	// keep is used to mark active policies during reconciliation.
-	keep map[PolicyID]bool
+	handlers map[PolicyID]*handlerTracker
 
 	// metricsInterval is the interval at which the agent is configured to emit
 	// metrics. This is used when creating the periodicMetricsReporter.
@@ -37,6 +41,7 @@ type Manager struct {
 	// policyIDsCh is used to report any changes on the list of policy IDs, it is passed
 	// down to the MonitorIDs functions.
 	policyIDsCh chan IDMessage
+
 	// policyIDsErrCh is used to report errors coming from the MonitorIDs function
 	// running on each policy source. It is passed down as part of the MonitorIDsReq
 	// along with policyIDsCh.
@@ -48,10 +53,9 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
-		policySource:    ps,
+		policySources:   ps,
 		pluginManager:   pm,
-		handlers:        make(map[PolicyID]*Handler),
-		keep:            make(map[PolicyID]bool),
+		handlers:        make(map[PolicyID]*handlerTracker),
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
@@ -72,9 +76,13 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		defer cancel()
 
 		// Start the policy source and listen for changes in the list of policy IDs
-		for _, s := range m.policySource {
+		for _, s := range m.policySources {
 			m.log.Info("starting policy source", "source", s.Name())
-			req := MonitorIDsReq{ErrCh: m.policyIDsErrCh, ResultCh: m.policyIDsCh}
+			req := MonitorIDsReq{
+				ErrCh:    m.policyIDsErrCh,
+				ResultCh: m.policyIDsCh,
+			}
+
 			go s.MonitorIDs(monitorCtx, req)
 		}
 
@@ -99,7 +107,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 		// Make sure we start the next iteration with an empty map of handlers.
 		m.lock.Lock()
-		m.handlers = make(map[PolicyID]*Handler)
+		m.handlers = make(map[PolicyID]*handlerTracker)
 		m.lock.Unlock()
 
 		// Delay the next iteration of m.Run to avoid re-runs to start too often.
@@ -108,6 +116,8 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 }
 
 func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
+	defer m.stopHandlers()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -121,53 +131,99 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 			}
 			continue
 
-		case policyIDs := <-m.policyIDsCh:
+		case message := <-m.policyIDsCh:
 			m.log.Trace("received policy IDs listing",
-				"num", len(policyIDs.IDs), "policy_source", policyIDs.Source)
+				"num", len(message.IDs), "policy_source", message.Source)
 
 			m.lock.Lock()
 
-			// Reset set of policies to keep. We will remove the policies that
-			// are not in policyIDs to reconcile our state.
-			m.keep = make(map[PolicyID]bool)
+			// Stop the handlers for policies that are no longer present.
+			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
+				if _, ok := message.IDs[k]; !ok {
+					m.log.Trace("stopping handler for removed policy",
+						"policy_id", k, "policy_source", message.Source)
 
-			// Iterate over policy IDs and create new handlers if necessary
-			for policyID := range policyIDs.IDs {
+					m.lock.Lock()
+					defer m.lock.Unlock()
+					m.stopHandler(k)
 
-				// Mark policy as must-keep so it doesn't get removed.
-				m.keep[policyID] = true
+					return true
+				}
 
-				// Check if we already have a handler for this policy.
-				if _, ok := m.handlers[policyID]; ok {
-					m.log.Trace("handler already exists",
-						"policy_id", policyID, "policy_source", policyIDs.Source)
+				return false
+			})
+
+			// Now send updates to the active policies or create new handlers
+			// for any new policies
+			for policyID, updated := range message.IDs {
+
+				updatedPolicy := &sdk.ScalingPolicy{}
+				var err error
+
+				if !updated {
 					continue
 				}
 
-				// Create and store a new handler and use its channels to monitor
-				// the policy for changes.
-				m.log.Trace("creating new handler",
-					"policy_id", policyID, "policy_source", policyIDs.Source)
+				updatedPolicy, err = m.policySources[message.Source].GetLatestVersion(ctx, policyID)
+				if err != nil {
+					m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
+					if isUnrecoverableError(err) {
+						return err
+					}
+				}
 
-				h := NewHandler(policyID, m.log, m.pluginManager, m.policySource[policyIDs.Source])
-				m.handlers[policyID] = h
+				if pht := m.handlers[policyID]; pht != nil {
+					// If the handler already exists, send the updated policy to it.
+					m.log.Trace("sending updated policy to existing handler",
+						"policy_id", policyID, "policy_source", message.Source)
+
+					pht.updates <- updatedPolicy
+					continue
+				}
+
+				// If we reach this point it means it is a new policy and we need
+				// a new handler for it.
+				m.log.Trace("creating new handler",
+					"policy_id", policyID, "policy_source", message.Source)
+
+				handlerCtx, cancel := context.WithCancel(ctx)
+
+				upCh := make(chan *sdk.ScalingPolicy, 1)
+				cdCh := make(chan time.Duration, 1)
+
+				nht := &handlerTracker{
+					updates:    upCh,
+					cancel:     cancel,
+					cooldownCh: cdCh,
+				}
+
+				tg, err := m.pluginManager.GetTarget(updatedPolicy.Target)
+				if err != nil {
+					m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
+					if isUnrecoverableError(err) {
+						return err
+					}
+				}
 
 				go func(ID PolicyID) {
-					h.Run(ctx, evalCh)
+					defer func() {
+						m.lock.Lock()
+						m.stopHandler(ID)
+						m.lock.Unlock()
+					}()
 
-					// Remove the handler when it stops running.
-					m.lock.Lock()
-					delete(m.handlers, ID)
-					m.lock.Unlock()
+					StartNewHandler(handlerCtx, evalCh, NewHandlerConfig{
+						Log:          m.log.Named("policy_handler").With("policy_id", ID),
+						Policy:       updatedPolicy,
+						CooldownChan: cdCh,
+						UpdatesChan:  upCh,
+						TargetGetter: tg,
+					})
+
 				}(policyID)
-			}
 
-			// Remove and stop handlers for policies that don't exist anymore
-			// for the source which manages them.
-			for k, h := range m.handlers {
-				if !m.keep[k] && h.policySource.Name() == policyIDs.Source {
-					m.stopHandler(h)
-				}
+				// Add the new handler to the manager's internal state.
+				m.handlers[policyID] = nht
 			}
 
 			m.lock.Unlock()
@@ -179,8 +235,8 @@ func (m *Manager) stopHandlers() {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	for _, h := range m.handlers {
-		m.stopHandler(h)
+	for id := range m.handlers {
+		m.stopHandler(id)
 	}
 }
 
@@ -189,13 +245,14 @@ func (m *Manager) stopHandlers() {
 //
 // This method is not thread-safe so a RW lock should be acquired before
 // calling it.
-func (m *Manager) stopHandler(h *Handler) {
-	if h == nil {
-		return
-	}
+func (m *Manager) stopHandler(id PolicyID) {
 
-	h.Stop()
-	delete(m.handlers, h.policyID)
+	ht := m.handlers[id]
+	close(ht.cooldownCh)
+	close(ht.updates)
+	ht.cancel()
+
+	delete(m.handlers, id)
 }
 
 // EnforceCooldown attempts to enforce cooldown on the policy handler
@@ -225,13 +282,8 @@ func (m *Manager) ReloadSources() {
 	defer m.lock.Unlock()
 
 	// Tell the ID monitors to reload.
-	for _, policySource := range m.policySource {
+	for _, policySource := range m.policySources {
 		policySource.ReloadIDsMonitor()
-	}
-
-	// Instruct each policy handler to reload.
-	for _, h := range m.handlers {
-		h.reloadCh <- struct{}{}
 	}
 }
 

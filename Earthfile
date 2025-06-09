@@ -49,7 +49,7 @@ KBT_RUN_TESTS:
 
 KBT_RUN_BUILD:
     FUNCTION
-    DO --pass-args kbt_lib+GO_WITH_GITHUB --cmd="make all"
+    DO --pass-args kbt_lib+GO_WITH_GITHUB --cmd="make -f Makefile.kentik all"
 
 # Edit this step to install extra things in prepare phase for the run image, before all other installs or copying
 KBT_PREPARE_RUN_IMAGE:

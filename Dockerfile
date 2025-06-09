@@ -22,7 +22,7 @@ RUN go build -o nomad-autoscaler .
 
 # dev runs the binary from devbuild
 # -----------------------------------
-FROM alpine:3.21 AS dev
+FROM alpine:3.22 AS dev
 
 COPY --from=devbuild /build/nomad-autoscaler /bin/
 COPY ./scripts/docker-entrypoint.sh /
@@ -35,7 +35,7 @@ CMD ["help"]
 #   Release images.
 # ===================================
 
-FROM alpine:3.21 AS release
+FROM alpine:3.22 AS release
 
 ARG PRODUCT_NAME=nomad-autoscaler
 ARG PRODUCT_VERSION

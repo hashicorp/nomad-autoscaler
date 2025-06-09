@@ -91,7 +91,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 		return fmt.Errorf("cannot get the vmss update future response: %v", err)
 	}
 
-	t.logger.Debug("vmss update response", "response", resp.Body)
+	log.Debug("vmss update response", "response", resp.Body)
 
 	log.Info("successfully performed and verified scaling out")
 	return nil
@@ -102,14 +102,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	// Create a logger for this action to pre-populate useful information we
 	// would like on all log lines.
 	log := t.logger.With("action", "scale_in", "resource_group", resourceGroup, "vmss_name", vmScaleSet)
-
-	// Find instance IDs in the target VMSS and perform pre-scale tasks.
-	// pager, err := t.vmssVMs.List(ctx, resourceGroup, vmScaleSet,
-	// 	"startswith(instanceView/statuses/code, 'PowerState') eq true",
-	// 	"instanceView/statuses", "instanceView")
-	// if err != nil {
-	// 	return fmt.Errorf("failed to query VMSS instances: %v", err)
-	// }
 
 	log.Debug("listing Azure ScaleSet instances", "vmss_name", vmScaleSet)
 
@@ -197,6 +189,8 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 		log.Debug("Scale in response", "response", resp)
 
+		//TODO: Need to update and check if no response is returned.
+
 		log.Info("successfully deleted Azure ScaleSet instances")
 
 		// Run any post scale in tasks that are desired.
@@ -212,6 +206,8 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		// Find instance IDs in the target VMSS and perform pre-scale tasks.
 
 		vms := &[]armcompute.VirtualMachineScaleSetVM{}
+
+		// Get the VMSS flexible VMs.
 		err, flexVMs := t.getVMSSFlexibleVMs(ctx, resourceGroup, vmScaleSet)
 		if err != nil {
 			return fmt.Errorf("failed to get VMSS flexible VMs: %v", err)
@@ -239,17 +235,24 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 				case <-ctx.Done():
 					return
 				default:
+					// Continue processing
 				}
 
+				// Get the instance view for the VM in the Flexible VMSS.
 				instanceView, err := t.vm.InstanceView(ctx, resourceGroup, *vm.Name, nil)
 				if err != nil {
 					t.logger.Debug("failed to get instance view for VM", "vm_name", *vm.InstanceID, "error", err)
 					return
 				}
 
-				if len(instanceView.Statuses) == 0 || *instanceView.Statuses[0].Code != "ProvisioningState/succeeded" {
-					t.logger.Debug("VM instance view not ready", "vm_name", *vm.InstanceID, "status_code", *instanceView.Statuses[0].Code)
-					return
+				// Check for status codes on the instance view, only update remoteIDs with instances that have provisioned.
+				if len(instanceView.Statuses) == 0 {
+					for _, status := range instanceView.Statuses {
+						if *status.Code != "provisioningState/succeeded" {
+							t.logger.Debug("instance view status not ready", "vm_name", *vm.InstanceID, "status_code", *status.Code)
+							return
+						}
+					}
 				}
 
 				log.Debug("instance view is ready", "vm_name", *vm.InstanceID, "status_code", *instanceView.Statuses[0].Code)
@@ -262,6 +265,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		}
 		wg.Wait()
 
+		// Business as usually, run the pre-scale tasks to prepare the nodes for scale in.
 		log.Debug("starting pre-scale tasks for Azure ScaleSet instances", "remote_ids", remoteIDs)
 		ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 		if err != nil {
@@ -270,15 +274,20 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 		log.Debug("pre-scale tasks completed", "ids", ids)
 
+		// Early exit if there are no instances to scale in.
+		// This can happen if the pre-scale tasks filtered out all instances.
 		if len(ids) == 0 {
 			log.Info("no instances to scale in, exiting")
 			return nil
 		}
 
+		// Mainly for debugging purposes, log the number of instances to scale in.
 		log.Debug("found instances to scale in", "count", len(ids))
 
-		// Grab the instanceIDs once as it is used multiple times throughout the
-		// scale in event.
+		// Grabbing the instance IDs from the Nomad Nodes to scale in.
+		// You'll notice that the logic here is different than Uniform mode. This is mainly due to Azure's consistency of being inconsistent.
+		// https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids#scale-set-vm-names
+
 		var instanceIDs []string
 		for _, node := range ids {
 
@@ -286,8 +295,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 			if idx := strings.LastIndex(node.RemoteResourceID, "_"); idx != -1 &&
 				strings.EqualFold(node.RemoteResourceID[0:idx], vmScaleSet) {
-
-				// Keep the full RemoteResourceID instead of slicing off the instance ID
 				instanceIDs = append(instanceIDs, node.RemoteResourceID)
 
 			} else {

@@ -30,6 +30,8 @@ message ScalingPolicyCheck {
     string query = 3;
     google.protobuf.Duration query_window = 4;
     ScalingPolicyStrategy strategy = 5;
+    int64 scaling_min = 99;
+    int64 scaling_max = 98;
 }
 
 message ScalingPolicyStrategy {

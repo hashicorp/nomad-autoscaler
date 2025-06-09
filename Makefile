@@ -9,7 +9,7 @@ plugins:
 
 .PHONY: binary
 binary:
-	go build -o nomad-autoscaler .
+	go build -o output/nomad-autoscaler .
 
 .PHONY: test
 test:

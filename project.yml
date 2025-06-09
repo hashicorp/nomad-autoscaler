@@ -2,7 +2,7 @@ name: nomad-autoscaler
 description: Kentik Nomad Autoscaler Fork
 version: TAG
 target:
-  build: unset GOPATH && make all
+  build: make all
   build_provider: earthly_kbt
   test: make test
 lint:

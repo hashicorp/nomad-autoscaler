@@ -118,6 +118,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
 	defer m.stopHandlers()
 
+	m.log.Trace(" starting to monitor policies")
 	for {
 		select {
 		case <-ctx.Done():

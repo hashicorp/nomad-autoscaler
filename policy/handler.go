@@ -95,9 +95,7 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 	}
 
 	h.ticker = time.NewTicker(initialProcessTimeout)
-	defer func() {
-		h.ticker.Stop()
-	}()
+	defer h.ticker.Stop()
 
 	h.log.Trace("starting policy handler")
 	for {
@@ -111,6 +109,7 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
+			h.log.Trace("handling new tick")
 			eval, err := h.handleTick(ctx, h.policy)
 			if err != nil {
 				if err == context.Canceled {

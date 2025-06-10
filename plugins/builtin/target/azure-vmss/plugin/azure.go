@@ -91,7 +91,6 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 		return fmt.Errorf("cannot get the vmss update future response: %v", err)
 	}
 
-	log.Debug("vmss update response", "response", resp.Body)
 
 	log.Info("successfully performed and verified scaling out")
 	return nil

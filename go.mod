@@ -3,10 +3,6 @@ module github.com/hashicorp/nomad-autoscaler
 go 1.24.0
 
 require (
-	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.30
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
-	github.com/Azure/go-autorest/autorest/date v0.3.1
 	github.com/DataDog/datadog-api-client-go v1.16.0
 	github.com/IBM/go-sdk-core/v5 v5.21.0
 	github.com/IBM/vpc-go-sdk v0.74.1
@@ -52,14 +48,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.0
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.11.1 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0 // indirect
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
-	github.com/Azure/go-autorest/autorest/adal v0.9.22 // indirect
-	github.com/Azure/go-autorest/autorest/azure/cli v0.4.6 // indirect
-	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
-	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
-	github.com/Azure/go-autorest/logger v0.2.1 // indirect
-	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute v1.0.0
 	github.com/DataDog/datadog-go v3.6.0+incompatible // indirect
 	github.com/DataDog/zstd v1.5.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
@@ -85,7 +74,6 @@ require (
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible // indirect
 	github.com/circonus-labs/circonusllhist v0.1.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect

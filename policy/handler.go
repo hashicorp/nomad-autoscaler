@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	cooldownIgnoreTime = 1 * time.Second
+	cooldownIgnoreTime = 3 * time.Minute
 )
 
 // Start with a long ticker until we receive the right interval.
@@ -25,7 +25,7 @@ const (
 // Set here as a var and not a const so that it can be
 // overridden in tests if needed.
 var (
-	initialProcessTimeout = 3 * time.Minute
+	initialProcessTimeout = 20 * time.Second
 )
 
 type targetStatusGetter interface {
@@ -56,19 +56,7 @@ type Handler struct {
 	cooldownCh <-chan time.Duration
 }
 
-// NewHandler returns a new handler for a policy.
-/* func NewHandler(ID PolicyID, log hclog.Logger, pm targetStatusGetter) *Handler {
-	return &Handler{
-		log: log.Named("policy_handler").With("policy_id", ID),
-		mutators: []Mutator{
-			NomadAPMMutator{},
-		},
-		Updates:    make(chan struct{}),
-		cooldownCh: make(chan time.Duration, 1),
-	}
-}
-*/
-// Run starts the handler.
+//  StartNewHandler starts the handler for the given policy
 //
 // This function blocks until the context provided is canceled or the handler
 // is stopped with the Stop() method.
@@ -92,6 +80,7 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 		cooldownCh:   config.CooldownChan,
 		statusGetter: config.TargetGetter,
 		updatesCh:    config.UpdatesChan,
+		policy:       config.Policy,
 	}
 
 	h.ticker = time.NewTicker(initialProcessTimeout)

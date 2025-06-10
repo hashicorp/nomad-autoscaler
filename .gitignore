@@ -3,7 +3,8 @@ bin/
 plugins/test/bin/
 
 # release binary output directory
-pkg/
+# KENTIK override
+# pkg/
 
 # ignore GoLand IDE
 .idea
@@ -12,7 +13,8 @@ pkg/
 .bob
 
 # default builds
-nomad-autoscaler
+# KENTIK override
+# nomad-autoscaler
 plugins/test/noop-*/noop-*
 
 # demo configs

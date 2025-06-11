@@ -186,7 +186,7 @@ func TestDispense(t *testing.T) {
 
 			for pluginType, plugins := range tc.cfg {
 				for _, pluginConfig := range plugins {
-					p, err := pm.dispense(pluginConfig.Name, pluginType)
+					p, err := pm.Dispense(pluginConfig.Name, pluginType)
 					assert.NotNil(t, p)
 					assert.NoError(t, err)
 

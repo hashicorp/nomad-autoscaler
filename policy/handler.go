@@ -65,7 +65,7 @@ type NewHandlerConfig struct {
 	TargetGetter targetpkg.TargetStatusGetter
 }
 
-func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
+func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 	config NewHandlerConfig) error {
 
 	h := &Handler{
@@ -82,11 +82,11 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 	h.ticker = time.NewTicker(initialProcessTimeout)
 	defer h.ticker.Stop()
 
-	h.log.Trace("starting policy handler")
+	h.log.Error("starting policy handler")
 	for {
 		select {
 		case <-ctx.Done():
-			h.log.Trace("stopping policy handler due to context done")
+			h.log.Error("stopping policy handler due to context done")
 			return nil
 
 		case updatedPolicy := <-h.updatesCh:
@@ -132,7 +132,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 		h.log.Warn("failed to get target status", "error", err)
 		return nil, err
 	}
-	h.log.Error("got the status", "status", status)
+
 	// A nil status indicates the target doesn't exist, so we don't need to
 	// monitor the policy anymore.
 	if status == nil {
@@ -147,7 +147,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	}
 
 	// Send policy for evaluation.
-	h.log.Error("sending policy for evaluation")
+	h.log.Trace("sending policy for evaluation")
 
 	eval := sdk.NewScalingEvaluation(policy)
 	// If the target status includes a last event meta key, check for cooldown

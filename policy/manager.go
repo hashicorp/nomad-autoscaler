@@ -139,28 +139,18 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 			continue
 
 		case message := <-m.policyIDsCh:
-			m.log.Error("received policy IDs listing",
+			m.log.Trace("received policy IDs listing",
 				"num", len(message.IDs), "policy_source", message.Source)
-
-			m.lock.Lock()
 
 			// Stop the handlers for policies that are no longer present.
 			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
 
-				pol, ok := message.IDs[k]
-				m.log.Error("deleting!!!",
-					"policy_id", k, "policy_source", message.Source, "pol", pol, "ok", ok)
-				if !ok {
+				if _, ok := message.IDs[k]; !ok {
 					m.log.Trace("stopping handler for removed policy",
 						"policy_id", k, "policy_source", message.Source)
-
-					m.lock.Lock()
-					h.cancel()
-					m.lock.Unlock()
-
+					m.protectedStopHandler(k)
 					return true
 				}
-
 				return false
 			})
 
@@ -210,37 +200,38 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 				tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
 				if err != nil {
-					m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
+					m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
 					if isUnrecoverableError(err) {
 						return err
 					}
 				}
 
-				go func(ID PolicyID) {
-					defer func() {
-						m.lock.Lock()
-						m.stopHandler(ID)
-						m.lock.Unlock()
-					}()
+				// Add the new handler tracker to the manager's internal state.
+				m.lock.Lock()
+				m.handlers[policyID] = nht
+				m.lock.Unlock()
 
-					err := StartNewHandler(handlerCtx, evalCh, NewHandlerConfig{
+				go func(ID PolicyID) {
+					if err := RunNewHandler(handlerCtx, evalCh, NewHandlerConfig{
 						Log:          m.log.Named("policy_handler").With("policy_id", ID),
 						Policy:       updatedPolicy,
 						CooldownChan: cdCh,
 						UpdatesChan:  upCh,
 						TargetGetter: tg,
-					})
-					if err != nil {
+					}); err != nil {
 						m.log.Error("encountered an error while processing policy", "policyID", policyID, "error", err)
 					}
 
+					close(upCh)
+					close(cdCh)
+
+					m.lock.Lock()
+					delete(m.handlers, ID)
+					m.lock.Unlock()
+
+					m.log.Trace("handler stopped and returned", "policyID", policyID, "error", err)
 				}(policyID)
-
-				// Add the new handler to the manager's internal state.
-				m.handlers[policyID] = nht
 			}
-
-			m.lock.Unlock()
 		}
 	}
 }
@@ -254,20 +245,24 @@ func (m *Manager) stopHandlers() {
 	}
 }
 
+func (m *Manager) protectedStopHandler(id PolicyID) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	m.stopHandler(id)
+}
+
 // stopHandler stops a handler and removes it from the manager's internal
 // state storage.
 //
 // This method is not thread-safe so a RW lock should be acquired before
-// calling it.
+// calling it. It will only stop the handler. This method will cancel the
+// context and trigger the defer that cleans up the resources for the handler.
 func (m *Manager) stopHandler(id PolicyID) {
-	m.log.Trace(" **** stoping handler for deleted policy ", "policyID", id)
+	m.log.Trace("stoping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
-	close(ht.cooldownCh)
-	close(ht.updates)
 	ht.cancel()
-
-	delete(m.handlers, id)
 }
 
 // EnforceCooldown attempts to enforce cooldown on the policy handler

@@ -13,6 +13,7 @@ import (
 	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -22,11 +23,15 @@ type handlerTracker struct {
 	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
 }
 
+type targetMonitorGetter interface {
+	GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error)
+}
+
 // Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
 	policySources map[SourceName]Source
-	pluginManager *manager.PluginManager
+	targetGetter  targetMonitorGetter
 
 	// lock is used to synchronize parallel access to the maps below.
 	lock sync.RWMutex
@@ -54,7 +59,8 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
 		policySources:   ps,
-		pluginManager:   pm,
+		targetGetter:    pm,
+		lock:            sync.RWMutex{},
 		handlers:        make(map[PolicyID]*handlerTracker),
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
@@ -133,20 +139,24 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 			continue
 
 		case message := <-m.policyIDsCh:
-			m.log.Trace("received policy IDs listing",
+			m.log.Error("received policy IDs listing",
 				"num", len(message.IDs), "policy_source", message.Source)
 
 			m.lock.Lock()
 
 			// Stop the handlers for policies that are no longer present.
 			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
-				if _, ok := message.IDs[k]; !ok {
+
+				pol, ok := message.IDs[k]
+				m.log.Error("deleting!!!",
+					"policy_id", k, "policy_source", message.Source, "pol", pol, "ok", ok)
+				if !ok {
 					m.log.Trace("stopping handler for removed policy",
 						"policy_id", k, "policy_source", message.Source)
 
 					m.lock.Lock()
-					defer m.lock.Unlock()
-					m.stopHandler(k)
+					h.cancel()
+					m.lock.Unlock()
 
 					return true
 				}
@@ -198,7 +208,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					cooldownCh: cdCh,
 				}
 
-				tg, err := m.pluginManager.GetTarget(updatedPolicy.Target)
+				tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
 				if err != nil {
 					m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
 					if isUnrecoverableError(err) {
@@ -213,13 +223,16 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 						m.lock.Unlock()
 					}()
 
-					StartNewHandler(handlerCtx, evalCh, NewHandlerConfig{
+					err := StartNewHandler(handlerCtx, evalCh, NewHandlerConfig{
 						Log:          m.log.Named("policy_handler").With("policy_id", ID),
 						Policy:       updatedPolicy,
 						CooldownChan: cdCh,
 						UpdatesChan:  upCh,
 						TargetGetter: tg,
 					})
+					if err != nil {
+						m.log.Error("encountered an error while processing policy", "policyID", policyID, "error", err)
+					}
 
 				}(policyID)
 
@@ -247,6 +260,7 @@ func (m *Manager) stopHandlers() {
 // This method is not thread-safe so a RW lock should be acquired before
 // calling it.
 func (m *Manager) stopHandler(id PolicyID) {
+	m.log.Trace(" **** stoping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
 	close(ht.cooldownCh)

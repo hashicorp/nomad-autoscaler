@@ -186,7 +186,7 @@ func (pm *PluginManager) killPluginLocked(pID plugins.PluginID) {
 
 // Dispense returns a PluginInstance for use by safely obtaining the
 // PluginInstance from storage if we have it.
-func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, error) {
+func (pm *PluginManager) dispense(name, pluginType string) (PluginInstance, error) {
 
 	// Measure the time taken to dispense a plugin. This helps identify
 	// contention and pressure obtaining plugin client handles.
@@ -347,9 +347,17 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	return pluginInfo, nil
 }
 
+func (pm *PluginManager) GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error) {
+	return pm.GetTarget(target)
+}
+
+func (pm *PluginManager) GetTargetExecuter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetScaler, error) {
+	return pm.GetTarget(target)
+}
+
 func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.Target, error) {
 	// Dispense an instance of target plugin used by the policy.
-	targetPlugin, err := pm.Dispense(target.Name, sdk.PluginTypeTarget)
+	targetPlugin, err := pm.dispense(target.Name, sdk.PluginTypeTarget)
 	if err != nil {
 		return nil, err
 	}
@@ -365,7 +373,7 @@ func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.T
 
 func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
 	// Dispense plugins.
-	apmPlugin, err := pm.Dispense(source, sdk.PluginTypeAPM)
+	apmPlugin, err := pm.dispense(source, sdk.PluginTypeAPM)
 	if err != nil {
 		return nil, fmt.Errorf(`apm plugin "%s" not initialized: %v`, source, err)
 	}
@@ -377,7 +385,7 @@ func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
 }
 
 func (pm *PluginManager) GetStrategy(name string) (strategy.Strategy, error) {
-	strategyPlugin, err := pm.Dispense(name, sdk.PluginTypeStrategy)
+	strategyPlugin, err := pm.dispense(name, sdk.PluginTypeStrategy)
 	if err != nil {
 		return nil, fmt.Errorf(`strategy plugin "%s" not initialized: %v`, name, err)
 	}

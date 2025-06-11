@@ -55,7 +55,7 @@ type Source interface {
 	// so that config items can be reloaded gracefully without restarting the
 	// agent.
 	ReloadIDsMonitor()
-	MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
+	//MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
 }
 
 // SourceName differentiates policies from different sources. This allows the

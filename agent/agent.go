@@ -18,6 +18,7 @@ import (
 	filePolicy "github.com/hashicorp/nomad-autoscaler/policy/file"
 	nomadPolicy "github.com/hashicorp/nomad-autoscaler/policy/nomad"
 	"github.com/hashicorp/nomad-autoscaler/policyeval"
+	"github.com/hashicorp/nomad-autoscaler/rate_limiter"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	nomadHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/nomad"
 	"github.com/hashicorp/nomad/api"
@@ -184,6 +185,7 @@ func (a *Agent) stop() {
 func (a *Agent) GenerateNomadClient() error {
 
 	// Generate the Nomad client.
+	a.nomadCfg.HttpClient = rate_limiter.NewInstrumentedWrapper("agent", -1, a.nomadCfg.HttpClient)
 	client, err := api.NewClient(a.nomadCfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)

@@ -5,7 +5,6 @@ package policy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -13,6 +12,7 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -27,10 +27,6 @@ const (
 var (
 	initialProcessTimeout = 20 * time.Second
 )
-
-type targetStatusGetter interface {
-	Status(config map[string]string) (*sdk.TargetStatus, error)
-}
 
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
@@ -49,7 +45,7 @@ type Handler struct {
 	policyLock sync.RWMutex
 	policy     *sdk.ScalingPolicy
 
-	statusGetter targetStatusGetter
+	statusGetter targetpkg.TargetStatusGetter
 
 	// cooldownCh is used to notify the handler that it should enter a cooldown
 	// period.
@@ -66,11 +62,11 @@ type NewHandlerConfig struct {
 	UpdatesChan  <-chan *sdk.ScalingPolicy
 	Policy       *sdk.ScalingPolicy
 	Log          hclog.Logger
-	TargetGetter targetStatusGetter
+	TargetGetter targetpkg.TargetStatusGetter
 }
 
 func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
-	config NewHandlerConfig) {
+	config NewHandlerConfig) error {
 
 	h := &Handler{
 		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
@@ -91,9 +87,14 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 		select {
 		case <-ctx.Done():
 			h.log.Trace("stopping policy handler due to context done")
-			return
+			return nil
 
 		case updatedPolicy := <-h.updatesCh:
+			err := updatedPolicy.Validate()
+			if err != nil {
+				return fmt.Errorf("invalid policy: %v", err)
+			}
+
 			h.applyMutators(updatedPolicy)
 			h.updateHandler(updatedPolicy)
 
@@ -101,13 +102,7 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			h.log.Trace("handling new tick")
 			eval, err := h.handleTick(ctx, h.policy)
 			if err != nil {
-				if err == context.Canceled {
-					// Context was canceled, return to stop the handler.
-					return
-				}
-
-				h.log.Error("policy handler error", "error", err.Error())
-				continue
+				return err
 			}
 
 			if eval != nil {
@@ -118,50 +113,30 @@ func StartNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			// Enforce the cooldown which will block until complete.
 			if !h.enforceCooldown(ctx, ts) {
 				// Context was canceled, return to stop the handler.
-				return
+				return nil
 			}
 		}
 	}
 }
 
 func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
-	h.log.Trace("tick")
-
-	if policy == nil {
-		// Initial ticker ticked without a policy being set, assume we are not able
-		// to retrieve the policy and exit.
-		return nil, errors.New("timeout: failed to read policy in time")
-	}
-
-	// Validate policy on ticker so any validation errors are resurfaced
-	// periodically.
-	err := policy.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("invalid policy: %v", err)
-	}
+	h.log.Trace("handling tick")
 
 	// Timestamp the invocation of this evaluation run. This can be
 	// used when checking cooldown or emitting metrics to ensure some
 	// consistency.
 	curTime := time.Now().UTC().UnixNano()
 
-	// Exit early if the policy is not enabled.
-	if !policy.Enabled {
-		h.log.Debug("policy is not enabled")
-		return nil, nil
-	}
-
 	status, err := h.statusGetter.Status(policy.Target.Config)
 	if err != nil {
 		h.log.Warn("failed to get target status", "error", err)
 		return nil, err
 	}
-
+	h.log.Error("got the status", "status", status)
 	// A nil status indicates the target doesn't exist, so we don't need to
 	// monitor the policy anymore.
 	if status == nil {
 		h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
-		//h.Stop() TODO: Implement a way to stop the handler, return an error.
 		return nil, nil
 	}
 
@@ -172,15 +147,9 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	}
 
 	// Send policy for evaluation.
-	h.log.Trace("sending policy for evaluation")
+	h.log.Error("sending policy for evaluation")
 
 	eval := sdk.NewScalingEvaluation(policy)
-	// If the evaluation is nil there is nothing to be done this time
-	// around.
-	if eval == nil {
-		return nil, nil
-	}
-
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.

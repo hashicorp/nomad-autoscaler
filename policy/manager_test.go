@@ -3,7 +3,19 @@
 
 package policy
 
-/* type mockTargetMonitorGetter struct {
+import (
+	"context"
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+
+	hclog "github.com/hashicorp/go-hclog"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+)
+
+type mockTargetMonitorGetter struct {
 	msg *mockStatusGetter
 }
 
@@ -21,12 +33,12 @@ func (msg *mockStatusGetter) Status(config map[string]string) (*sdk.TargetStatus
 
 type mockSource struct {
 	name          SourceName
-	latestVersion *sdk.ScalingPolicy
+	latestVersion map[PolicyID]*sdk.ScalingPolicy
 }
 
 func (ms *mockSource) MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq) {}
 func (ms *mockSource) GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error) {
-	return ms.latestVersion, nil
+	return ms.latestVersion[pID], nil
 }
 
 func (ms *mockSource) Name() SourceName {
@@ -59,6 +71,13 @@ func TestMonitoring(t *testing.T) {
 
 			ms := &mockSource{
 				name: "mock-source",
+				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+					"policy1": {
+						ID:      "policy1",
+						Enabled: true,
+						Checks:  []*sdk.ScalingPolicyCheck{},
+					},
+				},
 			}
 
 			go func() {
@@ -67,10 +86,11 @@ func TestMonitoring(t *testing.T) {
 			}()
 
 			testedManager.policyIDsCh <- IDMessage{
-				IDs:    map[PolicyID]bool{},
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+				},
 				Source: ms.name,
 			}
 		})
 	}
 }
-*/

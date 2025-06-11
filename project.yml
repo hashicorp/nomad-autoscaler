@@ -1,0 +1,19 @@
+name: nomad-autoscaler
+description: Kentik Nomad Autoscaler Fork
+version: TAG
+target:
+  build: make -f Makefile.kentik all
+  build_provider: earthly_kbt
+  test: make test
+lint:
+  go:
+    - errcheck:error
+nomad:
+  - service_group: nomad-autoscaler
+    pack: service
+    branch: main
+docker:
+  build:
+    base: kt-build-generic-bullseye:master
+  run:
+    base: kt-run-generic-bullseye:master

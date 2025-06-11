@@ -111,7 +111,7 @@ func (s *Source) ReloadIDsMonitor() {
 // Note: MonitorPolicy should only return when ctx is done and will not be
 // monitoring changes in policies, a call to Reload is necessary for changes
 // in policies to become effective.
-/* func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 
 	// Close channels when done with the monitoring loop.
 	defer close(req.ResultCh)
@@ -184,7 +184,7 @@ func (s *Source) ReloadIDsMonitor() {
 			}
 		}
 	}
-} */
+}
 
 // handleIndividualPolicyRead reads the policy from disk and compares it to the
 // stored version if there is one. If there is a difference, `changed` will be

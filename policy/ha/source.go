@@ -103,6 +103,14 @@ func (fs *FilteredSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsR
 	}
 }
 
+// MonitorPolicy calls the same method on the configured policy.Source.
+// This method doesn't need to worry about the policy filter, because the policy.Manager
+// will close the context if the corresponding policy is removed.
+func (fs *FilteredSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+	fs.log.Trace("delegating MonitorPolicy", "policy_id", req.ID)
+	fs.upstreamSource.MonitorPolicy(ctx, req)
+}
+
 // Name satisfies the Name function of the policy.Source interface.
 func (fs *FilteredSource) Name() policy.SourceName {
 	return policy.SourceNameHA

@@ -223,7 +223,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 // when a change is detect. Errors are sent through the errCh channel.
 //
 // This function blocks until the context is closed.
-/* func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
+func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
 	log := s.log.With("policy_id", req.ID)
 
 	// Close channels when done with the monitoring loop.
@@ -313,7 +313,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		req.ResultCh <- autoPolicy
 	}
 }
-*/
+
 // canonicalizePolicy sets standarized values for missing fields.
 func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 	if p == nil {

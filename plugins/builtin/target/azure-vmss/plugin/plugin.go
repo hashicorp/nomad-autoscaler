@@ -188,7 +188,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// Flexible is not compatible with GetInstanceView which is used in Uniform logic.
 	// Get all VMs in the VMSS, so we can process them individually later.
 	vms := &[]armcompute.VirtualMachineScaleSetVM{}
-	if *vmss.Properties.OrchestrationMode == "Flexible" {
+	if *vmss.Properties.OrchestrationMode == orchestrationModeFlexible {
 		t.logger.Debug("VMSS Orchestration Mode", "mode", *vmss.Properties.OrchestrationMode)
 
 		err, flexVMs := t.getVMSSFlexibleVMs(ctx, resourceGroup, vmScaleSet)
@@ -202,7 +202,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// GetInstanceView - Gets the status of a VM scale set instance.
 	var instanceView armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse
-	if *vmss.Properties.OrchestrationMode == "Uniform" {
+	if *vmss.Properties.OrchestrationMode == orchestrationModeUniform {
 		instanceView, err = t.vmss.GetInstanceView(ctx, resourceGroup, vmScaleSet, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %v", err)
@@ -218,12 +218,12 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// If flexible, it takes the VMSS VMs and processes them individually
 	// outside of the scope of the VMSS.
-	if *vmss.Properties.OrchestrationMode == "Flexible" {
+	if *vmss.Properties.OrchestrationMode == orchestrationModeFlexible {
 		t.processInstanceViewFlexible(vms, resourceGroup, &resp)
 	}
 
 	// If Uniform, we process the instance view directly from the VMSS.
-	if *vmss.Properties.OrchestrationMode == "Uniform" {
+	if *vmss.Properties.OrchestrationMode == orchestrationModeUniform {
 		processInstanceView(&instanceView, &resp)
 	}
 

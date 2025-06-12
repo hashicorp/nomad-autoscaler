@@ -20,6 +20,7 @@ import (
 const (
 
 	// The two orchestration modes supported by Azure VMSS.
+	// Keeping naming consistent with the Azure SDK for Go.
 	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute@v1.0.0#OrchestrationMode
 	orchestrationModeFlexible = "Flexible"
 	orchestrationModeUniform  = "Uniform"

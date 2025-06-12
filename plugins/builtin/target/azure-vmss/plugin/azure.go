@@ -17,7 +17,15 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-const nodeAttrAzureInstanceID = "unique.platform.azure.name"
+const (
+
+	// The two orchestration modes supported by Azure VMSS.
+	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute@v1.0.0#OrchestrationMode
+	orchestrationModeFlexible = "Flexible"
+	orchestrationModeUniform  = "Uniform"
+
+	nodeAttrAzureInstanceID = "unique.platform.azure.name"
+)
 
 // argsOrEnv allows you to pick an environmental variable for a setting if the arg is not set
 func argsOrEnv(args map[string]string, key, env string) string {
@@ -91,6 +99,7 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, resourceGroup string, vmSca
 		return fmt.Errorf("cannot get the vmss update future response: %v", err)
 	}
 
+	_ = resp // temporary will clean it up
 
 	log.Info("successfully performed and verified scaling out")
 	return nil
@@ -104,7 +113,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 	log.Debug("listing Azure ScaleSet instances")
 
-	if vmssMode == "Uniform" {
+	if vmssMode == orchestrationModeUniform {
 
 		// Find instance IDs in the target VMSS and perform pre-scale tasks.
 		pager := t.vmssVMs.NewListPager(resourceGroup, vmScaleSet, &armcompute.VirtualMachineScaleSetVMsClientListOptions{
@@ -113,7 +122,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 			// filter the results manually later.
 			// Filter: ptr.Of("startswith(instanceView/statuses/code, 'PowerState') eq true"),
 		})
-
 
 		remoteIDs := []string{}
 		for pager.More() {
@@ -197,7 +205,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		}
 	}
 
-	if vmssMode == "Flexible" {
+	if vmssMode == orchestrationModeFlexible {
 
 		log.Debug("Scaling in Azure VMSS with Flexible Orchestration Mode")
 

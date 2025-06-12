@@ -245,18 +245,8 @@ func (t *TargetPlugin) calculateDirection(vmssDesired, strategyDesired int64) (i
 // the vmss instances.
 func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse, status *sdk.TargetStatus) {
 
-	// Old logic did not work with the new Azure SDK. This is a bit more simplified.
-	// Updated to only see if any Statuses is getting reported back.
 	if instanceView == nil || len(instanceView.VirtualMachineScaleSetInstanceView.Statuses) == 0 {
 		return
-	}
-
-	if instanceView.VirtualMachineScaleSetInstanceView.Statuses != nil {
-		for _, instanceStatus := range instanceView.VirtualMachineScaleSetInstanceView.Statuses {
-			if instanceStatus.Code != nil && *instanceStatus.Code != "ProvisioningState/succeeded" {
-				status.Ready = false
-			}
-		}
 	}
 
 	latestTime := int64(math.MinInt64)
@@ -279,12 +269,7 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 	}
 }
 
-// Unfortunately, this requires us to iterate over each VM in the VMSS.
-// This can be upwards of 2000 VMs in a single VMSS, which Uniform is limited to 200.
-// Added a timer for tracking how long it takes to process the instance views.
-// Ran with a concurrency limit of 10 --- avoided api rate limits.
-// 100 VMs took about ~1 second to process.
-// Previously when running each VM sequentially, it took about about 20-30 seconds.
+// processInstanceViewFlexible processes the instance view for a Flexible VMSS.
 func (t *TargetPlugin) processInstanceViewFlexible(vms *[]armcompute.VirtualMachineScaleSetVM, resourceGroup string, status *sdk.TargetStatus) {
 
 	// Only used during debugging to see how long it takes to process the instance views.

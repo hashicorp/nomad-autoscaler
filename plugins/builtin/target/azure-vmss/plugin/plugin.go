@@ -54,10 +54,6 @@ type TargetPlugin struct {
 	config map[string]string
 	logger hclog.Logger
 
-	// Using deprecated package.
-	// vmss    compute.VirtualMachineScaleSetsClient
-	// vmssVMs compute.VirtualMachineScaleSetVMsClient
-
 	vm      *armcompute.VirtualMachinesClient
 	vmss    *armcompute.VirtualMachineScaleSetsClient
 	vmssVMs *armcompute.VirtualMachineScaleSetVMsClient
@@ -197,7 +193,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 		err, flexVMs := t.getVMSSFlexibleVMs(ctx, resourceGroup, vmScaleSet)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get VMSS flexible VMs: %v", err)
+			return nil, fmt.Errorf("failed to get VMSS flexible VMs: %w", err)
 		}
 
 		vms = &flexVMs
@@ -314,8 +310,8 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms *[]armcompute.VirtualMach
 	// sync.Once is used to ensure that we only set the status to not ready once, context will be cancelled after that.
 	var wg sync.WaitGroup
 	requests := make(chan struct{}, 5)
-	mu := sync.Mutex{}
-	once := sync.Once{}
+	var mu sync.Mutex
+	var once sync.Once
 
 	// Iterate over each VM in the VMSS and get its instance view.
 	for _, vm := range *vms {

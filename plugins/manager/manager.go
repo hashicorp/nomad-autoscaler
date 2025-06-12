@@ -201,7 +201,7 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 	inst, exists := pm.pluginInstances[pID]
 
 	if exists {
-		if _, err := pm.pluginInfo(pID, inst); err != nil {
+		if _, err := pm.pluginInfo(pID, inst.Plugin()); err != nil {
 			// The plugin exists, but is broken. Remove it.
 			pm.logger.Warn("plugin failed healthcheck", "plugin_name", pID.Name, "error", err)
 			pm.killPluginLocked(pID)

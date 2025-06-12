@@ -300,6 +300,12 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms *[]armcompute.VirtualMach
 
 	// Iterate over each VM in the VMSS and get its instance view.
 	for _, vm := range *vms {
+
+		if ctx.Err() != nil {
+			t.logger.Debug("Context cancelled, stopping further processing of VMs")
+			break
+		}
+
 		wg.Add(1)
 
 		requests <- struct{}{}

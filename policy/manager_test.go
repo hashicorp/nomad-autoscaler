@@ -34,11 +34,13 @@ func (msg *mockStatusGetter) Status(config map[string]string) (*sdk.TargetStatus
 
 // Source mocks
 type mockSource struct {
+	callsCount    int
 	name          SourceName
 	latestVersion map[PolicyID]*sdk.ScalingPolicy
 }
 
 func (ms *mockSource) GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error) {
+	ms.callsCount++
 	return ms.latestVersion[pID], nil
 }
 
@@ -113,10 +115,11 @@ func TestMonitoring(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name            string
-		inputIDMessage  IDMessage
-		initialHandlers map[PolicyID]*handlerTracker
-		expHandlers     int
+		name                    string
+		inputIDMessage          IDMessage
+		initialHandlers         map[PolicyID]*handlerTracker
+		expHandlers             int
+		expCallsToLatestVersion int
 	}{
 		{
 			name: "add_first_policy",
@@ -126,8 +129,9 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: ms.name,
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{},
-			expHandlers:     1,
+			initialHandlers:         map[PolicyID]*handlerTracker{},
+			expHandlers:             1,
+			expCallsToLatestVersion: 1,
 		},
 		{
 			name: "add_new_policy",
@@ -141,7 +145,8 @@ func TestMonitoring(t *testing.T) {
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: nonEmptyHandlerTracker,
 			},
-			expHandlers: 2,
+			expHandlers:             2,
+			expCallsToLatestVersion: 1,
 		},
 		{
 			name: "update_older_policy",
@@ -156,7 +161,8 @@ func TestMonitoring(t *testing.T) {
 				policy1.ID: nonEmptyHandlerTracker,
 				policy2.ID: nonEmptyHandlerTracker,
 			},
-			expHandlers: 2,
+			expHandlers:             2,
+			expCallsToLatestVersion: 1,
 		},
 		{
 			name: "no_updates",
@@ -171,7 +177,8 @@ func TestMonitoring(t *testing.T) {
 				policy1.ID: nonEmptyHandlerTracker,
 				policy2.ID: nonEmptyHandlerTracker,
 			},
-			expHandlers: 2,
+			expHandlers:             2,
+			expCallsToLatestVersion: 0,
 		},
 		{
 			name: "remove_policy",
@@ -184,7 +191,8 @@ func TestMonitoring(t *testing.T) {
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: nonEmptyHandlerTracker,
 			},
-			expHandlers: 1,
+			expHandlers:             1,
+			expCallsToLatestVersion: 0,
 		},
 		{
 			name: "remove_all_policies",
@@ -203,6 +211,7 @@ func TestMonitoring(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testedManager.handlers = tc.initialHandlers
+			ms.callsCount = 0
 
 			go func() {
 				err := testedManager.monitorPolicies(context.Background(), evalCh)
@@ -226,6 +235,7 @@ func TestMonitoring(t *testing.T) {
 			}
 
 			must.Eq(t, len(tc.inputIDMessage.IDs), len(testedManager.handlers))
+			must.Eq(t, tc.expCallsToLatestVersion, ms.callsCount)
 
 			for id, _ := range tc.inputIDMessage.IDs {
 				ph, ok := testedManager.handlers[id]
@@ -234,7 +244,6 @@ func TestMonitoring(t *testing.T) {
 				must.NotNil(t, ph.cooldownCh)
 				must.NotNil(t, ph.cancel)
 				must.NotNil(t, ph.updates)
-
 			}
 		})
 	}

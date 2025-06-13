@@ -57,7 +57,7 @@ type Handler struct {
 // This function blocks until the context provided is canceled or the handler
 // is stopped with the Stop() method.
 
-type NewHandlerConfig struct {
+type HandlerConfig struct {
 	CooldownChan <-chan time.Duration
 	UpdatesChan  <-chan *sdk.ScalingPolicy
 	Policy       *sdk.ScalingPolicy
@@ -66,7 +66,7 @@ type NewHandlerConfig struct {
 }
 
 func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
-	config NewHandlerConfig) error {
+	config HandlerConfig) error {
 
 	h := &Handler{
 		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
@@ -79,7 +79,7 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 		policy:       config.Policy,
 	}
 
-	h.ticker = time.NewTicker(initialProcessTimeout)
+	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
 	defer h.ticker.Stop()
 
 	h.log.Error("starting policy handler")

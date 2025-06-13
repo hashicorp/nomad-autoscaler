@@ -21,6 +21,7 @@ type handlerTracker struct {
 	cancel     context.CancelFunc
 	updates    chan<- *sdk.ScalingPolicy
 	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
+	handler    Handler
 }
 
 type targetMonitorGetter interface {
@@ -106,11 +107,6 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		// We should reset any internal state and re-run the policy manager.
 		m.log.Debug("re-starting policy manager")
 
-		// Explicitly stop the handlers and cancel the monitoring context instead
-		// of relying on the deferred statements, otherwise the next iteration of
-		// m.Run would be executed before they are complete.
-		m.stopHandlers()
-
 		// Make sure we start the next iteration with an empty map of handlers.
 		m.lock.Lock()
 		m.handlers = make(map[PolicyID]*handlerTracker)
@@ -144,7 +140,6 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 			// Stop the handlers for policies that are no longer present.
 			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
-
 				if _, ok := message.IDs[k]; !ok {
 					m.log.Trace("stopping handler for removed policy",
 						"policy_id", k, "policy_source", message.Source)
@@ -188,7 +183,6 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					"policy_id", policyID, "policy_source", message.Source)
 
 				handlerCtx, cancel := context.WithCancel(ctx)
-
 				upCh := make(chan *sdk.ScalingPolicy, 1)
 				cdCh := make(chan time.Duration, 1)
 
@@ -206,13 +200,8 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					}
 				}
 
-				// Add the new handler tracker to the manager's internal state.
-				m.lock.Lock()
-				m.handlers[policyID] = nht
-				m.lock.Unlock()
-
 				go func(ID PolicyID) {
-					if err := RunNewHandler(handlerCtx, evalCh, NewHandlerConfig{
+					if err := RunNewHandler(handlerCtx, evalCh, HandlerConfig{
 						Log:          m.log.Named("policy_handler").With("policy_id", ID),
 						Policy:       updatedPolicy,
 						CooldownChan: cdCh,
@@ -224,6 +213,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 					close(upCh)
 					close(cdCh)
+					cancel()
 
 					m.lock.Lock()
 					delete(m.handlers, ID)
@@ -231,6 +221,11 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 					m.log.Trace("handler stopped and returned", "policyID", policyID, "error", err)
 				}(policyID)
+
+				// Add the new handler tracker to the manager's internal state.
+				m.lock.Lock()
+				m.handlers[policyID] = nht
+				m.lock.Unlock()
 			}
 		}
 	}

@@ -210,13 +210,14 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					}
 				}
 
-				go RunNewHandler(handlerCtx, evalCh, HandlerConfig{
+				go RunNewHandler(handlerCtx, HandlerConfig{
 					Log:          m.log.Named("policy_handler").With("policy_id", policyID),
 					Policy:       updatedPolicy,
 					CooldownChan: cdCh,
 					UpdatesChan:  upCh,
 					ErrChan:      m.policyIDsErrCh,
 					TargetGetter: tg,
+					EvalsChannel: evalCh,
 				})
 
 				// Add the new handler tracker to the manager's internal state.

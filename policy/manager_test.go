@@ -257,11 +257,12 @@ func TestMonitoring(t *testing.T) {
 			}()
 
 			testedManager.policyIDsCh <- tc.inputIDMessage
+
 			// Give the manager time to process the message
 			time.Sleep(time.Second)
 
-			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNum())
 			must.Eq(t, tc.expCallsToLatestVersion, ms.getCallsCounter())
+			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNum())
 
 			for id := range tc.inputIDMessage.IDs {
 				ph, ok := testedManager.handlers[id]

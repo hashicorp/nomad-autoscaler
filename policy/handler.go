@@ -55,10 +55,10 @@ type HandlerConfig struct {
 	Policy       *sdk.ScalingPolicy
 	Log          hclog.Logger
 	TargetGetter targetpkg.TargetStatusGetter
+	EvalsChannel chan<- *sdk.ScalingEvaluation
 }
 
-func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
-	config HandlerConfig) {
+func RunNewHandler(ctx context.Context, config HandlerConfig) {
 
 	h := &Handler{
 		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
@@ -92,14 +92,13 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
-			h.log.Trace("handling new tick")
 			eval, err := h.handleTick(ctx, h.policy)
 			if err != nil {
 				h.errChn <- fmt.Errorf("handler: unable to process policy %v", err)
 			}
 
 			if eval != nil {
-				evalCh <- eval
+				config.EvalsChannel <- eval
 			}
 
 		case ts := <-h.cooldownCh:

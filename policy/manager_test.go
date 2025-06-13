@@ -101,12 +101,6 @@ var mStatusGetter = &mockStatusGetter{
 	},
 }
 
-var nonEmptyHandlerTracker = &handlerTracker{
-	updates:    make(chan *sdk.ScalingPolicy, 1),
-	cancel:     func() {},
-	cooldownCh: make(chan time.Duration, 1),
-}
-
 func TestMonitoring(t *testing.T) {
 	evalCh := make(chan *sdk.ScalingEvaluation)
 	testCases := []struct {
@@ -115,75 +109,99 @@ func TestMonitoring(t *testing.T) {
 		initialHandlers         map[PolicyID]*handlerTracker
 		expCallsToLatestVersion int
 	}{
-		/* 		{
-		   			name: "add_first_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: true,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers:         map[PolicyID]*handlerTracker{},
-		   			expCallsToLatestVersion: 1,
-		   		},
-		   		{
-		   			name: "add_new_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: true,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: nonEmptyHandlerTracker,
-		   			},
-		   			expCallsToLatestVersion: 1,
-		   		},
-		   		{
-		   			name: "update_older_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: true,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: nonEmptyHandlerTracker,
-		   				policy2.ID: nonEmptyHandlerTracker,
-		   			},
-		   			expCallsToLatestVersion: 1,
-		   		},
-		   		{
-		   			name: "no_updates",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: false,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: nonEmptyHandlerTracker,
-		   				policy2.ID: nonEmptyHandlerTracker,
-		   			},
-		   			expCallsToLatestVersion: 0,
-		   		},
-		   		{
-		   			name: "remove_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: nonEmptyHandlerTracker,
-		   			},
+		{
+			name: "add_first_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: true,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers:         map[PolicyID]*handlerTracker{},
+			expCallsToLatestVersion: 1,
+		},
+		{
+			name: "add_new_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: true,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+			},
+			expCallsToLatestVersion: 1,
+		},
+		{
+			name: "update_older_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: true,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+				policy2.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+			},
+			expCallsToLatestVersion: 1,
+		},
+		{
+			name: "no_updates",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+				policy2.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+			},
+			expCallsToLatestVersion: 0,
+		},
+		{
+			name: "remove_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+			},
 
-		   			expCallsToLatestVersion: 0,
-		   		}, */
+			expCallsToLatestVersion: 0,
+		},
 		{
 			name: "remove_all_policies",
 			inputIDMessage: IDMessage{
@@ -191,8 +209,16 @@ func TestMonitoring(t *testing.T) {
 				Source: "mock-source",
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: nonEmptyHandlerTracker,
-				policy2.ID: nonEmptyHandlerTracker,
+				policy1.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
+				policy2.ID: {
+					updates:    make(chan *sdk.ScalingPolicy, 1),
+					cancel:     func() {},
+					cooldownCh: make(chan time.Duration, 1),
+				},
 			},
 		},
 	}
@@ -213,7 +239,7 @@ func TestMonitoring(t *testing.T) {
 			testedManager := &Manager{
 				policyIDsCh:    make(chan IDMessage, 1),
 				policyIDsErrCh: make(chan error, 1),
-				handlers:       map[PolicyID]*handlerTracker{},
+				handlers:       tc.initialHandlers,
 				log:            hclog.NewNullLogger(),
 				hanldersLock:   sync.RWMutex{},
 				policySources:  map[SourceName]Source{"mock-source": ms},
@@ -221,8 +247,6 @@ func TestMonitoring(t *testing.T) {
 					msg: mStatusGetter,
 				},
 			}
-
-			testedManager.handlers = tc.initialHandlers
 
 			ctx := context.Background()
 			ms.resetCounter()

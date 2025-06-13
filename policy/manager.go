@@ -145,21 +145,18 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 				"num", len(message.IDs), "policy_source", message.Source)
 
 			// Stop the handlers for policies that are no longer present.
-			if m.getHandlersNum() > len(message.IDs) {
-				m.hanldersLock.Lock()
+			m.hanldersLock.Lock()
+			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
+				if _, ok := message.IDs[k]; !ok {
+					m.log.Trace("stopping handler for removed policy",
+						"policy_id", k, "policy_source", message.Source)
+					m.stopHandler(k)
+					return true
+				}
 
-				maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
-					if _, ok := message.IDs[k]; !ok {
-						m.log.Trace("stopping handler for removed policy",
-							"policy_id", k, "policy_source", message.Source)
-						m.stopHandler(k)
-						return true
-					}
-					return false
-				})
-
-				m.hanldersLock.Unlock()
-			}
+				return false
+			})
+			m.hanldersLock.Unlock()
 
 			// Now send updates to the active policies or create new handlers
 			// for any new policies
@@ -195,13 +192,13 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 				m.log.Trace("creating new handler",
 					"policy_id", policyID, "policy_source", message.Source)
 
-				handlerCtx, cancel := context.WithCancel(ctx)
+				handlerCtx, handlerCancel := context.WithCancel(ctx)
 				upCh := make(chan *sdk.ScalingPolicy, 1)
 				cdCh := make(chan time.Duration, 1)
 
 				nht := &handlerTracker{
 					updates:    upCh,
-					cancel:     cancel,
+					cancel:     handlerCancel,
 					cooldownCh: cdCh,
 				}
 
@@ -235,6 +232,7 @@ func (m *Manager) stopHandlers() {
 
 	for id := range m.handlers {
 		m.stopHandler(id)
+		delete(m.handlers, id)
 	}
 }
 
@@ -256,8 +254,6 @@ func (m *Manager) stopHandler(id PolicyID) {
 	close(ht.cooldownCh)
 	close(ht.updates)
 	ht.cancel()
-
-	delete(m.handlers, id)
 }
 
 // EnforceCooldown attempts to enforce cooldown on the policy handler

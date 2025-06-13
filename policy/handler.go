@@ -75,7 +75,7 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
 	defer h.ticker.Stop()
 
-	h.log.Error("starting policy handler")
+	h.log.Trace("starting policy handler")
 	for {
 		select {
 		case <-ctx.Done():

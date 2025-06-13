@@ -34,12 +34,23 @@ func (msg *mockStatusGetter) Status(config map[string]string) (*sdk.TargetStatus
 
 // Source mocks
 type mockSource struct {
+	countLock     sync.Locker
 	callsCount    int
 	name          SourceName
 	latestVersion map[PolicyID]*sdk.ScalingPolicy
 }
 
+func (ms *mockSource) resetCounter() {
+	ms.countLock.Lock()
+	defer ms.countLock.Unlock()
+
+	ms.callsCount = 0
+}
+
 func (ms *mockSource) GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error) {
+	ms.countLock.Lock()
+	defer ms.countLock.Unlock()
+
 	ms.callsCount++
 	return ms.latestVersion[pID], nil
 }
@@ -211,7 +222,7 @@ func TestMonitoring(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testedManager.handlers = tc.initialHandlers
-			ms.callsCount = 0
+			ms.resetCounter()
 
 			go func() {
 				err := testedManager.monitorPolicies(context.Background(), evalCh)

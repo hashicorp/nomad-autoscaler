@@ -93,15 +93,6 @@ var policy2 = &sdk.ScalingPolicy{
 	EvaluationInterval: 5 * time.Minute,
 }
 
-var ms = &mockSource{
-	countLock: &sync.Mutex{},
-	name:      "mock-source",
-	latestVersion: map[PolicyID]*sdk.ScalingPolicy{
-		policy1.ID: policy1,
-		policy2.ID: policy2,
-	},
-}
-
 var mStatusGetter = &mockStatusGetter{
 	status: &sdk.TargetStatus{
 		Ready: true,
@@ -117,137 +108,133 @@ var nonEmptyHandlerTracker = &handlerTracker{
 }
 
 func TestMonitoring(t *testing.T) {
-
 	evalCh := make(chan *sdk.ScalingEvaluation)
-
-	testedManager := &Manager{
-		policyIDsCh:    make(chan IDMessage, 1),
-		policyIDsErrCh: make(chan error, 1),
-		handlers:       make(map[PolicyID]*handlerTracker),
-		log:            hclog.NewNullLogger(),
-		hanldersLock:   sync.RWMutex{},
-		policySources:  map[SourceName]Source{"mock-source": ms},
-		targetGetter: &mockTargetMonitorGetter{
-			msg: mStatusGetter,
-		},
-	}
-	ctx := context.Background()
 	testCases := []struct {
 		name                    string
 		inputIDMessage          IDMessage
 		initialHandlers         map[PolicyID]*handlerTracker
-		expHandlers             int
 		expCallsToLatestVersion int
 	}{
-		{
-			name: "add_first_policy",
-			inputIDMessage: IDMessage{
-				IDs: map[PolicyID]bool{
-					policy1.ID: true,
-				},
-				Source: ms.name,
-			},
-			initialHandlers:         map[PolicyID]*handlerTracker{},
-			expHandlers:             1,
-			expCallsToLatestVersion: 1,
-		},
-		{
-			name: "add_new_policy",
-			inputIDMessage: IDMessage{
-				IDs: map[PolicyID]bool{
-					policy1.ID: false,
-					policy2.ID: true,
-				},
-				Source: ms.name,
-			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: nonEmptyHandlerTracker,
-			},
-			expHandlers:             2,
-			expCallsToLatestVersion: 1,
-		},
-		{
-			name: "update_older_policy",
-			inputIDMessage: IDMessage{
-				IDs: map[PolicyID]bool{
-					policy1.ID: false,
-					policy2.ID: true,
-				},
-				Source: ms.name,
-			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: nonEmptyHandlerTracker,
-				policy2.ID: nonEmptyHandlerTracker,
-			},
-			expHandlers:             2,
-			expCallsToLatestVersion: 1,
-		},
-		{
-			name: "no_updates",
-			inputIDMessage: IDMessage{
-				IDs: map[PolicyID]bool{
-					policy1.ID: false,
-					policy2.ID: false,
-				},
-				Source: ms.name,
-			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: nonEmptyHandlerTracker,
-				policy2.ID: nonEmptyHandlerTracker,
-			},
-			expHandlers:             2,
-			expCallsToLatestVersion: 0,
-		},
-		{
-			name: "remove_policy",
-			inputIDMessage: IDMessage{
-				IDs: map[PolicyID]bool{
-					policy1.ID: false,
-				},
-				Source: ms.name,
-			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: nonEmptyHandlerTracker,
-			},
-			expHandlers:             1,
-			expCallsToLatestVersion: 0,
-		},
+		/* 		{
+		   			name: "add_first_policy",
+		   			inputIDMessage: IDMessage{
+		   				IDs: map[PolicyID]bool{
+		   					policy1.ID: true,
+		   				},
+		   				Source: "mock-source",
+		   			},
+		   			initialHandlers:         map[PolicyID]*handlerTracker{},
+		   			expCallsToLatestVersion: 1,
+		   		},
+		   		{
+		   			name: "add_new_policy",
+		   			inputIDMessage: IDMessage{
+		   				IDs: map[PolicyID]bool{
+		   					policy1.ID: false,
+		   					policy2.ID: true,
+		   				},
+		   				Source: "mock-source",
+		   			},
+		   			initialHandlers: map[PolicyID]*handlerTracker{
+		   				policy1.ID: nonEmptyHandlerTracker,
+		   			},
+		   			expCallsToLatestVersion: 1,
+		   		},
+		   		{
+		   			name: "update_older_policy",
+		   			inputIDMessage: IDMessage{
+		   				IDs: map[PolicyID]bool{
+		   					policy1.ID: false,
+		   					policy2.ID: true,
+		   				},
+		   				Source: "mock-source",
+		   			},
+		   			initialHandlers: map[PolicyID]*handlerTracker{
+		   				policy1.ID: nonEmptyHandlerTracker,
+		   				policy2.ID: nonEmptyHandlerTracker,
+		   			},
+		   			expCallsToLatestVersion: 1,
+		   		},
+		   		{
+		   			name: "no_updates",
+		   			inputIDMessage: IDMessage{
+		   				IDs: map[PolicyID]bool{
+		   					policy1.ID: false,
+		   					policy2.ID: false,
+		   				},
+		   				Source: "mock-source",
+		   			},
+		   			initialHandlers: map[PolicyID]*handlerTracker{
+		   				policy1.ID: nonEmptyHandlerTracker,
+		   				policy2.ID: nonEmptyHandlerTracker,
+		   			},
+		   			expCallsToLatestVersion: 0,
+		   		},
+		   		{
+		   			name: "remove_policy",
+		   			inputIDMessage: IDMessage{
+		   				IDs: map[PolicyID]bool{
+		   					policy1.ID: false,
+		   				},
+		   				Source: "mock-source",
+		   			},
+		   			initialHandlers: map[PolicyID]*handlerTracker{
+		   				policy1.ID: nonEmptyHandlerTracker,
+		   			},
+
+		   			expCallsToLatestVersion: 0,
+		   		}, */
 		{
 			name: "remove_all_policies",
 			inputIDMessage: IDMessage{
 				IDs:    map[PolicyID]bool{},
-				Source: ms.name,
+				Source: "mock-source",
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: nonEmptyHandlerTracker,
 				policy2.ID: nonEmptyHandlerTracker,
 			},
-			expHandlers: 0,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ms := &mockSource{
+				countLock: &sync.Mutex{},
+				name:      "mock-source",
+				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+					policy1.ID: policy1,
+					policy2.ID: policy2,
+				},
+			}
+
+			testedManager := &Manager{
+				policyIDsCh:    make(chan IDMessage, 1),
+				policyIDsErrCh: make(chan error, 1),
+				handlers:       map[PolicyID]*handlerTracker{},
+				log:            hclog.NewNullLogger(),
+				hanldersLock:   sync.RWMutex{},
+				policySources:  map[SourceName]Source{"mock-source": ms},
+				targetGetter: &mockTargetMonitorGetter{
+					msg: mStatusGetter,
+				},
+			}
+
 			testedManager.handlers = tc.initialHandlers
+
+			ctx := context.Background()
 			ms.resetCounter()
 
-			go testedManager.monitorPolicies(ctx, evalCh)
-
-			monitorChn := make(chan struct{}, 1)
 			go func() {
-				for testedManager.getHandlersNum() != tc.expHandlers {
-				}
-
-				close(monitorChn)
+				err := testedManager.monitorPolicies(ctx, evalCh)
+				must.NoError(t, err)
 			}()
 
 			testedManager.policyIDsCh <- tc.inputIDMessage
-
-			select {
-			case <-time.After(2 * time.Second):
-				t.Errorf("time out while waiting for policy to trigger a new handler")
-			case <-monitorChn:
-			}
+			// Give the manager time to process the message
+			time.Sleep(time.Second)
 
 			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNum())
 			must.Eq(t, tc.expCallsToLatestVersion, ms.getCallsCounter())

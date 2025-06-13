@@ -42,23 +42,23 @@ type Handler struct {
 	// cooldownCh is used to notify the handler that it should enter a cooldown
 	// period.
 	cooldownCh <-chan time.Duration
+	errChn     chan<- error
 }
 
-//  StartNewHandler starts the handler for the given policy
+//	StartNewHandler starts the handler for the given policy
 //
-// This function blocks until the context provided is canceled or the handler
-// is stopped with the Stop() method.
-
+// This function blocks until the context provided is canceled.
 type HandlerConfig struct {
-	CooldownChan <-chan time.Duration
-	UpdatesChan  <-chan *sdk.ScalingPolicy
+	CooldownChan chan time.Duration
+	UpdatesChan  chan *sdk.ScalingPolicy
+	ErrChan      chan<- error
 	Policy       *sdk.ScalingPolicy
 	Log          hclog.Logger
 	TargetGetter targetpkg.TargetStatusGetter
 }
 
 func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
-	config HandlerConfig) error {
+	config HandlerConfig) {
 
 	h := &Handler{
 		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
@@ -69,6 +69,7 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 		statusGetter: config.TargetGetter,
 		updatesCh:    config.UpdatesChan,
 		policy:       config.Policy,
+		errChn:       config.ErrChan,
 	}
 
 	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
@@ -79,12 +80,12 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 		select {
 		case <-ctx.Done():
 			h.log.Error("stopping policy handler due to context done")
-			return nil
+			return
 
 		case updatedPolicy := <-h.updatesCh:
 			err := updatedPolicy.Validate()
 			if err != nil {
-				return fmt.Errorf("invalid policy: %v", err)
+				h.errChn <- fmt.Errorf("invalid policy: %v", err)
 			}
 
 			h.applyMutators(updatedPolicy)
@@ -94,7 +95,7 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			h.log.Trace("handling new tick")
 			eval, err := h.handleTick(ctx, h.policy)
 			if err != nil {
-				return err
+				h.errChn <- fmt.Errorf("handler: unable to process policy %v", err)
 			}
 
 			if eval != nil {
@@ -105,7 +106,7 @@ func RunNewHandler(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation,
 			// Enforce the cooldown which will block until complete.
 			if !h.enforceCooldown(ctx, ts) {
 				// Context was canceled, return to stop the handler.
-				return nil
+				return
 			}
 		}
 	}

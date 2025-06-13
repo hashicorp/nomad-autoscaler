@@ -34,7 +34,7 @@ type Manager struct {
 	targetGetter  targetMonitorGetter
 
 	// lock is used to synchronize parallel access to the maps below.
-	hanldersLock sync.RWMutex
+	handlersLock sync.RWMutex
 
 	// handlers are used to track the Go routines monitoring policies.
 	handlers map[PolicyID]*handlerTracker

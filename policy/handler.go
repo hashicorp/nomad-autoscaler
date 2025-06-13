@@ -20,14 +20,6 @@ const (
 	cooldownIgnoreTime = 3 * time.Minute
 )
 
-// Start with a long ticker until we receive the right interval.
-// TODO(luiz): make this a config param
-// Set here as a var and not a const so that it can be
-// overridden in tests if needed.
-var (
-	initialProcessTimeout = 20 * time.Second
-)
-
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
 type Handler struct {

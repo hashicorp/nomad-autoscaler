@@ -21,7 +21,6 @@ type handlerTracker struct {
 	cancel     context.CancelFunc
 	updates    chan<- *sdk.ScalingPolicy
 	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
-	handler    Handler
 }
 
 type targetMonitorGetter interface {
@@ -35,7 +34,7 @@ type Manager struct {
 	targetGetter  targetMonitorGetter
 
 	// lock is used to synchronize parallel access to the maps below.
-	lock sync.RWMutex
+	hanldersLock sync.RWMutex
 
 	// handlers are used to track the Go routines monitoring policies.
 	handlers map[PolicyID]*handlerTracker
@@ -61,12 +60,19 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		log:             log.ResetNamed("policy_manager"),
 		policySources:   ps,
 		targetGetter:    pm,
-		lock:            sync.RWMutex{},
+		hanldersLock:    sync.RWMutex{},
 		handlers:        make(map[PolicyID]*handlerTracker),
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
 	}
+}
+
+func (m *Manager) getHandlersNum() int {
+	m.hanldersLock.Lock()
+	defer m.hanldersLock.Unlock()
+
+	return len(m.handlers)
 }
 
 // Run starts the manager and blocks until the context is canceled.
@@ -108,9 +114,9 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		m.log.Debug("re-starting policy manager")
 
 		// Make sure we start the next iteration with an empty map of handlers.
-		m.lock.Lock()
+		m.hanldersLock.Lock()
 		m.handlers = make(map[PolicyID]*handlerTracker)
-		m.lock.Unlock()
+		m.hanldersLock.Unlock()
 
 		// Delay the next iteration of m.Run to avoid re-runs to start too often.
 		time.Sleep(10 * time.Second)
@@ -139,15 +145,17 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 				"num", len(message.IDs), "policy_source", message.Source)
 
 			// Stop the handlers for policies that are no longer present.
+			m.hanldersLock.Lock()
 			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
 				if _, ok := message.IDs[k]; !ok {
 					m.log.Trace("stopping handler for removed policy",
 						"policy_id", k, "policy_source", message.Source)
-					m.protectedStopHandler(k)
+					m.stopHandler(k)
 					return true
 				}
 				return false
 			})
+			m.hanldersLock.Unlock()
 
 			// Now send updates to the active policies or create new handlers
 			// for any new policies
@@ -215,36 +223,29 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					close(cdCh)
 					cancel()
 
-					m.lock.Lock()
+					m.hanldersLock.Lock()
 					delete(m.handlers, ID)
-					m.lock.Unlock()
+					m.hanldersLock.Unlock()
 
 					m.log.Trace("handler stopped and returned", "policyID", policyID, "error", err)
 				}(policyID)
 
 				// Add the new handler tracker to the manager's internal state.
-				m.lock.Lock()
+				m.hanldersLock.Lock()
 				m.handlers[policyID] = nht
-				m.lock.Unlock()
+				m.hanldersLock.Unlock()
 			}
 		}
 	}
 }
 
 func (m *Manager) stopHandlers() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.hanldersLock.Lock()
+	defer m.hanldersLock.Unlock()
 
 	for id := range m.handlers {
 		m.stopHandler(id)
 	}
-}
-
-func (m *Manager) protectedStopHandler(id PolicyID) {
-	m.lock.Lock()
-	defer m.lock.Unlock()
-
-	m.stopHandler(id)
 }
 
 // stopHandler stops a handler and removes it from the manager's internal
@@ -263,8 +264,8 @@ func (m *Manager) stopHandler(id PolicyID) {
 // EnforceCooldown attempts to enforce cooldown on the policy handler
 // representing the passed ID.
 func (m *Manager) EnforceCooldown(id string, t time.Duration) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
+	m.hanldersLock.RLock()
+	defer m.hanldersLock.RUnlock()
 
 	// Attempt to grab the handler and pass the enforcement onto the
 	// implementation. Its possible cooldown is requested on a policy which
@@ -283,8 +284,8 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 
 // ReloadSources triggers a reload of all the policy sources.
 func (m *Manager) ReloadSources() {
-	m.lock.Lock()
-	defer m.lock.Unlock()
+	m.hanldersLock.Lock()
+	defer m.hanldersLock.Unlock()
 
 	// Tell the ID monitors to reload.
 	for _, policySource := range m.policySources {
@@ -303,10 +304,9 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			m.lock.RLock()
-			num := len(m.handlers)
-			m.lock.RUnlock()
-			metrics.SetGauge([]string{"policy", "total_num"}, float32(num))
+			h := m.getHandlersNum()
+
+			metrics.SetGauge([]string{"policy", "total_num"}, float32(h))
 		}
 	}
 }

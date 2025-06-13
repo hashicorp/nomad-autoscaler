@@ -47,6 +47,13 @@ func (ms *mockSource) resetCounter() {
 	ms.callsCount = 0
 }
 
+func (ms *mockSource) getCallsCounter() int {
+	ms.countLock.Lock()
+	defer ms.countLock.Unlock()
+
+	return ms.callsCount
+}
+
 func (ms *mockSource) GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error) {
 	ms.countLock.Lock()
 	defer ms.countLock.Unlock()
@@ -87,7 +94,8 @@ var policy2 = &sdk.ScalingPolicy{
 }
 
 var ms = &mockSource{
-	name: "mock-source",
+	countLock: &sync.Mutex{},
+	name:      "mock-source",
 	latestVersion: map[PolicyID]*sdk.ScalingPolicy{
 		policy1.ID: policy1,
 		policy2.ID: policy2,
@@ -111,20 +119,19 @@ var nonEmptyHandlerTracker = &handlerTracker{
 func TestMonitoring(t *testing.T) {
 
 	evalCh := make(chan *sdk.ScalingEvaluation)
-	initialProcessTimeout = time.Second
 
 	testedManager := &Manager{
 		policyIDsCh:    make(chan IDMessage, 1),
 		policyIDsErrCh: make(chan error, 1),
 		handlers:       make(map[PolicyID]*handlerTracker),
 		log:            hclog.NewNullLogger(),
-		lock:           sync.RWMutex{},
+		hanldersLock:   sync.RWMutex{},
 		policySources:  map[SourceName]Source{"mock-source": ms},
 		targetGetter: &mockTargetMonitorGetter{
 			msg: mStatusGetter,
 		},
 	}
-
+	ctx := context.Background()
 	testCases := []struct {
 		name                    string
 		inputIDMessage          IDMessage
@@ -224,14 +231,11 @@ func TestMonitoring(t *testing.T) {
 			testedManager.handlers = tc.initialHandlers
 			ms.resetCounter()
 
-			go func() {
-				err := testedManager.monitorPolicies(context.Background(), evalCh)
-				must.NoError(t, err)
-			}()
+			go testedManager.monitorPolicies(ctx, evalCh)
 
 			monitorChn := make(chan struct{}, 1)
 			go func() {
-				for len(testedManager.handlers) != tc.expHandlers {
+				for testedManager.getHandlersNum() != tc.expHandlers {
 				}
 
 				close(monitorChn)
@@ -245,10 +249,10 @@ func TestMonitoring(t *testing.T) {
 			case <-monitorChn:
 			}
 
-			must.Eq(t, len(tc.inputIDMessage.IDs), len(testedManager.handlers))
-			must.Eq(t, tc.expCallsToLatestVersion, ms.callsCount)
+			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNum())
+			must.Eq(t, tc.expCallsToLatestVersion, ms.getCallsCounter())
 
-			for id, _ := range tc.inputIDMessage.IDs {
+			for id := range tc.inputIDMessage.IDs {
 				ph, ok := testedManager.handlers[id]
 
 				must.True(t, ok)

@@ -178,14 +178,19 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					}
 				}
 
-				if pht := m.handlers[policyID]; pht != nil {
+				m.handlersLock.Lock()
+				pht := m.handlers[policyID]
+				if pht != nil {
 					// If the handler already exists, send the updated policy to it.
 					m.log.Trace("sending updated policy to existing handler",
 						"policy_id", policyID, "policy_source", message.Source)
 
 					pht.updates <- updatedPolicy
+					m.handlersLock.Unlock()
 					continue
 				}
+
+				m.handlersLock.Unlock()
 
 				// If we reach this point it means it is a new policy and we need
 				// a new handler for it.

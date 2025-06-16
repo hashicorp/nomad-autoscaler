@@ -11,7 +11,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test/must"
 )
 
 var showValidationError = flag.Bool("show-validation-error", false, "")
@@ -491,9 +491,9 @@ func Test_validateScalingPolicy(t *testing.T) {
 			}
 
 			if tc.expectError {
-				assert.Error(t, err)
+				must.Error(t, err)
 			} else {
-				assert.NoError(t, err)
+				must.NoError(t, err)
 			}
 		})
 	}
@@ -578,9 +578,9 @@ func Test_validateBlock(t *testing.T) {
 				fmt.Println(err)
 			}
 
-			assertFunc := assert.NoError
+			assertFunc := must.NoError
 			if tc.expectError {
-				assertFunc = assert.Error
+				assertFunc = must.Error
 			}
 
 			assertFunc(t, err)

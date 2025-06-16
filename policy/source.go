@@ -15,6 +15,10 @@ import (
 // a policy check.
 const DefaultQueryWindow = time.Minute
 
+// PolicyID contains identifying information about a policy, as returned by
+// policy.Source.MonitorIDs()
+type PolicyID = string
+
 // ConfigDefaults holds default configuration for unspecified values.
 type ConfigDefaults struct {
 	DefaultEvaluationInterval time.Duration
@@ -36,8 +40,12 @@ type MonitorPolicyReq struct {
 // Source is the interface that must be implemented by backends which provide
 // the canonical source for scaling policies.
 type Source interface {
+	// MonitorIDs will return a list of all existing policies every time there
+	// is a change in one of them, but each policy will have a flag indicating
+	// if it was the one that generated the update.
 	MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq)
-	MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
+
+	GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.ScalingPolicy, error)
 
 	// Name returns the SourceName for the implementation. This helps handlers
 	// identify the source implementation which is responsible for policies.
@@ -47,15 +55,7 @@ type Source interface {
 	// so that config items can be reloaded gracefully without restarting the
 	// agent.
 	ReloadIDsMonitor()
-}
-
-// PolicyID contains identifying information about a policy, as returned by
-// policy.Source.MonitorIDs()
-type PolicyID string
-
-// String satisfies the Stringer interface.
-func (p PolicyID) String() string {
-	return string(p)
+	MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq)
 }
 
 // SourceName differentiates policies from different sources. This allows the
@@ -95,7 +95,9 @@ func HandleSourceError(name SourceName, err error, errCha chan<- error) {
 // IDMessage encapsulates the required information that allows the policy
 // manager to launch the correct MonitorPolicy interface function where it
 // needs to handle policies which originate from different sources.
+// It contains a map of PolicyID to a boolean indicating whether the policy was
+// recently updated.
 type IDMessage struct {
-	IDs    []PolicyID
+	IDs    map[PolicyID]bool
 	Source SourceName
 }

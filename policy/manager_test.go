@@ -241,7 +241,7 @@ func TestMonitoring(t *testing.T) {
 				policyIDsErrCh: make(chan error, 1),
 				handlers:       tc.initialHandlers,
 				log:            hclog.NewNullLogger(),
-				hanldersLock:   sync.RWMutex{},
+				handlersLock:   sync.RWMutex{},
 				policySources:  map[SourceName]Source{"mock-source": ms},
 				targetGetter: &mockTargetMonitorGetter{
 					msg: mStatusGetter,

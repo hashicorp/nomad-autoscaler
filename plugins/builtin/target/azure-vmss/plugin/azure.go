@@ -54,8 +54,6 @@ func (t *TargetPlugin) setupAzureClient(config map[string]string) error {
 		return fmt.Errorf("failed to create Azure client secret credential: %w", err)
 	}
 
-	// Needed for flexible VMSS
-	// As of 4 June 2024, VMSS Get Instance View is not supported for flexible orchestration mode.
 	vm, err := armcompute.NewVirtualMachinesClient(subscriptionID, cred, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create VM client: %w", err)
@@ -133,15 +131,13 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 			for _, vm := range page.Value {
 				if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
 					for _, s := range vm.Properties.InstanceView.Statuses {
-						if s.Code != nil && strings.HasPrefix(*s.Code, "PowerState/") {
-							if *s.Code == "PowerState/running" {
-								log.Debug("found healthy instance", "id", *vm.ID, "instance_id", *vm.InstanceID)
-								remoteIDs = append(remoteIDs, fmt.Sprintf("%s_%s", vmScaleSet, *vm.InstanceID))
-							} else {
-								log.Debug("skipping instance", "id", *vm.ID, "instance_id", *vm.InstanceID, "code", *s.Code)
-							}
-							break
+						if *s.Code == "PowerState/running" {
+							log.Debug("found healthy instance", "id", *vm.ID, "instance_id", *vm.InstanceID)
+							remoteIDs = append(remoteIDs, fmt.Sprintf("%s_%s", vmScaleSet, *vm.InstanceID))
+						} else {
+							log.Debug("skipping instance", "id", *vm.ID, "instance_id", *vm.InstanceID, "code", *s.Code)
 						}
+						break
 					}
 				}
 			}

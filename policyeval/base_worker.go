@@ -181,6 +181,8 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 				"on_check_error", eval.Policy.OnCheckError,
 				"error", err)
 
+			metrics.IncrCounterWithLabels([]string{"policy", "run_check", "failure_count"}, 1, []metrics.Label{{Name: "check", Value: checkEval.Check.Name}})
+
 			// Define how to handle error.
 			// Use check behaviour if set or fail iff the policy is set to fail.
 			switch checkEval.Check.OnError {
@@ -279,6 +281,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 
 	err = w.scaleTarget(logger, target, eval.Policy, *winner.action, currentStatus)
 	if err != nil {
+		metrics.IncrCounter([]string{"target", "scale", "failure_count"}, 1)
 		return err
 	}
 

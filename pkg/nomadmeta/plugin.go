@@ -59,9 +59,9 @@ func (n *NomadMeta) Query(q Query, r sdk.TimeRange) (sdk.TimestampedMetrics, err
 		"ineligible_nodes", ineligible,
 	)
 
-	added, removed, before := n.diff.Diff(q.Job, nodes)
+	added, removed, _ := n.diff.Diff(q.Job, nodes)
 	if len(added) > 0 || len(removed) > 0 {
-		n.logger.Info("nodes changed", "job", q.Job, "added", added, "removed", removed, "before", before)
+		n.logger.Info("nodes changed", "job", q.Job, "added", added, "removed", removed)
 	}
 
 	return sdk.TimestampedMetrics{

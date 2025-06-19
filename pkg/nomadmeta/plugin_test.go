@@ -87,6 +87,6 @@ func TestNomadMeta_Query(t *testing.T) {
 	require.Len(t, res, 1)
 	assert.Equal(t, res[0].Value, float64(3))
 
-	assert.Contains(t, buffer.String(), "c101.our1")
+	assert.Contains(t, buffer.String(), "c103.our1")
 	assert.Contains(t, buffer.String(), "nodes changed")
 }

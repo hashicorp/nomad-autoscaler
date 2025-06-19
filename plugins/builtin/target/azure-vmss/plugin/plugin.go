@@ -187,16 +187,16 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute@v1.0.0#OrchestrationMode
 	// Flexible is not compatible with GetInstanceView which is used in Uniform logic.
 	// Get all VMs in the VMSS, so we can process them individually later.
-	vms := &[]armcompute.VirtualMachineScaleSetVM{}
+	vms := []armcompute.VirtualMachineScaleSetVM{}
 	if *vmss.Properties.OrchestrationMode == orchestrationModeFlexible {
 		t.logger.Debug("VMSS Orchestration Mode", "mode", *vmss.Properties.OrchestrationMode)
 
-		err, flexVMs := t.getVMSSFlexibleVMs(ctx, resourceGroup, vmScaleSet)
+		flexVMs, err := t.getVMSSVMs(ctx, resourceGroup, vmScaleSet)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VMSS flexible VMs: %w", err)
 		}
 
-		vms = &flexVMs
+		vms = flexVMs
 
 	}
 
@@ -270,19 +270,19 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 }
 
 // processInstanceViewFlexible processes the instance view for a Flexible VMSS.
-func (t *TargetPlugin) processInstanceViewFlexible(vms *[]armcompute.VirtualMachineScaleSetVM, resourceGroup string, status *sdk.TargetStatus) {
+func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachineScaleSetVM, resourceGroup string, status *sdk.TargetStatus) {
 
 	// Only used during debugging to see how long it takes to process the instance views.
 	start := time.Now()
 
 	// Early exit if there are no VMs in the VMSS.
-	if len(*vms) == 0 {
+	if len(vms) == 0 {
 		t.logger.Debug("No VMs found in the VMSS, skipping instance view processing.")
 		return
 	}
 
 	// Mainly debugging when initially running the plugin to see how many VMs are in the VMSS.
-	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(*vms))
+	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(vms))
 
 	// Cancelable context which is later used in the goroutines to stop processing.
 	// Triggers when it finds a VM that shows not ready.
@@ -299,7 +299,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms *[]armcompute.VirtualMach
 	var once sync.Once
 
 	// Iterate over each VM in the VMSS and get its instance view.
-	for _, vm := range *vms {
+	for _, vm := range vms {
 
 		if ctx.Err() != nil {
 			t.logger.Debug("Context cancelled, stopping further processing of VMs")

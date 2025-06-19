@@ -135,7 +135,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	case "in":
 		err = t.scaleIn(ctx, resourceGroup, vmScaleSet, num, config, orchestrationMode)
 	case "out":
-		err = t.scaleOut(ctx, resourceGroup, vmScaleSet, num, orchestrationMode)
+		err = t.scaleOut(ctx, resourceGroup, vmScaleSet, num)
 	default:
 		t.logger.Info("scaling not required", "resource_group", resourceGroup, "vmss", vmScaleSet,
 			"current_count", capacity, "strategy_count", action.Count)
@@ -183,15 +183,17 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 		return nil, fmt.Errorf("failed to get Azure ScaleSet: %v", err)
 	}
 
+	vmssMode := string(*vmss.Properties.OrchestrationMode)
+
 	// Currently only two orchestration modes are supported - Flexible and Uniform.
 	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute@v1.0.0#OrchestrationMode
 	// Flexible is not compatible with GetInstanceView which is used in Uniform logic.
 	// Get all VMs in the VMSS, so we can process them individually later.
-	vms := []armcompute.VirtualMachineScaleSetVM{}
-	if *vmss.Properties.OrchestrationMode == orchestrationModeFlexible {
-		t.logger.Debug("VMSS Orchestration Mode", "mode", *vmss.Properties.OrchestrationMode)
+	vms := []string{}
+	if vmssMode == orchestrationModeFlexible {
+		t.logger.Debug("VMSS Orchestration Mode", "mode", vmssMode)
 
-		flexVMs, err := t.getVMSSVMs(ctx, resourceGroup, vmScaleSet)
+		flexVMs, err := t.getVMSSVMs(ctx, resourceGroup, vmssMode, vmScaleSet)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get VMSS flexible VMs: %w", err)
 		}
@@ -202,7 +204,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// GetInstanceView - Gets the status of a VM scale set instance.
 	var instanceView armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse
-	if *vmss.Properties.OrchestrationMode == orchestrationModeUniform {
+	if vmssMode == orchestrationModeUniform {
 		instanceView, err = t.vmss.GetInstanceView(ctx, resourceGroup, vmScaleSet, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %v", err)
@@ -218,12 +220,12 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	// If flexible, it takes the VMSS VMs and processes them individually
 	// outside of the scope of the VMSS.
-	if *vmss.Properties.OrchestrationMode == orchestrationModeFlexible {
+	if vmssMode == orchestrationModeFlexible {
 		t.processInstanceViewFlexible(vms, resourceGroup, &resp)
 	}
 
 	// If Uniform, we process the instance view directly from the VMSS.
-	if *vmss.Properties.OrchestrationMode == orchestrationModeUniform {
+	if vmssMode == orchestrationModeUniform {
 		processInstanceView(&instanceView, &resp)
 	}
 
@@ -270,7 +272,7 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 }
 
 // processInstanceViewFlexible processes the instance view for a Flexible VMSS.
-func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachineScaleSetVM, resourceGroup string, status *sdk.TargetStatus) {
+func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
 
 	// Only used during debugging to see how long it takes to process the instance views.
 	start := time.Now()
@@ -299,7 +301,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachi
 	var once sync.Once
 
 	// Iterate over each VM in the VMSS and get its instance view.
-	for _, vm := range vms {
+	for _, vmName := range vms {
 
 		if ctx.Err() != nil {
 			t.logger.Debug("Context cancelled, stopping further processing of VMs")
@@ -312,7 +314,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachi
 
 		// Using a goroutine to fetch the instance view for each VM.
 		// Previously, this was done sequentially.
-		go func(vm armcompute.VirtualMachineScaleSetVM) {
+		go func(vm string) {
 
 			defer wg.Done()
 			defer func() { <-requests }()
@@ -324,9 +326,9 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachi
 			}
 
 			// Unlike Uniform, this has to use the VirtualMachinesClient to get the instance view.
-			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, *vm.Name, nil)
+			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
 			if err != nil {
-				t.logger.Debug("failed to get instance view for VM", "vm_name", *vm.Name, "error", err)
+				t.logger.Debug("failed to get instance view for VM", "vm_name", vmName, "error", err)
 				return
 			}
 
@@ -334,10 +336,10 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachi
 
 				for _, statusCode := range instanceView.Statuses {
 					if *statusCode.Code != "ProvisioningState/succeeded" {
-						t.logger.Debug("VM instance view not ready", "vm_name", *vm.Name, "status_code", *statusCode.Code)
+						t.logger.Debug("VM instance view not ready", "vm_name", vmName, "status_code", *statusCode.Code)
 
 						once.Do(func() {
-							t.logger.Debug("Setting status to not ready", "vm_name", *vm.Name)
+							t.logger.Debug("Setting status to not ready", "vm_name", vmName)
 							mu.Lock()
 							status.Ready = false
 							mu.Unlock()
@@ -347,9 +349,9 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []armcompute.VirtualMachi
 				}
 
 			} else {
-				t.logger.Debug("VM instance view is ready", "vm_name", *vm.Name, "status_code", *instanceView.Statuses[0].Code)
+				t.logger.Debug("VM instance view is ready", "vm_name", vmName, "status_code", *instanceView.Statuses[0].Code)
 			}
-		}(vm)
+		}(vmName)
 	}
 
 	wg.Wait()

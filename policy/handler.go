@@ -5,24 +5,19 @@ package policy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
+	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
-	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 )
 
 const (
-	cooldownIgnoreTime = 1 * time.Second
+	cooldownIgnoreTime = 3 * time.Minute
 )
 
 // Handler monitors a policy for changes and controls when them are sent for
@@ -30,152 +25,80 @@ const (
 type Handler struct {
 	log hclog.Logger
 
-	// policyID is the ID of the policy the handler is responsible for.
-	policyID PolicyID
-
-	// pluginManager is used to retrieve an instance of the target plugin used
-	// by the policy.
-	pluginManager *manager.PluginManager
-
-	// policySource is used to monitor for changes to the policy the handler
-	// is responsible for.
-	policySource Source
-
 	// mutators is a list of mutations to apply to policies.
 	mutators []Mutator
 
 	// ticker controls the frequency the policy is sent for evaluation.
 	ticker *time.Ticker
 
+	// ch is used to listen for policy updates.
+	updatesCh <-chan *sdk.ScalingPolicy
+
+	policyLock sync.RWMutex
+	policy     *sdk.ScalingPolicy
+
+	statusGetter targetpkg.TargetStatusGetter
+
 	// cooldownCh is used to notify the handler that it should enter a cooldown
 	// period.
-	cooldownCh chan time.Duration
-
-	// running is used to help keep track if the handler is active or not.
-	running     bool
-	runningLock sync.RWMutex
-
-	// ch is used to listen for policy updates.
-	ch chan sdk.ScalingPolicy
-
-	// errCh is used to listen for errors from the policy source.
-	errCh chan error
-
-	// doneCh is used to signal the handler to stop.
-	doneCh chan struct{}
-
-	// reloadCh is used to communicate to the MonitorPolicy routine that it
-	// should perform a reload.
-	reloadCh chan struct{}
+	cooldownCh <-chan time.Duration
+	errChn     chan<- error
 }
 
-// NewHandler returns a new handler for a policy.
-func NewHandler(ID PolicyID, log hclog.Logger, pm *manager.PluginManager, ps Source) *Handler {
-	return &Handler{
-		policyID:      ID,
-		log:           log.Named("policy_handler").With("policy_id", ID),
-		pluginManager: pm,
-		policySource:  ps,
+//	StartNewHandler starts the handler for the given policy
+//
+// This function blocks until the context provided is canceled.
+type HandlerConfig struct {
+	CooldownChan chan time.Duration
+	UpdatesChan  chan *sdk.ScalingPolicy
+	ErrChan      chan<- error
+	Policy       *sdk.ScalingPolicy
+	Log          hclog.Logger
+	TargetGetter targetpkg.TargetStatusGetter
+	EvalsChannel chan<- *sdk.ScalingEvaluation
+}
+
+func RunNewHandler(ctx context.Context, config HandlerConfig) {
+
+	h := &Handler{
+		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
 		mutators: []Mutator{
 			NomadAPMMutator{},
 		},
-		ch:         make(chan sdk.ScalingPolicy),
-		errCh:      make(chan error),
-		doneCh:     make(chan struct{}),
-		cooldownCh: make(chan time.Duration, 1),
-		reloadCh:   make(chan struct{}),
+		cooldownCh:   config.CooldownChan,
+		statusGetter: config.TargetGetter,
+		updatesCh:    config.UpdatesChan,
+		policy:       config.Policy,
+		errChn:       config.ErrChan,
 	}
-}
 
-// Run starts the handler and periodically sends the policy for evaluation.
-//
-// This function blocks until the context provided is canceled or the handler
-// is stopped with the Stop() method.
-func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) {
+	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
+	defer h.ticker.Stop()
+
 	h.log.Trace("starting policy handler")
-
-	defer h.Stop()
-
-	// Mark the handler as running.
-	h.runningLock.Lock()
-	h.running = true
-	h.runningLock.Unlock()
-
-	// Store a local copy of the policy so we can compare it for changes.
-	var currentPolicy *sdk.ScalingPolicy
-
-	// Start with a long ticker until we receive the right interval.
-	// TODO(luiz): make this a config param
-	policyReadTimeout := 3 * time.Minute
-	h.ticker = time.NewTicker(policyReadTimeout)
-
-	// Create separate context so we can stop the monitoring Go routine if
-	// doneCh is closed, but ctx is still valid.
-	monitorCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	// Start monitoring the policy for changes.
-	req := MonitorPolicyReq{ID: h.policyID, ErrCh: h.errCh, ReloadCh: h.reloadCh, ResultCh: h.ch}
-	go h.policySource.MonitorPolicy(monitorCtx, req)
-
 	for {
 		select {
 		case <-ctx.Done():
-			h.log.Trace("stopping policy handler due to context done")
-			return
-		case <-h.doneCh:
-			h.log.Trace("stopping policy handler due to done channel")
+			h.log.Error("stopping policy handler due to context done")
 			return
 
-		case err := <-h.errCh:
-			// In case of error, log the error message and loop around.
-			// Handlers never stop running unless ctx.Done() or doneCh is
-			// closed.
-			if err == nil {
-				continue
+		case updatedPolicy := <-h.updatesCh:
+			err := updatedPolicy.Validate()
+			if err != nil {
+				h.errChn <- fmt.Errorf("invalid policy: %v", err)
 			}
 
-			// multierror.Error objects are logged differently to allow for a
-			// more structured output.
-			merr, ok := err.(*multierror.Error)
-			if ok && len(merr.Errors) > 1 {
-				// Transform Errors into a slice of strings to avoid logging
-				// empty objects when using JSON format.
-				errors := make([]string, len(merr.Errors))
-				for i, e := range merr.Errors {
-					errors[i] = e.Error()
-				}
-				h.log.Error(errors[0], "errors", errors[1:])
-			} else {
-				if errHelper.APIErrIs(err, http.StatusNotFound, "not found") {
-					// the policy is gone, so this handler should stop,
-					// but the monitor manager will handle that.
-					// here we just log for potential future debugging.
-					h.log.Debug("policy gone away", "message", err)
-				} else {
-					h.log.Error("encountered an error monitoring policy", "error", err)
-				}
-			}
-			continue
-
-		case p := <-h.ch:
-			h.applyMutators(&p)
-			h.updateHandler(currentPolicy, &p)
-			currentPolicy = &p
+			h.applyMutators(updatedPolicy)
+			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
-			eval, err := h.handleTick(ctx, currentPolicy)
+			eval, err := h.handleTick(ctx, h.policy)
 			if err != nil {
-				if err == context.Canceled {
-					// Context was canceled, return to stop the handler.
-					return
-				}
-				h.log.Error(err.Error())
-				continue
+				h.errChn <- fmt.Errorf("handler: unable to process policy %v", err)
 			}
 
 			if eval != nil {
-				evalCh <- eval
+				config.EvalsChannel <- eval
 			}
 
 		case ts := <-h.cooldownCh:
@@ -188,54 +111,15 @@ func (h *Handler) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	}
 }
 
-// Stop stops the handler and the monitoring Go routine.
-func (h *Handler) Stop() {
-	h.runningLock.Lock()
-	defer h.runningLock.Unlock()
-
-	if h.running {
-		h.log.Trace("stopping handler")
-		h.ticker.Stop()
-		close(h.doneCh)
-	}
-
-	h.running = false
-}
-
 func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*sdk.ScalingEvaluation, error) {
-	h.log.Trace("tick")
-
-	if policy == nil {
-		// Initial ticker ticked without a policy being set, assume we are not able
-		// to retrieve the policy and exit.
-		return nil, errors.New("timeout: failed to read policy in time")
-	}
-
-	// Validate policy on ticker so any validation errors are resurfaced
-	// periodically.
-	err := policy.Validate()
-	if err != nil {
-		return nil, fmt.Errorf("invalid policy: %v", err)
-	}
+	h.log.Trace("handling tick")
 
 	// Timestamp the invocation of this evaluation run. This can be
 	// used when checking cooldown or emitting metrics to ensure some
 	// consistency.
 	curTime := time.Now().UTC().UnixNano()
 
-	// Exit early if the policy is not enabled.
-	if !policy.Enabled {
-		h.log.Debug("policy is not enabled")
-		return nil, nil
-	}
-
-	target, err := h.pluginManager.GetTarget(policy.Target)
-	if err != nil {
-		h.log.Warn("failed to get target", "error", err)
-		return nil, err
-	}
-
-	status, err := target.Status(policy.Target.Config)
+	status, err := h.statusGetter.Status(policy.Target.Config)
 	if err != nil {
 		h.log.Warn("failed to get target status", "error", err)
 		return nil, err
@@ -245,7 +129,6 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	// monitor the policy anymore.
 	if status == nil {
 		h.log.Trace("target doesn't exist anymore", "target", policy.Target.Config)
-		h.Stop()
 		return nil, nil
 	}
 
@@ -259,12 +142,6 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 	h.log.Trace("sending policy for evaluation")
 
 	eval := sdk.NewScalingEvaluation(policy)
-	// If the evaluation is nil there is nothing to be done this time
-	// around.
-	if eval == nil {
-		return nil, nil
-	}
-
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.
@@ -304,17 +181,11 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
-func (h *Handler) updateHandler(current, next *sdk.ScalingPolicy) {
-	if current == nil {
-		h.log.Trace("received policy")
-	} else {
-		h.log.Trace("received policy change")
-		h.log.Trace(cmp.Diff(current, next))
-	}
+func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
+	h.log.Trace("updating handler", "policy_id", updatedPolicy.ID)
 
-	// Update ticker if it's the first time we receive the policy or if the
-	// policy's evaluation interval has changed.
-	if current == nil || current.EvaluationInterval != next.EvaluationInterval {
+	// Update ticker if the policy's evaluation interval has changed.
+	if h.policy.EvaluationInterval != updatedPolicy.EvaluationInterval {
 		h.ticker.Stop()
 
 		// Add a small random delay between 0 and 300ms to spread the first
@@ -322,8 +193,13 @@ func (h *Handler) updateHandler(current, next *sdk.ScalingPolicy) {
 		splayNs := rand.Intn(30) * 100 * 1000 * 1000
 		time.Sleep(time.Duration(splayNs))
 
-		h.ticker = time.NewTicker(next.EvaluationInterval)
+		h.ticker = time.NewTicker(updatedPolicy.EvaluationInterval)
 	}
+
+	h.policyLock.Lock()
+	defer h.policyLock.Unlock()
+
+	h.policy = updatedPolicy
 }
 
 // enforceCooldown blocks until the cooldown period has been reached, or the
@@ -349,8 +225,6 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complet
 		complete = true
 		return
 	case <-ctx.Done():
-		return
-	case <-h.doneCh:
 		return
 	}
 }

@@ -332,17 +332,29 @@ func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGro
 				return
 			}
 
-			// Check for status codes on the instance view, only update remoteIDs with instances that have provisioned.
-			if len(instanceView.Statuses) == 0 {
-				for _, status := range instanceView.Statuses {
-					if *status.Code != "provisioningState/succeeded" {
-						t.logger.Debug("instance view status not ready", "vm_name", vm, "status_code", *status.Code)
-						return
-					}
+			// Checks if instance is running and successfully provisioned.
+			var provisioningReady, powerRunning bool
+			for _, s := range instanceView.Statuses {
+				if s.Code == nil {
+					continue
+				}
+
+				switch *s.Code {
+				case "ProvisioningState/succeeded":
+					provisioningReady = true
+				case "PowerState/running":
+					powerRunning = true
+				default:
+					t.logger.Debug("unexpected status code", "vm_name", vm, "status_code", *s.Code)
 				}
 			}
 
-			t.logger.Debug("instance view is ready", "vm_name", vm, "status_code", *instanceView.Statuses[0].Code)
+			if !provisioningReady || !powerRunning {
+				t.logger.Debug("instance not ready", "vm_name", vm, "provisioning_ready", provisioningReady, "power_ready", powerRunning)
+				return
+			}
+
+			t.logger.Debug("instance candidate for scale in action", "vm_name", vm)
 
 			mu.Lock()
 			remoteIDs = append(remoteIDs, vm)

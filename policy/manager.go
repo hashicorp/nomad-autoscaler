@@ -69,8 +69,8 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 }
 
 func (m *Manager) getHandlersNum() int {
-	m.handlersLock.Lock()
-	defer m.handlersLock.Unlock()
+	m.handlersLock.RLock()
+	defer m.handlersLock.RUnlock()
 
 	return len(m.handlers)
 }
@@ -178,19 +178,18 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					}
 				}
 
-				m.handlersLock.Lock()
+				m.handlersLock.RLock()
 				pht := m.handlers[policyID]
+				m.handlersLock.RUnlock()
 				if pht != nil {
 					// If the handler already exists, send the updated policy to it.
 					m.log.Trace("sending updated policy to existing handler",
 						"policy_id", policyID, "policy_source", message.Source)
 
 					pht.updates <- updatedPolicy
-					m.handlersLock.Unlock()
+
 					continue
 				}
-
-				m.handlersLock.Unlock()
 
 				// If we reach this point it means it is a new policy and we need
 				// a new handler for it.
@@ -285,8 +284,6 @@ func (m *Manager) EnforceCooldown(id string, t time.Duration) {
 
 // ReloadSources triggers a reload of all the policy sources.
 func (m *Manager) ReloadSources() {
-	m.handlersLock.Lock()
-	defer m.handlersLock.Unlock()
 
 	// Tell the ID monitors to reload.
 	for _, policySource := range m.policySources {

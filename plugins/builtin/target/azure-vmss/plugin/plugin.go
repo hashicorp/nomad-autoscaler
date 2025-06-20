@@ -332,6 +332,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 				return
 			}
 
+			// TODO: Iterate over the instance view statuses. Only checking the first status code is up to chance.
 			if len(instanceView.Statuses) == 0 || *instanceView.Statuses[0].Code != "ProvisioningState/succeeded" {
 
 				for _, statusCode := range instanceView.Statuses {

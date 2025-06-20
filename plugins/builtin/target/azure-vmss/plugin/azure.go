@@ -276,12 +276,14 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 			// Unable to get flexible instanceView from the VMSS instance.
 			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
 				for _, s := range vm.Properties.InstanceView.Statuses {
-					if s.Code != nil && *s.Code == "PowerState/running" {
-						t.logger.Debug("found healthy instance", "name", *vm.Name, "instance_id", *vm.InstanceID)
-						vmNames = append(vmNames, *vm.Name)
-						break
-					} else {
-						t.logger.Debug("skipping instance", "name", *vm.Name, "instance_id", *vm.InstanceID, "code", *s.Code)
+					if s.Code != nil && strings.HasPrefix(*s.Code, "PowerState/") {
+						if *s.Code == "PowerState/running" {
+							t.logger.Debug("found healthy instance", "name", *vm.Name, "instance_id", *vm.InstanceID)
+							vmNames = append(vmNames, *vm.Name)
+							break
+						} else {
+							t.logger.Debug("skipping instance - power state is not running", "name", *vm.Name, "instance_id", *vm.InstanceID, "code", *s.Code)
+						}
 					}
 				}
 			} else if vmssMode == orchestrationModeFlexible {

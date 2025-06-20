@@ -268,7 +268,7 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 		}
 
 		for _, vm := range page.Value {
-			if vm.Name == nil {
+			if vm.Name == nil || vm.InstanceID == nil {
 				continue
 			}
 

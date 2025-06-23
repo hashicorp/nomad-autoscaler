@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	"reflect"
 	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -102,51 +101,6 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 func (s *Source) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 	<-s.reloadCompleteCh
-}
-
-// handleIndividualPolicyRead reads the policy from disk and compares it to the
-// stored version if there is one. If there is a difference, `changed` will be
-// true to indicate that reload is required.
-// This function is not thread safe, so the caller should obtain at least
-// a read lock on policyMapLock.
-func (s *Source) handleIndividualPolicyRead(ID policy.PolicyID, path, name string) (
-	policy *sdk.ScalingPolicy, changed bool, err error) {
-
-	// Decode the file into a new policy to allow comparison to our stored
-	// policy. Make sure to add the ID string and defaults, we are responsible
-	// for managing this and if we don't add it, there will always be a
-	// difference.
-	policies, err := decodeFile(path)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to decode file %s: %v", path, err)
-	}
-
-	newPolicy, ok := policies[name]
-	if !ok {
-		return nil, false, fmt.Errorf("policy %q doesn't exist in file %s", name, path)
-	}
-
-	newPolicy.ID = ID
-	s.policyProcessor.ApplyPolicyDefaults(newPolicy)
-
-	if err := s.policyProcessor.ValidatePolicy(newPolicy); err != nil {
-		return nil, false, fmt.Errorf("failed to validate file %s: %v", path, err)
-	}
-
-	for _, c := range newPolicy.Checks {
-		s.policyProcessor.CanonicalizeCheck(c, newPolicy.Target)
-	}
-
-	val, ok := s.policyMap[ID]
-	if !ok || val.policy == nil {
-		return newPolicy, true, nil
-	}
-
-	// Check the new policy against the stored. If they are the same, and
-	// therefore the policy has not changed indicate that to the caller.
-	changed = !reflect.DeepEqual(newPolicy, val.policy)
-
-	return newPolicy, changed, nil
 }
 
 // identifyPolicyIDs iterates the configured directory, identifying the

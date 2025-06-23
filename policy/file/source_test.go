@@ -5,9 +5,7 @@ package file
 
 import (
 	"testing"
-	"time"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/policy"
 	"github.com/stretchr/testify/assert"
 )
@@ -52,38 +50,4 @@ func TestSource_getFilePolicyID(t *testing.T) {
 			assert.True(t, ok, tc.name)
 		})
 	}
-}
-
-// testFileSource reads the policies from the given directory
-// and returns a Source and one policyID from that directory.
-func testFileSource(t *testing.T, dir string) (*Source, policy.PolicyID) {
-	t.Helper()
-	src := NewFileSource(
-		hclog.Default(),
-		dir, // should contain real policy files.
-		policy.NewProcessor(
-			&policy.ConfigDefaults{
-				DefaultEvaluationInterval: time.Second,
-				DefaultCooldown:           time.Second},
-			[]string{},
-		),
-	)
-	s := src.(*Source)
-
-	idsMap, err := s.handleDir() // populate idMap and policyMap
-	if err != nil {
-		t.Fatalf("error from handleDir: %v", err)
-	}
-	if len(idsMap) == 0 {
-		t.Fatalf("uh oh, no policies in %v", dir)
-	}
-
-	id := ""
-	for k := range idsMap {
-		id = k
-		break // just take the first one
-
-	}
-
-	return s, id
 }

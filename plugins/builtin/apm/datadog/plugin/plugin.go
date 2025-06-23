@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
-	rate_limiter "github.com/hashicorp/nomad-autoscaler/rate-limiter"
+	rate_limiter "github.com/hashicorp/nomad-autoscaler/rate_limiter"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 

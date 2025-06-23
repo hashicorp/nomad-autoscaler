@@ -134,6 +134,12 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	switch vmssMode {
 	case orchestrationModeUniform:
 		remoteIDs = vms
+
+		// Should not get here, but adding.
+		if len(remoteIDs) == 0 {
+			return fmt.Errorf("no ")
+		}
+
 	case orchestrationModeFlexible:
 		remoteIDs, err = t.getFlexibleReadyRemoteIDs(ctx, resourceGroup, vms)
 		if err != nil {
@@ -141,11 +147,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		}
 	default:
 		return fmt.Errorf("unsupported VMSS mode: %s", vmssMode)
-	}
-
-	// early exit if no remote IDs found
-	if len(remoteIDs) == 0 {
-		return fmt.Errorf("no remoteIDs filtered")
 	}
 
 	// run pre-scale tasks using remoteIDs
@@ -180,7 +181,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 			log.Debug("processing node for scale in", "node_id", node, "remote_id", node.RemoteResourceID)
 			// You'll notice that the logic here is different than Uniform mode. This is mainly due to Azure's consistency of being inconsistent.
 			// https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids#scale-set-vm-names
-
 			if idx := strings.LastIndex(node.RemoteResourceID, "_"); idx != -1 &&
 				strings.EqualFold(node.RemoteResourceID[0:idx], vmScaleSet) {
 				instanceIDs = append(instanceIDs, node.RemoteResourceID)
@@ -363,6 +363,11 @@ func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGro
 		}(vm)
 	}
 	wg.Wait()
+
+	if len(remoteIDs) == 0 {
+		t.logger.Error("no instances found to be provisioned and running.")
+		return nil, err
+	}
 
 	return remoteIDs, nil
 }

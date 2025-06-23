@@ -29,6 +29,7 @@ const (
 
 	configKeyClientAPIKey = "dd_api_key"
 	configKeyClientAPPKey = "dd_app_key"
+	rateLimitPerSecond    = "dd_api_calls_per_second"
 
 	// naming convention according to datadog api
 	envKeyClientAPIKey = "DD_API_KEY"
@@ -37,8 +38,7 @@ const (
 	datadogAuthAPIKey = "apiKeyAuth"
 	datadogAuthAPPKey = "appKeyAuth"
 
-	ratelimitResetHdr  = "X-Ratelimit-Reset"
-	rateLimitPerSecond = "rateLimitPerSecond"
+	ratelimitResetHdr = "X-Ratelimit-Reset"
 )
 
 var (

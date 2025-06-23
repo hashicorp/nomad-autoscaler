@@ -66,9 +66,8 @@ func (ms *mockSource) Name() SourceName {
 	return ms.name
 }
 
-func (ms *mockSource) MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq)          {}
-func (ms *mockSource) ReloadIDsMonitor()                                                    {}
-func (ms *mockSource) MonitorPolicy(ctx context.Context, monitorPolicyReq MonitorPolicyReq) {}
+func (ms *mockSource) MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq) {}
+func (ms *mockSource) ReloadIDsMonitor()                                           {}
 
 var policy1 = &sdk.ScalingPolicy{
 	ID:      "policy1",

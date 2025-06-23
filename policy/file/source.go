@@ -43,7 +43,7 @@ type Source struct {
 
 	// policyMap maps our policyID to the file and policy which was decode from
 	// the file. This is required with the current policy.Source interface
-	// implementation, as the MonitorPolicy function only has access to the
+	// implementation, as the GetLatestVersion function only has access to the
 	// policyID and not the underlying file path.
 	policyMap     map[policy.PolicyID]*filePolicy
 	policyMapLock sync.RWMutex
@@ -102,88 +102,6 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 func (s *Source) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 	<-s.reloadCompleteCh
-}
-
-// MonitorPolicy reads policy from a file on disk and writes it to req.ResultCh.
-// Any error doing so will be sent to req.ErrCh.
-// If MonitorPolicy receives on s.ReloadCh, it will re-check the file on disk,
-// and write again to req.ResultCh if the policy has changed.
-// Note: MonitorPolicy should only return when ctx is done and will not be
-// monitoring changes in policies, a call to Reload is necessary for changes
-// in policies to become effective.
-func (s *Source) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
-
-	// Close channels when done with the monitoring loop.
-	defer close(req.ResultCh)
-	defer close(req.ErrCh)
-
-	s.policyMapLock.Lock()
-
-	var file string
-	var name string
-
-	// There isn't a possibility that I can think of where this call wouldn't
-	// be ok. Nevertheless check it to be safe before sending the policy to the
-	// handler which starts the evaluation ticker.
-	val, ok := s.policyMap[req.ID]
-	if !ok {
-		policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s", req.ID), req.ErrCh)
-	} else {
-
-		// Assign the stored file to our local variable. This is so we can use
-		// it later without performing a lookup. The file value will stay the
-		// same for the entire duration of this function.
-		file = val.file
-		name = val.name
-
-		p, _, err := s.handleIndividualPolicyRead(req.ID, file, name)
-		if err != nil {
-			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy %s: %w", req.ID, err), req.ErrCh)
-		} else {
-			s.policyMap[req.ID] = &filePolicy{file: file, name: name, policy: p}
-			// We must send to ResultCh each time a Handler invokes this method,
-			// or the Handler will error "failed to read policy in time"
-			req.ResultCh <- *p
-		}
-	}
-	s.policyMapLock.Unlock()
-
-	// Technically the log message should come further up, but its quite
-	// helpful to have the file path logged with the policyID otherwise there
-	// is no way to understand the ID->File mapping.
-	log := s.log.With("policy_id", req.ID, "file", file, "name", name)
-	log.Info("starting file policy monitor")
-
-	for {
-		select {
-		case <-ctx.Done():
-			log.Debug("stopping file source ID monitor due to context done")
-			return
-
-		case <-req.ReloadCh:
-			log.Info("file policy source monitor received reload signal")
-
-			// Grab a lock as required by the function and the call.
-			s.policyMapLock.Lock()
-			p, changed, err := s.handleIndividualPolicyRead(req.ID, file, name)
-			s.policyMapLock.Unlock()
-
-			// An error indicates the policy failed to be decoded properly. It
-			// isn't a terminal error as the operator can fix the policy and
-			// trigger another reload.
-			if err != nil {
-				policy.HandleSourceError(s.Name(), fmt.Errorf("failed to get policy: %v", err), req.ErrCh)
-				continue
-			}
-
-			if changed {
-				log.Info("file policy content has changed")
-				req.ResultCh <- *p
-			} else {
-				log.Debug("no change in file policy")
-			}
-		}
-	}
 }
 
 // handleIndividualPolicyRead reads the policy from disk and compares it to the
@@ -298,7 +216,7 @@ func (s *Source) handleDir() (map[policy.PolicyID]bool, error) {
 			}
 
 			// Store the file/name>id mapping if it doesn't exist. This makes the
-			// MonitorPolicy function simpler as we have an easy mapping of the
+			// GetLatestVersion function simpler as we have an easy mapping of the
 			// policyID to the file it came from.
 			//
 			// The OK check is performed because this function gets called during

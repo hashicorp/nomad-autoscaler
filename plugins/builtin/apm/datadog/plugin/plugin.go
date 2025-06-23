@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
@@ -15,6 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
+	rate_limiter "github.com/hashicorp/nomad-autoscaler/rate-limiter"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -35,7 +37,8 @@ const (
 	datadogAuthAPIKey = "apiKeyAuth"
 	datadogAuthAPPKey = "appKeyAuth"
 
-	ratelimitResetHdr = "X-Ratelimit-Reset"
+	ratelimitResetHdr  = "X-Ratelimit-Reset"
+	rateLimitPerSecond = "rateLimitPerSecond"
 )
 
 var (
@@ -114,6 +117,16 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	configuration := datadog.NewConfiguration()
 	if a.ddConfigCallback != nil {
 		a.ddConfigCallback(configuration)
+	}
+
+	if rl := a.config[rateLimitPerSecond]; rl != "" {
+		rate, err := strconv.Atoi(rl)
+		if err != nil {
+			return fmt.Errorf("invalid rate limiter value: %v, %w", rl, err)
+		}
+
+		configuration.HTTPClient = rate_limiter.NewInstrumentedWrapper(pluginName,
+			rate, configuration.HTTPClient)
 	}
 
 	// store config and client in plugin instance

@@ -21,31 +21,27 @@ type CustomRoundTripper struct {
 }
 
 func (crt *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	if irt.rateLimiter != nil {
-		err := irt.rateLimiter.Wait(req.Context())
-		if err != nil {
-			return nil, fmt.Errorf("transport: unable to ratelimit: %w", err)
-		}
-	}
-
 	labels := []metrics.Label{
 		{
 			Name:  "method",
 			Value: req.Method,
 		},
 		{
-			Name:  "path",
-			Value: req.URL.Path,
-		},
-		{
 			Name:  "source",
-			Value: irt.source,
+			Value: crt.source,
 		},
 	}
 
 	defer metrics.MeasureSinceWithLabels([]string{"http", "dur"}, time.Now(), labels)
 
-	resp, err := irt.rt.RoundTrip(req)
+	if crt.rateLimiter != nil {
+		err := crt.rateLimiter.Wait(req.Context())
+		if err != nil {
+			return nil, fmt.Errorf("transport: unable to ratelimit: %w", err)
+		}
+	}
+
+	resp, err := crt.rt.RoundTrip(req)
 	if err == nil && resp != nil {
 		metrics.IncrCounterWithLabels([]string{"http", "req"}, 1, labels)
 	}

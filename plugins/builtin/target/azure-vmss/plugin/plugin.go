@@ -9,6 +9,7 @@ import (
 	"math"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -271,51 +272,35 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 	}
 }
 
-// processInstanceViewFlexible processes the instance view for a Flexible VMSS.
 func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
-
-	// Only used during debugging to see how long it takes to process the instance views.
 	start := time.Now()
 
-	// Early exit if there are no VMs in the VMSS.
 	if len(vms) == 0 {
 		t.logger.Debug("No VMs found in the VMSS, skipping instance view processing.")
 		return
 	}
 
-	// Mainly debugging when initially running the plugin to see how many VMs are in the VMSS.
 	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(vms))
 
-	// Cancelable context which is later used in the goroutines to stop processing.
-	// Triggers when it finds a VM that shows not ready.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Using a WaitGroup to wait for all goroutines to finish.
-	// Using a channel to limit the number of concurrent requests to the Azure API.
-	// Mutex is used to protect the status.Ready field from concurrent writes.
-	// sync.Once is used to ensure that we only set the status to not ready once, context will be cancelled after that.
 	var wg sync.WaitGroup
 	requests := make(chan struct{}, 5)
-	var mu sync.Mutex
-	var once sync.Once
 
-	// Iterate over each VM in the VMSS and get its instance view.
+	var notReady atomic.Bool
+	var statusReady = true
+
 	for _, vmName := range vms {
-
 		if ctx.Err() != nil {
 			t.logger.Debug("Context cancelled, stopping further processing of VMs")
 			break
 		}
 
 		wg.Add(1)
-
 		requests <- struct{}{}
 
-		// Using a goroutine to fetch the instance view for each VM.
-		// Previously, this was done sequentially.
 		go func(vm string) {
-
 			defer wg.Done()
 			defer func() { <-requests }()
 
@@ -325,37 +310,29 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 			default:
 			}
 
-			// Unlike Uniform, this has to use the VirtualMachinesClient to get the instance view.
-			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
+			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
 			if err != nil {
-				t.logger.Debug("failed to get instance view for VM", "vm_name", vmName, "error", err)
+				t.logger.Debug("Failed to get instance view for VM", "vm_name", vm, "error", err)
 				return
 			}
 
-			// TODO: Iterate over the instance view statuses. Only checking the first status code is up to chance.
-			if len(instanceView.Statuses) == 0 || *instanceView.Statuses[0].Code != "ProvisioningState/succeeded" {
+			if !isFlexibleVMReady(instanceView.Statuses) {
+				t.logger.Debug("VM not ready", "vm_name", vm, "statuses", instanceView.Statuses)
 
-				for _, statusCode := range instanceView.Statuses {
-					if *statusCode.Code != "ProvisioningState/succeeded" {
-						t.logger.Debug("VM instance view not ready", "vm_name", vmName, "status_code", *statusCode.Code)
-
-						once.Do(func() {
-							t.logger.Debug("Setting status to not ready", "vm_name", vmName)
-							mu.Lock()
-							status.Ready = false
-							mu.Unlock()
-							cancel()
-						})
-					}
+				if notReady.CompareAndSwap(false, true) {
+					t.logger.Debug("Setting status to not ready and cancelling context", "vm_name", vm)
+					statusReady = false
+					cancel()
 				}
-
-			} else {
-				t.logger.Debug("VM instance view is ready", "vm_name", vmName, "status_code", *instanceView.Statuses[0].Code)
+				return
 			}
+
+			t.logger.Debug("VM instance view is ready", "vm_name", vm)
 		}(vmName)
 	}
-
 	wg.Wait()
 
+	t.logger.Debug("Setting status", statusReady)
+	status.Ready = statusReady
 	t.logger.Debug("Finished processing VM instance views", "duration_seconds", time.Since(start).Seconds())
 }

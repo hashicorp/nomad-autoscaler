@@ -301,20 +301,17 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 	return vmNames, nil
 }
 
-func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGroup string, vms []string) (ids []string, err error) {
-
-	remoteIDs := []string{}
-
+func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGroup string, vms []string) ([]string, error) {
+	var remoteIDs []string
 	var wg sync.WaitGroup
-	// Manually limiting the number of concurrent requests to avoid hitting API rate limits.
+	var mu sync.Mutex
 	requests := make(chan struct{}, 5)
-	mu := sync.Mutex{}
 
 	for _, vm := range vms {
 		wg.Add(1)
 		requests <- struct{}{}
 
-		go func(vm string) {
+		go func(vmName string) {
 			defer wg.Done()
 			defer func() { <-requests }()
 
@@ -322,52 +319,53 @@ func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGro
 			case <-ctx.Done():
 				return
 			default:
-				// Continue processing
 			}
 
-			// Get the instance view for the VM in the Flexible VMSS.
-			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
+			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
 			if err != nil {
-				t.logger.Debug("failed to get instance view for VM", "vm_name", vm, "error", err)
+				t.logger.Debug("Failed to get instance view for VM", "vm_name", vmName, "error", err)
 				return
 			}
 
-			// Checks if instance is running and successfully provisioned.
-			var provisioningReady, powerRunning bool
-			for _, s := range instanceView.Statuses {
-				if s.Code == nil {
-					continue
-				}
-
-				switch *s.Code {
-				case "ProvisioningState/succeeded":
-					provisioningReady = true
-				case "PowerState/running":
-					powerRunning = true
-				default:
-					t.logger.Debug("unexpected status code", "vm_name", vm, "status_code", *s.Code)
-				}
-			}
-
-			if !provisioningReady || !powerRunning {
-				t.logger.Debug("instance not ready", "vm_name", vm, "provisioning_ready", provisioningReady, "power_ready", powerRunning)
+			if !isFlexibleVMReady(instanceView.Statuses) {
+				t.logger.Debug("Instance not ready", "vm_name", vmName)
 				return
 			}
 
-			t.logger.Debug("instance candidate for scale in action", "vm_name", vm)
+			t.logger.Debug("Instance candidate for scale-in action", "vm_name", vmName)
 
 			mu.Lock()
-			remoteIDs = append(remoteIDs, vm)
+			remoteIDs = append(remoteIDs, vmName)
 			mu.Unlock()
-
 		}(vm)
 	}
+
 	wg.Wait()
 
 	if len(remoteIDs) == 0 {
-		t.logger.Error("no instances found to be provisioned and running.")
-		return nil, err
+		t.logger.Error("No instances found to be provisioned and running.")
+		return nil, fmt.Errorf("no provisioned and running instances found")
 	}
 
 	return remoteIDs, nil
+}
+
+// isVMReady checks whether the Flexible VMSS VM has both ProvisioningState/succeeded and PowerState/running.
+func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
+	var provisioned, poweredOn bool
+
+	for _, s := range statuses {
+		if s.Code == nil {
+			continue
+		}
+
+		switch *s.Code {
+		case "ProvisioningState/succeeded":
+			provisioned = true
+		case "PowerState/running":
+			poweredOn = true
+		}
+	}
+
+	return provisioned && poweredOn
 }

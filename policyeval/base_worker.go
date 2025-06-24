@@ -334,8 +334,16 @@ func (w *BaseWorker) scaleTarget(
 	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, metricLabels)
 
 	// Enforce the cooldown after a successful scaling event.
-	w.policyManager.EnforceCooldown(policy.ID, policy.Cooldown)
+	w.policyManager.EnforceCooldown(policy.ID, calculateCooldown(policy, action))
 	return nil
+}
+
+func calculateCooldown(p *sdk.ScalingPolicy, a sdk.ScalingAction) time.Duration {
+	if a.Direction == sdk.ScaleDirectionUp {
+		return p.CooldownOnScaleUp
+	}
+
+	return p.Cooldown
 }
 
 // runTargetStatus wraps the target.Status call to provide operational

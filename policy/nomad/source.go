@@ -36,6 +36,7 @@ const (
 	keyGroup              = "group"
 	keyStrategy           = "strategy"
 	keyCooldown           = "cooldown"
+	keyCooldownOnScaleUp  = "cooldown_on_scale_up"
 )
 
 // Ensure NomadSource satisfies the Source interface.

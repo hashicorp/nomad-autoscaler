@@ -326,12 +326,13 @@ func TestSource_canonicalizePolicy(t *testing.T) {
 			},
 		},
 		{
-			name:  "sets cooldown from agent",
+			name:  "sets cooldown and cooldownonscalingup from agent",
 			input: &sdk.ScalingPolicy{},
 			expected: &sdk.ScalingPolicy{
 				Type:               sdk.ScalingPolicyTypeHorizontal,
 				EvaluationInterval: 10 * time.Second,
 				Cooldown:           1 * time.Hour,
+				CooldownOnScaleUp:  1 * time.Hour,
 				Target: &sdk.ScalingPolicyTarget{
 					Name:   plugins.InternalTargetNomad,
 					Config: map[string]string{},

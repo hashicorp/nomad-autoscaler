@@ -20,7 +20,7 @@ type CustomRoundTripper struct {
 	rt          http.RoundTripper
 }
 
-func (irt *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (crt *CustomRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if irt.rateLimiter != nil {
 		err := irt.rateLimiter.Wait(req.Context())
 		if err != nil {

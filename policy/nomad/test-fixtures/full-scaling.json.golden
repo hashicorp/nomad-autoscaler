@@ -4,18 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "ConsulToken": "",
-    "CreateIndex": 9,
+    "CreateIndex": 246,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 9,
+    "JobModifyIndex": 246,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 14,
+    "ModifyIndex": 247,
     "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
@@ -30,20 +29,17 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "dead",
+    "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1707527436368244000,
+    "SubmitTime": 1750936898077945000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
-        "Consul": {
-          "Cluster": "default",
-          "Namespace": "",
-          "Partition": ""
-        },
+        "Consul": null,
         "Count": 2,
+        "Disconnect": null,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
@@ -71,21 +67,21 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 9,
+          "CreateIndex": 246,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 9,
+          "ModifyIndex": 246,
           "Namespace": "",
           "Policy": {
             "target": [
               {
                 "target": [
                   {
+                    "bool_config": true,
                     "int_config": 2.0,
-                    "str_config": "str",
-                    "bool_config": true
+                    "str_config": "str"
                   }
                 ]
               }
@@ -94,8 +90,6 @@
               {
                 "check-1": [
                   {
-                    "on_error": "ignore",
-                    "query": "query-1",
                     "query_window": "1m",
                     "query_window_offset": "2m",
                     "source": "source-1",
@@ -109,7 +103,9 @@
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "on_error": "ignore",
+                    "query": "query-1"
                   }
                 ]
               },
@@ -135,6 +131,7 @@
               }
             ],
             "cooldown": "5m",
+            "cooldown_on_scale_up": "2m",
             "evaluation_interval": "5s",
             "on_check_error": "fail"
           },
@@ -174,6 +171,7 @@
               "ChangeSignal": "",
               "Env": false,
               "File": false,
+              "Filepath": "",
               "Name": "default",
               "ServiceName": "",
               "TTL": 0
@@ -200,7 +198,8 @@
               "MemoryMB": 300,
               "MemoryMaxMB": 0,
               "NUMA": null,
-              "Networks": null
+              "Networks": null,
+              "SecretsMB": 0
             },
             "RestartPolicy": {
               "Attempts": 3,
@@ -210,6 +209,7 @@
               "RenderTemplates": false
             },
             "ScalingPolicies": null,
+            "Schedule": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -223,6 +223,7 @@
       }
     ],
     "Type": "batch",
+    "UI": null,
     "Update": {
       "AutoPromote": false,
       "AutoRevert": false,
@@ -235,7 +236,7 @@
       "Stagger": 0
     },
     "VaultNamespace": "",
-    "VaultToken": "",
-    "Version": 0
+    "Version": 0,
+    "VersionTag": null
   }
 }

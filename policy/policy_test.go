@@ -350,7 +350,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 				CooldownOnScaleUp:  10 * time.Minute,
 				EvaluationInterval: 5 * time.Minute,
 			},
-			name: "cooldown and cooldowonscale up set",
+			name: "cooldown and cool_down_scale_up set",
 		},
 	}
 

@@ -3,19 +3,22 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "CreateIndex": 246,
+    "ConsulNamespace": "",
+    "CreateIndex": 303,
     "Datacenters": [
       "dc1"
     ],
+    "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-query-window1",
-    "JobModifyIndex": 246,
+    "JobModifyIndex": 303,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 249,
+    "ModifyIndex": 304,
     "Multiregion": null,
     "Name": "invalid-query-window1",
     "Namespace": "default",
+    "NodePool": "default",
     "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
@@ -26,24 +29,28 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "dead",
+    "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1602724428276409000,
+    "SubmitTime": 1750936901955826000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
+        "Consul": null,
         "Count": 1,
+        "Disconnect": null,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
           "Sticky": false
         },
+        "MaxClientDisconnect": null,
         "Meta": null,
         "Migrate": null,
         "Name": "test",
         "Networks": null,
+        "PreventRescheduleOnLost": false,
         "ReschedulePolicy": {
           "Attempts": 1,
           "Delay": 5000000000,
@@ -56,43 +63,44 @@
           "Attempts": 3,
           "Delay": 15000000000,
           "Interval": 86400000000000,
-          "Mode": "fail"
+          "Mode": "fail",
+          "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 246,
+          "CreateIndex": 303,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 246,
+          "ModifyIndex": 303,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "query",
-                    "query_window": 5,
+                    "query_window": 5.0,
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Job": "invalid-query-window1",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "invalid-query-window1"
+            "Namespace": "default"
           },
           "Type": "horizontal"
         },
@@ -102,6 +110,7 @@
         "StopAfterClientDisconnect": null,
         "Tasks": [
           {
+            "Actions": null,
             "Affinities": null,
             "Artifacts": null,
             "Config": {
@@ -111,15 +120,32 @@
               "command": "echo"
             },
             "Constraints": null,
+            "Consul": null,
             "DispatchPayload": null,
             "Driver": "raw_exec",
             "Env": null,
+            "Identities": null,
+            "Identity": {
+              "Audience": [
+                "nomadproject.io"
+              ],
+              "ChangeMode": "",
+              "ChangeSignal": "",
+              "Env": false,
+              "File": false,
+              "Filepath": "",
+              "Name": "default",
+              "ServiceName": "",
+              "TTL": 0
+            },
             "KillSignal": "",
             "KillTimeout": 5000000000,
             "Kind": "",
             "Leader": false,
             "Lifecycle": null,
             "LogConfig": {
+              "Disabled": false,
+              "Enabled": null,
               "MaxFileSizeMB": 10,
               "MaxFiles": 10
             },
@@ -127,19 +153,25 @@
             "Name": "echo",
             "Resources": {
               "CPU": 100,
+              "Cores": 0,
               "Devices": null,
               "DiskMB": 0,
               "IOPS": 0,
               "MemoryMB": 300,
-              "Networks": null
+              "MemoryMaxMB": 0,
+              "NUMA": null,
+              "Networks": null,
+              "SecretsMB": 0
             },
             "RestartPolicy": {
               "Attempts": 3,
               "Delay": 15000000000,
               "Interval": 86400000000000,
-              "Mode": "fail"
+              "Mode": "fail",
+              "RenderTemplates": false
             },
             "ScalingPolicies": null,
+            "Schedule": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -153,6 +185,7 @@
       }
     ],
     "Type": "batch",
+    "UI": null,
     "Update": {
       "AutoPromote": false,
       "AutoRevert": false,
@@ -165,7 +198,7 @@
       "Stagger": 0
     },
     "VaultNamespace": "",
-    "VaultToken": "",
-    "Version": 0
+    "Version": 0,
+    "VersionTag": null
   }
 }

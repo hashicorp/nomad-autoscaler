@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 358,
+    "CreateIndex": 139,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "strategy-without-metric",
-    "JobModifyIndex": 358,
+    "JobModifyIndex": 139,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 359,
+    "ModifyIndex": 140,
     "Multiregion": null,
     "Name": "strategy-without-metric",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936906452484000,
+    "SubmitTime": 1750941689672028000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 358,
+          "CreateIndex": 139,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 358,
+          "ModifyIndex": 139,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -112,10 +112,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

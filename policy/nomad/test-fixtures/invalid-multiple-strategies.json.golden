@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 292,
+    "CreateIndex": 74,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-multiple-strategies",
-    "JobModifyIndex": 292,
+    "JobModifyIndex": 74,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 293,
+    "ModifyIndex": 75,
     "Multiregion": null,
     "Name": "invalid-multiple-strategies",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936901224351000,
+    "SubmitTime": 1750941685614999000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,19 +67,18 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 292,
+          "CreateIndex": 74,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 292,
+          "ModifyIndex": 74,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "query",
                     "strategy": [
                       {
                         "strategy-1": [
@@ -91,16 +90,17 @@
                           {}
                         ]
                       }
-                    ]
+                    ],
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Job": "invalid-multiple-strategies",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "invalid-multiple-strategies"
+            "Namespace": "default"
           },
           "Type": "horizontal"
         },

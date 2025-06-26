@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 230,
+    "CreateIndex": 11,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "empty-check",
-    "JobModifyIndex": 230,
+    "JobModifyIndex": 11,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 231,
+    "ModifyIndex": 12,
     "Multiregion": null,
     "Name": "empty-check",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936896836272000,
+    "SubmitTime": 1750941680088842000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 230,
+          "CreateIndex": 11,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 230,
+          "ModifyIndex": 11,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -100,10 +100,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

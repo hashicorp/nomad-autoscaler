@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 252,
+    "CreateIndex": 33,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-check",
-    "JobModifyIndex": 252,
+    "JobModifyIndex": 33,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 253,
+    "ModifyIndex": 34,
     "Multiregion": null,
     "Name": "invalid-check",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936898403487000,
+    "SubmitTime": 1750941681664426000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 252,
+          "CreateIndex": 33,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 252,
+          "ModifyIndex": 33,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -80,9 +80,9 @@
             ]
           },
           "Target": {
+            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-check",
-            "Group": "test"
+            "Job": "invalid-check"
           },
           "Type": "horizontal"
         },
@@ -96,10 +96,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "Consul": null,

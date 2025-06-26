@@ -29,7 +29,7 @@ func Test_parsePolicy(t *testing.T) {
 				Enabled:            false,
 				EvaluationInterval: 5 * time.Second,
 				Cooldown:           5 * time.Minute,
-				CooldownOnScaleUp:  10 * time.Minute,
+				CooldownOnScaleUp:  2 * time.Minute,
 				Type:               "horizontal",
 				OnCheckError:       "fail",
 				Target: &sdk.ScalingPolicyTarget{

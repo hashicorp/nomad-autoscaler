@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 308,
+    "CreateIndex": 90,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-query-window2",
-    "JobModifyIndex": 308,
+    "JobModifyIndex": 90,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 309,
+    "ModifyIndex": 91,
     "Multiregion": null,
     "Name": "invalid-query-window2",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936902270555000,
+    "SubmitTime": 1750941686554233000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,40 +67,40 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 308,
+          "CreateIndex": 90,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 308,
+          "ModifyIndex": 90,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "query",
                     "query_window": "not quite right",
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "int_config": 2.0,
                             "str_config": "str",
-                            "bool_config": true
+                            "bool_config": true,
+                            "int_config": 2.0
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-query-window2"
+            "Job": "invalid-query-window2",
+            "Group": "test"
           },
           "Type": "horizontal"
         },

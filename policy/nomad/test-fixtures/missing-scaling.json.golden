@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 344,
+    "CreateIndex": 125,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "missing-scaling",
-    "JobModifyIndex": 344,
+    "JobModifyIndex": 125,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 345,
+    "ModifyIndex": 126,
     "Multiregion": null,
     "Name": "missing-scaling",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936905514887000,
+    "SubmitTime": 1750941688744187000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -77,10 +77,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "Consul": null,

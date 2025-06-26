@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 354,
+    "CreateIndex": 135,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "single-check",
-    "JobModifyIndex": 354,
+    "JobModifyIndex": 135,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 355,
+    "ModifyIndex": 136,
     "Multiregion": null,
     "Name": "single-check",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936906137100000,
+    "SubmitTime": 1750941689372789000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 354,
+          "CreateIndex": 135,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 354,
+          "ModifyIndex": 135,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -98,9 +98,9 @@
             ]
           },
           "Target": {
+            "Job": "single-check",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "single-check"
+            "Namespace": "default"
           },
           "Type": "horizontal"
         },

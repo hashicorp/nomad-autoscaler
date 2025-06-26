@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 278,
+    "CreateIndex": 61,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-evaluation-interval-type",
-    "JobModifyIndex": 278,
+    "JobModifyIndex": 61,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 279,
+    "ModifyIndex": 62,
     "Multiregion": null,
     "Name": "invalid-evaluation-interval-type",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936900282733000,
+    "SubmitTime": 1750941684648238000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 278,
+          "CreateIndex": 61,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 278,
+          "ModifyIndex": 61,
           "Namespace": "",
           "Policy": {
             "evaluation_interval": 5.0

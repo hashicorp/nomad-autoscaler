@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 339,
+    "CreateIndex": 120,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "missing-policy",
-    "JobModifyIndex": 339,
+    "JobModifyIndex": 120,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 340,
+    "ModifyIndex": 121,
     "Multiregion": null,
     "Name": "missing-policy",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936905191397000,
+    "SubmitTime": 1750941688422713000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 339,
+          "CreateIndex": 120,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 339,
+          "ModifyIndex": 120,
           "Namespace": "",
           "Policy": null,
           "Target": {
@@ -92,10 +92,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "Consul": null,

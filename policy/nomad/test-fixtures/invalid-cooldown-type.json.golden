@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 264,
+    "CreateIndex": 46,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-cooldown-type",
-    "JobModifyIndex": 264,
+    "JobModifyIndex": 46,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 265,
+    "ModifyIndex": 47,
     "Multiregion": null,
     "Name": "invalid-cooldown-type",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936899321315000,
+    "SubmitTime": 1750941682617391000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 264,
+          "CreateIndex": 46,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 264,
+          "ModifyIndex": 46,
           "Namespace": "",
           "Policy": {
             "cooldown": 5.0

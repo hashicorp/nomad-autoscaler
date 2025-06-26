@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 246,
+    "CreateIndex": 27,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "full-scaling",
-    "JobModifyIndex": 246,
+    "JobModifyIndex": 27,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 247,
+    "ModifyIndex": 28,
     "Multiregion": null,
     "Name": "full-scaling",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936898077945000,
+    "SubmitTime": 1750941681334535000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,29 +67,20 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 246,
+          "CreateIndex": 27,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 246,
+          "ModifyIndex": 27,
           "Namespace": "",
           "Policy": {
-            "target": [
-              {
-                "target": [
-                  {
-                    "bool_config": true,
-                    "int_config": 2.0,
-                    "str_config": "str"
-                  }
-                ]
-              }
-            ],
             "check": [
               {
                 "check-1": [
                   {
+                    "on_error": "ignore",
+                    "query": "query-1",
                     "query_window": "1m",
                     "query_window_offset": "2m",
                     "source": "source-1",
@@ -103,29 +94,27 @@
                           }
                         ]
                       }
-                    ],
-                    "on_error": "ignore",
-                    "query": "query-1"
+                    ]
                   }
                 ]
               },
               {
                 "check-2": [
                   {
-                    "group": "group-2",
                     "query": "query-2",
                     "source": "source-2",
                     "strategy": [
                       {
                         "strategy-2": [
                           {
+                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0,
-                            "str_config": "str"
+                            "int_config": 2.0
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "group": "group-2"
                   }
                 ]
               }
@@ -133,12 +122,23 @@
             "cooldown": "5m",
             "cooldown_on_scale_up": "2m",
             "evaluation_interval": "5s",
-            "on_check_error": "fail"
+            "on_check_error": "fail",
+            "target": [
+              {
+                "target": [
+                  {
+                    "bool_config": true,
+                    "int_config": 2.0,
+                    "str_config": "str"
+                  }
+                ]
+              }
+            ]
           },
           "Target": {
+            "Group": "test",
             "Namespace": "default",
-            "Job": "full-scaling",
-            "Group": "test"
+            "Job": "full-scaling"
           },
           "Type": "horizontal"
         },

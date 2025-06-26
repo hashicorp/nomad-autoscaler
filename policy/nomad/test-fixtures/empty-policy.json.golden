@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 234,
+    "CreateIndex": 15,
     "Datacenters": [
       "dc1"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "empty-policy",
-    "JobModifyIndex": 234,
+    "JobModifyIndex": 15,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 235,
+    "ModifyIndex": 16,
     "Multiregion": null,
     "Name": "empty-policy",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750936897146868000,
+    "SubmitTime": 1750941680411324000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -72,18 +72,18 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 234,
+          "CreateIndex": 15,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 234,
+          "ModifyIndex": 15,
           "Namespace": "",
           "Policy": {},
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "empty-policy"
+            "Job": "empty-policy",
+            "Group": "test"
           },
           "Type": "horizontal"
         },

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package policyeval
 
 import (
@@ -101,6 +104,7 @@ func TestScaleTarget_Cooldown(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testPolicy.Target = tc.target
+
 			mcde := &mockCoolDownEnforcer{}
 			mts := &mockTargetScaler{}
 

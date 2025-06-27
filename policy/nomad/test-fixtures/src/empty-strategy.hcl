@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "empty-strategy" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

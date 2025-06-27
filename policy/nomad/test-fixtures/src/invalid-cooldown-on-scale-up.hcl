@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "invalid-cooldown-on-scale-up" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

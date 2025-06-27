@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "strategy-without-metric" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

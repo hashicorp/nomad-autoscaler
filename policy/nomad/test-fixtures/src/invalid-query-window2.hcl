@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "invalid-query-window2" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

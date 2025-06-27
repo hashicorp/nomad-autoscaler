@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "invalid-evaluation-interval-type" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

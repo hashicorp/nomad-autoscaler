@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "invalid-source-not-string" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {

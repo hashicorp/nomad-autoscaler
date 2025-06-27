@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "missing-scaling" {
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     task "echo" {

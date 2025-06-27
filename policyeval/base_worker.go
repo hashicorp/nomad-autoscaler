@@ -329,7 +329,7 @@ func (w *BaseWorker) scaleTarget(
 		}
 
 		metrics.IncrCounterWithLabels([]string{"scale", "invoke", "error_count"}, 1, metricLabels)
-		return fmt.Errorf("failed to scale target: %v", err)
+		return fmt.Errorf("failed to scale target: %w", err)
 	}
 
 	w.logger.Debug("successfully submitted scaling action to target",

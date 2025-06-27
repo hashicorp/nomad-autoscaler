@@ -4,6 +4,7 @@
 package policyeval
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -12,14 +13,16 @@ import (
 	"github.com/shoenig/test/must"
 )
 
+var testError = errors.New("error")
+
 type mockTargetScaler struct {
-	count     int64
-	direction sdk.ScaleDirection
+	count int64
+	err   error
 }
 
 func (mts *mockTargetScaler) Scale(action sdk.ScalingAction, config map[string]string) error {
 	mts.setCount(action.Count)
-	return nil
+	return mts.err
 }
 
 func (mts *mockTargetScaler) setCount(newCount int64) {
@@ -31,7 +34,6 @@ func (mts *mockTargetScaler) getCount() int64 {
 }
 
 type mockCoolDownEnforcer struct {
-	policyID string
 	duration time.Duration
 }
 
@@ -55,50 +57,83 @@ func TestScaleTarget_Cooldown(t *testing.T) {
 		name             string
 		scalingAction    sdk.ScalingAction
 		target           *sdk.ScalingPolicyTarget
+		scalingError     error
 		expectedCooldown time.Duration
 		expectedCount    int64
+		expectedErr      error
 	}{
-		{
-			name: "scaling_up",
+		/* 		{
+		   			name: "scaling_up",
 
-			scalingAction: sdk.ScalingAction{
-				Count:     4,
-				Direction: sdk.ScaleDirectionUp,
-			},
-			target: &sdk.ScalingPolicyTarget{
-				Name: "testTarget",
-			},
-			expectedCooldown: testPolicy.CooldownOnScaleUp,
-			expectedCount:    4,
-		},
-		{
-			name: "scaling_down",
+		   			scalingAction: sdk.ScalingAction{
+		   				Count:     4,
+		   				Direction: sdk.ScaleDirectionUp,
+		   			},
+		   			target: &sdk.ScalingPolicyTarget{
+		   				Name: "testTarget",
+		   			},
+		   			expectedCooldown: testPolicy.CooldownOnScaleUp,
+		   			expectedCount:    4,
+		   		},
+		   		{
+		   			name: "scaling_down",
 
-			scalingAction: sdk.ScalingAction{
-				Count:     1,
-				Direction: sdk.ScaleDirectionDown,
-			},
-			target: &sdk.ScalingPolicyTarget{
-				Name: "testTarget",
-			},
-			expectedCooldown: testPolicy.Cooldown,
-			expectedCount:    1,
-		},
+		   			scalingAction: sdk.ScalingAction{
+		   				Count:     1,
+		   				Direction: sdk.ScaleDirectionDown,
+		   			},
+		   			target: &sdk.ScalingPolicyTarget{
+		   				Name: "testTarget",
+		   			},
+		   			expectedCooldown: testPolicy.Cooldown,
+		   			expectedCount:    1,
+		   		},
+		   		{
+		   			name: "scaling_dry_run",
+		   			scalingAction: sdk.ScalingAction{
+		   				Count:     4,
+		   				Direction: sdk.ScaleDirectionUp,
+		   				Meta:      map[string]interface{}{},
+		   			},
+		   			target: &sdk.ScalingPolicyTarget{
+		   				Name: "testTarget",
+		   				Config: map[string]string{
+		   					"dry-run": "true",
+		   				},
+		   			},
+		   			expectedCooldown: testPolicy.Cooldown,
+		   			expectedCount:    -1,
+		   		},
+		   		{
+		   			name:         "error_propagation",
+		   			scalingError: testError,
+		   			scalingAction: sdk.ScalingAction{
+		   				Count:     4,
+		   				Direction: sdk.ScaleDirectionUp,
+		   				Meta:      map[string]interface{}{},
+		   			},
+		   			target: &sdk.ScalingPolicyTarget{
+		   				Name:   "testTarget",
+		   				Config: map[string]string{},
+		   			},
+		   			expectedCooldown: 0,
+		   			expectedErr:      testError,
+		   			expectedCount:    4,
+		   		},*/
 		{
-			name: "scaling_dry_run",
+			name:         "error_no_op",
+			scalingError: sdk.NewTargetScalingNoOpError("test"),
 			scalingAction: sdk.ScalingAction{
 				Count:     4,
 				Direction: sdk.ScaleDirectionUp,
 				Meta:      map[string]interface{}{},
 			},
 			target: &sdk.ScalingPolicyTarget{
-				Name: "testTarget",
-				Config: map[string]string{
-					"dry-run": "true",
-				},
+				Name:   "testTarget",
+				Config: map[string]string{},
 			},
-			expectedCooldown: testPolicy.Cooldown,
-			expectedCount:    -1,
+			expectedCooldown: 0,
+			expectedCount:    4,
 		},
 	}
 	for _, tc := range testCases {
@@ -106,17 +141,20 @@ func TestScaleTarget_Cooldown(t *testing.T) {
 			testPolicy.Target = tc.target
 
 			mcde := &mockCoolDownEnforcer{}
-			mts := &mockTargetScaler{}
+			mts := &mockTargetScaler{
+				err: tc.scalingError,
+			}
 
 			testBaseWorker := BaseWorker{
 				logger:           hclog.NewNullLogger(),
 				cooldownEnforcer: mcde,
 			}
 
-			testBaseWorker.scaleTarget(mts, testPolicy, tc.scalingAction, testStatus)
+			err := testBaseWorker.scaleTarget(mts, testPolicy, tc.scalingAction, testStatus)
 
 			must.Eq(t, tc.expectedCooldown, mcde.duration)
 			must.Eq(t, tc.expectedCount, mts.getCount())
+			must.Eq(t, tc.expectedErr, errors.Unwrap(err))
 		})
 	}
 

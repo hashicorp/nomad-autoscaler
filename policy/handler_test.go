@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	hclog "github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -38,7 +37,9 @@ func TestHandler_calculateRemainingCooldown(t *testing.T) {
 		},
 	}
 
-	h := NewHandler("", hclog.NewNullLogger(), nil, nil)
+	h := Handler{
+		cooldownCh: make(chan time.Duration, 1),
+	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

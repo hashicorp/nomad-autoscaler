@@ -347,6 +347,14 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	return pluginInfo, nil
 }
 
+func (pm *PluginManager) GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error) {
+	return pm.GetTarget(target)
+}
+
+func (pm *PluginManager) GetTargetExecuter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetScaler, error) {
+	return pm.GetTarget(target)
+}
+
 func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.Target, error) {
 	// Dispense an instance of target plugin used by the policy.
 	targetPlugin, err := pm.Dispense(target.Name, sdk.PluginTypeTarget)

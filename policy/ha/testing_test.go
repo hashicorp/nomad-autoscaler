@@ -125,10 +125,6 @@ func (t *testSource) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	}
 }
 
-func (t *testSource) MonitorPolicy(ctx context.Context, req policy.MonitorPolicyReq) {
-	panic("implement me")
-}
-
 func (t *testSource) Name() policy.SourceName {
 	return "test-source"
 }

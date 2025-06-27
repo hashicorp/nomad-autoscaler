@@ -62,64 +62,64 @@ func TestScaleTarget_Cooldown(t *testing.T) {
 		expectedCount    int64
 		expectedErr      error
 	}{
-		/* 		{
-		   			name: "scaling_up",
+		{
+			name: "scaling_up",
 
-		   			scalingAction: sdk.ScalingAction{
-		   				Count:     4,
-		   				Direction: sdk.ScaleDirectionUp,
-		   			},
-		   			target: &sdk.ScalingPolicyTarget{
-		   				Name: "testTarget",
-		   			},
-		   			expectedCooldown: testPolicy.CooldownOnScaleUp,
-		   			expectedCount:    4,
-		   		},
-		   		{
-		   			name: "scaling_down",
+			scalingAction: sdk.ScalingAction{
+				Count:     4,
+				Direction: sdk.ScaleDirectionUp,
+			},
+			target: &sdk.ScalingPolicyTarget{
+				Name: "testTarget",
+			},
+			expectedCooldown: testPolicy.CooldownOnScaleUp,
+			expectedCount:    4,
+		},
+		{
+			name: "scaling_down",
 
-		   			scalingAction: sdk.ScalingAction{
-		   				Count:     1,
-		   				Direction: sdk.ScaleDirectionDown,
-		   			},
-		   			target: &sdk.ScalingPolicyTarget{
-		   				Name: "testTarget",
-		   			},
-		   			expectedCooldown: testPolicy.Cooldown,
-		   			expectedCount:    1,
-		   		},
-		   		{
-		   			name: "scaling_dry_run",
-		   			scalingAction: sdk.ScalingAction{
-		   				Count:     4,
-		   				Direction: sdk.ScaleDirectionUp,
-		   				Meta:      map[string]interface{}{},
-		   			},
-		   			target: &sdk.ScalingPolicyTarget{
-		   				Name: "testTarget",
-		   				Config: map[string]string{
-		   					"dry-run": "true",
-		   				},
-		   			},
-		   			expectedCooldown: testPolicy.Cooldown,
-		   			expectedCount:    -1,
-		   		},
-		   		{
-		   			name:         "error_propagation",
-		   			scalingError: testError,
-		   			scalingAction: sdk.ScalingAction{
-		   				Count:     4,
-		   				Direction: sdk.ScaleDirectionUp,
-		   				Meta:      map[string]interface{}{},
-		   			},
-		   			target: &sdk.ScalingPolicyTarget{
-		   				Name:   "testTarget",
-		   				Config: map[string]string{},
-		   			},
-		   			expectedCooldown: 0,
-		   			expectedErr:      testError,
-		   			expectedCount:    4,
-		   		},*/
+			scalingAction: sdk.ScalingAction{
+				Count:     1,
+				Direction: sdk.ScaleDirectionDown,
+			},
+			target: &sdk.ScalingPolicyTarget{
+				Name: "testTarget",
+			},
+			expectedCooldown: testPolicy.Cooldown,
+			expectedCount:    1,
+		},
+		{
+			name: "scaling_dry_run",
+			scalingAction: sdk.ScalingAction{
+				Count:     4,
+				Direction: sdk.ScaleDirectionUp,
+				Meta:      map[string]interface{}{},
+			},
+			target: &sdk.ScalingPolicyTarget{
+				Name: "testTarget",
+				Config: map[string]string{
+					"dry-run": "true",
+				},
+			},
+			expectedCooldown: testPolicy.Cooldown,
+			expectedCount:    -1,
+		},
+		{
+			name:         "error_propagation",
+			scalingError: testError,
+			scalingAction: sdk.ScalingAction{
+				Count:     4,
+				Direction: sdk.ScaleDirectionUp,
+				Meta:      map[string]interface{}{},
+			},
+			target: &sdk.ScalingPolicyTarget{
+				Name:   "testTarget",
+				Config: map[string]string{},
+			},
+			expectedCooldown: 0,
+			expectedErr:      testError,
+			expectedCount:    4,
+		},
 		{
 			name:         "error_no_op",
 			scalingError: sdk.NewTargetScalingNoOpError("test"),

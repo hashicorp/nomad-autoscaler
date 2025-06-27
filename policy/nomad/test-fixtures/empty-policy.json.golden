@@ -6,7 +6,7 @@
     "ConsulNamespace": "",
     "CreateIndex": 15,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941680411324000,
+    "SubmitTime": 1751038604221151000,
     "TaskGroups": [
       {
         "Affinities": null,

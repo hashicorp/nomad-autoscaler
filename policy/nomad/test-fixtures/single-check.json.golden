@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 135,
+    "CreateIndex": 133,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "single-check",
-    "JobModifyIndex": 135,
+    "JobModifyIndex": 133,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 136,
+    "ModifyIndex": 134,
     "Multiregion": null,
     "Name": "single-check",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941689372789000,
+    "SubmitTime": 1751038612043300000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,40 +67,40 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 135,
+          "CreateIndex": 133,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 135,
+          "ModifyIndex": 133,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "query",
                     "source": "source",
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": "query"
                   }
                 ]
               }
             ]
           },
           "Target": {
-            "Job": "single-check",
             "Group": "test",
-            "Namespace": "default"
+            "Namespace": "default",
+            "Job": "single-check"
           },
           "Type": "horizontal"
         },

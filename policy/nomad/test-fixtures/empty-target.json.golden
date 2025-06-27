@@ -6,7 +6,7 @@
     "ConsulNamespace": "",
     "CreateIndex": 23,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941681029420000,
+    "SubmitTime": 1751038604855350000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -84,9 +84,9 @@
             ]
           },
           "Target": {
-            "Job": "empty-target",
             "Group": "test",
-            "Namespace": "default"
+            "Namespace": "default",
+            "Job": "empty-target"
           },
           "Type": "horizontal"
         },
@@ -100,10 +100,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

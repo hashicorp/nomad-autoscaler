@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "invalid-cooldown-on-scale-up" {
-  datacenters = ["dc1"]
   type        = "batch"
 
   group "test" {

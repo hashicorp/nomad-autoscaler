@@ -6,7 +6,7 @@
     "ConsulNamespace": "",
     "CreateIndex": 27,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941681334535000,
+    "SubmitTime": 1751038605162034000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -79,42 +79,42 @@
               {
                 "check-1": [
                   {
-                    "on_error": "ignore",
-                    "query": "query-1",
-                    "query_window": "1m",
-                    "query_window_offset": "2m",
-                    "source": "source-1",
                     "strategy": [
                       {
                         "strategy-1": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "on_error": "ignore",
+                    "query": "query-1",
+                    "query_window": "1m",
+                    "query_window_offset": "2m",
+                    "source": "source-1"
                   }
                 ]
               },
               {
                 "check-2": [
                   {
-                    "query": "query-2",
-                    "source": "source-2",
                     "strategy": [
                       {
                         "strategy-2": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
                     ],
-                    "group": "group-2"
+                    "group": "group-2",
+                    "query": "query-2",
+                    "source": "source-2"
                   }
                 ]
               }
@@ -127,18 +127,18 @@
               {
                 "target": [
                   {
+                    "str_config": "str",
                     "bool_config": true,
-                    "int_config": 2.0,
-                    "str_config": "str"
+                    "int_config": 2.0
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Job": "full-scaling",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "full-scaling"
+            "Namespace": "default"
           },
           "Type": "horizontal"
         },

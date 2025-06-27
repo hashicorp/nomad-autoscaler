@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 101,
+    "CreateIndex": 99,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-source-not-string",
-    "JobModifyIndex": 101,
+    "JobModifyIndex": 99,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 102,
+    "ModifyIndex": 100,
     "Multiregion": null,
     "Name": "invalid-source-not-string",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941687184827000,
+    "SubmitTime": 1751038609899811000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,31 +67,31 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 101,
+          "CreateIndex": 99,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 101,
+          "ModifyIndex": 99,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
+                    "source": 2.0,
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "int_config": 2.0,
                             "str_config": "str",
-                            "bool_config": true
+                            "bool_config": true,
+                            "int_config": 2.0
                           }
                         ]
                       }
                     ],
-                    "query": "query",
-                    "source": 2.0
+                    "query": "query"
                   }
                 ]
               }
@@ -114,10 +114,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

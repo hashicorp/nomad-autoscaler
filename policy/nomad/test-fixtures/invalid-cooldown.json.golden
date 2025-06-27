@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 50,
+    "CreateIndex": 49,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-cooldown",
-    "JobModifyIndex": 50,
+    "JobModifyIndex": 49,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 51,
+    "ModifyIndex": 50,
     "Multiregion": null,
     "Name": "invalid-cooldown",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941682972987000,
+    "SubmitTime": 1751038606714006000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,20 +67,20 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 50,
+          "CreateIndex": 49,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 50,
+          "ModifyIndex": 49,
           "Namespace": "",
           "Policy": {
             "cooldown": "invalid"
           },
           "Target": {
+            "Namespace": "default",
             "Job": "invalid-cooldown",
-            "Group": "test",
-            "Namespace": "default"
+            "Group": "test"
           },
           "Type": "horizontal"
         },
@@ -94,10 +94,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "Consul": null,

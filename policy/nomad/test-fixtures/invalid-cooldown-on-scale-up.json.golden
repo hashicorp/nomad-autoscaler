@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 41,
+    "CreateIndex": 40,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-cooldown-on-scale-up",
-    "JobModifyIndex": 41,
+    "JobModifyIndex": 40,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 42,
+    "ModifyIndex": 41,
     "Multiregion": null,
     "Name": "invalid-cooldown-on-scale-up",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941682300316000,
+    "SubmitTime": 1751038606096883000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,20 +67,20 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 41,
+          "CreateIndex": 40,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 41,
+          "ModifyIndex": 40,
           "Namespace": "",
           "Policy": {
             "cooldown_on_scale_up": "invalid"
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "invalid-cooldown-on-scale-up"
+            "Job": "invalid-cooldown-on-scale-up",
+            "Group": "test"
           },
           "Type": "horizontal"
         },

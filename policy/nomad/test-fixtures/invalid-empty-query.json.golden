@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 54,
+    "CreateIndex": 53,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-empty-query",
-    "JobModifyIndex": 54,
+    "JobModifyIndex": 53,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 55,
+    "ModifyIndex": 54,
     "Multiregion": null,
     "Name": "invalid-empty-query",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941683299608000,
+    "SubmitTime": 1751038607018129000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,39 +67,39 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 54,
+          "CreateIndex": 53,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 54,
+          "ModifyIndex": 53,
           "Namespace": "",
           "Policy": {
             "check": [
               {
                 "check": [
                   {
-                    "query": "",
                     "strategy": [
                       {
                         "strategy": [
                           {
-                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0
+                            "int_config": 2.0,
+                            "str_config": "str"
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "query": ""
                   }
                 ]
               }
             ]
           },
           "Target": {
+            "Job": "invalid-empty-query",
             "Group": "test",
-            "Namespace": "default",
-            "Job": "invalid-empty-query"
+            "Namespace": "default"
           },
           "Type": "horizontal"
         },

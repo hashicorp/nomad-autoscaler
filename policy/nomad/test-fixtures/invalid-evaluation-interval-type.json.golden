@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 61,
+    "CreateIndex": 59,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-evaluation-interval-type",
-    "JobModifyIndex": 61,
+    "JobModifyIndex": 59,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 62,
+    "ModifyIndex": 60,
     "Multiregion": null,
     "Name": "invalid-evaluation-interval-type",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941684648238000,
+    "SubmitTime": 1751038607333363000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,20 +67,20 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 61,
+          "CreateIndex": 59,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 61,
+          "ModifyIndex": 59,
           "Namespace": "",
           "Policy": {
             "evaluation_interval": 5.0
           },
           "Target": {
-            "Job": "invalid-evaluation-interval-type",
             "Group": "test",
-            "Namespace": "default"
+            "Namespace": "default",
+            "Job": "invalid-evaluation-interval-type"
           },
           "Type": "horizontal"
         },
@@ -94,10 +94,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
-              "command": "echo",
               "args": [
                 "hi"
-              ]
+              ],
+              "command": "echo"
             },
             "Constraints": null,
             "Consul": null,

@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "empty-check" {
-  datacenters = ["dc1"]
   type        = "batch"
 
   group "test" {

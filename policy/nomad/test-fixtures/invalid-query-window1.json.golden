@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 85,
+    "CreateIndex": 83,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "invalid-query-window1",
-    "JobModifyIndex": 85,
+    "JobModifyIndex": 83,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 86,
+    "ModifyIndex": 84,
     "Multiregion": null,
     "Name": "invalid-query-window1",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941686244059000,
+    "SubmitTime": 1751038608926884000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 85,
+          "CreateIndex": 83,
           "Enabled": true,
           "ID": "id",
           "Max": 10,
           "Min": 1,
-          "ModifyIndex": 85,
+          "ModifyIndex": 83,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -85,9 +85,9 @@
                       {
                         "strategy": [
                           {
+                            "str_config": "str",
                             "bool_config": true,
-                            "int_config": 2.0,
-                            "str_config": "str"
+                            "int_config": 2.0
                           }
                         ]
                       }
@@ -114,10 +114,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

@@ -4,17 +4,17 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 131,
+    "CreateIndex": 129,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "missing-strategy",
-    "JobModifyIndex": 131,
+    "JobModifyIndex": 129,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 132,
+    "ModifyIndex": 130,
     "Multiregion": null,
     "Name": "missing-strategy",
     "Namespace": "default",
@@ -32,7 +32,7 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1750941689064389000,
+    "SubmitTime": 1751038611746837000,
     "TaskGroups": [
       {
         "Affinities": null,
@@ -67,12 +67,12 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 131,
+          "CreateIndex": 129,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 131,
+          "ModifyIndex": 129,
           "Namespace": "",
           "Policy": {
             "check": [
@@ -87,9 +87,9 @@
             ]
           },
           "Target": {
-            "Group": "test",
             "Namespace": "default",
-            "Job": "missing-strategy"
+            "Job": "missing-strategy",
+            "Group": "test"
           },
           "Type": "horizontal"
         },
@@ -103,10 +103,10 @@
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
             "Consul": null,

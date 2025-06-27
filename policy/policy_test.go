@@ -270,6 +270,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           20 * time.Second,
+				CooldownOnScaleUp:  20 * time.Second,
 				EvaluationInterval: 5 * time.Second,
 			},
 			name: "evaluation interval set to default",
@@ -284,6 +285,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           11 * time.Second,
+				CooldownOnScaleUp:  11 * time.Second,
 				EvaluationInterval: 15 * time.Second,
 			},
 			name: "cooldown set to default",
@@ -296,6 +298,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           10 * time.Second,
+				CooldownOnScaleUp:  10 * time.Second,
 				EvaluationInterval: 5 * time.Second,
 			},
 			name: "evaluation interval and cooldown set to default",
@@ -311,9 +314,43 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 			},
 			expectedOutputPolicy: &sdk.ScalingPolicy{
 				Cooldown:           10 * time.Minute,
+				CooldownOnScaleUp:  10 * time.Minute,
 				EvaluationInterval: 5 * time.Minute,
 			},
 			name: "neither set to default",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				CooldownOnScaleUp:  10 * time.Minute,
+				EvaluationInterval: 5 * time.Minute,
+			},
+			inputDefaults: &ConfigDefaults{
+				DefaultEvaluationInterval: 5 * time.Second,
+				DefaultCooldown:           5 * time.Second,
+			},
+			expectedOutputPolicy: &sdk.ScalingPolicy{
+				Cooldown:           5 * time.Second,
+				CooldownOnScaleUp:  10 * time.Minute,
+				EvaluationInterval: 5 * time.Minute,
+			},
+			name: "cooldown not set",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				Cooldown:           5 * time.Second,
+				CooldownOnScaleUp:  10 * time.Minute,
+				EvaluationInterval: 5 * time.Minute,
+			},
+			inputDefaults: &ConfigDefaults{
+				DefaultEvaluationInterval: 5 * time.Second,
+				DefaultCooldown:           15 * time.Second,
+			},
+			expectedOutputPolicy: &sdk.ScalingPolicy{
+				Cooldown:           5 * time.Second,
+				CooldownOnScaleUp:  10 * time.Minute,
+				EvaluationInterval: 5 * time.Minute,
+			},
+			name: "cooldown and cool_down_scale_up set",
 		},
 	}
 

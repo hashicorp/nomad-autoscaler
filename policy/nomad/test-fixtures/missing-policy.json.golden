@@ -3,19 +3,22 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "CreateIndex": 197,
+    "ConsulNamespace": "",
+    "CreateIndex": 118,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
+    "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "missing-policy",
-    "JobModifyIndex": 197,
+    "JobModifyIndex": 118,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 201,
+    "ModifyIndex": 119,
     "Multiregion": null,
     "Name": "missing-policy",
     "Namespace": "default",
+    "NodePool": "default",
     "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
@@ -26,24 +29,28 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "dead",
+    "Status": "running",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1602724420772624000,
+    "SubmitTime": 1751038611130393000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
+        "Consul": null,
         "Count": 2,
+        "Disconnect": null,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
           "Sticky": false
         },
+        "MaxClientDisconnect": null,
         "Meta": null,
         "Migrate": null,
         "Name": "test",
         "Networks": null,
+        "PreventRescheduleOnLost": false,
         "ReschedulePolicy": {
           "Attempts": 1,
           "Delay": 5000000000,
@@ -56,21 +63,22 @@
           "Attempts": 3,
           "Delay": 15000000000,
           "Interval": 86400000000000,
-          "Mode": "fail"
+          "Mode": "fail",
+          "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 197,
+          "CreateIndex": 118,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 2,
-          "ModifyIndex": 197,
+          "ModifyIndex": 118,
           "Namespace": "",
           "Policy": null,
           "Target": {
+            "Namespace": "default",
             "Job": "missing-policy",
-            "Group": "test",
-            "Namespace": "default"
+            "Group": "test"
           },
           "Type": "horizontal"
         },
@@ -80,24 +88,42 @@
         "StopAfterClientDisconnect": null,
         "Tasks": [
           {
+            "Actions": null,
             "Affinities": null,
             "Artifacts": null,
             "Config": {
+              "command": "echo",
               "args": [
                 "hi"
-              ],
-              "command": "echo"
+              ]
             },
             "Constraints": null,
+            "Consul": null,
             "DispatchPayload": null,
             "Driver": "raw_exec",
             "Env": null,
+            "Identities": null,
+            "Identity": {
+              "Audience": [
+                "nomadproject.io"
+              ],
+              "ChangeMode": "",
+              "ChangeSignal": "",
+              "Env": false,
+              "File": false,
+              "Filepath": "",
+              "Name": "default",
+              "ServiceName": "",
+              "TTL": 0
+            },
             "KillSignal": "",
             "KillTimeout": 5000000000,
             "Kind": "",
             "Leader": false,
             "Lifecycle": null,
             "LogConfig": {
+              "Disabled": false,
+              "Enabled": null,
               "MaxFileSizeMB": 10,
               "MaxFiles": 10
             },
@@ -105,19 +131,25 @@
             "Name": "echo",
             "Resources": {
               "CPU": 100,
+              "Cores": 0,
               "Devices": null,
               "DiskMB": 0,
               "IOPS": 0,
               "MemoryMB": 300,
-              "Networks": null
+              "MemoryMaxMB": 0,
+              "NUMA": null,
+              "Networks": null,
+              "SecretsMB": 0
             },
             "RestartPolicy": {
               "Attempts": 3,
               "Delay": 15000000000,
               "Interval": 86400000000000,
-              "Mode": "fail"
+              "Mode": "fail",
+              "RenderTemplates": false
             },
             "ScalingPolicies": null,
+            "Schedule": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -131,6 +163,7 @@
       }
     ],
     "Type": "batch",
+    "UI": null,
     "Update": {
       "AutoPromote": false,
       "AutoRevert": false,
@@ -143,7 +176,7 @@
       "Stagger": 0
     },
     "VaultNamespace": "",
-    "VaultToken": "",
-    "Version": 0
+    "Version": 0,
+    "VersionTag": null
   }
 }

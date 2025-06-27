@@ -4,19 +4,19 @@
     "AllAtOnce": false,
     "Constraints": null,
     "ConsulNamespace": "",
-    "CreateIndex": 113,
+    "CreateIndex": 36,
     "Datacenters": [
       "*"
     ],
     "DispatchIdempotencyToken": "",
     "Dispatched": false,
-    "ID": "minimum-valid-scaling",
-    "JobModifyIndex": 113,
+    "ID": "invalid-cooldown-on-scale-up-type",
+    "JobModifyIndex": 36,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 114,
+    "ModifyIndex": 37,
     "Multiregion": null,
-    "Name": "minimum-valid-scaling",
+    "Name": "invalid-cooldown-on-scale-up-type",
     "Namespace": "default",
     "NodePool": "default",
     "NomadTokenID": "",
@@ -29,16 +29,16 @@
     "Reschedule": null,
     "Spreads": null,
     "Stable": false,
-    "Status": "running",
+    "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1751038610817995000,
+    "SubmitTime": 1751038605791812000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
         "Consul": null,
-        "Count": 1,
+        "Count": 0,
         "Disconnect": null,
         "EphemeralDisk": {
           "Migrate": false,
@@ -67,38 +67,19 @@
           "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 113,
-          "Enabled": true,
+          "CreateIndex": 36,
+          "Enabled": false,
           "ID": "id",
           "Max": 10,
-          "Min": 1,
-          "ModifyIndex": 113,
+          "Min": 0,
+          "ModifyIndex": 36,
           "Namespace": "",
           "Policy": {
-            "check": [
-              {
-                "check": [
-                  {
-                    "query": "query",
-                    "strategy": [
-                      {
-                        "strategy": [
-                          {
-                            "str_config": "str",
-                            "bool_config": true,
-                            "int_config": 2.0
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+            "cooldown": 5.0
           },
           "Target": {
             "Namespace": "default",
-            "Job": "minimum-valid-scaling",
+            "Job": "invalid-cooldown-on-scale-up-type",
             "Group": "test"
           },
           "Type": "horizontal"

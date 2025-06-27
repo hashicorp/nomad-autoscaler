@@ -23,3 +23,11 @@ clean-golden:
 	@nomad stop -purge $* > /dev/null
 	@# hardcode scaling policy ID so tests don't break every time the files are regenerated
 	@jq -rM 'if .Job.TaskGroups[0].Scaling then.Job.TaskGroups[0].Scaling.ID = "id" else . end' $@  > $@.tmp && mv $@{.tmp,}
+
+.PHONY: hclfmt
+hclfmt: ## Format HCL files with hclfmt
+	@echo "==> Formatting HCL"
+	@find . -name '.terraform' -prune \
+	        -o -name '.git' -prune \
+	        -o \( -name '*.nomad' -o -name '*.hcl' -o -name '*.tf' \) \
+	      -print0 | xargs -0 hclfmt -w

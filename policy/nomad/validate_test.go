@@ -463,6 +463,16 @@ func Test_validateScalingPolicy(t *testing.T) {
 			inputFile:   "invalid-cooldown",
 			expectError: true,
 		},
+		{
+			name:        "policy.cooldown_on_scale_up has wrong type",
+			inputFile:   "invalid-cooldown-on-scale-up-type",
+			expectError: true,
+		},
+		{
+			name:        "policy.cooldown_on_scale_up has wrong format",
+			inputFile:   "invalid-cooldown-on-scale-up",
+			expectError: true,
+		},
 	}
 
 	for _, tc := range testCases {

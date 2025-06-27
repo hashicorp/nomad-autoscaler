@@ -37,6 +37,11 @@ func (pr *Processor) ApplyPolicyDefaults(p *sdk.ScalingPolicy) {
 	if p.Cooldown == 0 {
 		p.Cooldown = pr.defaults.DefaultCooldown
 	}
+
+	if p.CooldownOnScaleUp == 0 {
+		p.CooldownOnScaleUp = p.Cooldown
+	}
+
 	if p.EvaluationInterval == 0 {
 		p.EvaluationInterval = pr.defaults.DefaultEvaluationInterval
 	}

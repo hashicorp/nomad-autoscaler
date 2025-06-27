@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "full-scaling" {
-  datacenters = ["dc1"]
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     scaling {
@@ -12,9 +11,10 @@ job "full-scaling" {
       enabled = false
 
       policy {
-        evaluation_interval = "5s"
-        cooldown            = "5m"
-        on_check_error      = "fail"
+        evaluation_interval  = "5s"
+        cooldown             = "5m"
+        cooldown_on_scale_up = "2m"
+        on_check_error       = "fail"
 
         target "target" {
           int_config  = 2

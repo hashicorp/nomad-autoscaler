@@ -57,9 +57,15 @@ type ScalingPolicy struct {
 	// be taken.
 	OnCheckError string
 
-	// Cooldown is the time period after a scaling action if performed, during
+	// Cooldown is the time period after a scaling action is performed, during
 	// which no policy evaluations will be started.
 	Cooldown time.Duration
+
+	// CooldownOnScaleUp is the time period after a scaling up action
+	// is performed, during which no policy evaluations will be started. It is
+	// as a separate option to allow for more aggressive scale up in case of
+	// surges.
+	CooldownOnScaleUp time.Duration
 
 	// EvaluationInterval indicates the frequency at which the policy is
 	// evaluated. A lower value means more frequent evaluation and can result
@@ -223,6 +229,7 @@ type FileDecodeScalingPolicy struct {
 type FileDecodePolicyDoc struct {
 	Cooldown              time.Duration
 	CooldownHCL           string `hcl:"cooldown,optional"`
+	CooldownOnScaleUpHCL  string `hcl:"cooldown_on_scale_up,optional"`
 	EvaluationInterval    time.Duration
 	EvaluationIntervalHCL string                      `hcl:"evaluation_interval,optional"`
 	OnCheckError          string                      `hcl:"on_check_error,optional"`

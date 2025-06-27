@@ -205,7 +205,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 // enforceCooldown blocks until the cooldown period has been reached, or the
 // handler has been instructed to exit. The boolean return details whether or
 // not the cooldown period passed without being interrupted.
-func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complete bool) {
+func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) bool {
 
 	// Log that cooldown is being enforced. This is very useful as cooldown
 	// blocks the ticker making this the only indication of cooldown to
@@ -221,12 +221,12 @@ func (h *Handler) enforceCooldown(ctx context.Context, t time.Duration) (complet
 	// Cooldown should not mean we miss other handler control signals. So wait
 	// on all the channels desired here.
 	select {
-	case <-timer.C:
-		complete = true
-		return
 	case <-ctx.Done():
-		return
+		return false
+	case <-timer.C:
 	}
+
+	return true
 }
 
 // calculateRemainingCooldown calculates the remaining cooldown based on the

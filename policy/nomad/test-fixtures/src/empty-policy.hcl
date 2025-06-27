@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "empty-policy" {
-  datacenters = ["dc1"]
 
   group "test" {
     scaling {

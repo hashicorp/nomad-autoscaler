@@ -1,24 +1,17 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-job "invalid-source-not-string" {
+job "invalid-cooldown-on-scale-up" {
   type = "batch"
 
   group "test" {
     scaling {
-      max = 10
+      min     = 0
+      max     = 10
+      enabled = false
 
       policy {
-        check "check" {
-          source = 2
-          query  = "query"
-
-          strategy "strategy" {
-            int_config  = 2
-            bool_config = true
-            str_config  = "str"
-          }
-        }
+        cooldown_on_scale_up = "invalid"
       }
     }
 

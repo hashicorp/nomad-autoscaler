@@ -90,9 +90,15 @@ func validatePolicy(p map[string]interface{}) error {
 	}
 
 	// Validate Cooldown, if present.
-	//   1. Cooldown should be a valid duration.
+	//   1. Cooldown and cooldownOnScaleUp should be a valid duration.
 	if cooldown, ok := p[keyCooldown]; ok {
 		if err := validateDuration(cooldown, path+"."+keyCooldown); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	if cooldownOnScaleUp, ok := p[keyCooldownOnScaleUp]; ok {
+		if err := validateDuration(cooldownOnScaleUp, path+"."+keyCooldownOnScaleUp); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}

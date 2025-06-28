@@ -143,7 +143,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	case orchestrationModeFlexible:
 		remoteIDs, err = t.getFlexibleReadyRemoteIDs(ctx, resourceGroup, vms)
 		if err != nil {
-			return fmt.Errorf("failed to get remote IDs: %w", err)
+			return fmt.Errorf("failed to get ready remote IDs: %w", err)
 		}
 	default:
 		return fmt.Errorf("unsupported VMSS mode: %s", vmssMode)
@@ -316,7 +316,6 @@ func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGro
 	wg.Wait()
 
 	if len(remoteIDs) == 0 {
-		t.logger.Error("No instances found to be provisioned and running.")
 		return nil, fmt.Errorf("no provisioned and running instances found")
 	}
 

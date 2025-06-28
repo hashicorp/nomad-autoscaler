@@ -346,16 +346,22 @@ func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
 func idFromRemoteID(mode string, remoteResourceID string, vmScaleSet string) (string, error) {
 	switch mode {
 	case orchestrationModeUniform:
+		// For Uniform mode, remoteResourceID is expected to be in the format "<vmss_name>_<instance_id>"
 		if idx := strings.LastIndex(remoteResourceID, "_"); idx != -1 &&
-			strings.EqualFold(remoteResourceID[0:idx], vmScaleSet) &&
-			len(remoteResourceID) >= idx+1 {
+			strings.EqualFold(remoteResourceID[:idx], vmScaleSet) &&
+			len(remoteResourceID) > idx+1 {
 			return remoteResourceID[idx+1:], nil
 		}
+		return "", fmt.Errorf("invalid remoteResourceID format for Uniform mode: %q", remoteResourceID)
 
 	case orchestrationModeFlexible:
+		// For Flexible mode, remoteResourceID is the VM name, which should start with the vmScaleSet name
 		if strings.HasPrefix(remoteResourceID, vmScaleSet) {
 			return remoteResourceID, nil
 		}
+		return "", fmt.Errorf("invalid remoteResourceID format for Flexible mode: %q", remoteResourceID)
 	}
-	return "", errors.New("lolwut")
+	// This should be caught during the initial plugin initialization
+	// Adding for now as a placeholder
+	return "", fmt.Errorf("unsupported orchestration mode: %q", mode)
 }

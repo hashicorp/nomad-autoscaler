@@ -137,7 +137,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 		// Should not get here, but adding.
 		if len(remoteIDs) == 0 {
-			return fmt.Errorf("no ")
+			return fmt.Errorf("no remote IDs")
 		}
 
 	case orchestrationModeFlexible:
@@ -163,36 +163,12 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	// Grab the instanceIDs once as it is used multiple times throughout the
 	// scale in event.
 	var instanceIDs []string
-	switch vmssMode {
-	case orchestrationModeUniform:
-		for _, node := range ids {
-			log.Debug("processing node for scale in", "node_id", node, "remote_id", node.RemoteResourceID)
-			// RemoteID should be in the format of "{scale-set-name}_{instance-id}"
-			// If RemoteID doesn't start vmScaleSet then assume its not part of this scale set.
-			// https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids#scale-set-vm-names
-			if idx := strings.LastIndex(node.RemoteResourceID, "_"); idx != -1 && strings.EqualFold(node.RemoteResourceID[0:idx], vmScaleSet) {
-				instanceIDs = append(instanceIDs, node.RemoteResourceID[idx+1:])
-			} else {
-				return errors.New("failed to get instance-id from remoteid")
-			}
+	for _, node := range ids {
+		id, err := idFromRemoteID(vmssMode, node.RemoteResourceID, vmScaleSet)
+		if err != nil {
+			return err
 		}
-	case orchestrationModeFlexible:
-		for _, node := range ids {
-			log.Debug("processing node for scale in", "node_id", node, "remote_id", node.RemoteResourceID)
-			// You'll notice that the logic here is different than Uniform mode. This is mainly due to Azure's consistency of being inconsistent.
-			// https://learn.microsoft.com/en-us/azure/virtual-machine-scale-sets/virtual-machine-scale-sets-instance-ids#scale-set-vm-names
-			if idx := strings.LastIndex(node.RemoteResourceID, "_"); idx != -1 &&
-				strings.EqualFold(node.RemoteResourceID[0:idx], vmScaleSet) {
-				instanceIDs = append(instanceIDs, node.RemoteResourceID)
-
-			} else {
-				return errors.New("failed to validate remoteid format")
-			}
-		}
-	default:
-		// if the orchestration mode is not supported or validated
-		// should not get to this point
-		return errors.New("unsupported orchestration mode")
+		instanceIDs = append(instanceIDs, id)
 	}
 
 	if len(instanceIDs) == 0 {
@@ -365,4 +341,21 @@ func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
 	}
 
 	return provisioned && poweredOn
+}
+
+func idFromRemoteID(mode string, remoteResourceID string, vmScaleSet string) (string, error) {
+	switch mode {
+	case orchestrationModeUniform:
+		if idx := strings.LastIndex(remoteResourceID, "_"); idx != -1 &&
+			strings.EqualFold(remoteResourceID[0:idx], vmScaleSet) &&
+			len(remoteResourceID) >= idx+1 {
+			return remoteResourceID[idx+1:], nil
+		}
+
+	case orchestrationModeFlexible:
+		if strings.HasPrefix(remoteResourceID, vmScaleSet) {
+			return remoteResourceID, nil
+		}
+	}
+	return "", errors.New("lolwut")
 }

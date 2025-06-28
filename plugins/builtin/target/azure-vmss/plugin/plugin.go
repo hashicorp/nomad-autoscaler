@@ -312,7 +312,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 
 			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
 			if err != nil {
-				t.logger.Debug("Failed to get instance view for VM", "vm_name", vm, "error", err)
+				t.logger.Error("Failed to get instance view for VM", "vm_name", vm, "error", err)
 				return
 			}
 

@@ -277,12 +277,11 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
 				for _, s := range vm.Properties.InstanceView.Statuses {
 					if s.Code != nil && *s.Code == "PowerState/running" {
-							t.logger.Debug("found healthy instance", "name", *vm.Name, "instance_id", *vm.InstanceID)
-							vmNames = append(vmNames, *vm.Name)
-							break
-						} else {
-							t.logger.Debug("skipping instance - power state is not running", "name", *vm.Name, "instance_id", *vm.InstanceID, "code", *s.Code)
-						}
+						t.logger.Debug("found healthy instance", "name", *vm.Name, "instance_id", *vm.InstanceID)
+						vmNames = append(vmNames, *vm.Name)
+						break
+					} else {
+						t.logger.Debug("skipping instance - power state is not running", "name", *vm.Name, "instance_id", *vm.InstanceID, "code", *s.Code)
 					}
 				}
 			} else if vmssMode == orchestrationModeFlexible {
@@ -293,7 +292,6 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 				// Defaults to previous logic with uniform scale sets.
 				t.logger.Debug("skipping instance", "id", *vm.ID, "instance_id", *vm.InstanceID)
 			}
-
 		}
 	}
 
@@ -349,7 +347,7 @@ func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGro
 	return remoteIDs, nil
 }
 
-// isVMReady checks whether the Flexible VMSS VM has both ProvisioningState/succeeded and PowerState/running.
+// isFlexibleVMReady checks whether the Flexible VMSS VM has both ProvisioningState/succeeded and PowerState/running.
 func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
 	var provisioned, poweredOn bool
 

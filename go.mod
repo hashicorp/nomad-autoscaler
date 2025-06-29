@@ -26,7 +26,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/prometheus/client_golang v1.22.0
-	github.com/prometheus/common v0.64.0
+	github.com/prometheus/common v0.65.0
 	github.com/shoenig/test v1.12.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/text v0.26.0

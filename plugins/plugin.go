@@ -53,6 +53,10 @@ const (
 
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
+
+	// InternalTargetIBMIG is the IBMCloud Instance Group target
+	// plugin.
+	InternalTargetIBMIG = "ibmcloud-ig"
 )
 
 // ConfigKeyNomadConfigInherit is a generic plugin config map key that supports

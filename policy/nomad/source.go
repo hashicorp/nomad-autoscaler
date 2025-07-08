@@ -36,6 +36,8 @@ const (
 	keyGroup              = "group"
 	keyStrategy           = "strategy"
 	keyCooldown           = "cooldown"
+	keyScalingMin         = "scaling_min"
+	keyScalingMax         = "scaling_max"
 )
 
 // Ensure NomadSource satisfies the Source interface.

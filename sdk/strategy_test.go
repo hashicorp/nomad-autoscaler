@@ -411,3 +411,135 @@ func TestPreemptAction(t *testing.T) {
 		})
 	}
 }
+
+func TestAction_IgnoreOutOfBounds(t *testing.T) {
+	testCases := []struct {
+		inputAction          *ScalingAction
+		inputCurrent         int64
+		inputMin             int64
+		inputMax             int64
+		expectedOutputAction *ScalingAction
+		name                 string
+	}{
+		{
+			inputAction: &ScalingAction{
+				Count: 7,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 6,
+			inputMin:     5,
+			inputMax:     10,
+			expectedOutputAction: &ScalingAction{
+				Count:  7,
+				Meta:   map[string]interface{}{},
+				Reason: "",
+			},
+			name: "within bounds",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 7,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 6,
+			inputMin:     5,
+			inputMax:     0,
+			expectedOutputAction: &ScalingAction{
+				Count:  7,
+				Meta:   map[string]interface{}{},
+				Reason: "",
+			},
+			name: "max bound unset means no high bound",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 1,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 0,
+			inputMin:     0,
+			inputMax:     1,
+			expectedOutputAction: &ScalingAction{
+				Count:  1,
+				Meta:   map[string]interface{}{},
+				Reason: "",
+			},
+			name: "0 to 1",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 0,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 1,
+			inputMin:     0,
+			inputMax:     1,
+			expectedOutputAction: &ScalingAction{
+				Count:  0,
+				Meta:   map[string]interface{}{},
+				Reason: "",
+			},
+			name: "1 to 0",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 5,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 5,
+			inputMin:     0,
+			inputMax:     1,
+			expectedOutputAction: &ScalingAction{
+				Count:  5,
+				Meta:   map[string]interface{}{},
+				Reason: "",
+			},
+			name: "out of bounds without changes does not add meta",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 0,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 5,
+			inputMin:     0,
+			inputMax:     1,
+			expectedOutputAction: &ScalingAction{
+				Count: 5,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.ignored":  int64(0),
+					"nomad_autoscaler.ignored":        true,
+					"nomad_autoscaler.reason_history": []string{},
+				},
+				Reason: "ignored count of 0 because the current number of allocations if off this check's scaling_min and scaling_max. Fell back to 5, the current number of allocations",
+			},
+			name: "prevent scaling down when out of bounds",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 5,
+				Meta:  map[string]interface{}{},
+			},
+			inputCurrent: 0,
+			inputMin:     1,
+			inputMax:     10,
+			expectedOutputAction: &ScalingAction{
+				Count: 0,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.ignored":  int64(5),
+					"nomad_autoscaler.ignored":        true,
+					"nomad_autoscaler.reason_history": []string{},
+				},
+				Reason: "ignored count of 5 because the current number of allocations if off this check's scaling_min and scaling_max. Fell back to 0, the current number of allocations",
+			},
+			name: "prevent scaling up when out of bounds",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.inputAction.IgnoreOutOfBounds(tc.inputCurrent, tc.inputMin, tc.inputMax)
+			assert.Equal(t, tc.expectedOutputAction, tc.inputAction)
+		})
+	}
+}

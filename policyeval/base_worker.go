@@ -476,8 +476,12 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	// Canonicalize action so plugins don't have to.
 	h.checkEval.Action.Canonicalize()
 
-	// Make sure new count value is within [min, max] limits
+	// Make sure new count value is within global [min, max] limits
 	h.checkEval.Action.CapCount(h.policy.Min, h.policy.Max)
+
+	// Only evaluate this check if the current count of instances is within
+	// the check's [min, max] limits
+	h.checkEval.Action.IgnoreOutOfBounds(currentStatus.Count, h.checkEval.Check.ScalingMin, h.checkEval.Check.ScalingMax)
 
 	// Skip action if count doesn't change.
 	if currentStatus.Count == h.checkEval.Action.Count {

@@ -149,6 +149,16 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	on_error, _ := checkMap[keyOnError].(string)
 	group, _ := checkMap[keyGroup].(string)
 
+	var scaling_min int64
+	if scalingMinFloat64, ok := checkMap[keyScalingMin].(float64); ok {
+		scaling_min = int64(scalingMinFloat64)
+	}
+
+	var scaling_max int64
+	if scalingMaxFloat64, ok := checkMap[keyScalingMax].(float64); ok {
+		scaling_max = int64(scalingMaxFloat64)
+	}
+
 	// Parse query_window and query_window_offset ignoring errors since we
 	// assume policy has been validated.
 	var queryWindow, queryWindowOffset time.Duration
@@ -167,6 +177,8 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 		Source:            source,
 		Strategy:          strategy,
 		OnError:           on_error,
+		ScalingMin:        scaling_min,
+		ScalingMax:        scaling_max,
 	}
 }
 

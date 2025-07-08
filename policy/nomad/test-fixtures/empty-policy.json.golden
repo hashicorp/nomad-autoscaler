@@ -3,19 +3,22 @@
     "Affinities": null,
     "AllAtOnce": false,
     "Constraints": null,
-    "CreateIndex": 218,
+    "ConsulNamespace": "",
+    "CreateIndex": 15,
     "Datacenters": [
-      "dc1"
+      "*"
     ],
+    "DispatchIdempotencyToken": "",
     "Dispatched": false,
     "ID": "empty-policy",
-    "JobModifyIndex": 218,
+    "JobModifyIndex": 15,
     "Meta": null,
     "Migrate": null,
-    "ModifyIndex": 219,
+    "ModifyIndex": 16,
     "Multiregion": null,
     "Name": "empty-policy",
     "Namespace": "default",
+    "NodePool": "default",
     "NomadTokenID": "",
     "ParameterizedJob": null,
     "ParentID": "",
@@ -29,17 +32,20 @@
     "Status": "dead",
     "StatusDescription": "",
     "Stop": false,
-    "SubmitTime": 1602724424188174000,
+    "SubmitTime": 1751038604221151000,
     "TaskGroups": [
       {
         "Affinities": null,
         "Constraints": null,
+        "Consul": null,
         "Count": 0,
+        "Disconnect": null,
         "EphemeralDisk": {
           "Migrate": false,
           "SizeMB": 300,
           "Sticky": false
         },
+        "MaxClientDisconnect": null,
         "Meta": null,
         "Migrate": {
           "HealthCheck": "checks",
@@ -49,6 +55,7 @@
         },
         "Name": "test",
         "Networks": null,
+        "PreventRescheduleOnLost": false,
         "ReschedulePolicy": {
           "Attempts": 0,
           "Delay": 30000000000,
@@ -61,15 +68,16 @@
           "Attempts": 2,
           "Delay": 15000000000,
           "Interval": 1800000000000,
-          "Mode": "fail"
+          "Mode": "fail",
+          "RenderTemplates": false
         },
         "Scaling": {
-          "CreateIndex": 218,
+          "CreateIndex": 15,
           "Enabled": false,
           "ID": "id",
           "Max": 10,
           "Min": 0,
-          "ModifyIndex": 218,
+          "ModifyIndex": 15,
           "Namespace": "",
           "Policy": {},
           "Target": {
@@ -85,6 +93,7 @@
         "StopAfterClientDisconnect": null,
         "Tasks": [
           {
+            "Actions": null,
             "Affinities": null,
             "Artifacts": null,
             "Config": {
@@ -94,15 +103,32 @@
               "command": "echo"
             },
             "Constraints": null,
+            "Consul": null,
             "DispatchPayload": null,
             "Driver": "raw_exec",
             "Env": null,
+            "Identities": null,
+            "Identity": {
+              "Audience": [
+                "nomadproject.io"
+              ],
+              "ChangeMode": "",
+              "ChangeSignal": "",
+              "Env": false,
+              "File": false,
+              "Filepath": "",
+              "Name": "default",
+              "ServiceName": "",
+              "TTL": 0
+            },
             "KillSignal": "",
             "KillTimeout": 5000000000,
             "Kind": "",
             "Leader": false,
             "Lifecycle": null,
             "LogConfig": {
+              "Disabled": false,
+              "Enabled": null,
               "MaxFileSizeMB": 10,
               "MaxFiles": 10
             },
@@ -110,19 +136,25 @@
             "Name": "echo",
             "Resources": {
               "CPU": 100,
+              "Cores": 0,
               "Devices": null,
               "DiskMB": 0,
               "IOPS": 0,
               "MemoryMB": 300,
-              "Networks": null
+              "MemoryMaxMB": 0,
+              "NUMA": null,
+              "Networks": null,
+              "SecretsMB": 0
             },
             "RestartPolicy": {
               "Attempts": 2,
               "Delay": 15000000000,
               "Interval": 1800000000000,
-              "Mode": "fail"
+              "Mode": "fail",
+              "RenderTemplates": false
             },
             "ScalingPolicies": null,
+            "Schedule": null,
             "Services": null,
             "ShutdownDelay": 0,
             "Templates": null,
@@ -146,6 +178,7 @@
       }
     ],
     "Type": "service",
+    "UI": null,
     "Update": {
       "AutoPromote": false,
       "AutoRevert": false,
@@ -158,7 +191,7 @@
       "Stagger": 30000000000
     },
     "VaultNamespace": "",
-    "VaultToken": "",
-    "Version": 0
+    "Version": 0,
+    "VersionTag": null
   }
 }

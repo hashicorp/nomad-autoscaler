@@ -97,6 +97,7 @@ func (a *ScalingAction) SetDryRun() {
 	a.Meta[strategyActionMetaKeyDryRun] = true
 	a.Meta[strategyActionMetaKeyDryRunCount] = a.Count
 	a.Count = StrategyActionMetaValueDryRunCount
+	a.Direction = ScaleDirectionNone
 }
 
 // CapCount caps the value of Count so it remains within the specified limits.

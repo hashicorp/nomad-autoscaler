@@ -21,18 +21,22 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/uuid"
 )
 
+type cooldownEnforcer interface {
+	EnforceCooldown(policyID string, coolDownDuration time.Duration)
+}
+
 // errTargetNotReady is used by a check handler to indicate the policy target
 // is not ready.
 var errTargetNotReady = errors.New("target not ready")
 
 // Worker is responsible for executing a policy evaluation request.
 type BaseWorker struct {
-	id            string
-	logger        hclog.Logger
-	pluginManager *manager.PluginManager
-	policyManager *policy.Manager
-	broker        *Broker
-	queue         string
+	id               string
+	logger           hclog.Logger
+	pluginManager    *manager.PluginManager
+	cooldownEnforcer cooldownEnforcer
+	broker           *Broker
+	queue            string
 }
 
 // NewBaseWorker returns a new BaseWorker instance.
@@ -40,12 +44,12 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 	id := uuid.Generate()
 
 	return &BaseWorker{
-		id:            id,
-		logger:        l.Named("worker").With("id", id, "queue", queue),
-		pluginManager: pm,
-		policyManager: m,
-		broker:        b,
-		queue:         queue,
+		id:               id,
+		logger:           l.Named("worker").With("id", id, "queue", queue),
+		pluginManager:    pm,
+		cooldownEnforcer: m,
+		broker:           b,
+		queue:            queue,
 	}
 }
 
@@ -132,7 +136,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 			Reason:    reason,
 			Direction: sdk.ScaleDirectionUp,
 		}
-		return w.scaleTarget(logger, target, eval.Policy, action, currentStatus)
+		return w.scaleTarget(target, eval.Policy, action, currentStatus)
 	}
 	if currentStatus.Count > eval.Policy.Max {
 		reason := fmt.Sprintf("scaling down because current count %d is greater than policy max value of %d",
@@ -143,7 +147,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 			Reason:    reason,
 			Direction: sdk.ScaleDirectionDown,
 		}
-		return w.scaleTarget(logger, target, eval.Policy, action, currentStatus)
+		return w.scaleTarget(target, eval.Policy, action, currentStatus)
 	}
 
 	// Prepare handlers.
@@ -277,7 +281,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 	default:
 	}
 
-	err = w.scaleTarget(logger, target, eval.Policy, *winner.action, currentStatus)
+	err = w.scaleTarget(target, eval.Policy, *winner.action, currentStatus)
 	if err != nil {
 		return err
 	}
@@ -289,8 +293,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 // scaleTarget performs all the necessary checks and actions necessary to scale
 // a target.
 func (w *BaseWorker) scaleTarget(
-	logger hclog.Logger,
-	targetImpl target.Target,
+	targetScaler target.TargetScaler,
 	policy *sdk.ScalingPolicy,
 	action sdk.ScalingAction,
 	currentStatus *sdk.TargetStatus,
@@ -300,15 +303,15 @@ func (w *BaseWorker) scaleTarget(
 	// action count to nil so its no-nop. This allows us to still
 	// submit the job, but not alter its state.
 	if val, ok := policy.Target.Config["dry-run"]; ok && val == "true" {
-		logger.Info("scaling dry-run is enabled, using no-op task group count")
+		w.logger.Info("scaling dry-run is enabled, using no-op task group count")
 		action.SetDryRun()
 	}
 
 	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
-		logger.Debug("registering scaling event",
+		w.logger.Debug("registering scaling event",
 			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
 	} else {
-		logger.Info("scaling target",
+		w.logger.Info("scaling target",
 			"from", currentStatus.Count, "to", action.Count,
 			"reason", action.Reason, "meta", action.Meta)
 	}
@@ -318,24 +321,32 @@ func (w *BaseWorker) scaleTarget(
 		{Name: "target_name", Value: policy.Target.Name},
 	}
 
-	err := runTargetScale(targetImpl, policy, action)
+	err := runTargetScale(targetScaler, policy, action)
 	if err != nil {
 		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
-			logger.Info("scaling action skipped", "reason", err)
+			w.logger.Info("scaling action skipped", "reason", err)
 			return nil
 		}
 
 		metrics.IncrCounterWithLabels([]string{"scale", "invoke", "error_count"}, 1, metricLabels)
-		return fmt.Errorf("failed to scale target: %v", err)
+		return fmt.Errorf("failed to scale target: %w", err)
 	}
 
-	logger.Debug("successfully submitted scaling action to target",
+	w.logger.Debug("successfully submitted scaling action to target",
 		"desired_count", action.Count)
 	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, metricLabels)
 
 	// Enforce the cooldown after a successful scaling event.
-	w.policyManager.EnforceCooldown(policy.ID, policy.Cooldown)
+	w.cooldownEnforcer.EnforceCooldown(policy.ID, calculateCooldown(policy, action))
 	return nil
+}
+
+func calculateCooldown(p *sdk.ScalingPolicy, a sdk.ScalingAction) time.Duration {
+	if a.Direction == sdk.ScaleDirectionUp {
+		return p.CooldownOnScaleUp
+	}
+
+	return p.Cooldown
 }
 
 // runTargetStatus wraps the target.Status call to provide operational
@@ -351,7 +362,7 @@ func runTargetStatus(t target.Target, policy *sdk.ScalingPolicy) (*sdk.TargetSta
 
 // runTargetScale wraps the target.Scale call to provide operational
 // functionality.
-func runTargetScale(targetImpl target.Target, policy *sdk.ScalingPolicy, action sdk.ScalingAction) error {
+func runTargetScale(targetImpl target.TargetScaler, policy *sdk.ScalingPolicy, action sdk.ScalingAction) error {
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: policy.Target.Name}, {Name: "policy_id", Value: policy.ID}}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)

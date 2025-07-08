@@ -2,8 +2,7 @@
 # SPDX-License-Identifier: MPL-2.0
 
 job "missing-scaling" {
-  datacenters = ["dc1"]
-  type        = "batch"
+  type = "batch"
 
   group "test" {
     task "echo" {

@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.7 (July 9, 2025)
 
 BUG FIXES:
 * plugin/strategy/threshold: do not return negative newCount

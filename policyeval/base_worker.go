@@ -192,6 +192,7 @@ func (w *BaseWorker) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluati
 				continue
 			case sdk.ScalingPolicyOnErrorFail:
 				return err
+			case sdk.ScalingPolicyOnErrorScale:
 			default:
 				if eval.Policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
 					return err
@@ -419,7 +420,11 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to query source: %v", err)
+		if h.checkEval.Check.OnError != sdk.ScalingPolicyOnErrorScale {
+			h.logger.Error("failed to query source. Continuing with policy because on_error is '%s': %v", sdk.ScalingPolicyOnErrorScale, err)
+		} else {
+			return nil, fmt.Errorf("failed to query source: %v", err)
+		}
 	}
 
 	if h.checkEval.Metrics != nil {
@@ -427,8 +432,12 @@ func (h *checkHandler) start(ctx context.Context, currentStatus *sdk.TargetStatu
 		sort.Sort(h.checkEval.Metrics)
 
 		if len(h.checkEval.Metrics) == 0 {
-			h.logger.Warn("no metrics available")
-			return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
+			if h.checkEval.Check.OnError == sdk.ScalingPolicyOnErrorScale {
+				h.logger.Warn("no metrics available, continuing with policy because on_error is '%s'", sdk.ScalingPolicyOnErrorScale)
+			} else {
+				h.logger.Warn("no metrics available, nothing to do.")
+				return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
+			}
 		}
 
 		if h.logger.IsTrace() {

@@ -102,6 +102,23 @@ func TestScalingPolicy_Validate(t *testing.T) {
 			},
 			expectedError: "",
 		},
+		{
+			name: "valid policy using on_error = 'scale'",
+			policy: &ScalingPolicy{
+				Type:         "horizontal",
+				OnCheckError: "ignore",
+				Checks: []*ScalingPolicyCheck{
+					{
+						Name:    "valid",
+						OnError: "scale",
+						Strategy: &ScalingPolicyStrategy{
+							Name: "target-value",
+						},
+					},
+				},
+			},
+			expectedError: "",
+		},
 	}
 
 	for _, tc := range testCases {

@@ -18,6 +18,7 @@ const (
 
 	ScalingPolicyOnErrorFail   = "fail"
 	ScalingPolicyOnErrorIgnore = "ignore"
+	ScalingPolicyOnErrorScale  = "scale"
 )
 
 // ScalingPolicy is the internal representation of a scaling document and
@@ -111,10 +112,10 @@ func (p *ScalingPolicy) Validate() error {
 		}
 
 		switch c.OnError {
-		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:
+		case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore, ScalingPolicyOnErrorScale:
 		default:
-			err := fmt.Errorf("invalid value for on_error in check %s: only %s and %s are allowed",
-				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore)
+			err := fmt.Errorf("invalid value for on_error in check %s: only %s, %s, and %s are allowed",
+				c.Name, ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore, ScalingPolicyOnErrorScale)
 			result = multierror.Append(result, err)
 		}
 	}
@@ -154,13 +155,15 @@ type ScalingPolicyCheck struct {
 	Strategy *ScalingPolicyStrategy
 
 	// OnError defines how errors are handled by the Autoscaler when running
-	// this check. Possible values are "ignore" or "fail". If not set the
+	// this check. Possible values are "ignore", "fail", or "scale". If not set the
 	// policy `on_check_error` value will be used.
 	//
 	// If "ignore" the check is not considered when calculating the final
 	// scaling action result.
-	// If "fail" the the entire policy evaluation will stop and no action will
+	// If "fail" the entire policy evaluation will stop and no action will
 	// be taken.
+	// If "scale" the check will be considered to be active. Use this to
+	// "fail-safe" scale-up to towards max when metrics are unavailable
 	OnError string
 }
 

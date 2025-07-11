@@ -79,8 +79,10 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
+	github.com/apparentlymart/go-textseg/v13 v13.0.0 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
+	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.16.31 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.35 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.35 // indirect
@@ -127,13 +129,16 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/oklog/ulid v1.3.1 // indirect
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/procfs v0.16.1 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/spf13/cast v1.9.2 // indirect
-	github.com/tv42/httpunix v0.0.0-20191220191345-2ba4b9c3382c // indirect
-	github.com/zclconf/go-cty v1.16.3 // indirect
+	github.com/spf13/cast v1.7.0 // indirect
+	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
+	github.com/zclconf/go-cty v1.13.0 // indirect
+	go.mongodb.org/mongo-driver v1.17.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect

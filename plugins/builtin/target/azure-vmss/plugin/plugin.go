@@ -8,9 +8,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	hclog "github.com/hashicorp/go-hclog"
@@ -273,7 +270,6 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 }
 
 func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
-	start := time.Now()
 
 	if len(vms) == 0 {
 		t.logger.Debug("No VMs found in the VMSS, skipping instance view processing.")
@@ -282,57 +278,26 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 
 	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(vms))
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	var wg sync.WaitGroup
-	requests := make(chan struct{}, 5)
-
-	var notReady atomic.Bool
 	var statusReady = true
+	ctx := context.Background()
 
 	for _, vmName := range vms {
-		if ctx.Err() != nil {
-			t.logger.Debug("Context cancelled, stopping further processing of VMs")
-			break
+		instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
+		if err != nil {
+			t.logger.Error("Failed to get instance view for VM during status check", "vm_name", vmName, "error", err)
+			continue
 		}
 
-		wg.Add(1)
-		requests <- struct{}{}
+		if !isFlexibleVMReady(instanceView.Statuses) {
+			t.logger.Debug("VM not ready", "vm_name", vmName, "statuses", instanceView.Statuses)
 
-		go func(vm string) {
-			defer wg.Done()
-			defer func() { <-requests }()
+			t.logger.Debug("Setting status to not ready", "vm_name", vmName)
+			statusReady = false
+			break
 
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
-			if err != nil {
-				t.logger.Error("Failed to get instance view for VM", "vm_name", vm, "error", err)
-				return
-			}
-
-			if !isFlexibleVMReady(instanceView.Statuses) {
-				t.logger.Debug("VM not ready", "vm_name", vm, "statuses", instanceView.Statuses)
-
-				if notReady.CompareAndSwap(false, true) {
-					t.logger.Debug("Setting status to not ready and cancelling context", "vm_name", vm)
-					statusReady = false
-					cancel()
-				}
-				return
-			}
-
-			t.logger.Debug("VM instance view is ready", "vm_name", vm)
-		}(vmName)
+		}
+		t.logger.Debug("VM instance view is ready", "vm_name", vmName)
 	}
-	wg.Wait()
 
-	t.logger.Debug("Setting status", statusReady)
 	status.Ready = statusReady
-	t.logger.Debug("Finished processing VM instance views", "duration_seconds", time.Since(start).Seconds())
 }

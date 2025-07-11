@@ -176,6 +176,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					if isUnrecoverableError(err) {
 						return err
 					}
+					continue
 				}
 
 				m.handlersLock.RLock()
@@ -212,6 +213,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 					if isUnrecoverableError(err) {
 						return err
 					}
+					continue
 				}
 
 				go RunNewHandler(handlerCtx, HandlerConfig{

@@ -9,7 +9,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
@@ -49,10 +49,12 @@ var _ target.Target = (*TargetPlugin)(nil)
 
 // TargetPlugin is the Azure VMSS implementation of the target.Target interface.
 type TargetPlugin struct {
-	config  map[string]string
-	logger  hclog.Logger
-	vmss    compute.VirtualMachineScaleSetsClient
-	vmssVMs compute.VirtualMachineScaleSetVMsClient
+	config map[string]string
+	logger hclog.Logger
+
+	vm      *armcompute.VirtualMachinesClient
+	vmss    *armcompute.VirtualMachineScaleSetsClient
+	vmssVMs *armcompute.VirtualMachineScaleSetVMsClient
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
@@ -111,21 +113,23 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	}
 	ctx := context.Background()
 
-	currVMSS, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet)
+	currVMSS, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet, nil)
 	if err != nil {
 		return fmt.Errorf("failed to get Azure vmss: %v", err)
 	}
 
-	capacity := *currVMSS.Sku.Capacity
+	capacity := *currVMSS.SKU.Capacity
 
 	// The Azure VMSS target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
 	// relevant number so we can correctly perform the AWS work.
 	num, direction := t.calculateDirection(capacity, action.Count)
 
+	orchestrationMode := string(*currVMSS.Properties.OrchestrationMode)
+
 	switch direction {
 	case "in":
-		err = t.scaleIn(ctx, resourceGroup, vmScaleSet, num, config)
+		err = t.scaleIn(ctx, resourceGroup, vmScaleSet, num, config, orchestrationMode)
 	case "out":
 		err = t.scaleOut(ctx, resourceGroup, vmScaleSet, num)
 	default:
@@ -168,24 +172,58 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	ctx := context.Background()
 
-	vmss, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet)
+	t.logger.Debug("getting Azure ScaleSet status", "resource_group", resourceGroup, "vmss_name", vmScaleSet)
+
+	vmss, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Azure ScaleSet: %v", err)
 	}
 
-	instanceView, err := t.vmss.GetInstanceView(ctx, resourceGroup, vmScaleSet)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %v", err)
+	vmssMode := string(*vmss.Properties.OrchestrationMode)
+
+	// Currently only two orchestration modes are supported - Flexible and Uniform.
+	// https://pkg.go.dev/github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute@v1.0.0#OrchestrationMode
+	// Flexible is not compatible with GetInstanceView which is used in Uniform logic.
+	// Get all VMs in the VMSS, so we can process them individually later.
+	vms := []string{}
+	if vmssMode == orchestrationModeFlexible {
+		t.logger.Debug("VMSS Orchestration Mode", "mode", vmssMode)
+
+		flexVMs, err := t.getVMSSVMs(ctx, resourceGroup, vmssMode, vmScaleSet)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get VMSS flexible VMs: %w", err)
+		}
+
+		vms = flexVMs
+
+	}
+
+	// GetInstanceView - Gets the status of a VM scale set instance.
+	var instanceView armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse
+	if vmssMode == orchestrationModeUniform {
+		instanceView, err = t.vmss.GetInstanceView(ctx, resourceGroup, vmScaleSet, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %v", err)
+		}
 	}
 
 	// Set our initial status.
 	resp := sdk.TargetStatus{
 		Ready: true,
-		Count: *vmss.Sku.Capacity,
+		Count: *vmss.SKU.Capacity,
 		Meta:  make(map[string]string),
 	}
 
-	processInstanceView(instanceView, &resp)
+	// If flexible, it takes the VMSS VMs and processes them individually
+	// outside of the scope of the VMSS.
+	if vmssMode == orchestrationModeFlexible {
+		t.processInstanceViewFlexible(vms, resourceGroup, &resp)
+	}
+
+	// If Uniform, we process the instance view directly from the VMSS.
+	if vmssMode == orchestrationModeUniform {
+		processInstanceView(&instanceView, &resp)
+	}
 
 	return &resp, nil
 }
@@ -203,28 +241,61 @@ func (t *TargetPlugin) calculateDirection(vmssDesired, strategyDesired int64) (i
 
 // processInstanceView updates the status object based on the details within
 // the vmss instances.
-func processInstanceView(instanceView compute.VirtualMachineScaleSetInstanceView, status *sdk.TargetStatus) {
+func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse, status *sdk.TargetStatus) {
 
-	for _, instanceStatus := range *instanceView.VirtualMachine.StatusesSummary {
-		if *instanceStatus.Code != "ProvisioningState/succeeded" {
-			status.Ready = false
-		}
+	if instanceView == nil || len(instanceView.VirtualMachineScaleSetInstanceView.Statuses) == 0 {
+		return
 	}
 
 	latestTime := int64(math.MinInt64)
-	for _, instanceStatus := range *instanceView.Statuses {
-		if *instanceStatus.Code != "ProvisioningState/succeeded" {
-			status.Ready = false
-		}
+	if instanceView.VirtualMachineScaleSetInstanceView.Statuses != nil {
+		for _, instanceStatus := range instanceView.VirtualMachineScaleSetInstanceView.Statuses {
+			if instanceStatus.Code != nil && *instanceStatus.Code != "ProvisioningState/succeeded" {
+				status.Ready = false
+			}
 
-		// Time isn't always populated, especially if the activity has not yet
-		// finished :).
-		if instanceStatus.Time != nil {
-			currentTime := instanceStatus.Time.Time.UnixNano()
-			if currentTime > latestTime {
-				latestTime = currentTime
-				status.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatInt(currentTime, 10)
+			// Time isn't always populated, especially if the activity has not yet
+			// finished :).
+			if instanceStatus.Time != nil {
+				currentTime := instanceStatus.Time.UnixNano()
+				if currentTime > latestTime {
+					latestTime = currentTime
+					status.Meta[sdk.TargetStatusMetaKeyLastEvent] = strconv.FormatInt(currentTime, 10)
+				}
 			}
 		}
 	}
+}
+
+func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
+
+	if len(vms) == 0 {
+		t.logger.Debug("No VMs found in the VMSS, skipping instance view processing.")
+		return
+	}
+
+	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(vms))
+
+	var statusReady = true
+	ctx := context.Background()
+
+	for _, vmName := range vms {
+		instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
+		if err != nil {
+			t.logger.Error("Failed to get instance view for VM during status check", "vm_name", vmName, "error", err)
+			continue
+		}
+
+		if !isFlexibleVMReady(instanceView.Statuses) {
+			t.logger.Debug("VM not ready", "vm_name", vmName, "statuses", instanceView.Statuses)
+
+			t.logger.Debug("Setting status to not ready", "vm_name", vmName)
+			statusReady = false
+			break
+
+		}
+		t.logger.Debug("VM instance view is ready", "vm_name", vmName)
+	}
+
+	status.Ready = statusReady
 }

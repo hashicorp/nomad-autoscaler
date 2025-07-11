@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
@@ -276,44 +275,22 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 
 func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGroup string, vms []string) ([]string, error) {
 	var remoteIDs []string
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	requests := make(chan struct{}, 5)
 
-	for _, vm := range vms {
-		wg.Add(1)
-		requests <- struct{}{}
+	for _, vmName := range vms {
+		instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
+		if err != nil {
+			t.logger.Debug("Failed to get instance view for VM", "vm_name", vmName, "error", err)
+			continue
+		}
 
-		go func(vmName string) {
-			defer wg.Done()
-			defer func() { <-requests }()
+		if !isFlexibleVMReady(instanceView.Statuses) {
+			t.logger.Debug("Instance not ready", "vm_name", vmName)
+			continue
+		}
 
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-
-			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
-			if err != nil {
-				t.logger.Debug("Failed to get instance view for VM", "vm_name", vmName, "error", err)
-				return
-			}
-
-			if !isFlexibleVMReady(instanceView.Statuses) {
-				t.logger.Debug("Instance not ready", "vm_name", vmName)
-				return
-			}
-
-			t.logger.Debug("Instance candidate for scale-in action", "vm_name", vmName)
-
-			mu.Lock()
-			remoteIDs = append(remoteIDs, vmName)
-			mu.Unlock()
-		}(vm)
+		t.logger.Debug("Instance candidate for scale-in action", "vm_name", vmName)
+		remoteIDs = append(remoteIDs, vmName)
 	}
-
-	wg.Wait()
 
 	if len(remoteIDs) == 0 {
 		return nil, fmt.Errorf("no provisioned and running instances found")
@@ -348,7 +325,7 @@ func idFromRemoteID(mode string, remoteResourceID string, vmScaleSet string) (st
 		// For Uniform mode, remoteResourceID is expected to be in the format "<vmss_name>_<instance_id>"
 		if idx := strings.LastIndex(remoteResourceID, "_"); idx != -1 &&
 			strings.EqualFold(remoteResourceID[:idx], vmScaleSet) &&
-			len(remoteResourceID) > idx+1 {
+			len(remoteResourceID) >= idx+1 {
 			return remoteResourceID[idx+1:], nil
 		}
 		return "", fmt.Errorf("invalid remoteResourceID format for Uniform mode: %q", remoteResourceID)

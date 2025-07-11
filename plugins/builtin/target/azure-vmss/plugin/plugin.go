@@ -72,8 +72,6 @@ func NewAzureVMSSPlugin(log hclog.Logger) *TargetPlugin {
 // SetConfig satisfies the SetConfig function on the base.Base interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
 
-	t.logger.Info("setting Azure VMSS target plugin config", "config", config)
-
 	t.config = config
 
 	if err := t.setupAzureClient(config); err != nil {

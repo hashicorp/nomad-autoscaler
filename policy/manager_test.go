@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -15,21 +16,28 @@ import (
 	"github.com/shoenig/test/must"
 )
 
+var testErrUnrecoverable = errors.New("connection refused")
+
 // Target mocks
 type mockTargetMonitorGetter struct {
-	msg *mockStatusGetter
+	count int
+	msg   *mockStatusGetter
+	err   error
 }
 
 func (mtrg *mockTargetMonitorGetter) GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error) {
-	return mtrg.msg, nil
+	mtrg.count++
+
+	return mtrg.msg, mtrg.err
 }
 
 type mockStatusGetter struct {
 	status *sdk.TargetStatus
+	err    error
 }
 
 func (msg *mockStatusGetter) Status(config map[string]string) (*sdk.TargetStatus, error) {
-	return msg.status, nil
+	return msg.status, msg.err
 }
 
 // Source mocks
@@ -38,6 +46,7 @@ type mockSource struct {
 	callsCount    int
 	name          SourceName
 	latestVersion map[PolicyID]*sdk.ScalingPolicy
+	err           error
 }
 
 func (ms *mockSource) resetCounter() {
@@ -59,7 +68,7 @@ func (ms *mockSource) GetLatestVersion(ctx context.Context, pID PolicyID) (*sdk.
 	defer ms.countLock.Unlock()
 
 	ms.callsCount++
-	return ms.latestVersion[pID], nil
+	return ms.latestVersion[pID], ms.err
 }
 
 func (ms *mockSource) Name() SourceName {
@@ -271,6 +280,148 @@ func TestMonitoring(t *testing.T) {
 				must.NotNil(t, ph.cancel)
 				must.NotNil(t, ph.updates)
 			}
+		})
+	}
+}
+
+func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
+	evalCh := make(chan *sdk.ScalingEvaluation)
+
+	testCases := []struct {
+		name              string
+		message           IDMessage
+		sourceError       error
+		expectedError     error
+		expectedCallCount int
+	}{
+		{
+			name: "recoverable source error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			sourceError:       errors.New("recoverable error"),
+			expectedError:     nil,
+			expectedCallCount: 3,
+		},
+		{
+			name: "unrecoverable source error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			sourceError:       testErrUnrecoverable,
+			expectedError:     testErrUnrecoverable,
+			expectedCallCount: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ms := &mockSource{
+				name:          "mock-source",
+				err:           tc.sourceError,
+				latestVersion: map[PolicyID]*sdk.ScalingPolicy{},
+				countLock:     &sync.Mutex{},
+			}
+
+			testedManager := &Manager{
+				log:           hclog.NewNullLogger(),
+				handlersLock:  sync.RWMutex{},
+				policySources: map[SourceName]Source{"mock-source": ms},
+			}
+
+			ctx := context.Background()
+			err := testedManager.processMessageAndUpdateHandlers(ctx, evalCh, tc.message)
+			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			must.Eq(t, tc.expectedCallCount, ms.callsCount)
+		})
+	}
+}
+
+func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
+	evalCh := make(chan *sdk.ScalingEvaluation)
+
+	testCases := []struct {
+		name                string
+		message             IDMessage
+		targetReporterError error
+		expectedError       error
+		expectedCallCount   int
+	}{
+		{
+			name: "recoverable source error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			targetReporterError: errors.New("recoverable error"),
+			expectedError:       nil,
+			expectedCallCount:   3,
+		},
+		{
+			name: "unrecoverable source error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			targetReporterError: testErrUnrecoverable,
+			expectedError:       testErrUnrecoverable,
+			expectedCallCount:   1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			ms := &mockSource{
+				name: "mock-source",
+				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+					"policy1": {
+						ID: "policy1",
+					},
+					"policy2": {
+						ID: "policy2",
+					},
+					"policy3": {
+						ID: "policy3",
+					},
+				},
+				countLock: &sync.Mutex{},
+			}
+
+			// Create a mock target reporter
+			mStatusGetter := &mockTargetMonitorGetter{
+				msg: &mockStatusGetter{},
+				err: tc.targetReporterError,
+			}
+
+			testedManager := &Manager{
+				log:           hclog.NewNullLogger(),
+				handlersLock:  sync.RWMutex{},
+				policySources: map[SourceName]Source{"mock-source": ms},
+				targetGetter:  mStatusGetter,
+			}
+
+			ctx := context.Background()
+			err := testedManager.processMessageAndUpdateHandlers(ctx, evalCh, tc.message)
+			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
 }

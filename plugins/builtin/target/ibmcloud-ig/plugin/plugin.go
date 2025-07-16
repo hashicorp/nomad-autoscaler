@@ -24,8 +24,8 @@ const (
 
 var (
 	// this should catch IBMCloudIG not fulfilling the contract of the Target plugin as a
-  // build-time failure.  If maintenance removes or fails to keep up, it's caught here
-  // in a predictable place.
+	// build-time failure.  If maintenance removes or fails to keep up, it's caught here
+	// in a predictable place.
 	_ target.Target = (*IBMCloudIG)(nil)
 
 	PluginConfig = &plugins.InternalPluginConfig{
@@ -87,13 +87,13 @@ func (n *IBMCloudIG) Scale(action sdk.ScalingAction, config map[string]string) e
 	n.logger.Info(
 		"ScaleAction: Instance Group status successfully queried",
 		"instance_group_name", *ig.Name,
-		"status",              *ig.Status,
-		"size",                *ig.MembershipCount,
+		"status", *ig.Status,
+		"size", *ig.MembershipCount,
 	)
 
 	// Prepare a patch to set the new size
 	instanceGroupPatchModel := vpcv1.InstanceGroupPatch{}
-	instanceGroupPatchModel.MembershipCount = core.Int64Ptr(int64(action.Count))
+	instanceGroupPatchModel.MembershipCount = core.Int64Ptr(action.Count)
 	instanceGroupPatch, err := instanceGroupPatchModel.AsPatch()
 	if err != nil {
 		return fmt.Errorf("error creating patch for instance group %s: %w", instanceGroupID, err)
@@ -153,13 +153,13 @@ func (n *IBMCloudIG) Status(config map[string]string) (*sdk.TargetStatus, error)
 	n.logger.Info(
 		"Instance Group status successfully queried",
 		"instance_group_name", *ig.Name,
-		"status",              *ig.Status,
-		"size",                *ig.MembershipCount,
+		"status", *ig.Status,
+		"size", *ig.MembershipCount,
 	)
 
 	return &sdk.TargetStatus{
 		Ready: (*ig.Status == vpcv1.InstanceGroupStatusHealthyConst),
-		Count: int64(*ig.MembershipCount),
+		Count: *ig.MembershipCount,
 		Meta:  make(map[string]string),
 	}, nil
 }

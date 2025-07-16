@@ -102,6 +102,15 @@ func TestScalingPolicy_Validate(t *testing.T) {
 			},
 			expectedError: "",
 		},
+		{
+			name: "empty checks",
+			policy: &ScalingPolicy{
+				Type:         "horizontal",
+				OnCheckError: "ignore",
+				Checks:       []*ScalingPolicyCheck{},
+			},
+			expectedError: "empty checks, this policy won't execute any verification or scaling and should have enabled set to false",
+		},
 	}
 
 	for _, tc := range testCases {

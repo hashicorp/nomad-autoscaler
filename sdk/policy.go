@@ -97,6 +97,10 @@ func (p *ScalingPolicy) Validate() error {
 		result = multierror.Append(result, err)
 	}
 
+	if len(p.Checks) == 0 {
+		result = multierror.Append(result, fmt.Errorf("empty checks, this policy won't execute any verification or scaling and should have enabled set to false"))
+	}
+
 	for _, c := range p.Checks {
 		if c.Strategy == nil || c.Strategy.Name == "" {
 			result = multierror.Append(result, fmt.Errorf("invalid check %s: missing strategy value", c.Name))

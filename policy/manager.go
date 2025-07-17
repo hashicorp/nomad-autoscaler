@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"fmt"
 	"maps"
 	"strings"
 	"sync"
@@ -160,75 +161,87 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 			// Now send updates to the active policies or create new handlers
 			// for any new policies
-			for policyID, updated := range message.IDs {
-
-				updatedPolicy := &sdk.ScalingPolicy{}
-				var err error
-
-				if !updated {
-					continue
-				}
-
-				s := m.policySources[message.Source]
-				updatedPolicy, err = s.GetLatestVersion(ctx, policyID)
-				if err != nil {
-					m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
-					if isUnrecoverableError(err) {
-						return err
-					}
-				}
-
-				m.handlersLock.RLock()
-				pht := m.handlers[policyID]
-				m.handlersLock.RUnlock()
-				if pht != nil {
-					// If the handler already exists, send the updated policy to it.
-					m.log.Trace("sending updated policy to existing handler",
-						"policy_id", policyID, "policy_source", message.Source)
-
-					pht.updates <- updatedPolicy
-
-					continue
-				}
-
-				// If we reach this point it means it is a new policy and we need
-				// a new handler for it.
-				m.log.Trace("creating new handler",
-					"policy_id", policyID, "policy_source", message.Source)
-
-				handlerCtx, handlerCancel := context.WithCancel(ctx)
-				upCh := make(chan *sdk.ScalingPolicy, 1)
-				cdCh := make(chan time.Duration, 1)
-
-				nht := &handlerTracker{
-					updates:    upCh,
-					cancel:     handlerCancel,
-					cooldownCh: cdCh,
-				}
-
-				tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
-				if err != nil {
-					m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
-					if isUnrecoverableError(err) {
-						return err
-					}
-				}
-
-				go RunNewHandler(handlerCtx, HandlerConfig{
-					Log:          m.log.Named("policy_handler").With("policy_id", policyID),
-					Policy:       updatedPolicy,
-					CooldownChan: cdCh,
-					UpdatesChan:  upCh,
-					ErrChan:      m.policyIDsErrCh,
-					TargetGetter: tg,
-					EvalsChannel: evalCh,
-				})
-
-				// Add the new handler tracker to the manager's internal state.
-				m.addHandlerTracker(policyID, nht)
+			err := m.processMessageAndUpdateHandlers(ctx, evalCh, message)
+			if err != nil {
+				return err
 			}
 		}
 	}
+}
+
+func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation, message IDMessage) error {
+
+	for policyID, updated := range message.IDs {
+
+		updatedPolicy := &sdk.ScalingPolicy{}
+		var err error
+
+		if !updated {
+			continue
+		}
+
+		s := m.policySources[message.Source]
+		updatedPolicy, err = s.GetLatestVersion(ctx, policyID)
+		if err != nil {
+			m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
+			if isUnrecoverableError(err) {
+				return fmt.Errorf("failed to get latest version for policy %s: %w", policyID, err)
+			}
+			continue
+		}
+
+		m.handlersLock.RLock()
+		pht := m.handlers[policyID]
+		m.handlersLock.RUnlock()
+		if pht != nil {
+			// If the handler already exists, send the updated policy to it.
+			m.log.Trace("sending updated policy to existing handler",
+				"policy_id", policyID, "policy_source", message.Source)
+
+			pht.updates <- updatedPolicy
+
+			continue
+		}
+
+		// If we reach this point it means it is a new policy and we need
+		// a new handler for it.
+		m.log.Trace("creating new handler",
+			"policy_id", policyID, "policy_source", message.Source)
+
+		handlerCtx, handlerCancel := context.WithCancel(ctx)
+		upCh := make(chan *sdk.ScalingPolicy, 1)
+		cdCh := make(chan time.Duration, 1)
+
+		nht := &handlerTracker{
+			updates:    upCh,
+			cancel:     handlerCancel,
+			cooldownCh: cdCh,
+		}
+
+		tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
+		if err != nil {
+			m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
+			if isUnrecoverableError(err) {
+				return fmt.Errorf("failed to get target for policy %s: %w", policyID, err)
+			}
+			continue
+		}
+
+		go RunNewHandler(handlerCtx, HandlerConfig{
+			Log:          m.log.Named("policy_handler").With("policy_id", policyID),
+			Policy:       updatedPolicy,
+			CooldownChan: cdCh,
+			UpdatesChan:  upCh,
+			ErrChan:      m.policyIDsErrCh,
+			TargetGetter: tg,
+			EvalsChannel: evalCh,
+		})
+
+		// Add the new handler tracker to the manager's internal state.
+		m.addHandlerTracker(policyID, nht)
+	}
+
+	return nil
 }
 
 func (m *Manager) stopHandlers() {

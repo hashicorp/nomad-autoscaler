@@ -28,7 +28,7 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
 
 	if policy == nil {
-		return multierror.Append(result, errors.New("ScalingPolicy c"))
+		return multierror.Append(result, errors.New("ScalingPolicy is empty, this policy won't execute any verification or scaling and should have enabled set to false"))
 	}
 
 	// Validate ID.

@@ -5,12 +5,14 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 
+	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -19,6 +21,10 @@ import (
 const (
 	cooldownIgnoreTime = 3 * time.Minute
 )
+
+// errTargetNotReady is used by a check handler to indicate the policy target
+// is not ready.
+var errTargetNotReady = errors.New("target not ready")
 
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
@@ -38,16 +44,16 @@ type Handler struct {
 	policy     *sdk.ScalingPolicy
 
 	statusGetter targetpkg.TargetStatusGetter
+	targetScaler targetpkg.TargetScaler
 
 	// cooldownCh is used to notify the handler that it should enter a cooldown
 	// period.
-	cooldownCh <-chan time.Duration
+	cooldownCh chan time.Duration
 	errChn     chan<- error
+
+	checkHandlers []*checkHandler
 }
 
-//	StartNewHandler starts the handler for the given policy
-//
-// This function blocks until the context provided is canceled.
 type HandlerConfig struct {
 	CooldownChan chan time.Duration
 	UpdatesChan  chan *sdk.ScalingPolicy
@@ -58,6 +64,9 @@ type HandlerConfig struct {
 	EvalsChannel chan<- *sdk.ScalingEvaluation
 }
 
+//	RunNewHandler starts the handler for the given policy
+//
+// This function blocks until the context provided is canceled.
 func RunNewHandler(ctx context.Context, config HandlerConfig) {
 
 	h := &Handler{
@@ -244,4 +253,267 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 			h.log.Info("policy modified", "modification", mutation)
 		}
 	}
+}
+
+// runTargetStatus wraps the target.Status call to provide operational
+// functionality.
+func (h *Handler) runTargetStatus() (*sdk.TargetStatus, error) {
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "status", "invoke_ms"}, time.Now(), labels)
+
+	return h.statusGetter.Status(h.policy.Target.Config)
+}
+
+func (h *Handler) handlePolicy(ctx context.Context) error {
+
+	// Record the start time of the eval portion of this function. The labels
+	// are also used across multiple metrics, so define them.
+	evalStartTime := time.Now()
+	labels := []metrics.Label{
+		{Name: "policy_id", Value: h.policy.ID},
+		{Name: "target_name", Value: h.policy.Target.Name},
+	}
+
+	h.log.Debug("received policy for evaluation")
+
+	currentStatus, err := h.runTargetStatus()
+	if err != nil {
+		return fmt.Errorf("failed to get target status: %v", err)
+	}
+
+	if !currentStatus.Ready {
+		return errTargetNotReady
+	}
+
+	// First make sure the target is within the policy limits.
+	// Return early after scaling since we already modified the target.
+	if currentStatus.Count < h.policy.Min {
+		reason := fmt.Sprintf("scaling up because current count %d is lower than policy min value of %d",
+			currentStatus.Count, h.policy.Min)
+
+		action := sdk.ScalingAction{
+			Count:     h.policy.Min,
+			Reason:    reason,
+			Direction: sdk.ScaleDirectionUp,
+		}
+		return h.scaleTarget(action, currentStatus)
+	}
+
+	if currentStatus.Count > h.policy.Max {
+		reason := fmt.Sprintf("scaling down because current count %d is greater than policy max value of %d",
+			currentStatus.Count, h.policy.Max)
+
+		action := sdk.ScalingAction{
+			Count:     h.policy.Max,
+			Reason:    reason,
+			Direction: sdk.ScaleDirectionDown,
+		}
+		return h.scaleTarget(action, currentStatus)
+	}
+
+	// Prepare handlers.
+	handlersCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Store check results by group so we can compare their results together.
+	checkGroups := make(map[string][]checkResult)
+
+	// Start check handlers.
+	for _, ch := range h.checkHandlers {
+		//checkHandler := newCheckHandler(logger, eval.Policy, checkEval, w.pluginManager)
+
+		// Wrap target status call in a goroutine so we can listen for ctx as well.
+		var action *sdk.ScalingAction
+		var err error
+		doneCh := make(chan interface{})
+
+		go func() {
+			defer close(doneCh)
+			action, err = ch.runChecks(handlersCtx, currentStatus)
+		}()
+
+		select {
+		case <-ctx.Done():
+			h.log.Info("stopping worker")
+			return nil
+		case <-doneCh:
+		}
+
+		if err != nil {
+			h.log.Warn("failed to run check",
+				"check", ch.check.Name,
+				"on_error", ch.check.OnError,
+				"on_check_error", ch.policy.OnCheckError,
+				"error", err)
+
+			// Define how to handle error.
+			// Use check behaviour if set or fail iff the policy is set to fail.
+			switch ch.check.OnError {
+			case sdk.ScalingPolicyOnErrorIgnore:
+				continue
+			case sdk.ScalingPolicyOnErrorFail:
+				return err
+			default:
+				if ch.policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
+					return err
+				}
+			}
+			continue
+		}
+
+		group := ch.check.Group
+		checkGroups[group] = append(checkGroups[group], checkResult{
+			action:  action,
+			handler: ch,
+		})
+	}
+
+	// winner is the final check that will be executed after the check groups
+	// are processed.
+	var winner checkResult
+
+	for group, results := range checkGroups {
+		// Decide which action wins in the group. The decision processes still
+		// picks the safest choice, but it handles `none` actions a little
+		// differently.
+		//
+		// Since grouped checks have corelated metrics, it's expected that most
+		// checks will result in `none` actions as the data will be somewhere
+		// else. So we ignore none actions unless _all_ checks in the group
+		// vote for `none` to avoid accidentally scaling down when comparing
+		// with other groups.
+		var groupWinner checkResult
+
+		noneCount := 0
+		for _, r := range results {
+			if r.action == nil {
+				continue
+			}
+
+			if group != "" && r.action.Direction == sdk.ScaleDirectionNone {
+				noneCount += 1
+				continue
+			}
+			groupWinner = groupWinner.preempt(r)
+		}
+
+		// If all checks result in `none`, pick any one of them so when we
+		// don't scale down accidentally when comparing it with other groups.
+		if noneCount > 0 && noneCount == len(results) {
+			groupWinner = results[0]
+		}
+
+		if groupWinner.handler == nil {
+			h.log.Trace(fmt.Sprintf("no winner in group %s", group))
+			continue
+		}
+
+		h.log.Debug(
+			fmt.Sprintf("check %s selected in group %s", groupWinner.handler.check.Name, group),
+			"direction", groupWinner.action.Direction, "count", groupWinner.action.Count)
+
+		winner = winner.preempt(groupWinner)
+	}
+
+	// At this point the checks have finished. Therefore emit of metric data
+	// tracking how long it takes to run all the checks within a policy.
+	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
+
+	if winner.handler == nil || winner.action == nil || winner.action.Direction == sdk.ScaleDirectionNone {
+		h.log.Debug("no checks need to be executed")
+		return nil
+	}
+
+	h.log.Debug(fmt.Sprintf("check %s selected", winner.handler.check.Name),
+		"direction", winner.action.Direction, "count", winner.action.Count)
+
+	// Measure how long it takes to invoke the scaling actions. This helps
+	// understand the time taken to interact with the remote target and action
+	// the scaling action.
+	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
+
+	// Last check for early exit before scaling the target, which we consider
+	// a non-preemptable action since we cannot be sure that a scaling action can
+	// be cancelled halfway through or undone.
+	select {
+	case <-ctx.Done():
+		h.log.Info("stopping worker")
+		return nil
+	default:
+	}
+
+	err = h.scaleTarget(*winner.action, currentStatus)
+	if err != nil {
+		return err
+	}
+
+	h.log.Debug("policy evaluation complete")
+	return nil
+}
+
+// scaleTarget performs all the necessary checks and actions necessary to scale
+// a target.
+func (h *Handler) scaleTarget(action sdk.ScalingAction, currentStatus *sdk.TargetStatus) error {
+
+	// If the policy is configured with dry-run:true then we set the
+	// action count to nil so its no-nop. This allows us to still
+	// submit the job, but not alter its state.
+	if val, ok := h.policy.Target.Config["dry-run"]; ok && val == "true" {
+		h.log.Info("scaling dry-run is enabled, using no-op task group count")
+		action.SetDryRun()
+	}
+
+	if action.Count == sdk.StrategyActionMetaValueDryRunCount {
+		h.log.Debug("registering scaling event",
+			"count", currentStatus.Count, "reason", action.Reason, "meta", action.Meta)
+	} else {
+		h.log.Info("scaling target",
+			"from", currentStatus.Count, "to", action.Count,
+			"reason", action.Reason, "meta", action.Meta)
+	}
+
+	metricLabels := []metrics.Label{
+		{Name: "policy_id", Value: h.policy.ID},
+		{Name: "target_name", Value: h.policy.Target.Name},
+	}
+
+	err := h.runTargetScale(action)
+	if err != nil {
+		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
+			h.log.Info("scaling action skipped", "reason", err)
+			return nil
+		}
+
+		metrics.IncrCounterWithLabels([]string{"scale", "invoke", "error_count"}, 1, metricLabels)
+		return fmt.Errorf("failed to scale target: %w", err)
+	}
+
+	h.log.Debug("successfully submitted scaling action to target",
+		"desired_count", action.Count)
+	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, metricLabels)
+
+	// Enforce the cooldown after a successful scaling event.
+	//h.cooldownEnforcer.EnforceCooldown(policy.ID, calculateCooldown(policy, action))
+	h.cooldownCh <- calculateCooldown(h.policy, action)
+	return nil
+}
+
+func calculateCooldown(p *sdk.ScalingPolicy, a sdk.ScalingAction) time.Duration {
+	if a.Direction == sdk.ScaleDirectionUp {
+		return p.CooldownOnScaleUp
+	}
+
+	return p.Cooldown
+}
+
+// runTargetScale wraps the target.Scale call to provide operational
+// functionality.
+func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: h.policy.Target.Name}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)
+
+	return h.targetScaler.Scale(action, h.policy.Target.Config)
 }

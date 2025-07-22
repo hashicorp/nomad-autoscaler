@@ -17,6 +17,10 @@ type APM interface {
 	// interface.
 	base.Base
 
+	Looker
+}
+
+type Looker interface {
 	// Query is used to ask the remote APM for timestamped metrics based on the
 	// passed query and time range.
 	Query(query string, timeRange sdk.TimeRange) (sdk.TimestampedMetrics, error)

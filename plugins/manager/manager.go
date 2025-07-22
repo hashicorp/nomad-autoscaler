@@ -206,6 +206,7 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 	if !ok {
 		return nil, fmt.Errorf("failed to dispense plugin: %q of type %q is not stored", name, pluginType)
 	}
+
 	return inst, nil
 }
 

@@ -58,10 +58,6 @@ func NewAgent(c *config.Agent, configPaths []string, logger hclog.Logger) *Agent
 func (a *Agent) Run(ctx context.Context) error {
 	defer a.stop()
 
-	// Create context to handle propagation to downstream routines.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	// launch plugins
 	if err := a.setupPlugins(); err != nil {
 		return fmt.Errorf("failed to setup plugins: %v", err)
@@ -75,8 +71,10 @@ func (a *Agent) Run(ctx context.Context) error {
 	a.inMemSink = inMem
 
 	// Setup policy manager.
-	policyEvalCh, err := a.setupPolicyManager()
-	if err != nil {
+	policyEvalCh := make(chan *sdk.ScalingEvaluation, 10)
+	defer close(policyEvalCh)
+
+	if err := a.setupPolicyManager(); err != nil {
 		return fmt.Errorf("failed to setup policy manager: %v", err)
 	}
 	go a.policyManager.Run(ctx, policyEvalCh)
@@ -132,7 +130,7 @@ func (a *Agent) initWorkers(ctx context.Context) {
 	}
 }
 
-func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
+func (a *Agent) setupPolicyManager() error {
 
 	// Create our processor, a shared method for performing basic policy
 	// actions.
@@ -164,13 +162,13 @@ func (a *Agent) setupPolicyManager() (chan *sdk.ScalingEvaluation, error) {
 	// TODO: Once full policy source reload is implemented this should probably
 	// be just a warning.
 	if len(sources) == 0 {
-		return nil, fmt.Errorf("no policy source available")
+		return fmt.Errorf("no policy source available")
 	}
 
 	a.policySources = sources
 	a.policyManager = policy.NewManager(a.logger, a.policySources, a.pluginManager, a.config.Telemetry.CollectionInterval)
 
-	return make(chan *sdk.ScalingEvaluation, 10), nil
+	return nil
 }
 
 func (a *Agent) stop() {

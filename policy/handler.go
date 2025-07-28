@@ -8,12 +8,16 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"slices"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
 
 	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/manager"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
@@ -22,9 +26,12 @@ const (
 	cooldownIgnoreTime = 3 * time.Minute
 )
 
-// errTargetNotReady is used by a check handler to indicate the policy target
-// is not ready.
-var errTargetNotReady = errors.New("target not ready")
+var (
+	// errTargetNotReady is used by a check handler to indicate the policy target
+	// is not ready.
+	errTargetNotReady = errors.New("target not ready")
+	errNoMetrics      = errors.New("no metrics available")
+)
 
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
@@ -40,46 +47,80 @@ type Handler struct {
 	// ch is used to listen for policy updates.
 	updatesCh <-chan *sdk.ScalingPolicy
 
-	policyLock sync.RWMutex
-	policy     *sdk.ScalingPolicy
+	policyLock    sync.RWMutex
+	checkHandlers []*checkHandler
+	policy        *sdk.ScalingPolicy
 
-	statusGetter targetpkg.TargetStatusGetter
-	targetScaler targetpkg.TargetScaler
+	statusGetter  targetpkg.TargetStatusGetter
+	targetScaler  targetpkg.TargetScaler
+	metricsGetter apm.Looker
 
 	// cooldownCh is used to notify the handler that it should enter a cooldown
 	// period.
-	cooldownCh chan time.Duration
-	errChn     chan<- error
 
-	checkHandlers []*checkHandler
+	errChn chan<- error
+
+	pm *manager.PluginManager
 }
 
 type HandlerConfig struct {
-	CooldownChan chan time.Duration
-	UpdatesChan  chan *sdk.ScalingPolicy
-	ErrChan      chan<- error
-	Policy       *sdk.ScalingPolicy
-	Log          hclog.Logger
-	TargetGetter targetpkg.TargetStatusGetter
-	EvalsChannel chan<- *sdk.ScalingEvaluation
+	UpdatesChan   chan *sdk.ScalingPolicy
+	ErrChan       chan<- error
+	Policy        *sdk.ScalingPolicy
+	Log           hclog.Logger
+	TargetGetter  targetpkg.TargetStatusGetter
+	PluginManager *manager.PluginManager
 }
 
-//	RunNewHandler starts the handler for the given policy
-//
-// This function blocks until the context provided is canceled.
-func RunNewHandler(ctx context.Context, config HandlerConfig) {
+func (h *Handler) loadCheckHandlers() error {
+	for _, check := range h.policy.Checks {
+		s, err := h.pm.GetStrategy(check.Strategy.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
+		}
+
+		mg, err := h.pm.GetAPM(check.Strategy.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
+		}
+
+		handler := newCheckHandler(&CheckHandlerConfig{
+			Log:            h.log.Named("check_handler").With("check", check.Name, "source", check.Source, "strategy", check.Strategy.Name),
+			StrategyRunner: s,
+			MetricsGetter:  mg,
+		}, check)
+		h.checkHandlers = append(h.checkHandlers, handler)
+	}
+	return nil
+}
+
+// TODO: Add the loadCheckhandlers to the mutators?
+func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	h := &Handler{
 		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
 		mutators: []Mutator{
 			NomadAPMMutator{},
 		},
-		cooldownCh:   config.CooldownChan,
+		pm:           config.PluginManager,
 		statusGetter: config.TargetGetter,
 		updatesCh:    config.UpdatesChan,
 		policy:       config.Policy,
 		errChn:       config.ErrChan,
 	}
+
+	err := h.loadCheckHandlers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load check handlers: %w", err)
+	}
+
+	return h, nil
+}
+
+//	Run starts the handler for the given policy
+//
+// This function blocks until the context provided is canceled.
+func (h *Handler) Run(ctx context.Context) {
 
 	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
 	defer h.ticker.Stop()
@@ -92,6 +133,7 @@ func RunNewHandler(ctx context.Context, config HandlerConfig) {
 			return
 
 		case updatedPolicy := <-h.updatesCh:
+			// TODO: move the policy validation
 			err := updatedPolicy.Validate()
 			if err != nil {
 				h.errChn <- fmt.Errorf("invalid policy: %v", err)
@@ -101,21 +143,11 @@ func RunNewHandler(ctx context.Context, config HandlerConfig) {
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
-			eval, err := h.handleTick(ctx, h.policy)
+			_, err := h.handleTick(ctx, h.policy)
 			if err != nil {
 				h.errChn <- fmt.Errorf("handler: unable to process policy %v", err)
 			}
 
-			if eval != nil {
-				config.EvalsChannel <- eval
-			}
-
-		case ts := <-h.cooldownCh:
-			// Enforce the cooldown which will block until complete.
-			if !h.enforceCooldown(ctx, ts) {
-				// Context was canceled, return to stop the handler.
-				return
-			}
 		}
 	}
 }
@@ -191,6 +223,7 @@ func (h *Handler) handleTick(ctx context.Context, policy *sdk.ScalingPolicy) (*s
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
 func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
+
 	h.log.Trace("updating handler", "policy_id", updatedPolicy.ID)
 
 	// Update ticker if the policy's evaluation interval has changed.
@@ -208,7 +241,23 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	h.policyLock.Lock()
 	defer h.policyLock.Unlock()
 
+	// TODO: Add sorting when processing the checks to enable comparison
+	// between the old and new policies.
+	if !slices.Equal(updatedPolicy.Checks, h.policy.Checks) {
+		h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks), "new_checks", len(updatedPolicy.Checks))
+
+		// Clear existing check handlers and load new ones.
+		h.checkHandlers = nil
+		err := h.loadCheckHandlers()
+		if err != nil {
+			h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
+			return
+		}
+		h.log.Debug("check handlers updated", "count", len(h.checkHandlers))
+	}
+
 	h.policy = updatedPolicy
+
 }
 
 // enforceCooldown blocks until the cooldown period has been reached, or the
@@ -266,7 +315,7 @@ func (h *Handler) runTargetStatus() (*sdk.TargetStatus, error) {
 	return h.statusGetter.Status(h.policy.Target.Config)
 }
 
-func (h *Handler) handlePolicy(ctx context.Context) error {
+func (h *Handler) handlePolicy(ctx context.Context, eval *sdk.ScalingEvaluation) error {
 
 	// Record the start time of the eval portion of this function. The labels
 	// are also used across multiple metrics, so define them.
@@ -313,40 +362,26 @@ func (h *Handler) handlePolicy(ctx context.Context) error {
 		return h.scaleTarget(action, currentStatus)
 	}
 
-	// Prepare handlers.
-	handlersCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	// Store check results by group so we can compare their results together.
 	checkGroups := make(map[string][]checkResult)
+	// Prepare handlers.
+	checksCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
 	// Start check handlers.
 	for _, ch := range h.checkHandlers {
-		//checkHandler := newCheckHandler(logger, eval.Policy, checkEval, w.pluginManager)
+		h.log.Debug("received policy check for evaluation")
 
-		// Wrap target status call in a goroutine so we can listen for ctx as well.
-		var action *sdk.ScalingAction
-		var err error
-		doneCh := make(chan interface{})
-
-		go func() {
-			defer close(doneCh)
-			action, err = ch.runChecks(handlersCtx, currentStatus)
-		}()
-
-		select {
-		case <-ctx.Done():
-			h.log.Info("stopping worker")
-			return nil
-		case <-doneCh:
+		metrics, err := h.runAPMQuery(ctx, ch.check)
+		if err != nil {
+			return fmt.Errorf("failed to query source: %v", err)
 		}
 
+		action, err := ch.runChecks(checksCtx, currentStatus.Count, metrics)
 		if err != nil {
-			h.log.Warn("failed to run check",
-				"check", ch.check.Name,
-				"on_error", ch.check.OnError,
-				"on_check_error", ch.policy.OnCheckError,
-				"error", err)
+			h.log.Warn("failed to run check", "check", ch.check.Name,
+				"on_error", ch.check.OnError, "on_check_error",
+				ch.policy.OnCheckError, "error", err)
 
 			// Define how to handle error.
 			// Use check behaviour if set or fail iff the policy is set to fail.
@@ -360,6 +395,7 @@ func (h *Handler) handlePolicy(ctx context.Context) error {
 					return err
 				}
 			}
+
 			continue
 		}
 
@@ -367,64 +403,17 @@ func (h *Handler) handlePolicy(ctx context.Context) error {
 		checkGroups[group] = append(checkGroups[group], checkResult{
 			action:  action,
 			handler: ch,
+			group:   group,
 		})
 	}
 
-	// winner is the final check that will be executed after the check groups
-	// are processed.
-	var winner checkResult
-
-	for group, results := range checkGroups {
-		// Decide which action wins in the group. The decision processes still
-		// picks the safest choice, but it handles `none` actions a little
-		// differently.
-		//
-		// Since grouped checks have corelated metrics, it's expected that most
-		// checks will result in `none` actions as the data will be somewhere
-		// else. So we ignore none actions unless _all_ checks in the group
-		// vote for `none` to avoid accidentally scaling down when comparing
-		// with other groups.
-		var groupWinner checkResult
-
-		noneCount := 0
-		for _, r := range results {
-			if r.action == nil {
-				continue
-			}
-
-			if group != "" && r.action.Direction == sdk.ScaleDirectionNone {
-				noneCount += 1
-				continue
-			}
-			groupWinner = groupWinner.preempt(r)
-		}
-
-		// If all checks result in `none`, pick any one of them so when we
-		// don't scale down accidentally when comparing it with other groups.
-		if noneCount > 0 && noneCount == len(results) {
-			groupWinner = results[0]
-		}
-
-		if groupWinner.handler == nil {
-			h.log.Trace(fmt.Sprintf("no winner in group %s", group))
-			continue
-		}
-
-		h.log.Debug(
-			fmt.Sprintf("check %s selected in group %s", groupWinner.handler.check.Name, group),
-			"direction", groupWinner.action.Direction, "count", groupWinner.action.Count)
-
-		winner = winner.preempt(groupWinner)
+	winner := pickWinnerActionFromGroups(checkGroups)
+	if winner.handler == nil || winner.action == nil || winner.action.Direction == sdk.ScaleDirectionNone {
+		return nil
 	}
-
 	// At this point the checks have finished. Therefore emit of metric data
 	// tracking how long it takes to run all the checks within a policy.
 	metrics.MeasureSinceWithLabels([]string{"scale", "evaluate_ms"}, evalStartTime, labels)
-
-	if winner.handler == nil || winner.action == nil || winner.action.Direction == sdk.ScaleDirectionNone {
-		h.log.Debug("no checks need to be executed")
-		return nil
-	}
 
 	h.log.Debug(fmt.Sprintf("check %s selected", winner.handler.check.Name),
 		"direction", winner.action.Direction, "count", winner.action.Count)
@@ -494,9 +483,6 @@ func (h *Handler) scaleTarget(action sdk.ScalingAction, currentStatus *sdk.Targe
 		"desired_count", action.Count)
 	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, metricLabels)
 
-	// Enforce the cooldown after a successful scaling event.
-	//h.cooldownEnforcer.EnforceCooldown(policy.ID, calculateCooldown(policy, action))
-	h.cooldownCh <- calculateCooldown(h.policy, action)
 	return nil
 }
 
@@ -516,4 +502,93 @@ func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)
 
 	return h.targetScaler.Scale(action, h.policy.Target.Config)
+}
+
+// runAPMQuery wraps the apm.Query call to provide operational functionality.
+func (h *Handler) runAPMQuery(ctx context.Context, check *sdk.ScalingPolicyCheck) (sdk.TimestampedMetrics, error) {
+	h.log.Debug("querying source", "query", check.Query, "source", check.Source)
+
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: check.Source}, {Name: "policy_id", Value: h.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
+
+	// Calculate query range from the query window defined in the check.
+	to := time.Now().Add(-check.QueryWindowOffset)
+	from := to.Add(-check.QueryWindow)
+	r := sdk.TimeRange{From: from, To: to}
+
+	var err error
+	metrics := sdk.TimestampedMetrics{}
+
+	// Query check's APM.
+	// Wrap call in a goroutine so we can listen for ctx as well.
+	apmQueryDoneCh := make(chan interface{})
+	go func() {
+		defer close(apmQueryDoneCh)
+		metrics, err = h.metricsGetter.Query(check.Query, r)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	case <-apmQueryDoneCh:
+	}
+
+	if err != nil {
+		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %v", err)
+	}
+
+	if metrics == nil || len(metrics) == 0 {
+		return sdk.TimestampedMetrics{}, errNoMetrics
+	}
+
+	// Make sure metrics are sorted consistently.
+	sort.Sort(metrics)
+
+	return metrics, nil
+}
+
+// pickWinnerActionFromGroups decide which action wins in the group.
+// The decision processes still picks the safest choice, but it handles `none`
+//
+//	actions a little differently.
+//
+// Since grouped checks have corelated metrics, it's expected that most
+// checks will result in `none` actions as the data will be somewhere
+// else. So we ignore none actions unless _all_ checks in the group
+// vote for `none` to avoid accidentally scaling down when comparing
+// with other groups.
+func pickWinnerActionFromGroups(checkGroups map[string][]checkResult) checkResult {
+	var winner checkResult
+	for group, results := range checkGroups {
+
+		var groupWinner checkResult
+
+		noneCount := 0
+		for _, r := range results {
+			if r.action == nil {
+				continue
+			}
+
+			if group != "" && r.action.Direction == sdk.ScaleDirectionNone {
+				noneCount += 1
+				continue
+			}
+			groupWinner = groupWinner.preempt(r)
+		}
+
+		// If all checks result in `none`, pick any one of them so when we
+		// don't scale down accidentally when comparing it with other groups.
+		if noneCount > 0 && noneCount == len(results) {
+			groupWinner = results[0]
+		}
+
+		if groupWinner.handler == nil {
+			continue
+		}
+
+		winner = winner.preempt(groupWinner)
+	}
+
+	return winner
 }

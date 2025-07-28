@@ -210,12 +210,10 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 
 		handlerCtx, handlerCancel := context.WithCancel(ctx)
 		upCh := make(chan *sdk.ScalingPolicy, 1)
-		cdCh := make(chan time.Duration, 1)
 
 		nht := &handlerTracker{
-			updates:    upCh,
-			cancel:     handlerCancel,
-			cooldownCh: cdCh,
+			updates: upCh,
+			cancel:  handlerCancel,
 		}
 
 		tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
@@ -227,15 +225,15 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 			continue
 		}
 
-		go RunNewHandler(handlerCtx, HandlerConfig{
+		ph, err := NewPolicyHandler(HandlerConfig{
 			Log:          m.log.Named("policy_handler").With("policy_id", policyID),
 			Policy:       updatedPolicy,
-			CooldownChan: cdCh,
 			UpdatesChan:  upCh,
 			ErrChan:      m.policyIDsErrCh,
 			TargetGetter: tg,
-			EvalsChannel: evalCh,
 		})
+
+		go ph.Run(handlerCtx)
 
 		// Add the new handler tracker to the manager's internal state.
 		m.addHandlerTracker(policyID, nht)

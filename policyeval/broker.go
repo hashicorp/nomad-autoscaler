@@ -3,6 +3,7 @@
 
 package policyeval
 
+/*
 import (
 	"container/heap"
 	"context"
@@ -387,3 +388,4 @@ func (p PendingEvaluations) GetEvaluation(evalID string) (int, *sdk.ScalingEvalu
 
 	return -1, nil
 }
+*/

@@ -139,9 +139,8 @@ func TestMonitoring(t *testing.T) {
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 			},
 			expCallsToLatestVersion: 1,
@@ -157,14 +156,12 @@ func TestMonitoring(t *testing.T) {
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 				policy2.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 			},
 			expCallsToLatestVersion: 1,
@@ -180,14 +177,12 @@ func TestMonitoring(t *testing.T) {
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 				policy2.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 			},
 			expCallsToLatestVersion: 0,
@@ -202,9 +197,8 @@ func TestMonitoring(t *testing.T) {
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 			},
 
@@ -218,14 +212,12 @@ func TestMonitoring(t *testing.T) {
 			},
 			initialHandlers: map[PolicyID]*handlerTracker{
 				policy1.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 				policy2.ID: {
-					updates:    make(chan *sdk.ScalingPolicy, 1),
-					cancel:     func() {},
-					cooldownCh: make(chan time.Duration, 1),
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
 				},
 			},
 		},
@@ -276,7 +268,6 @@ func TestMonitoring(t *testing.T) {
 				ph, ok := testedManager.handlers[id]
 
 				must.True(t, ok)
-				must.NotNil(t, ph.cooldownCh)
 				must.NotNil(t, ph.cancel)
 				must.NotNil(t, ph.updates)
 			}

@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -18,10 +19,11 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+const DefaultLimiterTimeout = 5 * time.Minute
+
 type handlerTracker struct {
-	cancel     context.CancelFunc
-	updates    chan<- *sdk.ScalingPolicy
-	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
+	cancel  context.CancelFunc
+	updates chan<- *sdk.ScalingPolicy
 }
 
 type targetMonitorGetter interface {
@@ -52,10 +54,14 @@ type Manager struct {
 	// running on each policy source. It is passed down as part of the MonitorIDsReq
 	// along with policyIDsCh.
 	policyIDsErrCh chan error
+
+	// Limiter is in charge of controlling the number of scaling actions happening
+	// concurrently.
+	*Limiter
 }
 
 // NewManager returns a new Manager.
-func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
+func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
@@ -66,6 +72,7 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
+		Limiter:         l,
 	}
 }
 
@@ -172,7 +179,6 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation, message IDMessage) error {
 
 	for policyID, updated := range message.IDs {
-
 		updatedPolicy := &sdk.ScalingPolicy{}
 		var err error
 
@@ -232,6 +238,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 			ErrChan:      m.policyIDsErrCh,
 			TargetGetter: tg,
 		})
+		if err != nil {
+			m.log.Error("encountered an error starting the policy handler", "policyID", policyID, "error", err)
+			if isUnrecoverableError(err) {
+				return fmt.Errorf("failed to start the policy handler %s: %w", policyID, err)
+			}
+			continue
+		}
 
 		go ph.Run(handlerCtx)
 
@@ -267,30 +280,8 @@ func (m *Manager) stopHandler(id PolicyID) {
 	m.log.Trace("stoping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
-	close(ht.cooldownCh)
 	close(ht.updates)
 	ht.cancel()
-}
-
-// EnforceCooldown attempts to enforce cooldown on the policy handler
-// representing the passed ID.
-func (m *Manager) EnforceCooldown(id string, t time.Duration) {
-	m.handlersLock.RLock()
-	defer m.handlersLock.RUnlock()
-
-	// Attempt to grab the handler and pass the enforcement onto the
-	// implementation. Its possible cooldown is requested on a policy which
-	// gets removed, its not a problem but log to aid debugging.
-	//
-	// Thinking(jrasell): when enforcing cooldown, should we calculate the
-	// duration based on the remaining time between calling this function and
-	// it actually running. Obtaining the lock could cause a delay which may
-	// skew the cooldown period, but this is likely very small.
-	if handler, ok := m.handlers[id]; ok && handler.cooldownCh != nil {
-		handler.cooldownCh <- t
-	} else {
-		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
-	}
 }
 
 // ReloadSources triggers a reload of all the policy sources.
@@ -338,4 +329,39 @@ func isUnrecoverableError(err error) bool {
 		}
 	}
 	return false
+}
+
+type Limiter struct {
+	timeout time.Duration
+	slots   map[string]chan struct{}
+}
+
+var ErrExecutionTimeout = errors.New("timeout while waiting for slot")
+
+func NewLimiter(timeout time.Duration, hWorkersCount, cWorkersCount int) *Limiter {
+	return &Limiter{
+		timeout: timeout,
+		slots: map[string]chan struct{}{
+			"horizontal": make(chan struct{}, hWorkersCount),
+			"cluster":    make(chan struct{}, cWorkersCount),
+		},
+	}
+}
+
+func (l *Limiter) GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case <-time.After(l.timeout):
+		return ErrExecutionTimeout
+
+	case l.slots[p.Type] <- struct{}{}:
+	}
+
+	return nil
+}
+
+func (l *Limiter) ReleaseSlot(p *sdk.ScalingPolicy) {
+	<-l.slots[p.Type]
 }

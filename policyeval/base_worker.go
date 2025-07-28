@@ -3,6 +3,7 @@
 
 package policyeval
 
+/*
 import (
 	"context"
 	"errors"
@@ -44,12 +45,11 @@ func NewBaseWorker(l hclog.Logger, pm *manager.PluginManager, m *policy.Manager,
 	id := uuid.Generate()
 
 	return &BaseWorker{
-		id:               id,
-		logger:           l.Named("worker").With("id", id, "queue", queue),
-		pluginManager:    pm,
-		cooldownEnforcer: m,
-		broker:           b,
-		queue:            queue,
+		id:            id,
+		logger:        l.Named("worker").With("id", id, "queue", queue),
+		pluginManager: pm,
+		broker:        b,
+		queue:         queue,
 	}
 }
 
@@ -544,3 +544,4 @@ func (c checkResult) preempt(other checkResult) checkResult {
 	}
 	return other
 }
+*/

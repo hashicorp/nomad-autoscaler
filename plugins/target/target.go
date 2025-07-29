@@ -17,21 +17,16 @@ type Target interface {
 	// Embed base.Base ensuring that strategy plugins implement this interface.
 	base.Base
 
-	TargetScaler
-
-	TargetStatusGetter
+	TargetController
 }
 
 // Status collects and returns critical information of the status of the
 // remote target. The information is used to understand whether the target
 // is in a position to be scaled as well as the current running count which
 // will be used when performing the strategy calculation.
-type TargetStatusGetter interface {
-	Status(config map[string]string) (*sdk.TargetStatus, error)
-}
-
 // Scale triggers a scaling action against the remote target as specified
 // by the config func argument.
-type TargetScaler interface {
+type TargetController interface {
 	Scale(action sdk.ScalingAction, config map[string]string) error
+	Status(config map[string]string) (*sdk.TargetStatus, error)
 }

@@ -6,6 +6,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	metrics "github.com/armon/go-metrics"
@@ -24,6 +25,8 @@ type CheckHandlerConfig struct {
 
 	// MetricsGetter is the metrics getter for the check.
 	MetricsGetter apm.Looker
+
+	Policy *sdk.ScalingPolicy
 }
 
 // checkHandler evaluates one of the checks of a policy.
@@ -46,31 +49,59 @@ func newCheckHandler(config *CheckHandlerConfig, c *sdk.ScalingPolicyCheck) *che
 		check:          c,
 		strategyRunner: config.StrategyRunner,
 		metricsGetter:  config.MetricsGetter,
+		policy:         config.Policy,
 	}
 }
 
 // start begins the execution of the check handler.
-func (h *checkHandler) runChecks(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (*sdk.ScalingAction, error) {
-	h.log.Debug("received policy check for evaluation")
+func (ch *checkHandler) getNewCountFromMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+	a, err := ch.runStrategy(ctx, currentCount, metrics)
+	if err != nil {
+		ch.log.Warn("failed to run check", "check", ch.check.Name,
+			"on_error", ch.check.OnError, "on_check_error",
+			ch.policy.OnCheckError, "error", err)
+
+		// Define how to handle error.
+		// Use check behaviour if set or fail iff the policy is set to fail.
+		switch ch.check.OnError {
+		case sdk.ScalingPolicyOnErrorIgnore:
+			return sdk.ScalingAction{}, nil
+		case sdk.ScalingPolicyOnErrorFail:
+			return sdk.ScalingAction{}, err
+		default:
+			if ch.policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
+				return sdk.ScalingAction{}, err
+			}
+		}
+
+		return sdk.ScalingAction{}, nil
+	}
+
+	return a, nil
+}
+
+// start begins the execution of the check handler.
+func (ch *checkHandler) runStrategy(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+	ch.log.Debug("received policy check for evaluation")
 
 	checkEval := &sdk.ScalingCheckEvaluation{
-		Check: h.check,
+		Check: ch.check,
 		Action: &sdk.ScalingAction{
 			Meta: map[string]interface{}{
-				"nomad_policy_id": h.policy.ID,
+				"nomad_policy_id": ch.policy.ID,
 			},
 		},
 	}
 
-	h.log.Debug("calculating new count", "count", currentCount)
+	ch.log.Debug("calculating new count", "count", currentCount)
 
-	runResp, err := h.runStrategyRun(currentCount, checkEval)
+	runResp, err := ch.runStrategyRun(currentCount, checkEval)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute strategy: %v", err)
+		return *checkEval.Action, fmt.Errorf("failed to execute strategy: %v", err)
 	}
 
 	if runResp == nil {
-		return nil, nil
+		return *checkEval.Action, nil
 	}
 
 	checkEval = runResp
@@ -80,25 +111,25 @@ func (h *checkHandler) runChecks(ctx context.Context, currentCount int64, metric
 		// no action to execute
 		var minMaxAction *sdk.ScalingAction
 
-		if currentCount < h.policy.Min {
+		if currentCount < ch.policy.Min {
 			minMaxAction = &sdk.ScalingAction{
-				Count:     h.policy.Min,
+				Count:     ch.policy.Min,
 				Direction: sdk.ScaleDirectionUp,
-				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentCount, h.policy.Min),
+				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentCount, ch.policy.Min),
 			}
-		} else if currentCount > h.policy.Max {
+		} else if currentCount > ch.policy.Max {
 			minMaxAction = &sdk.ScalingAction{
-				Count:     h.policy.Max,
+				Count:     ch.policy.Max,
 				Direction: sdk.ScaleDirectionDown,
-				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentCount, h.policy.Max),
+				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentCount, ch.policy.Max),
 			}
 		}
 
 		if minMaxAction != nil {
 			checkEval.Action = minMaxAction
 		} else {
-			h.log.Debug("nothing to do")
-			return &sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
+			ch.log.Debug("nothing to do")
+			return sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
 		}
 	}
 
@@ -106,22 +137,67 @@ func (h *checkHandler) runChecks(ctx context.Context, currentCount int64, metric
 	checkEval.Action.Canonicalize()
 
 	// Make sure new count value is within [min, max] limits
-	checkEval.Action.CapCount(h.policy.Min, h.policy.Max)
+	checkEval.Action.CapCount(ch.policy.Min, ch.policy.Max)
 
-	return checkEval.Action, nil
+	return *checkEval.Action, nil
 }
 
 // runStrategyRun wraps the strategy.Run call to provide operational functionality.
-func (h *checkHandler) runStrategyRun(count int64, checkEval *sdk.ScalingCheckEvaluation) (*sdk.ScalingCheckEvaluation, error) {
+func (ch *checkHandler) runStrategyRun(count int64, checkEval *sdk.ScalingCheckEvaluation) (*sdk.ScalingCheckEvaluation, error) {
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{
-		{Name: "plugin_name", Value: h.check.Strategy.Name},
-		{Name: "policy_id", Value: h.policy.ID},
+		{Name: "plugin_name", Value: ch.check.Strategy.Name},
+		{Name: "policy_id", Value: ch.policy.ID},
 	}
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
-	return h.strategyRunner.Run(checkEval, count)
+	return ch.strategyRunner.Run(checkEval, count)
+}
+
+// runAPMQuery wraps the apm.Query call to provide operational functionality.
+func (ch *checkHandler) runAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
+	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
+
+	// Trigger a metric measure to track latency of the call.	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source}, {Name: "policy_id", Value: ch.policy.ID}}
+	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source}, {Name: "policy_id", Value: ch.policy.ID}}
+
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
+
+	// Calculate query range from the query window defined in the ch.check.
+	to := time.Now().Add(-ch.check.QueryWindowOffset)
+	from := to.Add(-ch.check.QueryWindow)
+	r := sdk.TimeRange{From: from, To: to}
+
+	var err error
+	metrics := sdk.TimestampedMetrics{}
+
+	// Query check's APM.
+	// Wrap call in a goroutine so we can listen for ctx as well.
+	apmQueryDoneCh := make(chan interface{})
+	go func() {
+		defer close(apmQueryDoneCh)
+		metrics, err = ch.metricsGetter.Query(ch.check.Query, r)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	case <-apmQueryDoneCh:
+	}
+
+	if err != nil {
+		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %v", err)
+	}
+
+	if len(metrics) == 0 {
+		return sdk.TimestampedMetrics{}, errNoMetrics
+	}
+
+	// Make sure metrics are sorted consistently.
+	sort.Sort(metrics)
+
+	return metrics, nil
 }
 
 type checkResult struct {

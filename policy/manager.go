@@ -26,15 +26,15 @@ type handlerTracker struct {
 	updates chan<- *sdk.ScalingPolicy
 }
 
-type targetMonitorGetter interface {
-	GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error)
+type targetGetter interface {
+	GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.TargetController, error)
 }
 
 // Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
 	policySources map[SourceName]Source
-	targetGetter  targetMonitorGetter
+	targetGetter  targetGetter
 
 	// lock is used to synchronize parallel access to the maps below.
 	handlersLock sync.RWMutex
@@ -58,6 +58,8 @@ type Manager struct {
 	// Limiter is in charge of controlling the number of scaling actions happening
 	// concurrently.
 	*Limiter
+
+	pluginManager *manager.PluginManager
 }
 
 // NewManager returns a new Manager.
@@ -73,6 +75,7 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
 		Limiter:         l,
+		pluginManager:   pm,
 	}
 }
 
@@ -109,7 +112,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 		// monitorPolicies is a blocking function that will only return without errors when
 		// the context is cancelled.
-		err := m.monitorPolicies(ctx, evalCh)
+		err := m.monitorPolicies(ctx)
 		if err == nil {
 			break
 		}
@@ -131,7 +134,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	}
 }
 
-func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
+func (m *Manager) monitorPolicies(ctx context.Context) error {
 	defer m.stopHandlers()
 
 	m.log.Trace(" starting to monitor policies")
@@ -168,7 +171,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 			// Now send updates to the active policies or create new handlers
 			// for any new policies
-			err := m.processMessageAndUpdateHandlers(ctx, evalCh, message)
+			err := m.processMessageAndUpdateHandlers(ctx, message)
 			if err != nil {
 				return err
 			}
@@ -176,7 +179,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 	}
 }
 
-func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation, message IDMessage) error {
+func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) error {
 
 	for policyID, updated := range message.IDs {
 		updatedPolicy := &sdk.ScalingPolicy{}
@@ -222,7 +225,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 			cancel:  handlerCancel,
 		}
 
-		tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
+		tg, err := m.targetGetter.GetTargetController(updatedPolicy.Target)
 		if err != nil {
 			m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
 			if isUnrecoverableError(err) {
@@ -232,11 +235,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 		}
 
 		ph, err := NewPolicyHandler(HandlerConfig{
-			Log:          m.log.Named("policy_handler").With("policy_id", policyID),
-			Policy:       updatedPolicy,
-			UpdatesChan:  upCh,
-			ErrChan:      m.policyIDsErrCh,
-			TargetGetter: tg,
+			Log:              m.log.Named("policy_handler").With("policy_id", policyID),
+			Policy:           updatedPolicy,
+			UpdatesChan:      upCh,
+			ErrChan:          m.policyIDsErrCh,
+			TargetController: tg,
+			DependencyGetter: m.pluginManager,
+			Limiter:          m.Limiter,
 		})
 		if err != nil {
 			m.log.Error("encountered an error starting the policy handler", "policyID", policyID, "error", err)

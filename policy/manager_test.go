@@ -19,25 +19,29 @@ import (
 var testErrUnrecoverable = errors.New("connection refused")
 
 // Target mocks
-type mockTargetMonitorGetter struct {
+type mockTargetGetter struct {
 	count int
-	msg   *mockStatusGetter
+	msg   *mockTargetController
 	err   error
 }
 
-func (mtrg *mockTargetMonitorGetter) GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error) {
+func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.TargetController, error) {
 	mtrg.count++
 
 	return mtrg.msg, mtrg.err
 }
 
-type mockStatusGetter struct {
+type mockTargetController struct {
 	status *sdk.TargetStatus
 	err    error
 }
 
-func (msg *mockStatusGetter) Status(config map[string]string) (*sdk.TargetStatus, error) {
+func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetStatus, error) {
 	return msg.status, msg.err
+}
+
+func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[string]string) error {
+	return msg.err
 }
 
 // Source mocks
@@ -101,7 +105,7 @@ var policy2 = &sdk.ScalingPolicy{
 	EvaluationInterval: 5 * time.Minute,
 }
 
-var mStatusGetter = &mockStatusGetter{
+var mStatusController = &mockTargetController{
 	status: &sdk.TargetStatus{
 		Ready: true,
 		Count: 1,
@@ -110,7 +114,6 @@ var mStatusGetter = &mockStatusGetter{
 }
 
 func TestMonitoring(t *testing.T) {
-	evalCh := make(chan *sdk.ScalingEvaluation)
 	testCases := []struct {
 		name                    string
 		inputIDMessage          IDMessage
@@ -243,8 +246,8 @@ func TestMonitoring(t *testing.T) {
 				log:            hclog.NewNullLogger(),
 				handlersLock:   sync.RWMutex{},
 				policySources:  map[SourceName]Source{"mock-source": ms},
-				targetGetter: &mockTargetMonitorGetter{
-					msg: mStatusGetter,
+				targetGetter: &mockTargetGetter{
+					msg: mStatusController,
 				},
 			}
 
@@ -252,7 +255,7 @@ func TestMonitoring(t *testing.T) {
 			ms.resetCounter()
 
 			go func() {
-				err := testedManager.monitorPolicies(ctx, evalCh)
+				err := testedManager.monitorPolicies(ctx)
 				must.NoError(t, err)
 			}()
 
@@ -276,8 +279,6 @@ func TestMonitoring(t *testing.T) {
 }
 
 func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
-	evalCh := make(chan *sdk.ScalingEvaluation)
-
 	testCases := []struct {
 		name              string
 		message           IDMessage
@@ -331,7 +332,7 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, evalCh, tc.message)
+			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedError, errors.Unwrap(err))
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
@@ -339,8 +340,6 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 }
 
 func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
-	evalCh := make(chan *sdk.ScalingEvaluation)
-
 	testCases := []struct {
 		name                string
 		message             IDMessage
@@ -396,9 +395,9 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				countLock: &sync.Mutex{},
 			}
 
-			// Create a mock target reporter
-			mStatusGetter := &mockTargetMonitorGetter{
-				msg: &mockStatusGetter{},
+			// Create a mock target getter
+			mStatusController := &mockTargetGetter{
+				msg: &mockTargetController{},
 				err: tc.targetReporterError,
 			}
 
@@ -406,11 +405,11 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				log:           hclog.NewNullLogger(),
 				handlersLock:  sync.RWMutex{},
 				policySources: map[SourceName]Source{"mock-source": ms},
-				targetGetter:  mStatusGetter,
+				targetGetter:  mStatusController,
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, evalCh, tc.message)
+			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedError, errors.Unwrap(err))
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})

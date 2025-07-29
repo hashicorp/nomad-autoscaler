@@ -102,8 +102,8 @@ func (a *ScalingAction) SetDryRun() {
 
 // CapCount caps the value of Count so it remains within the specified limits.
 // If Count is StrategyActionMetaValueDryRunCount this method has no effect.
-func (a *ScalingAction) ScalingNeeded() bool {
-	return a.Direction != ScaleDirectionNone
+func (a *ScalingAction) ScalingNeeded(countCount int64) bool {
+	return a.Direction != ScaleDirectionNone && countCount != a.Count
 }
 
 // CapCount caps the value of Count so it remains within the specified limits.

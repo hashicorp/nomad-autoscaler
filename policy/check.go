@@ -91,6 +91,7 @@ func (ch *checkHandler) runStrategy(ctx context.Context, currentCount int64, met
 				"nomad_policy_id": ch.policy.ID,
 			},
 		},
+		Metrics: metrics,
 	}
 
 	ch.log.Debug("calculating new count", "count", currentCount)

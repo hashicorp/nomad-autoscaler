@@ -32,7 +32,6 @@ type Agent struct {
 	policySources map[policy.SourceName]policy.Source
 	policyManager *policy.Manager
 	inMemSink     *metrics.InmemSink
-	//evalBroker    *policyeval.Broker
 
 	// nomadCfg is the merged Nomad API configuration that should be used when
 	// setting up all clients. It is the result of the Nomad api.DefaultConfig
@@ -82,13 +81,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	}
 	go a.policyManager.Run(ctx, policyEvalCh)
 
-	// Launch eval broker and workers.
-	/* 	a.evalBroker = policyeval.NewBroker(
-	a.logger.ResetNamed("policy_eval"),
-	a.config.PolicyEval.AckTimeout,
-	a.config.PolicyEval.DeliveryLimit) */
-	//a.initWorkers(ctx)
-
 	a.initEnt(ctx, a.entReload)
 
 	// Launch the eval handler.
@@ -99,41 +91,6 @@ func (a *Agent) Run(ctx context.Context) error {
 	return nil
 }
 
-/* func (a *Agent) runEvalHandler(ctx context.Context, evalCh chan *sdk.ScalingEvaluation) {
-	for {
-		select {
-		case <-ctx.Done():
-			a.logger.Info("context closed, shutting down eval handler")
-			return
-		case policyEval := <-evalCh:
-			a.evalBroker.Enqueue(policyEval)
-		}
-	}
-} */
-
-/*
-	 func (a *Agent) initWorkers(ctx context.Context) {
-		policyEvalLogger := a.logger.ResetNamed("policy_eval")
-
-		workersCount := []interface{}{}
-		for k, v := range a.config.PolicyEval.Workers {
-			workersCount = append(workersCount, k, v)
-		}
-		policyEvalLogger.Info("starting workers", workersCount...)
-
-		for i := 0; i < a.config.PolicyEval.Workers["horizontal"]; i++ {
-			w := policyeval.NewBaseWorker(
-				policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "horizontal")
-			go w.Run(ctx)
-		}
-
-		for i := 0; i < a.config.PolicyEval.Workers["cluster"]; i++ {
-			w := policyeval.NewBaseWorker(
-				policyEvalLogger, a.pluginManager, a.policyManager, a.evalBroker, "cluster")
-			go w.Run(ctx)
-		}
-	}
-*/
 func (a *Agent) setupPolicyManager(limiter *policy.Limiter) error {
 
 	// Create our processor, a shared method for performing basic policy

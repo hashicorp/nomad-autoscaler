@@ -47,7 +47,6 @@ const (
 var (
 	// errTargetNotReady is used by a check handler to indicate the policy target
 	// is not ready.
-	errTargetNotReady = errors.New("target not ready")
 	errTargetNotFound = errors.New("target not found")
 	errNoMetrics      = errors.New("no metrics available")
 )
@@ -207,12 +206,30 @@ func (h *Handler) Run(ctx context.Context) {
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
-			action, err := h.handlePolicy(ctx)
+			currentStatus, err := h.runTargetStatus()
 			if err != nil {
-				h.errChn <- fmt.Errorf("handler: unable to execute policy %v", err)
+				h.errChn <- fmt.Errorf("failed to get target status: %v", err)
 			}
 
-			if !action.ScalingNeeded() {
+			// A nil status indicates the target doesn't exist, log and return.
+			if currentStatus == nil {
+				h.errChn <- errTargetNotFound
+				continue
+			}
+
+			if currentStatus != nil && !currentStatus.Ready {
+				h.log.Debug("skipping evaluation, target not ready")
+				continue
+			}
+
+			currentCount := currentStatus.Count
+			action, err := h.handlePolicy(ctx, currentCount)
+			if err != nil {
+				h.errChn <- fmt.Errorf("handler: unable to execute policy %v", err)
+				continue
+			}
+
+			if !action.ScalingNeeded(currentCount) {
 				h.log.Debug("skipping scaling, no action needed")
 				continue
 			}
@@ -223,11 +240,13 @@ func (h *Handler) Run(ctx context.Context) {
 
 			case StateWaiting:
 				h.UpdateNextAction(action)
+				h.log.Debug("updating action, waiting to execute")
 
 			case StateScaling:
 				h.log.Debug("skipping scaling, target still scaling")
 
 			case StateIdle:
+				h.UpdateNextAction(action)
 				go func() {
 					h.UpdateState(StateWaiting)
 					err := h.WaitForScale(ctx, h.NextAction())
@@ -317,7 +336,7 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 // Handle policy is the main part of the controller, it reads the target state,
 // gets the metrics and the necessary new count to keep up with the policy
 // and generates a scaling action if needed.
-func (h *Handler) handlePolicy(ctx context.Context) (sdk.ScalingAction, error) {
+func (h *Handler) handlePolicy(ctx context.Context, count int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 
 	// Record the start time of the eval portion of this function. The labels
@@ -326,19 +345,6 @@ func (h *Handler) handlePolicy(ctx context.Context) (sdk.ScalingAction, error) {
 	labels := []metrics.Label{
 		{Name: "policy_id", Value: h.policy.ID},
 		{Name: "target_name", Value: h.policy.Target.Name},
-	}
-	currentStatus, err := h.runTargetStatus()
-	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed to get target status: %v", err)
-	}
-	// A nil status indicates the target doesn't exist, log and return.
-	if currentStatus == nil {
-		return sdk.ScalingAction{}, errTargetNotFound
-	}
-
-	if !currentStatus.Ready {
-		h.log.Debug("skipping evaluation, target not ready")
-		return sdk.ScalingAction{}, errTargetNotReady
 	}
 
 	// Store check results by group so we can compare their results together.
@@ -352,7 +358,7 @@ func (h *Handler) handlePolicy(ctx context.Context) (sdk.ScalingAction, error) {
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 		}
 
-		action, err := ch.getNewCountFromMetrics(ctx, currentStatus.Count, metrics)
+		action, err := ch.getNewCountFromMetrics(ctx, count, metrics)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
@@ -380,10 +386,10 @@ func (h *Handler) handlePolicy(ctx context.Context) (sdk.ScalingAction, error) {
 
 	if winner.action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		h.log.Debug("registering scaling event",
-			"count", currentStatus.Count, "reason", winner.action.Reason, "meta", winner.action.Meta)
+			"count", count, "reason", winner.action.Reason, "meta", winner.action.Meta)
 	} else {
-		h.log.Info("scaling target",
-			"from", currentStatus.Count, "to", winner.action.Count,
+		h.log.Info("calculating scaling target",
+			"from", count, "to", winner.action.Count,
 			"reason", winner.action.Reason, "meta", winner.action.Meta)
 	}
 

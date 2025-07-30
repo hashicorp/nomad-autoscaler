@@ -290,8 +290,8 @@ func (m *Manager) stopHandler(id PolicyID) {
 	m.log.Trace("stoping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
-	close(ht.updates)
 	ht.cancel()
+	close(ht.updates)
 }
 
 // ReloadSources triggers a reload of all the policy sources.

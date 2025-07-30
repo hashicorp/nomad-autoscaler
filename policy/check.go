@@ -16,7 +16,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-type CheckHandlerConfig struct {
+type CheckRunnerConfig struct {
 	// Log is the logger to use for logging.
 	Log hclog.Logger
 
@@ -30,7 +30,7 @@ type CheckHandlerConfig struct {
 }
 
 // checkHandler evaluates one of the checks of a policy.
-type checkHandler struct {
+type checkRunner struct {
 	log            hclog.Logger
 	strategyRunner strategy.Runner
 	metricsGetter  apm.Looker
@@ -39,8 +39,8 @@ type checkHandler struct {
 }
 
 // newCheckHandler returns a new checkHandler instance.
-func newCheckHandler(config *CheckHandlerConfig, c *sdk.ScalingPolicyCheck) *checkHandler {
-	return &checkHandler{
+func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
+	return &checkRunner{
 		log: config.Log.Named("check_handler").With(
 			"check", c.Name,
 			"source", c.Source,
@@ -54,7 +54,7 @@ func newCheckHandler(config *CheckHandlerConfig, c *sdk.ScalingPolicyCheck) *che
 }
 
 // start begins the execution of the check handler.
-func (ch *checkHandler) getNewCountFromMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+func (ch *checkRunner) GetNewCountUsingMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	a, err := ch.runStrategy(ctx, currentCount, metrics)
 	if err != nil {
 		ch.log.Warn("failed to run check", "check", ch.check.Name,
@@ -81,7 +81,7 @@ func (ch *checkHandler) getNewCountFromMetrics(ctx context.Context, currentCount
 }
 
 // start begins the execution of the check handler.
-func (ch *checkHandler) runStrategy(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
 	checkEval := &sdk.ScalingCheckEvaluation{
@@ -144,7 +144,7 @@ func (ch *checkHandler) runStrategy(ctx context.Context, currentCount int64, met
 }
 
 // runStrategyRun wraps the strategy.Run call to provide operational functionality.
-func (ch *checkHandler) runStrategyRun(count int64, checkEval *sdk.ScalingCheckEvaluation) (*sdk.ScalingCheckEvaluation, error) {
+func (ch *checkRunner) runStrategyRun(count int64, checkEval *sdk.ScalingCheckEvaluation) (*sdk.ScalingCheckEvaluation, error) {
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{
@@ -157,7 +157,7 @@ func (ch *checkHandler) runStrategyRun(count int64, checkEval *sdk.ScalingCheckE
 }
 
 // runAPMQuery wraps the apm.Query call to provide operational functionality.
-func (ch *checkHandler) runAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
+func (ch *checkRunner) RunAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
 	// Trigger a metric measure to track latency of the call.	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source}, {Name: "policy_id", Value: ch.policy.ID}}
@@ -199,18 +199,4 @@ func (ch *checkHandler) runAPMQuery(ctx context.Context) (sdk.TimestampedMetrics
 	sort.Sort(metrics)
 
 	return metrics, nil
-}
-
-type checkResult struct {
-	action  *sdk.ScalingAction
-	handler *checkHandler
-	group   string
-}
-
-func (c checkResult) preempt(other checkResult) checkResult {
-	winner := sdk.PreemptScalingAction(c.action, other.action)
-	if winner == c.action {
-		return c
-	}
-	return other
 }

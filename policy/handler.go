@@ -67,7 +67,7 @@ type Handler struct {
 	policyLock sync.RWMutex
 	policy     *sdk.ScalingPolicy
 
-	checkHandlers []*checkHandler
+	checkRunners []*checkRunner
 
 	targetController targetpkg.TargetController
 
@@ -118,7 +118,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		state:            StateIdle,
 	}
 
-	err := h.loadCheckHandlers()
+	err := h.loadCheckRunner()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load check handlers: %w", err)
 	}
@@ -154,7 +154,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	return h, nil
 }
 
-func (h *Handler) loadCheckHandlers() error {
+func (h *Handler) loadCheckRunner() error {
 
 	for _, check := range h.policy.Checks {
 		s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
@@ -167,13 +167,14 @@ func (h *Handler) loadCheckHandlers() error {
 			return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
 		}
 
-		handler := newCheckHandler(&CheckHandlerConfig{
+		runner := newCheckRunner(&CheckRunnerConfig{
 			Log:            h.log.Named("check_handler").With("check", check.Name, "source", check.Source, "strategy", check.Strategy.Name),
 			StrategyRunner: s,
 			MetricsGetter:  mg,
 			Policy:         h.policy,
 		}, check)
-		h.checkHandlers = append(h.checkHandlers, handler)
+
+		h.checkRunners = append(h.checkRunners, runner)
 	}
 
 	return nil
@@ -224,27 +225,30 @@ func (h *Handler) Run(ctx context.Context) {
 			}
 
 			currentCount := currentStatus.Count
-			action, err := h.handlePolicy(ctx, currentCount)
+			action, err := h.CalculateNewCount(ctx, currentCount)
 			if err != nil {
 				h.errChn <- fmt.Errorf("handler: unable to execute policy %v", err)
 				continue
 			}
 
+			h.log.Info("calculating scaling target", "from", currentCount, "to",
+				action.Count, "reason", action.Reason, "meta", action.Meta)
+
 			if !action.ScalingNeeded(currentCount) {
-				h.log.Debug("skipping scaling, no action needed")
+				h.log.Info("skipping scaling, no action needed")
 				continue
 			}
 
 			switch h.State() {
 			case StateCooldown:
-				h.log.Debug("skipping scaling, policy still on cooldown")
+				h.log.Info("skipping scaling, policy still on cooldown")
 
 			case StateWaiting:
 				h.UpdateNextAction(action)
 				h.log.Debug("updating action, waiting to execute")
 
 			case StateScaling:
-				h.log.Debug("skipping scaling, target still scaling")
+				h.log.Info("skipping scaling, target still scaling")
 
 			case StateIdle:
 				h.UpdateNextAction(action)
@@ -311,13 +315,14 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 		h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks), "new_checks", len(updatedPolicy.Checks))
 
 		// Clear existing check handlers and load new ones.
-		h.checkHandlers = nil
-		err := h.loadCheckHandlers()
+		h.checkRunners = nil
+
+		err := h.loadCheckRunner()
 		if err != nil {
 			h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
 			return
 		}
-		h.log.Debug("check handlers updated", "count", len(h.checkHandlers))
+		h.log.Debug("check handlers updated", "count", len(h.checkRunners))
 	}
 
 	h.policy = updatedPolicy
@@ -337,7 +342,7 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 // Handle policy is the main part of the controller, it reads the target state,
 // gets the metrics and the necessary new count to keep up with the policy
 // and generates a scaling action if needed.
-func (h *Handler) handlePolicy(ctx context.Context, count int64) (sdk.ScalingAction, error) {
+func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 
 	// Record the start time of the eval portion of this function. The labels
@@ -351,15 +356,15 @@ func (h *Handler) handlePolicy(ctx context.Context, count int64) (sdk.ScalingAct
 	// Store check results by group so we can compare their results together.
 	checkGroups := make(map[string][]checkResult)
 
-	for _, ch := range h.checkHandlers {
+	for _, ch := range h.checkRunners {
 		h.log.Debug("received policy check for evaluation")
 
-		metrics, err := ch.runAPMQuery(ctx)
+		metrics, err := ch.RunAPMQuery(ctx)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 		}
 
-		action, err := ch.getNewCountFromMetrics(ctx, count, metrics)
+		action, err := ch.GetNewCountUsingMetrics(ctx, currentCount, metrics)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
@@ -387,11 +392,7 @@ func (h *Handler) handlePolicy(ctx context.Context, count int64) (sdk.ScalingAct
 
 	if winner.action.Count == sdk.StrategyActionMetaValueDryRunCount {
 		h.log.Debug("registering scaling event",
-			"count", count, "reason", winner.action.Reason, "meta", winner.action.Meta)
-	} else {
-		h.log.Info("calculating scaling target",
-			"from", count, "to", winner.action.Count,
-			"reason", winner.action.Reason, "meta", winner.action.Meta)
+			"count", currentCount, "reason", winner.action.Reason, "meta", winner.action.Meta)
 	}
 
 	return *winner.action, nil
@@ -562,4 +563,18 @@ func (h *Handler) UpdateNextAction(a sdk.ScalingAction) {
 // no cooldown period is required.
 func calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Duration {
 	return cd - time.Duration(ts-lastEvent)
+}
+
+type checkResult struct {
+	action  *sdk.ScalingAction
+	handler *checkRunner
+	group   string
+}
+
+func (c checkResult) preempt(other checkResult) checkResult {
+	winner := sdk.PreemptScalingAction(c.action, other.action)
+	if winner == c.action {
+		return c
+	}
+	return other
 }

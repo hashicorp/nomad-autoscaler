@@ -196,10 +196,11 @@ func (h *Handler) Run(ctx context.Context) {
 			return
 
 		case updatedPolicy := <-h.updatesCh:
-			// TODO: move the policy validation
-			err := updatedPolicy.Validate()
-			if err != nil {
-				h.errChn <- fmt.Errorf("invalid policy: %v", err)
+			// The policy can be nil if the channel is closed meaning the
+			// handler is being removed, let the context cancelation take
+			// care of returning.
+			if updatedPolicy == nil {
+				continue
 			}
 
 			h.applyMutators(updatedPolicy)

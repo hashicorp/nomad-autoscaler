@@ -199,6 +199,12 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			continue
 		}
 
+		err = updatedPolicy.Validate()
+		if err != nil {
+			m.log.Warn("latest version for policy is invalid, old one will keep running", "policyID", policyID)
+			continue
+		}
+
 		m.handlersLock.RLock()
 		pht := m.handlers[policyID]
 		m.handlersLock.RUnlock()
@@ -208,7 +214,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 				"policy_id", policyID, "policy_source", message.Source)
 
 			pht.updates <- updatedPolicy
-
 			continue
 		}
 

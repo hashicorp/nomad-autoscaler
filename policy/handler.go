@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -309,21 +308,17 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	h.policyLock.Lock()
 	defer h.policyLock.Unlock()
 
-	// TODO: Add sorting when processing the checks to enable comparison
-	// between the old and new policies.
-	if !slices.Equal(updatedPolicy.Checks, h.policy.Checks) {
-		h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks), "new_checks", len(updatedPolicy.Checks))
+	h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks), "new_checks", len(updatedPolicy.Checks))
 
-		// Clear existing check handlers and load new ones.
-		h.checkRunners = nil
+	// Clear existing check handlers and load new ones.
+	h.checkRunners = nil
 
-		err := h.loadCheckRunner()
-		if err != nil {
-			h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
-			return
-		}
-		h.log.Debug("check handlers updated", "count", len(h.checkRunners))
+	err := h.loadCheckRunner()
+	if err != nil {
+		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
+		return
 	}
+	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
 
 	h.policy = updatedPolicy
 

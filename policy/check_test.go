@@ -3,7 +3,20 @@
 
 package policy
 
-/*ty pe mockRunner struct {
+/*
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+type mockRunner struct {
 	mock.Mock
 }
 

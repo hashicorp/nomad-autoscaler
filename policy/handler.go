@@ -38,7 +38,7 @@ type handlerState int
 
 const (
 	StateScaling = iota
-	StateWaiting
+	StateWaitingTurn
 	StateCooldown
 	StateIdle
 )
@@ -85,6 +85,9 @@ type Handler struct {
 
 	actionLock sync.RWMutex
 	nextAction sdk.ScalingAction
+
+	cooldownLock    sync.RWMutex
+	outOfCooldownOn time.Time
 
 	pm dependencyGetter
 }
@@ -183,7 +186,6 @@ func (h *Handler) loadCheckRunner() error {
 //
 // This function blocks until the context provided is canceled.
 func (h *Handler) Run(ctx context.Context) {
-
 	h.ticker = time.NewTicker(h.policy.EvaluationInterval)
 	defer h.ticker.Stop()
 
@@ -238,40 +240,78 @@ func (h *Handler) Run(ctx context.Context) {
 				continue
 			}
 
+			h.UpdateNextAction(action)
+
+			if time.Now().After(h.OutOfCooldownOn()) {
+				h.UpdateState(StateIdle)
+			}
+
 			switch h.State() {
 			case StateCooldown:
-				h.log.Info("skipping scaling, policy still on cooldown")
+				h.log.Info("skipping scaling, policy still on cooldown", "remaining",
+					time.Until(h.OutOfCooldownOn()))
 
-			case StateWaiting:
-				h.UpdateNextAction(action)
+			case StateWaitingTurn:
 				h.log.Debug("updating action, waiting to execute")
 
 			case StateScaling:
 				h.log.Info("skipping scaling, target still scaling")
 
 			case StateIdle:
-				h.UpdateNextAction(action)
+				h.UpdateState(StateWaitingTurn)
 				go func() {
-					h.UpdateState(StateWaiting)
-					err := h.WaitForScale(ctx, h.NextAction())
+					err := h.WaitAndScale(ctx)
 					if err != nil {
+						h.log.Error("unable to scale target", "err", err)
 						h.UpdateState(StateIdle)
-						h.errChn <- fmt.Errorf("failed to scale target %s for policy %s: %w",
-							h.policy.Target.Name, h.policy.ID, err)
-
 					}
 
-					cd := calculateCooldown(h.policy, action)
 					h.UpdateState(StateCooldown)
-					h.log.Debug("scaling policy has been placed into cooldown", "cooldown", cd)
-
-					time.AfterFunc(cd, func() {
-						h.UpdateState(StateIdle)
-					})
 				}()
 			}
 		}
 	}
+}
+
+func (h *Handler) WaitAndScale(ctx context.Context) error {
+	labels := []metrics.Label{
+		{Name: "policy_id", Value: h.policy.ID},
+		{Name: "target_name", Value: h.policy.Target.Name},
+	}
+
+	h.UpdateState(StateWaitingTurn)
+
+	h.log.Debug("requesting slot")
+	err := h.limiter.GetSlot(ctx, h.policy)
+	if err != nil {
+		h.log.Error("timeout waiting for execution time", "err", err)
+	}
+	defer h.limiter.ReleaseSlot(h.policy)
+
+	h.log.Debug("slot granted")
+
+	action := h.NextAction()
+	h.UpdateState(StateScaling)
+
+	// Measure how long it takes to invoke the scaling actions. This helps
+	// understand the time taken to interact with the remote target and action
+	// the scaling action.
+	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
+
+	err = h.runTargetScale(action)
+	if err != nil {
+		h.log.Error("failed to get scale target for policy", "err", err)
+	}
+
+	cd := calculateCooldown(h.policy, action)
+
+	h.UpdateOutOfCooldownOn(time.Now().Add(cd))
+	h.UpdateState(StateCooldown)
+
+	h.log.Debug("successfully submitted scaling action to target, scaling policy has been placed into cooldown",
+		"desired_count", action.Count, "cooldown", cd)
+
+	return nil
 }
 
 // Convert the last event string.
@@ -393,38 +433,6 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 	return *winner.action, nil
 }
 
-func (h *Handler) WaitForScale(ctx context.Context, a sdk.ScalingAction) error {
-	labels := []metrics.Label{
-		{Name: "policy_id", Value: h.policy.ID},
-		{Name: "target_name", Value: h.policy.Target.Name},
-	}
-
-	err := h.limiter.GetSlot(ctx, h.policy)
-	if err != nil {
-		return fmt.Errorf("failed to get slopt to scale policy %s: %w", h.policy.ID, err)
-	}
-
-	defer h.limiter.ReleaseSlot(h.policy)
-
-	h.UpdateState(StateScaling)
-
-	// Measure how long it takes to invoke the scaling actions. This helps
-	// understand the time taken to interact with the remote target and action
-	// the scaling action.
-	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
-
-	err = h.runTargetScale(a)
-	if err != nil {
-		return fmt.Errorf("failed to get scale target for policy %s: %w", h.policy.ID, err)
-	}
-
-	h.log.Debug("successfully submitted scaling action to target",
-		"desired_count", a.Count)
-
-	return nil
-
-}
-
 // runTargetStatus wraps the target.Status call to provide operational
 // functionality.
 func (h *Handler) runTargetStatus() (*sdk.TargetStatus, error) {
@@ -456,6 +464,7 @@ func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
 
 	// Trigger a metric measure to track latency of the call.
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "target", "scale", "invoke_ms"}, time.Now(), labels)
+	h.log.Debug("scaling target", "target", h.policy.Target.Name, "count", action.Count)
 
 	err := h.targetController.Scale(action, h.policy.Target.Config)
 	if err != nil {
@@ -469,6 +478,7 @@ func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
 		return fmt.Errorf("failed to scale target: %w", err)
 	}
 	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, labels)
+
 	return nil
 }
 
@@ -551,6 +561,20 @@ func (h *Handler) UpdateNextAction(a sdk.ScalingAction) {
 	defer h.actionLock.Unlock()
 
 	h.nextAction = a
+}
+
+func (h *Handler) OutOfCooldownOn() time.Time {
+	h.cooldownLock.RLock()
+	defer h.cooldownLock.RUnlock()
+
+	return h.outOfCooldownOn
+}
+
+func (h *Handler) UpdateOutOfCooldownOn(ooc time.Time) {
+	h.cooldownLock.RLock()
+	defer h.cooldownLock.RUnlock()
+
+	h.outOfCooldownOn = ooc
 }
 
 // calculateRemainingCooldown calculates the remaining cooldown based on the

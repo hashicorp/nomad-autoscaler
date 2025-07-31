@@ -19,7 +19,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-const DefaultLimiterTimeout = 5 * time.Minute
+const DefaultLimiterTimeout = 2 * time.Minute
 
 type handlerTracker struct {
 	cancel  context.CancelFunc

@@ -317,6 +317,8 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 			h := m.getHandlersNum()
 
 			metrics.SetGauge([]string{"policy", "total_num"}, float32(h))
+			metrics.SetGauge([]string{"queue", "horizontal"}, float32(m.Limiter.QueueSize("horizontal")))
+			metrics.SetGauge([]string{"queue", "cluster"}, float32(m.Limiter.QueueSize("cluster")))
 		}
 	}
 }
@@ -356,6 +358,10 @@ func NewLimiter(timeout time.Duration, hWorkersCount, cWorkersCount int) *Limite
 			"cluster":    make(chan struct{}, cWorkersCount),
 		},
 	}
+}
+
+func (l *Limiter) QueueSize(queue string) int {
+	return len(l.slots[queue])
 }
 
 func (l *Limiter) GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error {

@@ -262,7 +262,7 @@ func (h *Handler) Run(ctx context.Context) {
 				go func() {
 					err := h.WaitAndScale(ctx)
 					if err != nil {
-						h.log.Error("unable to scale target", "err", err)
+						h.log.Error("unable to scale target", "reason", err)
 						h.UpdateState(StateIdle)
 					}
 
@@ -468,14 +468,8 @@ func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
 
 	err := h.targetController.Scale(action, h.policy.Target.Config)
 	if err != nil {
-		if _, ok := err.(*sdk.TargetScalingNoOpError); ok {
-			h.log.Info("scaling action skipped", "reason", err)
-			return nil
-		}
-
 		metrics.IncrCounterWithLabels([]string{"scale", "invoke", "error_count"}, 1, labels)
-
-		return fmt.Errorf("failed to scale target: %w", err)
+		return err
 	}
 	metrics.IncrCounterWithLabels([]string{"scale", "invoke", "success_count"}, 1, labels)
 

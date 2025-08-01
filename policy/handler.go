@@ -170,7 +170,8 @@ func (h *Handler) loadCheckRunner() error {
 		}
 
 		runner := newCheckRunner(&CheckRunnerConfig{
-			Log:            h.log.Named("check_handler").With("check", check.Name, "source", check.Source, "strategy", check.Strategy.Name),
+			Log: h.log.Named("check_handler").With("check", check.Name,
+				"source", check.Source, "strategy", check.Strategy.Name),
 			StrategyRunner: s,
 			MetricsGetter:  mg,
 			Policy:         h.policy,
@@ -403,7 +404,7 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 		}
 
-		action, err := ch.GetNewCountFromMetrics(ctx, currentCount, metrics)
+		action, err := ch.GetNewCountFromStrategy(ctx, currentCount, metrics)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 

@@ -41,11 +41,7 @@ type checkRunner struct {
 // newCheckHandler returns a new checkHandler instance.
 func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
-		log: config.Log.Named("check_handler").With(
-			"check", c.Name,
-			"source", c.Source,
-			"strategy", c.Strategy.Name,
-		),
+		log:            config.Log,
 		check:          c,
 		strategyRunner: config.StrategyRunner,
 		metricsGetter:  config.MetricsGetter,
@@ -53,10 +49,13 @@ func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// GetNewCountFromMetrics start begins the execution of the check handler and returns
+// GetNewCountFromStrategy begins the execution of the checks and returns
 // and action containing the instance count after applying the strategy to the
 // metrics.
-func (ch *checkRunner) GetNewCountFromMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+func (ch *checkRunner) GetNewCountFromStrategy(ctx context.Context, currentCount int64,
+	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+	ch.log.Debug("calculating new count", "current count", currentCount)
+
 	a, err := ch.runStrategy(ctx, currentCount, metrics)
 	if err != nil {
 		ch.log.Warn("failed to run check", "check", ch.check.Name,
@@ -68,23 +67,21 @@ func (ch *checkRunner) GetNewCountFromMetrics(ctx context.Context, currentCount 
 		switch ch.check.OnError {
 		case sdk.ScalingPolicyOnErrorIgnore:
 			return sdk.ScalingAction{}, nil
+
 		case sdk.ScalingPolicyOnErrorFail:
 			return sdk.ScalingAction{}, err
+
 		default:
 			if ch.policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
 				return sdk.ScalingAction{}, err
 			}
 		}
-
-		return sdk.ScalingAction{}, nil
 	}
 
 	return a, nil
 }
 
-func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
-	ch.log.Debug("received policy check for evaluation")
-
+func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	checkEval := &sdk.ScalingCheckEvaluation{
 		Check: ch.check,
 		Action: &sdk.ScalingAction{
@@ -92,10 +89,8 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metr
 				"nomad_policy_id": ch.policy.ID,
 			},
 		},
-		Metrics: metrics,
+		Metrics: ms,
 	}
-
-	ch.log.Debug("calculating new count", "count", currentCount)
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{
@@ -105,17 +100,16 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metr
 
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
-	runResp, err := ch.strategyRunner.Run(checkEval, count)
+	runResp, err := ch.strategyRunner.Run(checkEval, currentCount)
 	if err != nil {
-		return *checkEval.Action, fmt.Errorf("failed to execute strategy: %v", err)
+		return sdk.ScalingAction{}, fmt.Errorf("failed to execute strategy: %w", err)
 	}
 
 	if runResp == nil {
-		return *checkEval.Action, nil
+		return sdk.ScalingAction{}, nil
 	}
 
-	checkEval = runResp
-	return *checkEval.Action, nil
+	return *runResp.Action, nil
 }
 
 // RunAPMQuery wraps the apm.Query call to provide operational functionality.

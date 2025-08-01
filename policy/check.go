@@ -82,7 +82,6 @@ func (ch *checkRunner) GetNewCountFromMetrics(ctx context.Context, currentCount 
 	return a, nil
 }
 
-// start begins the execution of the check handler.
 func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
@@ -98,7 +97,15 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metr
 
 	ch.log.Debug("calculating new count", "count", currentCount)
 
-	runResp, err := ch.runStrategyRun(currentCount, checkEval)
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{
+		{Name: "plugin_name", Value: ch.check.Strategy.Name},
+		{Name: "policy_id", Value: ch.policy.ID},
+	}
+
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
+
+	runResp, err := ch.strategyRunner.Run(checkEval, count)
 	if err != nil {
 		return *checkEval.Action, fmt.Errorf("failed to execute strategy: %v", err)
 	}
@@ -111,20 +118,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metr
 	return *checkEval.Action, nil
 }
 
-// runStrategyRun wraps the strategy.Run call to provide operational functionality.
-func (ch *checkRunner) runStrategyRun(count int64, checkEval *sdk.ScalingCheckEvaluation) (*sdk.ScalingCheckEvaluation, error) {
-
-	// Trigger a metric measure to track latency of the call.
-	labels := []metrics.Label{
-		{Name: "plugin_name", Value: ch.check.Strategy.Name},
-		{Name: "policy_id", Value: ch.policy.ID},
-	}
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
-
-	return ch.strategyRunner.Run(checkEval, count)
-}
-
-// runAPMQuery wraps the apm.Query call to provide operational functionality.
+// RunAPMQuery wraps the apm.Query call to provide operational functionality.
 func (ch *checkRunner) RunAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 

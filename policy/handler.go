@@ -232,6 +232,10 @@ func (h *Handler) Run(ctx context.Context) {
 				continue
 			}
 
+			// Canonicalize action so plugins don't have to.
+			action.Canonicalize()
+			action.CapCount(h.policy.Min, h.policy.Max)
+
 			h.log.Info("calculating scaling target", "from", currentCount, "to",
 				action.Count, "reason", action.Reason, "meta", action.Meta)
 
@@ -399,7 +403,7 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 		}
 
-		action, err := ch.GetNewCountUsingMetrics(ctx, currentCount, metrics)
+		action, err := ch.GetNewCountFromMetrics(ctx, currentCount, metrics)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 

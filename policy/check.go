@@ -53,8 +53,10 @@ func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// start begins the execution of the check handler.
-func (ch *checkRunner) GetNewCountUsingMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
+// GetNewCountFromMetrics start begins the execution of the check handler and returns
+// and action containing the instance count after applying the strategy to the
+// metrics.
+func (ch *checkRunner) GetNewCountFromMetrics(ctx context.Context, currentCount int64, metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	a, err := ch.runStrategy(ctx, currentCount, metrics)
 	if err != nil {
 		ch.log.Warn("failed to run check", "check", ch.check.Name,
@@ -106,40 +108,6 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, metr
 	}
 
 	checkEval = runResp
-
-	if checkEval.Action.Direction == sdk.ScaleDirectionNone {
-		// Make sure we are currently within [min, max] limits even if there's
-		// no action to execute
-		var minMaxAction *sdk.ScalingAction
-
-		if currentCount < ch.policy.Min {
-			minMaxAction = &sdk.ScalingAction{
-				Count:     ch.policy.Min,
-				Direction: sdk.ScaleDirectionUp,
-				Reason:    fmt.Sprintf("current count (%d) below limit (%d)", currentCount, ch.policy.Min),
-			}
-		} else if currentCount > ch.policy.Max {
-			minMaxAction = &sdk.ScalingAction{
-				Count:     ch.policy.Max,
-				Direction: sdk.ScaleDirectionDown,
-				Reason:    fmt.Sprintf("current count (%d) above limit (%d)", currentCount, ch.policy.Max),
-			}
-		}
-
-		if minMaxAction != nil {
-			checkEval.Action = minMaxAction
-		} else {
-			ch.log.Debug("nothing to do")
-			return sdk.ScalingAction{Direction: sdk.ScaleDirectionNone}, nil
-		}
-	}
-
-	// Canonicalize action so plugins don't have to.
-	checkEval.Action.Canonicalize()
-
-	// Make sure new count value is within [min, max] limits
-	checkEval.Action.CapCount(ch.policy.Min, ch.policy.Max)
-
 	return *checkEval.Action, nil
 }
 

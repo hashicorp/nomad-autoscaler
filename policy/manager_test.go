@@ -11,12 +11,30 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
+	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test/must"
 )
 
 var testErrUnrecoverable = errors.New("connection refused")
+
+// MockDependencyGetter is a mock implementation of dependencyGetter for testing.
+type MockDependencyGetter struct {
+	APMLooker      apm.Looker
+	APMLookerErr   error
+	StrategyRunner strategy.Runner
+	StrategyErr    error
+}
+
+func (m *MockDependencyGetter) GetAPMLooker(source string) (apm.Looker, error) {
+	return m.APMLooker, m.APMLookerErr
+}
+
+func (m *MockDependencyGetter) GetStrategyRunner(name string) (strategy.Runner, error) {
+	return m.StrategyRunner, m.StrategyErr
+}
 
 // Target mocks
 type mockTargetGetter struct {
@@ -151,99 +169,99 @@ func TestMonitoring(t *testing.T) {
 			initialHandlers:         map[PolicyID]*handlerTracker{},
 			expCallsToLatestVersion: 1,
 		},
-		/* 		{
-		   			name: "add_new_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: true,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   			},
-		   			expCallsToLatestVersion: 1,
-		   		},
-		   		{
-		   			name: "update_older_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: true,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   				policy2.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   			},
-		   			expCallsToLatestVersion: 1,
-		   		},
-		   		{
-		   			name: "no_updates",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   					policy2.ID: false,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   				policy2.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   			},
-		   			expCallsToLatestVersion: 0,
-		   		},
-		   		{
-		   			name: "remove_policy",
-		   			inputIDMessage: IDMessage{
-		   				IDs: map[PolicyID]bool{
-		   					policy1.ID: false,
-		   				},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   			},
+		{
+			name: "add_new_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: true,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+			},
+			expCallsToLatestVersion: 1,
+		},
+		{
+			name: "update_older_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: true,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+				policy2.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+			},
+			expCallsToLatestVersion: 1,
+		},
+		{
+			name: "no_updates",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+					policy2.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+				policy2.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+			},
+			expCallsToLatestVersion: 0,
+		},
+		{
+			name: "remove_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+			},
 
-		   			expCallsToLatestVersion: 0,
-		   		},
-		   		{
-		   			name: "remove_all_policies",
-		   			inputIDMessage: IDMessage{
-		   				IDs:    map[PolicyID]bool{},
-		   				Source: "mock-source",
-		   			},
-		   			initialHandlers: map[PolicyID]*handlerTracker{
-		   				policy1.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   				policy2.ID: {
-		   					updates: make(chan *sdk.ScalingPolicy, 1),
-		   					cancel:  func() {},
-		   				},
-		   			},
-		   		}, */
+			expCallsToLatestVersion: 0,
+		},
+		{
+			name: "remove_all_policies",
+			inputIDMessage: IDMessage{
+				IDs:    map[PolicyID]bool{},
+				Source: "mock-source",
+			},
+			initialHandlers: map[PolicyID]*handlerTracker{
+				policy1.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+				policy2.ID: {
+					updates: make(chan *sdk.ScalingPolicy, 1),
+					cancel:  func() {},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -269,6 +287,7 @@ func TestMonitoring(t *testing.T) {
 				targetGetter: &mockTargetGetter{
 					msg: mStatusController,
 				},
+				pluginManager: &MockDependencyGetter{},
 			}
 
 			ctx := context.Background()
@@ -364,11 +383,39 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 		name                string
 		message             IDMessage
 		targetReporterError error
+		sourceError         error
 		expectedError       error
 		expectedCallCount   int
 	}{
 		{
-			name: "recoverable source error",
+			name: "recoverable_source_error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			sourceError:       errors.New("recoverable error"),
+			expectedError:     nil,
+			expectedCallCount: 3,
+		},
+		{
+			name: "unrecoverable_source_error",
+			message: IDMessage{
+				IDs: map[PolicyID]bool{
+					"policy1": true,
+					"policy2": true,
+					"policy3": true,
+				},
+				Source: "mock-source"},
+			targetReporterError: nil,
+			sourceError:         testErrUnrecoverable,
+			expectedError:       testErrUnrecoverable,
+			expectedCallCount:   1,
+		},
+		{
+			name: "recoverable_target_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -381,7 +428,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			expectedCallCount:   3,
 		},
 		{
-			name: "unrecoverable source error",
+			name: "unrecoverable_target_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -404,15 +451,40 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
 					"policy1": {
 						ID: "policy1",
+						Checks: []*sdk.ScalingPolicyCheck{
+							{
+								Name: "check1",
+								Strategy: &sdk.ScalingPolicyStrategy{
+									Name: "strategy",
+								},
+							},
+						},
 					},
 					"policy2": {
 						ID: "policy2",
+						Checks: []*sdk.ScalingPolicyCheck{
+							{
+								Name: "check1",
+								Strategy: &sdk.ScalingPolicyStrategy{
+									Name: "strategy",
+								},
+							},
+						},
 					},
 					"policy3": {
 						ID: "policy3",
+						Checks: []*sdk.ScalingPolicyCheck{
+							{
+								Name: "check1",
+								Strategy: &sdk.ScalingPolicyStrategy{
+									Name: "strategy",
+								},
+							},
+						},
 					},
 				},
 				countLock: &sync.Mutex{},
+				err:       tc.sourceError,
 			}
 
 			// Create a mock target getter

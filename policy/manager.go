@@ -59,7 +59,7 @@ type Manager struct {
 	// concurrently.
 	*Limiter
 
-	pluginManager *manager.PluginManager
+	pluginManager dependencyGetter
 }
 
 // NewManager returns a new Manager.

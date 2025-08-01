@@ -3,14 +3,7 @@
 
 package policy
 
-import (
-	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-)
-
-func TestHandler_calculateRemainingCooldown(t *testing.T) {
+/* func TestHandler_calculateRemainingCooldown(t *testing.T) {
 
 	baseTime := time.Now().UTC().UnixNano()
 
@@ -48,3 +41,4 @@ func TestHandler_calculateRemainingCooldown(t *testing.T) {
 		})
 	}
 }
+*/

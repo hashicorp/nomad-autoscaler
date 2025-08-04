@@ -16,6 +16,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+var nowFunc = time.Now
+
 type CheckRunnerConfig struct {
 	// Log is the logger to use for logging.
 	Log hclog.Logger
@@ -116,13 +118,14 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 func (ch *checkRunner) RunAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
-	// Trigger a metric measure to track latency of the call.	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source}, {Name: "policy_id", Value: ch.policy.ID}}
-	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source}, {Name: "policy_id", Value: ch.policy.ID}}
-
-	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"}, time.Now(), labels)
+	// Trigger a metric measure to track latency of the call.
+	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source},
+		{Name: "policy_id", Value: ch.policy.ID}}
+	defer metrics.MeasureSinceWithLabels([]string{"plugin", "apm", "query", "invoke_ms"},
+		time.Now(), labels)
 
 	// Calculate query range from the query window defined in the ch.check.
-	to := time.Now().Add(-ch.check.QueryWindowOffset)
+	to := nowFunc().Add(-ch.check.QueryWindowOffset)
 	from := to.Add(-ch.check.QueryWindow)
 	r := sdk.TimeRange{From: from, To: to}
 
@@ -144,7 +147,7 @@ func (ch *checkRunner) RunAPMQuery(ctx context.Context) (sdk.TimestampedMetrics,
 	}
 
 	if err != nil {
-		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %v", err)
+		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %w", err)
 	}
 
 	if len(metrics) == 0 {

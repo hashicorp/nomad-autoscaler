@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -30,10 +31,18 @@ func (m *mockStrategyRunner) Run(eval *sdk.ScalingCheckEvaluation, count int64) 
 }
 
 type mockAPMLooker struct {
+	t         *testing.T
+	query     string
+	timeRange sdk.TimeRange
+	metrics   sdk.TimestampedMetrics
+	err       error
 }
 
 func (m *mockAPMLooker) Query(query string, timeRange sdk.TimeRange) (sdk.TimestampedMetrics, error) {
-	return sdk.TimestampedMetrics{}, nil
+	must.StrContains(m.t, m.query, query)
+	must.Eq(m.t, m.timeRange, timeRange)
+
+	return m.metrics, m.err
 }
 
 func (m *mockAPMLooker) QueryMultiple(query string, timeRange sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
@@ -149,66 +158,81 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 	}
 }
 
-/* func TestCheckHandler_runAPMQuery(t *testing.T) {
-	now := time.Now()
+func TestCheckHandler_runAPMQuery(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2020, 1, 1, 0, 10, 0, 0, time.UTC)
+	}
+	now := nowFunc()
+	testQuery := "rate(http_requests_total[5m])"
+	testWindow := 10 * time.Minute
+
+	testMetrics := sdk.TimestampedMetrics{
+		{Timestamp: now.Add(-time.Minute), Value: 1.0},
+		{Timestamp: now, Value: 2.0},
+	}
+
+	mockLooker := &mockAPMLooker{
+		t:     t,
+		query: testQuery,
+		timeRange: sdk.TimeRange{
+			From: now.Add(-testWindow),
+			To:   now,
+		},
+	}
+
 	tests := []struct {
 		name       string
 		metrics    sdk.TimestampedMetrics
 		queryError error
-		expectErr  bool
+		expResult  sdk.TimestampedMetrics
+		expErr     error
 	}{
 		{
-			name: "valid metrics returned",
-			metrics: sdk.TimestampedMetrics{
-				{Timestamp: now.Add(-time.Minute), Value: 1.0},
-				{Timestamp: now, Value: 2.0},
-			},
-			expectErr: false,
+			name:      "valid_metrics_returned",
+			metrics:   testMetrics,
+			expErr:    nil,
+			expResult: testMetrics,
 		},
 		{
-			name:       "query error",
-			queryError: errors.New("no data"),
-			expectErr:  true,
+			name:       "query_error",
+			queryError: testErr,
+			expResult:  sdk.TimestampedMetrics{},
+			expErr:     testErr,
 		},
 		{
 			name:      "empty metrics",
-			metrics:   sdk.TimestampedMetrics{},
-			expectErr: true,
+			expResult: sdk.TimestampedMetrics{},
+			expErr:    errNoMetrics,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockLooker := new(mockLooker)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mockLooker.metrics = tc.metrics
+			mockLooker.err = tc.queryError
 
 			check := &sdk.ScalingPolicyCheck{
 				Name:              "check",
 				Source:            "mock",
-				Query:             "rate(http_requests_total[5m])",
-				QueryWindow:       10 * time.Minute,
+				Query:             testQuery,
+				QueryWindow:       testWindow,
 				QueryWindowOffset: 0,
-				Strategy:          &sdk.ScalingPolicyStrategy{Name: "s"},
+				Strategy: &sdk.ScalingPolicyStrategy{
+					Name: "strategy",
+				},
 			}
-			policy := &sdk.ScalingPolicy{ID: "xyz"}
-
-			// Match any reasonable time range
-			mockLooker.On("Query", check.Query, mock.Anything).Return(tt.metrics, tt.queryError)
 
 			handler := newCheckRunner(&CheckRunnerConfig{
 				Log:           hclog.NewNullLogger(),
 				MetricsGetter: mockLooker,
-				Policy:        policy,
+				Policy: &sdk.ScalingPolicy{
+					ID: "testPolicy",
+				},
 			}, check)
 
 			result, err := handler.RunAPMQuery(context.Background())
-
-			if tt.expectErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.metrics, result)
-			}
+			must.Eq(t, tc.expResult, result)
+			must.True(t, errors.Is(err, tc.expErr))
 		})
 	}
 }
-*/

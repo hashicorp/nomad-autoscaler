@@ -3,7 +3,14 @@
 
 package policy
 
-/* func TestHandler_calculateRemainingCooldown(t *testing.T) {
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestHandler_calculateRemainingCooldown(t *testing.T) {
 
 	baseTime := time.Now().UTC().UnixNano()
 
@@ -19,26 +26,21 @@ package policy
 			inputTimestamp: baseTime,
 			inputLastEvent: baseTime - 10*time.Minute.Nanoseconds(),
 			expectedOutput: 10 * time.Minute,
-			name:           "resulting cooldown of 10 minutes",
+			name:           "resulting_cooldown_of_10_minutes",
 		},
 		{
 			inputCooldown:  20 * time.Minute,
 			inputTimestamp: baseTime,
 			inputLastEvent: baseTime - 25*time.Minute.Nanoseconds(),
 			expectedOutput: -5 * time.Minute,
-			name:           "negative cooldown period; ie. no cooldown",
+			name:           "negative_cooldown_period;_ie._no_cooldown",
 		},
-	}
-
-	h := Handler{
-		cooldownCh: make(chan time.Duration, 1),
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := h.calculateRemainingCooldown(tc.inputCooldown, tc.inputTimestamp, tc.inputLastEvent)
+			actualOutput := calculateRemainingCooldown(tc.inputCooldown, tc.inputTimestamp, tc.inputLastEvent)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
 }
-*/

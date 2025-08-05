@@ -50,8 +50,11 @@ func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarge
 }
 
 type mockTargetController struct {
-	status *sdk.TargetStatus
-	err    error
+	scaleErr    error
+	scaleCalled bool
+	lastAction  sdk.ScalingAction
+	status      *sdk.TargetStatus
+	err         error
 }
 
 func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetStatus, error) {
@@ -59,6 +62,9 @@ func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetSt
 }
 
 func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[string]string) error {
+	msg.scaleCalled = true
+	msg.lastAction = action
+
 	return msg.err
 }
 

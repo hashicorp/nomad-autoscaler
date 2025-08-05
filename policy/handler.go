@@ -55,6 +55,11 @@ type dependencyGetter interface {
 	GetStrategyRunner(name string) (strategy.Runner, error)
 }
 
+type limiter interface {
+	GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error
+	ReleaseSlot(p *sdk.ScalingPolicy)
+}
+
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
 type Handler struct {
@@ -70,7 +75,7 @@ type Handler struct {
 
 	targetController targetpkg.TargetController
 
-	limiter *Limiter
+	limiter limiter
 
 	// errCh is used to surface errors while executing the policy
 	errChn chan<- error
@@ -102,7 +107,6 @@ type HandlerConfig struct {
 	DependencyGetter dependencyGetter
 }
 
-// TODO: Add the loadCheckhandlers to the mutators?
 func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	h := &Handler{
@@ -147,7 +151,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		h.UpdateState(StateCooldown)
 
 		rcd := calculateRemainingCooldown(h.policy.CooldownOnScaleUp,
-			time.Now().UTC().UnixNano(), lastEventTS)
+			nowFunc().UTC().UnixNano(), lastEventTS)
 		time.AfterFunc(rcd, func() {
 			h.UpdateState(StateIdle)
 		})
@@ -210,6 +214,7 @@ func (h *Handler) Run(ctx context.Context) {
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
+
 			currentStatus, err := h.runTargetStatus()
 			if err != nil {
 				h.errChn <- fmt.Errorf("failed to get target status: %v", err)
@@ -247,7 +252,7 @@ func (h *Handler) Run(ctx context.Context) {
 
 			h.UpdateNextAction(action)
 
-			if time.Now().After(h.OutOfCooldownOn()) {
+			if nowFunc().After(h.OutOfCooldownOn()) {
 				h.UpdateState(StateIdle)
 			}
 
@@ -263,15 +268,13 @@ func (h *Handler) Run(ctx context.Context) {
 				h.log.Info("skipping scaling, target still scaling")
 
 			case StateIdle:
-				h.UpdateState(StateWaitingTurn)
 				go func() {
+
 					err := h.WaitAndScale(ctx)
 					if err != nil {
-						h.log.Error("unable to scale target", "reason", err)
 						h.UpdateState(StateIdle)
+						h.log.Error("unable to scale target", "reason", err)
 					}
-
-					h.UpdateState(StateCooldown)
 				}()
 			}
 		}
@@ -279,18 +282,14 @@ func (h *Handler) Run(ctx context.Context) {
 }
 
 func (h *Handler) WaitAndScale(ctx context.Context) error {
-	labels := []metrics.Label{
-		{Name: "policy_id", Value: h.policy.ID},
-		{Name: "target_name", Value: h.policy.Target.Name},
-	}
-
+	h.log.Debug("requesting slot")
 	h.UpdateState(StateWaitingTurn)
 
-	h.log.Debug("requesting slot")
 	err := h.limiter.GetSlot(ctx, h.policy)
 	if err != nil {
-		h.log.Error("timeout waiting for execution time", "err", err)
+		return fmt.Errorf("timeout waiting for execution time: %w", err)
 	}
+
 	defer h.limiter.ReleaseSlot(h.policy)
 
 	h.log.Debug("slot granted")
@@ -301,17 +300,21 @@ func (h *Handler) WaitAndScale(ctx context.Context) error {
 	// Measure how long it takes to invoke the scaling actions. This helps
 	// understand the time taken to interact with the remote target and action
 	// the scaling action.
-	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"}, time.Now(), labels)
+	labels := []metrics.Label{
+		{Name: "policy_id", Value: h.policy.ID},
+		{Name: "target_name", Value: h.policy.Target.Name},
+	}
+	defer metrics.MeasureSinceWithLabels([]string{"scale", "invoke_ms"},
+		nowFunc(), labels)
 
 	err = h.runTargetScale(action)
 	if err != nil {
-		h.log.Error("failed to get scale target for policy", "err", err)
+		return fmt.Errorf("failed to get scale target: %w", err)
 	}
 
-	cd := calculateCooldown(h.policy, action)
-
-	h.UpdateOutOfCooldownOn(time.Now().Add(cd))
 	h.UpdateState(StateCooldown)
+	cd := calculateCooldown(h.policy, action)
+	h.UpdateOutOfCooldownOn(nowFunc().Add(cd))
 
 	h.log.Debug("successfully submitted scaling action to target, scaling policy has been placed into cooldown",
 		"desired_count", action.Count, "cooldown", cd)
@@ -387,7 +390,7 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 
 	// Record the start time of the eval portion of this function. The labels
 	// are also used across multiple metrics, so define them.
-	evalStartTime := time.Now()
+	evalStartTime := nowFunc()
 	labels := []metrics.Label{
 		{Name: "policy_id", Value: h.policy.ID},
 		{Name: "target_name", Value: h.policy.Target.Name},

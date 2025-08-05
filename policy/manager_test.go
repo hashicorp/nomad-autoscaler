@@ -54,18 +54,18 @@ type mockTargetController struct {
 	scaleCalled bool
 	lastAction  sdk.ScalingAction
 	status      *sdk.TargetStatus
-	err         error
+	statusErr   error
 }
 
 func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetStatus, error) {
-	return msg.status, msg.err
+	return msg.status, msg.statusErr
 }
 
 func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[string]string) error {
 	msg.scaleCalled = true
 	msg.lastAction = action
 
-	return msg.err
+	return msg.scaleErr
 }
 
 // Source mocks

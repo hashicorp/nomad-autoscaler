@@ -269,7 +269,6 @@ func (h *Handler) Run(ctx context.Context) {
 
 			case StateIdle:
 				go func() {
-
 					err := h.WaitAndScale(ctx)
 					if err != nil {
 						h.UpdateState(StateIdle)
@@ -366,10 +365,9 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
 		return
 	}
+
 	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
-
 	h.policy = updatedPolicy
-
 }
 
 // applyMutators applies the mutators registered with the handler in order and

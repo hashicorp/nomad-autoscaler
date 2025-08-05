@@ -111,8 +111,8 @@ func TestHandler_WaitAndScale(t *testing.T) {
 			}
 
 			target := &mockTargetController{
-				err:    tc.scaleErr,
-				status: tc.status,
+				scaleErr: tc.scaleErr,
+				status:   tc.status,
 			}
 
 			handler := &Handler{
@@ -136,6 +136,132 @@ func TestHandler_WaitAndScale(t *testing.T) {
 
 			must.Eq(t, tc.expectedState, handler.State())
 			must.Eq(t, tc.cooldownEnd, handler.OutOfCooldownOn())
+		})
+	}
+}
+
+func Test_pickWinnerActionFromGroups(t *testing.T) {
+
+	actionNone := &sdk.ScalingAction{
+		Direction: sdk.ScaleDirectionNone,
+		Count:     0,
+	}
+	actionUp := &sdk.ScalingAction{
+		Direction: sdk.ScaleDirectionUp,
+		Count:     5,
+	}
+	actionDown := &sdk.ScalingAction{
+		Direction: sdk.ScaleDirectionDown,
+		Count:     1,
+	}
+
+	runnerA := &checkRunner{
+		check: &sdk.ScalingPolicyCheck{Name: "A"},
+	}
+	runnerB := &checkRunner{
+		check: &sdk.ScalingPolicyCheck{Name: "B"},
+	}
+	runnerC := &checkRunner{
+		check: &sdk.ScalingPolicyCheck{Name: "C"},
+	}
+
+	tests := []struct {
+		name        string
+		checkGroups map[string][]checkResult
+		wantAction  *sdk.ScalingAction
+		wantHandler *checkRunner
+	}{
+		{
+			name: "all_none_in_group",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: actionNone, handler: runnerA, group: "group1"},
+					{action: actionNone, handler: runnerB, group: "group1"},
+				},
+			},
+			wantAction:  actionNone,
+			wantHandler: runnerA,
+		},
+		{
+			name: "up_beats_none",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: actionNone, handler: runnerA, group: "group1"},
+					{action: actionUp, handler: runnerB, group: "group1"},
+				},
+			},
+			wantAction:  actionUp,
+			wantHandler: runnerB,
+		},
+		{
+			name: "down_beats_none",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: actionNone, handler: runnerA, group: "group1"},
+					{action: actionDown, handler: runnerB, group: "group1"},
+				},
+			},
+			wantAction:  actionDown,
+			wantHandler: runnerB,
+		},
+		{
+			name: "up_beats_down",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: actionDown, handler: runnerA, group: "group1"},
+					{action: actionUp, handler: runnerB, group: "group1"},
+				},
+			},
+			wantAction:  actionUp,
+			wantHandler: runnerB,
+		},
+		{
+			name: "multiple_groups_up_wins",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: actionNone, handler: runnerA, group: "group1"},
+				},
+				"group2": {
+					{action: actionUp, handler: runnerB, group: "group2"},
+					{action: actionDown, handler: runnerC, group: "group2"},
+				},
+			},
+			wantAction:  actionUp,
+			wantHandler: runnerB,
+		},
+		{
+			name:        "empty_input",
+			checkGroups: map[string][]checkResult{},
+			wantAction:  nil,
+			wantHandler: nil,
+		},
+		{
+			name: "nil_actions_ignored",
+			checkGroups: map[string][]checkResult{
+				"group1": {
+					{action: nil, handler: runnerA, group: "group1"},
+					{action: actionUp, handler: runnerB, group: "group1"},
+				},
+			},
+			wantAction:  actionUp,
+			wantHandler: runnerB,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := pickWinnerActionFromGroups(tt.checkGroups)
+
+			if tt.wantAction == nil {
+				must.Nil(t, result.action)
+				must.Nil(t, result.handler)
+			} else {
+				must.NotNil(t, result.action)
+				must.Eq(t, tt.wantAction.Direction, result.action.Direction)
+				must.Eq(t, tt.wantAction.Count, result.action.Count)
+				must.NotNil(t, result.handler)
+				must.Eq(t, tt.wantHandler.check.Name, result.handler.check.Name)
+			}
 		})
 	}
 }

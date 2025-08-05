@@ -114,8 +114,8 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 	return *runResp.Action, nil
 }
 
-// RunAPMQuery wraps the apm.Query call to provide operational functionality.
-func (ch *checkRunner) RunAPMQuery(ctx context.Context) (sdk.TimestampedMetrics, error) {
+// QueryMetricsy wraps the apm.Query call to provide operational functionality.
+func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
 	// Trigger a metric measure to track latency of the call.

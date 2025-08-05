@@ -124,7 +124,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		state:            StateIdle,
 	}
 
-	err := h.loadCheckRunner()
+	err := h.loadCheckRunners()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load check handlers: %w", err)
 	}
@@ -160,7 +160,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	return h, nil
 }
 
-func (h *Handler) loadCheckRunner() error {
+func (h *Handler) loadCheckRunners() error {
 
 	for _, check := range h.policy.Checks {
 		s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
@@ -200,6 +200,7 @@ func (h *Handler) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			h.log.Error("stopping policy handler due to context done")
+			h.errChn <- ctx.Err()
 			return
 
 		case updatedPolicy := <-h.updatesCh:
@@ -217,7 +218,8 @@ func (h *Handler) Run(ctx context.Context) {
 
 			currentStatus, err := h.runTargetStatus()
 			if err != nil {
-				h.errChn <- fmt.Errorf("failed to get target status: %v", err)
+				h.errChn <- fmt.Errorf("handler: failed to get target status for target: %s, %w",
+					h.policy.Target.Name, err)
 			}
 
 			// A nil status indicates the target doesn't exist, log and return.
@@ -234,7 +236,8 @@ func (h *Handler) Run(ctx context.Context) {
 			currentCount := currentStatus.Count
 			action, err := h.CalculateNewCount(ctx, currentCount)
 			if err != nil {
-				h.errChn <- fmt.Errorf("handler: unable to execute policy %v", err)
+				h.errChn <- fmt.Errorf("handler: unable to execute policy ID: %s, %w",
+					h.policy.ID, err)
 				continue
 			}
 
@@ -245,7 +248,7 @@ func (h *Handler) Run(ctx context.Context) {
 			h.log.Info("calculating scaling target", "from", currentCount, "to",
 				action.Count, "reason", action.Reason, "meta", action.Meta)
 
-			if !action.ScalingNeeded(currentCount) {
+			if !scalingNeeded(action, currentCount) {
 				h.log.Info("skipping scaling, no action needed")
 				continue
 			}
@@ -278,6 +281,10 @@ func (h *Handler) Run(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
+	return a.Direction != sdk.ScaleDirectionNone && countCount != a.Count
 }
 
 func (h *Handler) WaitAndScale(ctx context.Context) error {
@@ -360,7 +367,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	// Clear existing check handlers and load new ones.
 	h.checkRunners = nil
 
-	err := h.loadCheckRunner()
+	err := h.loadCheckRunners()
 	if err != nil {
 		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
 		return
@@ -400,7 +407,7 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 	for _, ch := range h.checkRunners {
 		h.log.Debug("received policy check for evaluation")
 
-		metrics, err := ch.RunAPMQuery(ctx)
+		metrics, err := ch.QueryMetrics(ctx)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 		}

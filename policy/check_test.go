@@ -18,7 +18,9 @@ import (
 var testErr = errors.New("error!")
 
 type mockStrategyRunner struct {
-	t *testing.T
+	t         *testing.T
+	count     int64
+	direction sdk.ScaleDirection
 
 	err error
 }
@@ -26,6 +28,8 @@ type mockStrategyRunner struct {
 func (m *mockStrategyRunner) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
 	test.NotNil(m.t, eval)
 	test.NotNil(m.t, eval.Metrics)
+	eval.Action.Count = m.count
+	eval.Action.Direction = m.direction
 
 	return eval, m.err
 }
@@ -230,7 +234,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}, check)
 
-			result, err := handler.RunAPMQuery(context.Background())
+			result, err := handler.QueryMetrics(context.Background())
 			must.Eq(t, tc.expResult, result)
 			must.True(t, errors.Is(err, tc.expErr))
 		})

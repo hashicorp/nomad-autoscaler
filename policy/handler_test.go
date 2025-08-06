@@ -427,7 +427,7 @@ var policy = &sdk.ScalingPolicy{
 		Config: map[string]string{},
 	},
 	Checks: []*sdk.ScalingPolicyCheck{
-		&sdk.ScalingPolicyCheck{
+		{
 			Name:   "mock-check",
 			Source: "mock-source",
 			Query:  "mock-query",

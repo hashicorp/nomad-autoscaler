@@ -5,6 +5,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -120,7 +121,7 @@ func (a *Agent) setupPolicyManager(limiter *policy.Limiter) error {
 	// TODO: Once full policy source reload is implemented this should probably
 	// be just a warning.
 	if len(sources) == 0 {
-		return fmt.Errorf("no policy source available")
+		return errors.New("no policy source available")
 	}
 
 	a.policySources = sources

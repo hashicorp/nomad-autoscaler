@@ -43,7 +43,7 @@ type mockTargetGetter struct {
 	err   error
 }
 
-func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.TargetController, error) {
+func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.Controller, error) {
 	mtrg.count++
 
 	return mtrg.msg, mtrg.err

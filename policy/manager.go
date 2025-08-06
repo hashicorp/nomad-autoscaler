@@ -27,7 +27,7 @@ type handlerTracker struct {
 }
 
 type targetGetter interface {
-	GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.TargetController, error)
+	GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.Controller, error)
 }
 
 // Manager tracks policies and controls the lifecycle of each policy handler.

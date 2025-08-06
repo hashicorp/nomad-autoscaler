@@ -463,7 +463,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
-func TestHandler_Run_ScalingNeededAndCooldown(t *testing.T) {
+func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 	nowFunc = func() time.Time {
 		return time.Time{}
 	}

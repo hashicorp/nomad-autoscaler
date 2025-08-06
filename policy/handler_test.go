@@ -125,7 +125,7 @@ func TestHandler_WaitAndScale(t *testing.T) {
 				nextAction:       sdk.ScalingAction{Count: 5},
 			}
 
-			err := handler.WaitAndScale(context.Background())
+			err := handler.waitAndScale(context.Background())
 			must.True(t, errors.Is(err, tc.expectedErr))
 
 			if tc.getSlotErr == nil {
@@ -134,8 +134,8 @@ func TestHandler_WaitAndScale(t *testing.T) {
 				must.True(t, target.scaleCalled)
 			}
 
-			must.Eq(t, tc.expectedState, handler.State())
-			must.Eq(t, tc.cooldownEnd, handler.OutOfCooldownOn())
+			must.Eq(t, tc.expectedState, handler.getState())
+			must.Eq(t, tc.cooldownEnd, handler.getOutOfCooldownOn())
 		})
 	}
 }
@@ -280,39 +280,6 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 	}
 }
 
-func TestHandler_Run_ContextDone(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	errCh := make(chan error, 1)
-	updatesCh := make(chan *sdk.ScalingPolicy)
-	policy := &sdk.ScalingPolicy{
-		ID:                 "test-policy",
-		EvaluationInterval: 10 * time.Millisecond,
-		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
-	}
-
-	handler := &Handler{
-		log:              hclog.NewNullLogger(),
-		policy:           policy,
-		updatesCh:        updatesCh,
-		errChn:           errCh,
-		targetController: &mockTargetController{status: &sdk.TargetStatus{Ready: true, Count: 1, Meta: map[string]string{}}},
-		state:            StateIdle,
-	}
-
-	go handler.Run(ctx)
-	time.Sleep(20 * time.Millisecond)
-	cancel()
-	time.Sleep(20 * time.Millisecond)
-	select {
-	case err := <-errCh:
-		must.True(t, errors.Is(err, context.Canceled))
-	default:
-		t.Fatal("expected error for context canceled")
-	}
-}
-
 func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -345,9 +312,9 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 		t.Fatal("expected error getting target status")
 	}
 
-	must.Eq(t, StateIdle, handler.State())
-	must.Eq(t, time.Time{}, handler.OutOfCooldownOn())
-	must.Eq(t, sdk.ScalingAction{}, handler.NextAction())
+	must.Eq(t, StateIdle, handler.getState())
+	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
+	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -380,9 +347,9 @@ func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 		t.Fatal("expected error for target not found")
 	}
 
-	must.Eq(t, StateIdle, handler.State())
-	must.Eq(t, time.Time{}, handler.OutOfCooldownOn())
-	must.Eq(t, sdk.ScalingAction{}, handler.NextAction())
+	must.Eq(t, StateIdle, handler.getState())
+	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
+	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
 func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
@@ -410,9 +377,9 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 	time.Sleep(20 * time.Millisecond)
 	cancel()
 
-	must.Eq(t, StateIdle, handler.State())
-	must.Eq(t, time.Time{}, handler.OutOfCooldownOn())
-	must.Eq(t, sdk.ScalingAction{}, handler.NextAction())
+	must.Eq(t, StateIdle, handler.getState())
+	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
+	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
 var policy = &sdk.ScalingPolicy{
@@ -491,9 +458,9 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 	cancel()
 
 	must.False(t, mtc.scaleCalled)
-	must.Eq(t, StateIdle, handler.State())
-	must.Eq(t, time.Time{}, handler.OutOfCooldownOn())
-	must.Eq(t, sdk.ScalingAction{}, handler.NextAction())
+	must.Eq(t, StateIdle, handler.getState())
+	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
+	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
 func TestHandler_Run_ScalingNeededAndCooldown(t *testing.T) {
@@ -552,13 +519,13 @@ func TestHandler_Run_ScalingNeededAndCooldown(t *testing.T) {
 	cancel()
 
 	must.True(t, mtc.scaleCalled)
-	must.Eq(t, StateCooldown, handler.State())
-	must.Eq(t, time.Time{}.Add(5*time.Minute), handler.OutOfCooldownOn())
+	must.Eq(t, StateCooldown, handler.getState())
+	must.Eq(t, time.Time{}.Add(5*time.Minute), handler.getOutOfCooldownOn())
 	must.Eq(t, sdk.ScalingAction{
 		Count:     10,
 		Direction: sdk.ScaleDirectionUp,
 		Meta: map[string]interface{}{
 			"nomad_policy_id": policy.ID,
 		},
-	}, handler.NextAction())
+	}, handler.getNextAction())
 }

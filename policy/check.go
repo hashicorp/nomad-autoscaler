@@ -40,8 +40,8 @@ type checkRunner struct {
 	policy         *sdk.ScalingPolicy
 }
 
-// newCheckHandler returns a new checkHandler instance.
-func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
+// NewCheckHandler returns a new checkHandler instance.
+func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
 		log:            config.Log,
 		check:          c,

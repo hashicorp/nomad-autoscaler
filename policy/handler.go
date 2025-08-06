@@ -149,12 +149,12 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	if lastEventTS > 0 {
 		// For out of band events, it is impossible to determine the direction
 		// of the last action, assume the shortest period for responsiveness.
-		h.UpdateState(StateCooldown)
+		h.updateState(StateCooldown)
 
 		rcd := calculateRemainingCooldown(h.policy.CooldownOnScaleUp,
 			nowFunc().UTC().UnixNano(), lastEventTS)
 		time.AfterFunc(rcd, func() {
-			h.UpdateState(StateIdle)
+			h.updateState(StateIdle)
 		})
 	}
 
@@ -174,7 +174,7 @@ func (h *Handler) loadCheckRunners() error {
 			return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
 		}
 
-		runner := newCheckRunner(&CheckRunnerConfig{
+		runner := NewCheckRunner(&CheckRunnerConfig{
 			Log: h.log.Named("check_handler").With("check", check.Name,
 				"source", check.Source, "strategy", check.Strategy.Name),
 			StrategyRunner: s,
@@ -235,7 +235,7 @@ func (h *Handler) Run(ctx context.Context) {
 			}
 
 			currentCount := currentStatus.Count
-			action, err := h.CalculateNewCount(ctx, currentCount)
+			action, err := h.calculateNewCount(ctx, currentCount)
 			if err != nil {
 				h.errChn <- fmt.Errorf("handler: unable to execute policy ID: %s, %w",
 					h.policy.ID, err)
@@ -254,16 +254,16 @@ func (h *Handler) Run(ctx context.Context) {
 				continue
 			}
 
-			h.UpdateNextAction(action)
+			h.updateNextAction(action)
 
-			if nowFunc().After(h.OutOfCooldownOn()) && h.State() == StateCooldown {
-				h.UpdateState(StateIdle)
+			if nowFunc().After(h.getOutOfCooldownOn()) && h.getState() == StateCooldown {
+				h.updateState(StateIdle)
 			}
 
-			switch h.State() {
+			switch h.getState() {
 			case StateCooldown:
 				h.log.Info("skipping scaling, policy still on cooldown", "remaining",
-					time.Until(h.OutOfCooldownOn()))
+					time.Until(h.getOutOfCooldownOn()))
 
 			case StateWaitingTurn:
 				h.log.Debug("updating action, waiting to execute")
@@ -274,11 +274,11 @@ func (h *Handler) Run(ctx context.Context) {
 			case StateIdle:
 				go func() {
 					h.log.Debug("requesting slot")
-					h.UpdateState(StateWaitingTurn)
+					h.updateState(StateWaitingTurn)
 
-					err := h.WaitAndScale(ctx)
+					err := h.waitAndScale(ctx)
 					if err != nil {
-						h.UpdateState(StateIdle)
+						h.updateState(StateIdle)
 						h.log.Error("unable to scale target", "reason", err)
 					}
 				}()
@@ -291,7 +291,7 @@ func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
 	return a.Direction != sdk.ScaleDirectionNone && countCount != a.Count
 }
 
-func (h *Handler) WaitAndScale(ctx context.Context) error {
+func (h *Handler) waitAndScale(ctx context.Context) error {
 	err := h.limiter.GetSlot(ctx, h.policy)
 	if err != nil {
 		return fmt.Errorf("timeout waiting for execution time: %w", err)
@@ -301,8 +301,8 @@ func (h *Handler) WaitAndScale(ctx context.Context) error {
 
 	h.log.Debug("slot granted")
 
-	action := h.NextAction()
-	h.UpdateState(StateScaling)
+	action := h.getNextAction()
+	h.updateState(StateScaling)
 
 	// Measure how long it takes to invoke the scaling actions. This helps
 	// understand the time taken to interact with the remote target and action
@@ -319,9 +319,9 @@ func (h *Handler) WaitAndScale(ctx context.Context) error {
 		return fmt.Errorf("failed to get scale target: %w", err)
 	}
 
-	h.UpdateState(StateCooldown)
+	h.updateState(StateCooldown)
 	cd := calculateCooldown(h.policy, action)
-	h.UpdateOutOfCooldownOn(nowFunc().Add(cd))
+	h.updateOutOfCooldownOn(nowFunc().Add(cd))
 
 	h.log.Debug("successfully submitted scaling action to target, scaling policy has been placed into cooldown",
 		"desired_count", action.Count, "cooldown", cd)
@@ -395,7 +395,7 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 // Handle policy is the main part of the controller, it reads the target state,
 // gets the metrics and the necessary new count to keep up with the policy
 // and generates a scaling action if needed.
-func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 
 	// Record the start time of the eval portion of this function. The labels
@@ -547,44 +547,44 @@ func pickWinnerActionFromGroups(checkGroups map[string][]checkResult) checkResul
 	return winner
 }
 
-func (h *Handler) State() handlerState {
+func (h *Handler) getState() handlerState {
 	h.stateLock.RLock()
 	defer h.stateLock.RUnlock()
 
 	return h.state
 }
 
-func (h *Handler) UpdateState(hs handlerState) {
+func (h *Handler) updateState(hs handlerState) {
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 
 	h.state = hs
 }
 
-func (h *Handler) NextAction() sdk.ScalingAction {
+func (h *Handler) getNextAction() sdk.ScalingAction {
 	h.actionLock.RLock()
 	defer h.actionLock.RUnlock()
 
 	return h.nextAction
 }
 
-func (h *Handler) UpdateNextAction(a sdk.ScalingAction) {
+func (h *Handler) updateNextAction(a sdk.ScalingAction) {
 	h.actionLock.Lock()
 	defer h.actionLock.Unlock()
 
 	h.nextAction = a
 }
 
-func (h *Handler) OutOfCooldownOn() time.Time {
+func (h *Handler) getOutOfCooldownOn() time.Time {
 	h.cooldownLock.RLock()
 	defer h.cooldownLock.RUnlock()
 
 	return h.outOfCooldownOn
 }
 
-func (h *Handler) UpdateOutOfCooldownOn(ooc time.Time) {
-	h.cooldownLock.RLock()
-	defer h.cooldownLock.RUnlock()
+func (h *Handler) updateOutOfCooldownOn(ooc time.Time) {
+	h.cooldownLock.Lock()
+	defer h.cooldownLock.Unlock()
 
 	h.outOfCooldownOn = ooc
 }

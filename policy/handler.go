@@ -256,7 +256,8 @@ func (h *Handler) Run(ctx context.Context) {
 
 			h.updateNextAction(action)
 
-			if nowFunc().After(h.getOutOfCooldownOn()) && h.getState() == StateCooldown {
+			if nowFunc().After(h.getOutOfCooldownOn()) &&
+				h.getState() == StateCooldown {
 				h.updateState(StateIdle)
 			}
 
@@ -272,10 +273,10 @@ func (h *Handler) Run(ctx context.Context) {
 				h.log.Info("skipping scaling, target still scaling")
 
 			case StateIdle:
-				go func() {
-					h.log.Debug("requesting slot")
-					h.updateState(StateWaitingTurn)
+				h.log.Debug("requesting slot")
+				h.updateState(StateWaitingTurn)
 
+				go func() {
 					err := h.waitAndScale(ctx)
 					if err != nil {
 						h.updateState(StateIdle)
@@ -322,7 +323,6 @@ func (h *Handler) waitAndScale(ctx context.Context) error {
 	h.updateState(StateCooldown)
 	cd := calculateCooldown(h.policy, action)
 	h.updateOutOfCooldownOn(nowFunc().Add(cd))
-
 	h.log.Debug("successfully submitted scaling action to target, scaling policy has been placed into cooldown",
 		"desired_count", action.Count, "cooldown", cd)
 

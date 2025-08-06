@@ -18,6 +18,7 @@ import (
 
 type MockLimiter struct {
 	getSlotErr error
+	delay      time.Duration
 
 	callslock     sync.Mutex
 	releaseCalled bool
@@ -31,6 +32,8 @@ func (m *MockLimiter) getReleaseCalled() bool {
 }
 
 func (m *MockLimiter) GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error {
+	time.Sleep(m.delay) // Simulate waiting for slot
+
 	return m.getSlotErr
 }
 func (m *MockLimiter) ReleaseSlot(p *sdk.ScalingPolicy) {
@@ -544,4 +547,162 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 			"nomad_policy_id": policy.ID,
 		},
 	}, handler.getNextAction())
+}
+
+func TestHandler_Run_StateChanges_Integration(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Time{}
+	}
+
+	tests := []struct {
+		name                string
+		initialHandlerState handlerState
+		scalingDelay        time.Duration
+		scalingErr          error
+		slotDelay           time.Duration
+		expectedState       handlerState
+		initialCooldownEnd  time.Time
+		expectedCooldownEnd time.Time
+		scaleExpected       bool
+	}{
+		{
+			name:                "initial_state_idle_to_scaling",
+			initialHandlerState: StateIdle,
+			expectedState:       StateScaling,
+			scalingDelay:        2 * time.Second,
+			initialCooldownEnd:  time.Time{},
+			scaleExpected:       true,
+			expectedCooldownEnd: time.Time{},
+		},
+		{
+			name:                "initial_state_idle_with_scaling_error",
+			initialHandlerState: StateIdle,
+			expectedState:       StateIdle,
+			scalingErr:          testErr,
+			initialCooldownEnd:  time.Time{},
+			scaleExpected:       true,
+			expectedCooldownEnd: time.Time{},
+		},
+		{
+			name:                "initial_state_idle_to_waiting_turn",
+			initialHandlerState: StateIdle,
+			expectedState:       StateWaitingTurn,
+			slotDelay:           2 * time.Second,
+			initialCooldownEnd:  time.Time{},
+			scaleExpected:       false,
+			expectedCooldownEnd: time.Time{},
+		},
+		{
+			name:                "initial_state_idle_to_cooldown",
+			initialHandlerState: StateIdle,
+			expectedState:       StateCooldown,
+			initialCooldownEnd:  time.Time{},
+			scaleExpected:       true,
+			expectedCooldownEnd: time.Time{}.Add(policy.CooldownOnScaleUp),
+		},
+		{
+			name:                "initial_state_cooldown_before_cooldown_timeout",
+			initialHandlerState: StateCooldown,
+			expectedState:       StateCooldown,
+			scaleExpected:       false,
+			initialCooldownEnd:  time.Time{}.Add(10 * time.Minute),
+			expectedCooldownEnd: time.Time{}.Add(10 * time.Minute),
+		},
+		{
+			name:                "initial_state_cooldown_after_cooldown_timeout_no_delays",
+			initialHandlerState: StateCooldown,
+			expectedState:       StateCooldown,
+			scaleExpected:       true,
+			initialCooldownEnd:  time.Time{}.Add(-10 * time.Minute),
+			expectedCooldownEnd: time.Time{}.Add(policy.CooldownOnScaleUp),
+		},
+		{
+			name:                "initial_state_waiting_turn",
+			initialHandlerState: StateWaitingTurn,
+			expectedState:       StateWaitingTurn,
+			scaleExpected:       false,
+			initialCooldownEnd:  time.Time{},
+			expectedCooldownEnd: time.Time{},
+		},
+		{
+			name:                "initial_state_scaling",
+			initialHandlerState: StateScaling,
+			expectedState:       StateScaling,
+			scaleExpected:       false,
+			initialCooldownEnd:  time.Time{},
+			expectedCooldownEnd: time.Time{},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			errCh := make(chan error, 1)
+			updatesCh := make(chan *sdk.ScalingPolicy)
+
+			mtc := &mockTargetController{
+				status: &sdk.TargetStatus{
+					Ready: true,
+					Count: 5,
+					Meta:  map[string]string{},
+				},
+				scaleDelay: tc.scalingDelay,
+				scaleErr:   tc.scalingErr,
+			}
+
+			mapml := &mockAPMLooker{
+				t:         t,
+				query:     "mock-query",
+				timeRange: sdk.TimeRange{From: time.Time{}, To: time.Time{}},
+				metrics: sdk.TimestampedMetrics{
+					{Timestamp: nowFunc().Add(-time.Minute), Value: 1.0},
+					{Timestamp: nowFunc(), Value: 2.0},
+				},
+			}
+
+			mdg := &MockDependencyGetter{
+				APMLooker: mapml,
+				StrategyRunner: &mockStrategyRunner{
+					t:         t,
+					count:     10,
+					direction: sdk.ScaleDirectionUp,
+				},
+			}
+
+			handler := &Handler{
+				log:              hclog.NewNullLogger(),
+				policy:           policy,
+				updatesCh:        updatesCh,
+				errChn:           errCh,
+				targetController: mtc,
+				state:            tc.initialHandlerState,
+				pm:               mdg,
+				limiter: &MockLimiter{
+					delay: tc.slotDelay,
+				},
+				outOfCooldownOn: tc.initialCooldownEnd,
+				nextAction:      sdk.ScalingAction{},
+			}
+
+			must.NoError(t, handler.loadCheckRunners())
+
+			go handler.Run(ctx)
+			time.Sleep(30 * time.Millisecond)
+			cancel()
+
+			must.Eq(t, tc.scaleExpected, mtc.getScaleCalled())
+			must.Eq(t, tc.expectedState, handler.getState())
+			must.Eq(t, tc.expectedCooldownEnd, handler.getOutOfCooldownOn())
+			must.Eq(t, sdk.ScalingAction{
+				Count:     10,
+				Direction: sdk.ScaleDirectionUp,
+				Meta: map[string]interface{}{
+					"nomad_policy_id": policy.ID,
+				},
+			}, handler.getNextAction())
+		})
+	}
+
 }

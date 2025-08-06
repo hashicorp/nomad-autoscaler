@@ -53,6 +53,7 @@ type mockTargetController struct {
 	scaleErr    error
 	scaleLock   sync.Mutex
 	scaleCalled bool
+	scaleDelay  time.Duration
 	lastAction  sdk.ScalingAction
 	status      *sdk.TargetStatus
 	statusErr   error
@@ -71,10 +72,11 @@ func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetSt
 
 func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[string]string) error {
 	msg.scaleLock.Lock()
-	defer msg.scaleLock.Unlock()
-
 	msg.scaleCalled = true
 	msg.lastAction = action
+	msg.scaleLock.Unlock()
+
+	time.Sleep(msg.scaleDelay) // Simulate some processing delay
 
 	return msg.scaleErr
 }

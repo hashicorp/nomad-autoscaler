@@ -37,7 +37,7 @@ import (
 type handlerState int
 
 const (
-	StateScaling = iota
+	StateScaling handlerState = iota
 	StateWaitingTurn
 	StateCooldown
 	StateIdle
@@ -131,18 +131,19 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	currentStatus, err := h.runTargetStatus()
 	if err != nil {
-		h.errChn <- fmt.Errorf("failed to get target status: %v", err)
+		return nil, fmt.Errorf("failed to get target status: %v", err)
 	}
 
 	// A nil status indicates the target doesn't exist or is not ready, log and
 	// continue
 	if currentStatus == nil {
-		h.log.Warn("target not found", "target", h.policy.Target.Config)
+		h.log.Warn("target not found", "target", h.policy.Target.Name)
 	}
 
 	lastEventTS, err := checkForOutOfBandEvents(currentStatus)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get out of band event: %w", err)
+		h.log.Warn("unable to get out of band event", "target", h.policy.Target.Name,
+			"error", err)
 	}
 
 	if lastEventTS > 0 {
@@ -200,7 +201,6 @@ func (h *Handler) Run(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			h.log.Error("stopping policy handler due to context done")
-			h.errChn <- ctx.Err()
 			return
 
 		case updatedPolicy := <-h.updatesCh:
@@ -220,6 +220,7 @@ func (h *Handler) Run(ctx context.Context) {
 			if err != nil {
 				h.errChn <- fmt.Errorf("handler: failed to get target status for target: %s, %w",
 					h.policy.Target.Name, err)
+				continue
 			}
 
 			// A nil status indicates the target doesn't exist, log and return.
@@ -255,7 +256,7 @@ func (h *Handler) Run(ctx context.Context) {
 
 			h.UpdateNextAction(action)
 
-			if nowFunc().After(h.OutOfCooldownOn()) {
+			if nowFunc().After(h.OutOfCooldownOn()) && h.State() == StateCooldown {
 				h.UpdateState(StateIdle)
 			}
 
@@ -272,6 +273,9 @@ func (h *Handler) Run(ctx context.Context) {
 
 			case StateIdle:
 				go func() {
+					h.log.Debug("requesting slot")
+					h.UpdateState(StateWaitingTurn)
+
 					err := h.WaitAndScale(ctx)
 					if err != nil {
 						h.UpdateState(StateIdle)
@@ -288,9 +292,6 @@ func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
 }
 
 func (h *Handler) WaitAndScale(ctx context.Context) error {
-	h.log.Debug("requesting slot")
-	h.UpdateState(StateWaitingTurn)
-
 	err := h.limiter.GetSlot(ctx, h.policy)
 	if err != nil {
 		return fmt.Errorf("timeout waiting for execution time: %w", err)
@@ -333,6 +334,10 @@ func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
 	// been re-deployed.
+	if status.Meta == nil {
+		return 0, nil
+	}
+
 	ts, ok := status.Meta[sdk.TargetStatusMetaKeyLastEvent]
 	if !ok {
 		return 0, nil
@@ -431,7 +436,7 @@ func (h *Handler) CalculateNewCount(ctx context.Context, currentCount int64) (sd
 		return sdk.ScalingAction{}, nil
 	}
 
-	h.log.Debug(fmt.Sprintf("check %s selected", winner.handler.check.Name),
+	h.log.Debug("check selected", "name", winner.handler.check.Name,
 		"direction", winner.action.Direction, "count", winner.action.Count)
 
 	// At this point the checks have finished. Therefore emit of metric data

@@ -372,7 +372,7 @@ func (pm *PluginManager) GetAPMLooker(source string) (apm.Looker, error) {
 	return pm.GetAPM(source)
 }
 
-func (pm *PluginManager) GetAPM(source string) (apm.Looker, error) {
+func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
 	// Dispense plugins.
 	apmPlugin, err := pm.Dispense(source, sdk.PluginTypeAPM)
 	if err != nil {

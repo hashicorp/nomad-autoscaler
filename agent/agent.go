@@ -83,9 +83,6 @@ func (a *Agent) Run(ctx context.Context) error {
 
 	a.initEnt(ctx, a.entReload)
 
-	// Launch the eval handler.
-	//	go a.runEvalHandler(ctx, policyEvalCh, limiter)
-
 	// Wait for our exit.
 	a.handleSignals()
 	return nil

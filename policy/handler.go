@@ -499,7 +499,6 @@ func calculateCooldown(p *sdk.ScalingPolicy, a sdk.ScalingAction) time.Duration 
 
 // pickWinnerActionFromGroups decide which action wins in the group.
 // The decision processes still picks the safest choice, but it handles `none`
-//
 //	actions a little differently.
 //
 // Since grouped checks have corelated metrics, it's expected that most

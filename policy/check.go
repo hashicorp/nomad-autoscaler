@@ -102,7 +102,24 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 
 	defer metrics.MeasureSinceWithLabels([]string{"plugin", "strategy", "run", "invoke_ms"}, time.Now(), labels)
 
-	runResp, err := ch.strategyRunner.Run(checkEval, currentCount)
+	var runResp *sdk.ScalingCheckEvaluation
+	var err error
+
+	ch.log.Debug("running strategy", "strategy", ch.check.Strategy.Name, "check", ch.check.Name)
+
+	// Wrap call in a goroutine so we can listen for ctx as well.
+	strategyRunDoneCh := make(chan interface{})
+	go func() {
+		defer close(strategyRunDoneCh)
+		runResp, err = ch.strategyRunner.Run(checkEval, currentCount)
+	}()
+
+	select {
+	case <-ctx.Done():
+		return sdk.ScalingAction{}, nil
+	case <-strategyRunDoneCh:
+	}
+
 	if err != nil {
 		return sdk.ScalingAction{}, fmt.Errorf("failed to execute strategy: %w", err)
 	}
@@ -114,7 +131,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 	return *runResp.Action, nil
 }
 
-// QueryMetricsy wraps the apm.Query call to provide operational functionality.
+// QueryMetrics wraps the apm.Query call to provide operational functionality.
 func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
@@ -130,14 +147,14 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	r := sdk.TimeRange{From: from, To: to}
 
 	var err error
-	metrics := sdk.TimestampedMetrics{}
+	ms := sdk.TimestampedMetrics{}
 
 	// Query check's APM.
 	// Wrap call in a goroutine so we can listen for ctx as well.
 	apmQueryDoneCh := make(chan interface{})
 	go func() {
 		defer close(apmQueryDoneCh)
-		metrics, err = ch.metricsGetter.Query(ch.check.Query, r)
+		ms, err = ch.metricsGetter.Query(ch.check.Query, r)
 	}()
 
 	select {
@@ -150,12 +167,12 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %w", err)
 	}
 
-	if len(metrics) == 0 {
+	if len(ms) == 0 {
 		return sdk.TimestampedMetrics{}, errNoMetrics
 	}
 
 	// Make sure metrics are sorted consistently.
-	sort.Sort(metrics)
+	sort.Sort(ms)
 
-	return metrics, nil
+	return ms, nil
 }

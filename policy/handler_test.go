@@ -6,6 +6,7 @@ package policy
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,14 +17,26 @@ import (
 )
 
 type MockLimiter struct {
-	getSlotErr    error
+	getSlotErr error
+
+	callslock     sync.Mutex
 	releaseCalled bool
+}
+
+func (m *MockLimiter) getReleaseCalled() bool {
+	m.callslock.Lock()
+	defer m.callslock.Unlock()
+
+	return m.releaseCalled
 }
 
 func (m *MockLimiter) GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error {
 	return m.getSlotErr
 }
 func (m *MockLimiter) ReleaseSlot(p *sdk.ScalingPolicy) {
+	m.callslock.Lock()
+	defer m.callslock.Unlock()
+
 	m.releaseCalled = true
 }
 
@@ -131,7 +144,7 @@ func TestHandler_WaitAndScale(t *testing.T) {
 			if tc.getSlotErr == nil {
 				// Make sure we don't hold on to the slot.
 				must.True(t, limiter.releaseCalled)
-				must.True(t, target.scaleCalled)
+				must.True(t, target.getScaleCalled())
 			}
 
 			must.Eq(t, tc.expectedState, handler.getState())
@@ -457,7 +470,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 	time.Sleep(30 * time.Millisecond)
 	cancel()
 
-	must.False(t, mtc.scaleCalled)
+	must.False(t, mtc.getScaleCalled())
 	must.Eq(t, StateIdle, handler.getState())
 	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
 	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
@@ -501,6 +514,8 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		},
 	}
 
+	ml := &MockLimiter{}
+
 	handler := &Handler{
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
@@ -509,7 +524,7 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		targetController: mtc,
 		state:            StateIdle,
 		pm:               mdg,
-		limiter:          &MockLimiter{},
+		limiter:          ml,
 	}
 
 	must.NoError(t, handler.loadCheckRunners())
@@ -518,8 +533,9 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 	time.Sleep(30 * time.Millisecond)
 	cancel()
 
-	must.True(t, mtc.scaleCalled)
+	must.True(t, mtc.getScaleCalled())
 	must.Eq(t, StateCooldown, handler.getState())
+	must.True(t, ml.getReleaseCalled())
 	must.Eq(t, time.Time{}.Add(5*time.Minute), handler.getOutOfCooldownOn())
 	must.Eq(t, sdk.ScalingAction{
 		Count:     10,

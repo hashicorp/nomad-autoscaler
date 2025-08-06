@@ -348,7 +348,7 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	return pluginInfo, nil
 }
 
-func (pm *PluginManager) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.TargetController, error) {
+func (pm *PluginManager) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.Controller, error) {
 	return pm.GetTarget(target)
 }
 

@@ -110,7 +110,7 @@ type HandlerConfig struct {
 func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	h := &Handler{
-		log: config.Log.Named("policy_handler").With("policy_id", config.Policy.ID),
+		log: config.Log,
 		mutators: []Mutator{
 			NomadAPMMutator{},
 		},
@@ -246,7 +246,8 @@ func (h *Handler) Run(ctx context.Context) {
 			action.Canonicalize()
 			action.CapCount(h.policy.Min, h.policy.Max)
 
-			h.log.Info("calculating scaling target", "from", currentCount, "to",
+			h.log.Info("calculating scaling target", "policy_id", h.policy.ID,
+				"from", currentCount, "to",
 				action.Count, "reason", action.Reason, "meta", action.Meta)
 
 			if !scalingNeeded(action, currentCount) {

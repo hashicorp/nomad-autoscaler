@@ -240,7 +240,9 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		}
 
 		ph, err := NewPolicyHandler(HandlerConfig{
-			Log:              m.log.Named("policy_handler").With("policy_id", policyID),
+			Log: m.log.Named("policy_handler").With("policy_id", policyID,
+				"source", message.Source, "target", updatedPolicy.Target.Name,
+				"target_config", updatedPolicy.Target.Config),
 			Policy:           updatedPolicy,
 			UpdatesChan:      upCh,
 			ErrChan:          m.policyIDsErrCh,
@@ -287,7 +289,7 @@ func (m *Manager) addHandlerTracker(id PolicyID, nht *handlerTracker) {
 // This method is not thread-safe so a RW lock should be acquired before
 // calling it.
 func (m *Manager) stopHandler(id PolicyID) {
-	m.log.Trace("stoping handler for deleted policy ", "policyID", id)
+	m.log.Trace("stopping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
 	ht.cancel()

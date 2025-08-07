@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"strings"
@@ -18,21 +19,22 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+const DefaultLimiterTimeout = 2 * time.Minute
+
 type handlerTracker struct {
-	cancel     context.CancelFunc
-	updates    chan<- *sdk.ScalingPolicy
-	cooldownCh chan<- time.Duration // Channel to enforce cooldown on the handler
+	cancel  context.CancelFunc
+	updates chan<- *sdk.ScalingPolicy
 }
 
-type targetMonitorGetter interface {
-	GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error)
+type targetGetter interface {
+	GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.Controller, error)
 }
 
 // Manager tracks policies and controls the lifecycle of each policy handler.
 type Manager struct {
 	log           hclog.Logger
 	policySources map[SourceName]Source
-	targetGetter  targetMonitorGetter
+	targetGetter  targetGetter
 
 	// lock is used to synchronize parallel access to the maps below.
 	handlersLock sync.RWMutex
@@ -52,10 +54,16 @@ type Manager struct {
 	// running on each policy source. It is passed down as part of the MonitorIDsReq
 	// along with policyIDsCh.
 	policyIDsErrCh chan error
+
+	// Limiter is in charge of controlling the number of scaling actions happening
+	// concurrently.
+	*Limiter
+
+	pluginManager dependencyGetter
 }
 
 // NewManager returns a new Manager.
-func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration) *Manager {
+func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
 		log:             log.ResetNamed("policy_manager"),
@@ -66,6 +74,8 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
+		Limiter:         l,
+		pluginManager:   pm,
 	}
 }
 
@@ -102,7 +112,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 		// monitorPolicies is a blocking function that will only return without errors when
 		// the context is cancelled.
-		err := m.monitorPolicies(ctx, evalCh)
+		err := m.monitorPolicies(ctx)
 		if err == nil {
 			break
 		}
@@ -124,7 +134,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	}
 }
 
-func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation) error {
+func (m *Manager) monitorPolicies(ctx context.Context) error {
 	defer m.stopHandlers()
 
 	m.log.Trace(" starting to monitor policies")
@@ -161,7 +171,7 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 
 			// Now send updates to the active policies or create new handlers
 			// for any new policies
-			err := m.processMessageAndUpdateHandlers(ctx, evalCh, message)
+			err := m.processMessageAndUpdateHandlers(ctx, message)
 			if err != nil {
 				return err
 			}
@@ -169,10 +179,9 @@ func (m *Manager) monitorPolicies(ctx context.Context, evalCh chan<- *sdk.Scalin
 	}
 }
 
-func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation, message IDMessage) error {
+func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) error {
 
 	for policyID, updated := range message.IDs {
-
 		updatedPolicy := &sdk.ScalingPolicy{}
 		var err error
 
@@ -190,6 +199,12 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 			continue
 		}
 
+		err = updatedPolicy.Validate()
+		if err != nil {
+			m.log.Warn("latest version for policy is invalid, old one will keep running", "policyID", policyID)
+			continue
+		}
+
 		m.handlersLock.RLock()
 		pht := m.handlers[policyID]
 		m.handlersLock.RUnlock()
@@ -199,7 +214,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 				"policy_id", policyID, "policy_source", message.Source)
 
 			pht.updates <- updatedPolicy
-
 			continue
 		}
 
@@ -210,15 +224,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 
 		handlerCtx, handlerCancel := context.WithCancel(ctx)
 		upCh := make(chan *sdk.ScalingPolicy, 1)
-		cdCh := make(chan time.Duration, 1)
 
 		nht := &handlerTracker{
-			updates:    upCh,
-			cancel:     handlerCancel,
-			cooldownCh: cdCh,
+			updates: upCh,
+			cancel:  handlerCancel,
 		}
 
-		tg, err := m.targetGetter.GetTargetReporter(updatedPolicy.Target)
+		tg, err := m.targetGetter.GetTargetController(updatedPolicy.Target)
 		if err != nil {
 			m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
 			if isUnrecoverableError(err) {
@@ -227,15 +239,26 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, evalCh ch
 			continue
 		}
 
-		go RunNewHandler(handlerCtx, HandlerConfig{
-			Log:          m.log.Named("policy_handler").With("policy_id", policyID),
-			Policy:       updatedPolicy,
-			CooldownChan: cdCh,
-			UpdatesChan:  upCh,
-			ErrChan:      m.policyIDsErrCh,
-			TargetGetter: tg,
-			EvalsChannel: evalCh,
+		ph, err := NewPolicyHandler(HandlerConfig{
+			Log: m.log.Named("policy_handler").With("policy_id", policyID,
+				"source", message.Source, "target", updatedPolicy.Target.Name,
+				"target_config", updatedPolicy.Target.Config),
+			Policy:           updatedPolicy,
+			UpdatesChan:      upCh,
+			ErrChan:          m.policyIDsErrCh,
+			TargetController: tg,
+			DependencyGetter: m.pluginManager,
+			Limiter:          m.Limiter,
 		})
+		if err != nil {
+			m.log.Error("encountered an error starting the policy handler", "policyID", policyID, "error", err)
+			if isUnrecoverableError(err) {
+				return fmt.Errorf("failed to start the policy handler %s: %w", policyID, err)
+			}
+			continue
+		}
+
+		go ph.Run(handlerCtx)
 
 		// Add the new handler tracker to the manager's internal state.
 		m.addHandlerTracker(policyID, nht)
@@ -266,33 +289,11 @@ func (m *Manager) addHandlerTracker(id PolicyID, nht *handlerTracker) {
 // This method is not thread-safe so a RW lock should be acquired before
 // calling it.
 func (m *Manager) stopHandler(id PolicyID) {
-	m.log.Trace("stoping handler for deleted policy ", "policyID", id)
+	m.log.Trace("stopping handler for deleted policy ", "policyID", id)
 
 	ht := m.handlers[id]
-	close(ht.cooldownCh)
-	close(ht.updates)
 	ht.cancel()
-}
-
-// EnforceCooldown attempts to enforce cooldown on the policy handler
-// representing the passed ID.
-func (m *Manager) EnforceCooldown(id string, t time.Duration) {
-	m.handlersLock.RLock()
-	defer m.handlersLock.RUnlock()
-
-	// Attempt to grab the handler and pass the enforcement onto the
-	// implementation. Its possible cooldown is requested on a policy which
-	// gets removed, its not a problem but log to aid debugging.
-	//
-	// Thinking(jrasell): when enforcing cooldown, should we calculate the
-	// duration based on the remaining time between calling this function and
-	// it actually running. Obtaining the lock could cause a delay which may
-	// skew the cooldown period, but this is likely very small.
-	if handler, ok := m.handlers[id]; ok && handler.cooldownCh != nil {
-		handler.cooldownCh <- t
-	} else {
-		m.log.Debug("attempted to set cooldown on non-existent handler", "policy_id", id)
-	}
+	close(ht.updates)
 }
 
 // ReloadSources triggers a reload of all the policy sources.
@@ -318,6 +319,8 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 			h := m.getHandlersNum()
 
 			metrics.SetGauge([]string{"policy", "total_num"}, float32(h))
+			metrics.SetGauge([]string{"policy", "queue", "horizontal"}, float32(m.Limiter.QueueSize("horizontal")))
+			metrics.SetGauge([]string{"policy", "queue", "cluster"}, float32(m.Limiter.QueueSize("cluster")))
 		}
 	}
 }
@@ -340,4 +343,43 @@ func isUnrecoverableError(err error) bool {
 		}
 	}
 	return false
+}
+
+type Limiter struct {
+	timeout time.Duration
+	slots   map[string]chan struct{}
+}
+
+var ErrExecutionTimeout = errors.New("timeout while waiting for slot")
+
+func NewLimiter(timeout time.Duration, hWorkersCount, cWorkersCount int) *Limiter {
+	return &Limiter{
+		timeout: timeout,
+		slots: map[string]chan struct{}{
+			"horizontal": make(chan struct{}, hWorkersCount),
+			"cluster":    make(chan struct{}, cWorkersCount),
+		},
+	}
+}
+
+func (l *Limiter) QueueSize(queue string) int {
+	return len(l.slots[queue])
+}
+
+func (l *Limiter) GetSlot(ctx context.Context, p *sdk.ScalingPolicy) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+
+	case <-time.After(l.timeout):
+		return ErrExecutionTimeout
+
+	case l.slots[p.Type] <- struct{}{}:
+	}
+
+	return nil
+}
+
+func (l *Limiter) ReleaseSlot(p *sdk.ScalingPolicy) {
+	<-l.slots[p.Type]
 }

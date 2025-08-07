@@ -206,6 +206,7 @@ func (pm *PluginManager) Dispense(name, pluginType string) (PluginInstance, erro
 	if !ok {
 		return nil, fmt.Errorf("failed to dispense plugin: %q of type %q is not stored", name, pluginType)
 	}
+
 	return inst, nil
 }
 
@@ -347,11 +348,7 @@ func (pm *PluginManager) pluginLaunchCheck(id plugins.PluginID, info *pluginInfo
 	return pluginInfo, nil
 }
 
-func (pm *PluginManager) GetTargetReporter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetStatusGetter, error) {
-	return pm.GetTarget(target)
-}
-
-func (pm *PluginManager) GetTargetExecuter(target *sdk.ScalingPolicyTarget) (targetpkg.TargetScaler, error) {
+func (pm *PluginManager) GetTargetController(target *sdk.ScalingPolicyTarget) (targetpkg.Controller, error) {
 	return pm.GetTarget(target)
 }
 
@@ -371,6 +368,10 @@ func (pm *PluginManager) GetTarget(target *sdk.ScalingPolicyTarget) (targetpkg.T
 	return targetInst, nil
 }
 
+func (pm *PluginManager) GetAPMLooker(source string) (apm.Looker, error) {
+	return pm.GetAPM(source)
+}
+
 func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
 	// Dispense plugins.
 	apmPlugin, err := pm.Dispense(source, sdk.PluginTypeAPM)
@@ -382,6 +383,10 @@ func (pm *PluginManager) GetAPM(source string) (apm.APM, error) {
 		return nil, fmt.Errorf(`"%s" is not an APM plugin`, source)
 	}
 	return apmInst, nil
+}
+
+func (pm *PluginManager) GetStrategyRunner(name string) (strategy.Runner, error) {
+	return pm.GetStrategy(name)
 }
 
 func (pm *PluginManager) GetStrategy(name string) (strategy.Strategy, error) {

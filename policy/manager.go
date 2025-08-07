@@ -319,8 +319,8 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 			h := m.getHandlersNum()
 
 			metrics.SetGauge([]string{"policy", "total_num"}, float32(h))
-			metrics.SetGauge([]string{"queue", "horizontal"}, float32(m.Limiter.QueueSize("horizontal")))
-			metrics.SetGauge([]string{"queue", "cluster"}, float32(m.Limiter.QueueSize("cluster")))
+			metrics.SetGauge([]string{"policy", "queue", "horizontal"}, float32(m.Limiter.QueueSize("horizontal")))
+			metrics.SetGauge([]string{"policy", "queue", "cluster"}, float32(m.Limiter.QueueSize("cluster")))
 		}
 	}
 }

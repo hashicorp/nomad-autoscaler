@@ -93,11 +93,12 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// Start the metrics reporter.
 	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
+	// Create a separate context so we can stop the goroutine monitoring the
+	// list of policies independently from the parent context.
+	monitorCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	for {
-		// Create a separate context so we can stop the goroutine monitoring the
-		// list of policies independently from the parent context.
-		monitorCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
 
 		// Start the policy source and listen for changes in the list of policy IDs
 		for _, s := range m.policySources {
@@ -142,6 +143,8 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			m.log.Trace("stopping policy manager")
+			close(m.policyIDsCh)
+			close(m.policyIDsErrCh)
 			return nil
 
 		case err := <-m.policyIDsErrCh:
@@ -192,16 +195,25 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		s := m.policySources[message.Source]
 		updatedPolicy, err = s.GetLatestVersion(ctx, policyID)
 		if err != nil {
-			m.log.Error("encountered an error getting the latest version for policy", "policyID", policyID, "error", err)
+			m.log.Error("encountered an error getting the latest version for policy",
+				"policyID", policyID, "error", err)
 			if isUnrecoverableError(err) {
-				return fmt.Errorf("failed to get latest version for policy %s: %w", policyID, err)
+				return fmt.Errorf("failed to get latest version for policy %s: %w",
+					policyID, err)
 			}
+			continue
+		}
+
+		if updatedPolicy == nil {
+			m.log.Error("latest version for policy is nil",
+				"policyID", policyID)
 			continue
 		}
 
 		err = updatedPolicy.Validate()
 		if err != nil {
-			m.log.Warn("latest version for policy is invalid, old one will keep running", "policyID", policyID)
+			m.log.Warn("latest version for policy is invalid, old one will keep running",
+				"policyID", policyID, "validation_error", err)
 			continue
 		}
 
@@ -230,9 +242,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			cancel:  handlerCancel,
 		}
 
+		m.log.Debug("creating new policy handler",
+			"policy_id", updatedPolicy)
+
 		tg, err := m.targetGetter.GetTargetController(updatedPolicy.Target)
 		if err != nil {
-			m.log.Error("encountered an error getting the target for the policy handler", "policyID", policyID, "error", err)
+			m.log.Error("encountered an error getting the target for the policy handler",
+				"policyID", policyID, "error", err)
 			if isUnrecoverableError(err) {
 				return fmt.Errorf("failed to get target for policy %s: %w", policyID, err)
 			}
@@ -251,9 +267,11 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			Limiter:          m.Limiter,
 		})
 		if err != nil {
-			m.log.Error("encountered an error starting the policy handler", "policyID", policyID, "error", err)
+			m.log.Error("encountered an error starting the policy handler",
+				"policyID", policyID, "error", err)
 			if isUnrecoverableError(err) {
-				return fmt.Errorf("failed to start the policy handler %s: %w", policyID, err)
+				return fmt.Errorf("failed to start the policy handler %s: %w",
+					policyID, err)
 			}
 			continue
 		}

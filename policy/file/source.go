@@ -110,6 +110,7 @@ func (s *Source) identifyPolicyIDs(resultCh chan<- policy.IDMessage, errCh chan<
 	ids, err := s.handleDir()
 	if err != nil {
 		policy.HandleSourceError(s.Name(), err, errCh)
+		s.log.Error("failed to handle directory", "error", err)
 	}
 
 	// Even if we receive an error we may have IDs to send. Otherwise it may be
@@ -146,12 +147,14 @@ func (s *Source) handleDir() (map[policy.PolicyID]bool, error) {
 		}
 
 		for name, scalingPolicy := range policies {
+			s.log.Debug("found policy in file",
+				"file", file, "name", name, "enabled", scalingPolicy.Enabled)
 			// Get the policyID for the file.
 			policyID := s.getFilePolicyID(file, name)
 			scalingPolicy.ID = policyID
 
 			if !scalingPolicy.Enabled {
-				s.log.Trace("policy is disabled",
+				s.log.Debug("policy is disabled",
 					"policy_id", scalingPolicy.ID, "file", file)
 				// If the policy is disabled, we do not need to process it
 				// further. We can skip it and continue to the next one.
@@ -181,7 +184,11 @@ func (s *Source) handleDir() (map[policy.PolicyID]bool, error) {
 			// policy.
 			s.policyMapLock.Lock()
 			if _, ok := s.policyMap[policyID]; !ok {
-				s.policyMap[policyID] = &filePolicy{file: file, name: name}
+				s.policyMap[policyID] = &filePolicy{
+					file:   file,
+					name:   name,
+					policy: scalingPolicy,
+				}
 			}
 			s.policyMapLock.Unlock()
 

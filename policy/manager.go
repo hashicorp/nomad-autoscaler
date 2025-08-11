@@ -40,7 +40,7 @@ type Manager struct {
 	handlersLock sync.RWMutex
 
 	// handlers are used to track the Go routines monitoring policies.
-	handlers map[PolicyID]*handlerTracker
+	handlers map[SourceName]map[PolicyID]*handlerTracker
 
 	// metricsInterval is the interval at which the agent is configured to emit
 	// metrics. This is used when creating the periodicMetricsReporter.
@@ -70,7 +70,7 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		policySources:   ps,
 		targetGetter:    pm,
 		handlersLock:    sync.RWMutex{},
-		handlers:        make(map[PolicyID]*handlerTracker),
+		handlers:        make(map[SourceName]map[PolicyID]*handlerTracker),
 		metricsInterval: mInt,
 		policyIDsCh:     make(chan IDMessage, 2),
 		policyIDsErrCh:  make(chan error, 2),
@@ -83,7 +83,12 @@ func (m *Manager) getHandlersNum() int {
 	m.handlersLock.RLock()
 	defer m.handlersLock.RUnlock()
 
-	return len(m.handlers)
+	num := 0
+	for _, handlers := range m.handlers {
+		num += len(handlers)
+	}
+
+	return num
 }
 
 // Run starts the manager and blocks until the context is canceled.
@@ -127,7 +132,7 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 
 		// Make sure we start the next iteration with an empty map of handlers.
 		m.handlersLock.Lock()
-		m.handlers = make(map[PolicyID]*handlerTracker)
+		m.handlers = make(map[SourceName]map[PolicyID]*handlerTracker)
 		m.handlersLock.Unlock()
 
 		// Delay the next iteration of m.Run to avoid re-runs to start too often.
@@ -160,11 +165,11 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 
 			// Stop the handlers for policies that are no longer present.
 			m.handlersLock.Lock()
-			maps.DeleteFunc(m.handlers, func(k PolicyID, h *handlerTracker) bool {
+			maps.DeleteFunc(m.handlers[message.Source], func(k PolicyID, h *handlerTracker) bool {
 				if _, ok := message.IDs[k]; !ok {
 					m.log.Trace("stopping handler for removed policy",
 						"policy_id", k, "policy_source", message.Source)
-					m.stopHandler(k)
+					m.stopHandler(message.Source, k)
 					return true
 				}
 
@@ -218,7 +223,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		}
 
 		m.handlersLock.RLock()
-		pht := m.handlers[policyID]
+		pht := m.handlers[message.Source][policyID]
 		m.handlersLock.RUnlock()
 		if pht != nil {
 			// If the handler already exists, send the updated policy to it.
@@ -279,7 +284,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		go ph.Run(handlerCtx)
 
 		// Add the new handler tracker to the manager's internal state.
-		m.addHandlerTracker(policyID, nht)
+		m.addHandlerTracker(message.Source, policyID, nht)
 	}
 
 	return nil
@@ -289,15 +294,21 @@ func (m *Manager) stopHandlers() {
 	m.handlersLock.Lock()
 	defer m.handlersLock.Unlock()
 
-	for id := range m.handlers {
-		m.stopHandler(id)
-		delete(m.handlers, id)
+	for source, handlers := range m.handlers {
+		for id := range handlers {
+			m.stopHandler(source, id)
+		}
+		delete(m.handlers, source)
 	}
 }
 
-func (m *Manager) addHandlerTracker(id PolicyID, nht *handlerTracker) {
+func (m *Manager) addHandlerTracker(source SourceName, id PolicyID, nht *handlerTracker) {
 	m.handlersLock.Lock()
-	m.handlers[id] = nht
+	if m.handlers[source] == nil {
+		m.handlers[source] = make(map[PolicyID]*handlerTracker)
+	}
+
+	m.handlers[source][id] = nht
 	m.handlersLock.Unlock()
 }
 
@@ -306,10 +317,10 @@ func (m *Manager) addHandlerTracker(id PolicyID, nht *handlerTracker) {
 //
 // This method is not thread-safe so a RW lock should be acquired before
 // calling it.
-func (m *Manager) stopHandler(id PolicyID) {
+func (m *Manager) stopHandler(source SourceName, id PolicyID) {
 	m.log.Trace("stopping handler for deleted policy ", "policyID", id)
 
-	ht := m.handlers[id]
+	ht := m.handlers[source][id]
 	ht.cancel()
 	close(ht.updates)
 }

@@ -162,6 +162,31 @@ var policy2 = &sdk.ScalingPolicy{
 	EvaluationInterval: 5 * time.Minute,
 }
 
+var policy3 = &sdk.ScalingPolicy{
+	ID:      "policy3",
+	Enabled: true,
+	Checks: []*sdk.ScalingPolicyCheck{
+		{
+			Name: "check1",
+			Strategy: &sdk.ScalingPolicyStrategy{
+				Name: "strategy",
+			},
+		},
+		{
+			Name: "check2",
+			Strategy: &sdk.ScalingPolicyStrategy{
+				Name: "strategy",
+			},
+		},
+	},
+	Target: &sdk.ScalingPolicyTarget{
+		Name:   "testTarget",
+		Config: map[string]string{},
+	},
+
+	EvaluationInterval: 5 * time.Minute,
+}
+
 var mStatusController = &mockTargetController{
 	status: &sdk.TargetStatus{
 		Ready: true,
@@ -172,10 +197,11 @@ var mStatusController = &mockTargetController{
 
 func TestMonitoring(t *testing.T) {
 	testCases := []struct {
-		name                    string
-		inputIDMessage          IDMessage
-		initialHandlers         map[PolicyID]*handlerTracker
-		expCallsToLatestVersion int
+		name                       string
+		inputIDMessage             IDMessage
+		initialHandlers            map[SourceName]map[PolicyID]*handlerTracker
+		expCallsToLatestVersionMS1 int
+		expCallsToLatestVersionMS2 int
 	}{
 		{
 			name: "add_first_policy",
@@ -185,8 +211,8 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: "mock-source",
 			},
-			initialHandlers:         map[PolicyID]*handlerTracker{},
-			expCallsToLatestVersion: 1,
+			initialHandlers:            map[SourceName]map[PolicyID]*handlerTracker{},
+			expCallsToLatestVersionMS1: 1,
 		},
 		{
 			name: "add_new_policy",
@@ -197,14 +223,35 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: "mock-source",
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
 			},
-			expCallsToLatestVersion: 1,
+			expCallsToLatestVersionMS1: 1,
 		},
+		{
+			name: "add_new_policy_from_new_source",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy3.ID: true,
+				},
+				Source: "mock-source-2",
+			},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source-1": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
+				},
+			},
+			expCallsToLatestVersionMS2: 1,
+		},
+
 		{
 			name: "update_older_policy",
 			inputIDMessage: IDMessage{
@@ -214,17 +261,25 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: "mock-source",
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
+					policy2.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
-				policy2.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+				"mock-source-2": {
+					policy3.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
 			},
-			expCallsToLatestVersion: 1,
+			expCallsToLatestVersionMS1: 1,
 		},
 		{
 			name: "no_updates",
@@ -235,17 +290,24 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: "mock-source",
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
+					policy2.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
-				policy2.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+				"mock-source-2": {
+					policy3.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
 			},
-			expCallsToLatestVersion: 0,
 		},
 		{
 			name: "remove_policy",
@@ -255,14 +317,20 @@ func TestMonitoring(t *testing.T) {
 				},
 				Source: "mock-source",
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
+				},
+				"mock-source-2": {
+					policy3.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
 			},
-
-			expCallsToLatestVersion: 0,
 		},
 		{
 			name: "remove_all_policies",
@@ -270,14 +338,16 @@ func TestMonitoring(t *testing.T) {
 				IDs:    map[PolicyID]bool{},
 				Source: "mock-source",
 			},
-			initialHandlers: map[PolicyID]*handlerTracker{
-				policy1.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
-				},
-				policy2.ID: {
-					updates: make(chan *sdk.ScalingPolicy, 1),
-					cancel:  func() {},
+			initialHandlers: map[SourceName]map[PolicyID]*handlerTracker{
+				"mock-source": {
+					policy1.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
+					policy2.ID: {
+						updates: make(chan *sdk.ScalingPolicy, 1),
+						cancel:  func() {},
+					},
 				},
 			},
 		},
@@ -287,12 +357,20 @@ func TestMonitoring(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ms := &mockSource{
+			ms1 := &mockSource{
 				countLock: &sync.Mutex{},
 				name:      "mock-source",
 				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
 					policy1.ID: policy1,
 					policy2.ID: policy2,
+				},
+			}
+
+			ms2 := &mockSource{
+				countLock: &sync.Mutex{},
+				name:      "mock-source-2",
+				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+					policy3.ID: policy3,
 				},
 			}
 
@@ -302,7 +380,10 @@ func TestMonitoring(t *testing.T) {
 				handlers:       tc.initialHandlers,
 				log:            hclog.NewNullLogger(),
 				handlersLock:   sync.RWMutex{},
-				policySources:  map[SourceName]Source{"mock-source": ms},
+				policySources: map[SourceName]Source{
+					"mock-source":   ms1,
+					"mock-source-2": ms2,
+				},
 				targetGetter: &mockTargetGetter{
 					msg: mStatusController,
 				},
@@ -310,7 +391,8 @@ func TestMonitoring(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			ms.resetCounter()
+			ms1.resetCounter()
+			ms2.resetCounter()
 
 			go func() {
 				err := testedManager.monitorPolicies(ctx)
@@ -322,11 +404,12 @@ func TestMonitoring(t *testing.T) {
 			// Give the manager time to process the message
 			time.Sleep(time.Second)
 
-			must.Eq(t, tc.expCallsToLatestVersion, ms.getCallsCounter())
-			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNum())
+			must.Eq(t, tc.expCallsToLatestVersionMS1, ms1.getCallsCounter())
+			must.Eq(t, tc.expCallsToLatestVersionMS2, ms2.getCallsCounter())
+			must.Eq(t, len(tc.inputIDMessage.IDs), len(testedManager.handlers[tc.inputIDMessage.Source]))
 
 			for id := range tc.inputIDMessage.IDs {
-				ph, ok := testedManager.handlers[id]
+				ph, ok := testedManager.handlers[tc.inputIDMessage.Source][id]
 
 				must.True(t, ok)
 				must.NotNil(t, ph.cancel)

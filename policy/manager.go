@@ -79,6 +79,13 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 	}
 }
 
+func (m *Manager) getHandlersNumPerSource(s SourceName) int {
+	m.handlersLock.RLock()
+	defer m.handlersLock.RUnlock()
+
+	return len(m.handlers[s])
+}
+
 func (m *Manager) getHandlersNum() int {
 	m.handlersLock.RLock()
 	defer m.handlersLock.RUnlock()

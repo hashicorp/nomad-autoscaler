@@ -406,7 +406,7 @@ func TestMonitoring(t *testing.T) {
 
 			must.Eq(t, tc.expCallsToLatestVersionMS1, ms1.getCallsCounter())
 			must.Eq(t, tc.expCallsToLatestVersionMS2, ms2.getCallsCounter())
-			must.Eq(t, len(tc.inputIDMessage.IDs), len(testedManager.handlers[tc.inputIDMessage.Source]))
+			must.Eq(t, len(tc.inputIDMessage.IDs), testedManager.getHandlersNumPerSource(tc.inputIDMessage.Source))
 
 			for id := range tc.inputIDMessage.IDs {
 				ph, ok := testedManager.handlers[tc.inputIDMessage.Source][id]

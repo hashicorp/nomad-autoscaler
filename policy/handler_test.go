@@ -467,7 +467,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 		pm:               mdg,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.configureHorizontalPolicy())
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)

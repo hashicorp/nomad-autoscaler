@@ -22,3 +22,7 @@ func (h *Handler) configureVerticalPolicy() error {
 	}
 	return nil
 }
+
+func (h *Handler) updateVerticalPolicy(up *sdk.ScalingPolicy) error {
+	return h.configureVerticalPolicy()
+}

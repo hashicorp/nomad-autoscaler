@@ -94,7 +94,10 @@ type Handler struct {
 	cooldownLock    sync.RWMutex
 	outOfCooldownOn time.Time
 
-	pm dependencyGetter
+	pm                dependencyGetter
+	calculateNewCount func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
+	minCount          int64
+	maxCount          int64
 }
 
 type HandlerConfig struct {
@@ -124,9 +127,18 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		state:            StateIdle,
 	}
 
-	err := h.loadCheckRunners()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load check handlers: %w", err)
+	switch config.Policy.Type {
+	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
+		err := h.configureHorizontalPolicy()
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure horizontal policy: %w", err)
+		}
+	default:
+		err := h.configureVerticalPolicy()
+		if err != nil {
+			return nil, fmt.Errorf("failed to configure horizontal policy: %w", err)
+		}
+
 	}
 
 	currentStatus, err := h.runTargetStatus()
@@ -159,6 +171,19 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	}
 
 	return h, nil
+}
+
+func (h *Handler) configureHorizontalPolicy() error {
+	h.minCount = h.policy.Min
+	h.maxCount = h.policy.Max
+
+	err := h.loadCheckRunners()
+	if err != nil {
+		return fmt.Errorf("failed to load check handlers: %w", err)
+	}
+
+	h.calculateNewCount = h.calculateHorizontalNewCount
+	return nil
 }
 
 func (h *Handler) loadCheckRunners() error {
@@ -244,7 +269,7 @@ func (h *Handler) Run(ctx context.Context) {
 
 			// Canonicalize action so plugins don't have to.
 			action.Canonicalize()
-			action.CapCount(h.policy.Min, h.policy.Max)
+			action.CapCount(h.minCount, h.maxCount)
 
 			h.log.Info("calculating scaling target", "policy_id", h.policy.ID,
 				"from", currentCount, "to",
@@ -393,10 +418,11 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 	}
 }
 
-// Handle policy is the main part of the controller, it reads the target state,
+// calculateHorizontalNewCount is the main part of the controller, it
 // gets the metrics and the necessary new count to keep up with the policy
-// and generates a scaling action if needed.
-func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+// and generates a scaling action if needed, but only for horizontal policies:
+// horizontal app and horizontal cluster scaling policies.
+func (h *Handler) calculateHorizontalNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 
 	// Record the start time of the eval portion of this function. The labels

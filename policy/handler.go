@@ -136,9 +136,8 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	default:
 		err := h.configureVerticalPolicy()
 		if err != nil {
-			return nil, fmt.Errorf("failed to configure horizontal policy: %w", err)
+			return nil, fmt.Errorf("failed to configure vertical policy: %w", err)
 		}
-
 	}
 
 	currentStatus, err := h.runTargetStatus()
@@ -174,19 +173,21 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 }
 
 func (h *Handler) configureHorizontalPolicy() error {
-	h.minCount = h.policy.Min
-	h.maxCount = h.policy.Max
 
 	err := h.loadCheckRunners()
 	if err != nil {
 		return fmt.Errorf("failed to load check handlers: %w", err)
 	}
 
+	h.minCount = h.policy.Min
+	h.maxCount = h.policy.Max
+
 	h.calculateNewCount = h.calculateHorizontalNewCount
 	return nil
 }
 
 func (h *Handler) loadCheckRunners() error {
+	runners := []*checkRunner{}
 
 	for _, check := range h.policy.Checks {
 		s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
@@ -207,9 +208,10 @@ func (h *Handler) loadCheckRunners() error {
 			Policy:         h.policy,
 		}, check)
 
-		h.checkRunners = append(h.checkRunners, runner)
+		runners = append(runners, runner)
 	}
 
+	h.checkRunners = runners
 	return nil
 }
 
@@ -393,19 +395,26 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	h.policyLock.Lock()
 	defer h.policyLock.Unlock()
 
-	h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks), "new_checks", len(updatedPolicy.Checks))
+	switch updatedPolicy.Type {
+	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
+		h.log.Debug("updating check handlers", "old_checks", len(h.policy.Checks),
+			"new_checks", len(updatedPolicy.Checks))
+		err := h.configureHorizontalPolicy()
+		if err != nil {
+			h.errChn <- fmt.Errorf("unable to update horizontal policy: %w", err)
+			return
+		}
 
-	// Clear existing check handlers and load new ones.
-	h.checkRunners = nil
-
-	err := h.loadCheckRunners()
-	if err != nil {
-		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
-		return
+	default:
+		err := h.configureVerticalPolicy()
+		if err != nil {
+			h.errChn <- fmt.Errorf("unable to update vertical policy: %w", err)
+		}
 	}
 
-	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
+	h.log.Debug("policy successfully updated")
 	h.policy = updatedPolicy
+
 }
 
 // applyMutators applies the mutators registered with the handler in order and

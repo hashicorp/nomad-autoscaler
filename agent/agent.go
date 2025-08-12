@@ -74,12 +74,12 @@ func (a *Agent) Run(ctx context.Context) error {
 	defer close(policyEvalCh)
 
 	limiter := policy.NewLimiter(policy.DefaultLimiterTimeout,
-		a.config.PolicyEval.Workers["horizontal"],
-		a.config.PolicyEval.Workers["cluster"])
+		a.config.PolicyEval.Workers)
 
 	if err := a.setupPolicyManager(limiter); err != nil {
 		return fmt.Errorf("failed to setup policy manager: %v", err)
 	}
+
 	go a.policyManager.Run(ctx, policyEvalCh)
 
 	a.initEnt(ctx, a.entReload)

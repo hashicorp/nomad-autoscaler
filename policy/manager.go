@@ -388,12 +388,12 @@ type Limiter struct {
 
 var ErrExecutionTimeout = errors.New("timeout while waiting for slot")
 
-func NewLimiter(timeout time.Duration, hWorkersCount, cWorkersCount int) *Limiter {
+func NewLimiter(timeout time.Duration, workersConfig map[string]int) *Limiter {
 	return &Limiter{
 		timeout: timeout,
 		slots: map[string]chan struct{}{
-			"horizontal": make(chan struct{}, hWorkersCount),
-			"cluster":    make(chan struct{}, cWorkersCount),
+			"horizontal": make(chan struct{}, workersConfig["horizontal"]),
+			"cluster":    make(chan struct{}, workersConfig["cluster"]),
 		},
 	}
 }

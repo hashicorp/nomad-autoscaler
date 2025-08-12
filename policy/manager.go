@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +23,9 @@ import (
 const DefaultLimiterTimeout = 2 * time.Minute
 
 type handlerTracker struct {
-	cancel  context.CancelFunc
-	updates chan<- *sdk.ScalingPolicy
+	policyType string
+	cancel     context.CancelFunc
+	updates    chan<- *sdk.ScalingPolicy
 }
 
 type targetGetter interface {
@@ -250,8 +252,9 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		upCh := make(chan *sdk.ScalingPolicy, 1)
 
 		nht := &handlerTracker{
-			updates: upCh,
-			cancel:  handlerCancel,
+			updates:    upCh,
+			cancel:     handlerCancel,
+			policyType: updatedPolicy.Type,
 		}
 
 		m.log.Debug("creating new policy handler",
@@ -304,19 +307,11 @@ func (m *Manager) stopHandlers() {
 	for source, handlers := range m.handlers {
 		for id := range handlers {
 			m.stopHandler(source, id)
+			delete(handlers, id)
 		}
+
 		delete(m.handlers, source)
 	}
-}
-
-func (m *Manager) addHandlerTracker(source SourceName, id PolicyID, nht *handlerTracker) {
-	m.handlersLock.Lock()
-	if m.handlers[source] == nil {
-		m.handlers[source] = make(map[PolicyID]*handlerTracker)
-	}
-
-	m.handlers[source][id] = nht
-	m.handlersLock.Unlock()
 }
 
 // stopHandler stops a handler and removes it from the manager's internal
@@ -330,6 +325,30 @@ func (m *Manager) stopHandler(source SourceName, id PolicyID) {
 	ht := m.handlers[source][id]
 	ht.cancel()
 	close(ht.updates)
+}
+
+func (m *Manager) StopHandlersByType(typesToStop ...string) {
+	m.handlersLock.Lock()
+	defer m.handlersLock.Unlock()
+
+	for source, handlers := range m.handlers {
+		for id, tracker := range handlers {
+			if slices.Contains(typesToStop, tracker.policyType) {
+				m.stopHandler(source, id)
+				delete(handlers, id)
+			}
+		}
+	}
+}
+
+func (m *Manager) addHandlerTracker(source SourceName, id PolicyID, nht *handlerTracker) {
+	m.handlersLock.Lock()
+	if m.handlers[source] == nil {
+		m.handlers[source] = make(map[PolicyID]*handlerTracker)
+	}
+
+	m.handlers[source][id] = nht
+	m.handlersLock.Unlock()
 }
 
 // ReloadSources triggers a reload of all the policy sources.

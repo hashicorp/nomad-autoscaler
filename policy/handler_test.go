@@ -530,7 +530,7 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		limiter:          ml,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.configureHorizontalPolicy())
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)

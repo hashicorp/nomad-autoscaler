@@ -419,8 +419,8 @@ func NewLimiter(timeout time.Duration, workersConfig map[string]int) *Limiter {
 	return &Limiter{
 		timeout: timeout,
 		slots: map[string]chan struct{}{
-			"horizontal": make(chan struct{}, workersConfig["horizontal"]),
-			"cluster":    make(chan struct{}, workersConfig["cluster"]),
+			sdk.ScalingPolicyTypeHorizontal: make(chan struct{}, workersConfig["horizontal"]),
+			sdk.ScalingPolicyTypeCluster:    make(chan struct{}, workersConfig["cluster"]),
 		},
 	}
 }

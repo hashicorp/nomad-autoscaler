@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	ScalingPolicyTypeCluster    = "cluster"
-	ScalingPolicyTypeHorizontal = "horizontal"
+	ScalingPolicyTypeCluster     = "cluster"
+	ScalingPolicyTypeHorizontal  = "horizontal"
+	ScalingPolicyTypeVerticalCPU = "vertical_cpu"
+	ScalingPolicyTypeVerticalMem = "vertical_mem"
 
 	ScalingPolicyOnErrorFail   = "fail"
 	ScalingPolicyOnErrorIgnore = "ignore"

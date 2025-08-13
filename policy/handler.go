@@ -119,14 +119,15 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		mutators: []Mutator{
 			NomadAPMMutator{},
 		},
-		pm:               config.DependencyGetter,
-		targetController: config.TargetController,
-		updatesCh:        config.UpdatesChan,
-		policy:           config.Policy,
-		errChn:           config.ErrChan,
-		limiter:          config.Limiter,
-		stateLock:        sync.RWMutex{},
-		state:            StateIdle,
+		pm:                  config.DependencyGetter,
+		historicalAPMGetter: config.HistoricalAPMGetter,
+		targetController:    config.TargetController,
+		updatesCh:           config.UpdatesChan,
+		policy:              config.Policy,
+		errChn:              config.ErrChan,
+		limiter:             config.Limiter,
+		stateLock:           sync.RWMutex{},
+		state:               StateIdle,
 	}
 
 	switch config.Policy.Type {

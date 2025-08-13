@@ -94,20 +94,22 @@ type Handler struct {
 	cooldownLock    sync.RWMutex
 	outOfCooldownOn time.Time
 
-	pm                dependencyGetter
-	calculateNewCount func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
-	minCount          int64
-	maxCount          int64
+	pm                  dependencyGetter
+	historicalAPMGetter historicalAPMGetter
+	calculateNewCount   func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
+	minCount            int64
+	maxCount            int64
 }
 
 type HandlerConfig struct {
-	UpdatesChan      chan *sdk.ScalingPolicy
-	ErrChan          chan<- error
-	Policy           *sdk.ScalingPolicy
-	Log              hclog.Logger
-	TargetController targetpkg.Controller
-	Limiter          *Limiter
-	DependencyGetter dependencyGetter
+	UpdatesChan         chan *sdk.ScalingPolicy
+	ErrChan             chan<- error
+	Policy              *sdk.ScalingPolicy
+	Log                 hclog.Logger
+	TargetController    targetpkg.Controller
+	Limiter             *Limiter
+	DependencyGetter    dependencyGetter
+	HistoricalAPMGetter historicalAPMGetter
 }
 
 func NewPolicyHandler(config HandlerConfig) (*Handler, error) {

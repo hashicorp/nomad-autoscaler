@@ -12,6 +12,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
+type historicalAPMGetter interface{}
+
 func (h *Handler) configureVerticalPolicy() error {
 
 	h.calculateNewCount = func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {

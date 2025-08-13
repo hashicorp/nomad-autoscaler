@@ -62,6 +62,10 @@ type Manager struct {
 	*Limiter
 
 	pluginManager dependencyGetter
+
+	// Ent only fields
+	evaluateAfter       time.Duration
+	historicalAPMGetter historicalAPMGetter
 }
 
 // NewManager returns a new Manager.
@@ -360,6 +364,10 @@ func (m *Manager) ReloadSources() {
 	}
 }
 
+func (m *Manager) SetEvaluateAfter(ea time.Duration) {
+	m.evaluateAfter = ea
+}
+
 // periodicMetricsReporter periodically emits metrics for the policy manager
 // which cannot be performed during inline function calls.
 func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Duration) {
@@ -415,6 +423,10 @@ func NewLimiter(timeout time.Duration, workersConfig map[string]int) *Limiter {
 			"cluster":    make(chan struct{}, workersConfig["cluster"]),
 		},
 	}
+}
+
+func (l *Limiter) AddQueue(queue string, size int) {
+	l.slots[queue] = make(chan struct{}, size)
 }
 
 func (l *Limiter) QueueSize(queue string) int {

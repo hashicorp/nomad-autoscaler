@@ -686,7 +686,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				nextAction:      sdk.ScalingAction{},
 			}
 
-			must.NoError(t, handler.loadCheckRunners())
+			must.NoError(t, handler.configureHorizontalPolicy())
 
 			go handler.Run(ctx)
 			time.Sleep(30 * time.Millisecond)

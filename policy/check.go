@@ -132,7 +132,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 }
 
 // QueryMetrics wraps the apm.Query call to provide operational functionality.
-func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
+func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
 	// Trigger a metric measure to track latency of the call.
@@ -177,10 +177,14 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	return ms, nil
 }
 
-func (ch *checkRunner) RunCheck(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (ch *checkRunner) Group() string {
+	return ch.check.Group
+}
+
+func (ch *checkRunner) RunCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
-	metrics, err := ch.QueryMetrics(ctx)
+	metrics, err := ch.queryMetrics(ctx)
 	if err != nil {
 		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
 	}
@@ -190,6 +194,8 @@ func (ch *checkRunner) RunCheck(ctx context.Context, currentCount int64) (sdk.Sc
 		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
 	}
+
+	action.CapCount(ch.policy.Min, ch.policy.Max)
 
 	return action, nil
 }

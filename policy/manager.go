@@ -72,18 +72,18 @@ type Manager struct {
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
-		log:                 log.ResetNamed("policy_manager"),
-		policySources:       ps,
-		targetGetter:        pm,
-		handlersLock:        sync.RWMutex{},
-		handlers:            make(map[SourceName]map[PolicyID]*handlerTracker),
-		metricsInterval:     mInt,
-		policyIDsCh:         make(chan IDMessage, 2),
-		policyIDsErrCh:      make(chan error, 2),
-		Limiter:             l,
-		pluginManager:       pm,
-		evaluateAfter:       0,
-		historicalAPMGetter: &noopHistoricalAPMGetter{},
+		log:             log.ResetNamed("policy_manager"),
+		policySources:   ps,
+		targetGetter:    pm,
+		handlersLock:    sync.RWMutex{},
+		handlers:        make(map[SourceName]map[PolicyID]*handlerTracker),
+		metricsInterval: mInt,
+		policyIDsCh:     make(chan IDMessage, 2),
+		policyIDsErrCh:  make(chan error, 2),
+		Limiter:         l,
+		pluginManager:   pm,
+		evaluateAfter:   0,
+		//historicalAPMGetter: &noopHistoricalAPMGetter{},
 	}
 }
 

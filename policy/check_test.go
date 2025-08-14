@@ -234,7 +234,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}, check)
 
-			result, err := handler.QueryMetrics(context.Background())
+			result, err := handler.queryMetrics(context.Background())
 			must.Eq(t, tc.expResult, result)
 			must.True(t, errors.Is(err, tc.expErr))
 		})

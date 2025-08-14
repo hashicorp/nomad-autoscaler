@@ -60,6 +60,11 @@ type limiter interface {
 	ReleaseSlot(p *sdk.ScalingPolicy)
 }
 
+type checker interface {
+	RunCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
+	Group() string
+}
+
 // Handler monitors a policy for changes and controls when them are sent for
 // evaluation.
 type Handler struct {
@@ -71,7 +76,7 @@ type Handler struct {
 	policyLock sync.RWMutex
 	policy     *sdk.ScalingPolicy
 
-	checkRunners []*checkRunner
+	checkRunners []checker
 
 	targetController targetpkg.Controller
 
@@ -94,9 +99,7 @@ type Handler struct {
 	cooldownLock    sync.RWMutex
 	outOfCooldownOn time.Time
 
-	pm       dependencyGetter
-	minCount int64
-	maxCount int64
+	pm dependencyGetter
 
 	// Ent only field
 	evaluateAfter       time.Duration
@@ -134,18 +137,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		state:               StateIdle,
 	}
 
-	switch config.Policy.Type {
-	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
-		err := h.configureHorizontalPolicy()
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure horizontal policy: %w", err)
-		}
-	default:
-		err := h.configureVerticalPolicy()
-		if err != nil {
-			return nil, fmt.Errorf("failed to configure vertical policy: %w", err)
-		}
-	}
+	h.loadCheckRunners()
 
 	currentStatus, err := h.runTargetStatus()
 	if err != nil {
@@ -196,50 +188,46 @@ func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 	return strconv.ParseInt(ts, 10, 64)
 }
 
-func (h *Handler) configureHorizontalPolicy() error {
-	return h.updateHorizontalPolicy(h.policy)
-}
-
-func (h *Handler) updateHorizontalPolicy(up *sdk.ScalingPolicy) error {
-	err := h.loadCheckRunners()
-	if err != nil {
-		return fmt.Errorf("failed to load check handlers: %w", err)
-	}
-
-	h.minCount = up.Min
-	h.maxCount = up.Max
-
-	return nil
-}
-
 func (h *Handler) loadCheckRunners() error {
-	runners := []*checkRunner{}
+	runners := []checker{}
 
-	for _, check := range h.policy.Checks {
-		s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
-		if err != nil {
-			return fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
+	switch h.policy.Type {
+	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
+		for _, check := range h.policy.Checks {
+
+			s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
+			if err != nil {
+				return fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
+			}
+
+			mg, err := h.pm.GetAPMLooker(check.Source)
+			if err != nil {
+				return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
+			}
+
+			runner := NewCheckRunner(&CheckRunnerConfig{
+				Log: h.log.Named("check_handler").With("check", check.Name,
+					"source", check.Source, "strategy", check.Strategy.Name),
+				StrategyRunner: s,
+				MetricsGetter:  mg,
+				Policy:         h.policy,
+			}, check)
+
+			runners = append(runners, runner)
+
 		}
 
-		mg, err := h.pm.GetAPMLooker(check.Source)
+	case sdk.ScalingPolicyTypeVerticalCPU, sdk.ScalingPolicyTypeVerticalMem:
+		runner, err := h.loadVerticalCheckRunner()
 		if err != nil {
-			return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
+			return fmt.Errorf("failed to load vertical check %s: %w", h.policy.Type, err)
 		}
-
-		runner := NewCheckRunner(&CheckRunnerConfig{
-			Log: h.log.Named("check_handler").With("check", check.Name,
-				"source", check.Source, "strategy", check.Strategy.Name),
-			StrategyRunner: s,
-			MetricsGetter:  mg,
-			Policy:         h.policy,
-		}, check)
 
 		runners = append(runners, runner)
 	}
 
 	// Do the update as a single operation to avoid partial updates.
 	h.checkRunners = runners
-
 	return nil
 }
 
@@ -296,10 +284,6 @@ func (h *Handler) Run(ctx context.Context) {
 					h.policy.ID, err)
 				continue
 			}
-
-			// Canonicalize action so plugins don't have to.
-			action.Canonicalize()
-			action.CapCount(h.minCount, h.maxCount)
 
 			h.log.Info("calculating scaling target", "policy_id", h.policy.ID,
 				"from", currentCount, "to",
@@ -406,24 +390,17 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	h.policyLock.Lock()
 	defer h.policyLock.Unlock()
 
-	switch updatedPolicy.Type {
-	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
-		err := h.updateHorizontalPolicy(updatedPolicy)
-		if err != nil {
-			h.errChn <- fmt.Errorf("unable to update horizontal policy %w", err)
-			return
-		}
+	// Clear existing check handlers and load new ones.
+	h.checkRunners = nil
 
-	default:
-		err := h.updateVerticalPolicy(updatedPolicy)
-		if err != nil {
-			h.errChn <- fmt.Errorf("unable to update vertical policy %w", err)
-			return
-		}
+	err := h.loadCheckRunners()
+	if err != nil {
+		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
+		return
 	}
 
+	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
 	h.policy = updatedPolicy
-	h.log.Debug("policy successfully updated")
 }
 
 // applyMutators applies the mutators registered with the handler in order and
@@ -455,16 +432,17 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	checkGroups := make(map[string][]checkResult)
 
 	for _, ch := range h.checkRunners {
-		action, err := ch.RunCheck(ctx, currentCount)
+		action, err := ch.RunCheckAndCapCount(ctx, currentCount)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
 		}
 
-		checkGroups[ch.check.Group] = append(checkGroups[ch.check.Group], checkResult{
+		g := ch.Group()
+		checkGroups[g] = append(checkGroups[g], checkResult{
 			action:  &action,
 			handler: ch,
-			group:   ch.check.Group,
+			group:   g,
 		})
 	}
 
@@ -473,8 +451,8 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 		return sdk.ScalingAction{}, nil
 	}
 
-	h.log.Debug("check selected", "name", winner.handler.check.Name,
-		"direction", winner.action.Direction, "count", winner.action.Count)
+	h.log.Debug("check selected", "direction", winner.action.Direction,
+		"count", winner.action.Count)
 
 	// At this point the checks have finished. Therefore emit of metric data
 	// tracking how long it takes to run all the checks within a policy.
@@ -635,7 +613,7 @@ func calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Dura
 
 type checkResult struct {
 	action  *sdk.ScalingAction
-	handler *checkRunner
+	handler checker
 	group   string
 }
 

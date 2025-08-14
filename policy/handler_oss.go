@@ -7,6 +7,8 @@
 package policy
 
 import (
+	"context"
+
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
@@ -14,10 +16,27 @@ type HistoricalAPMGetter interface{}
 
 type noopHistoricalAPMGetter struct{}
 
-func (h *Handler) configureVerticalPolicy() error {
-	return nil
+type noopVerticalCheckRunner struct {
+	policy *sdk.ScalingPolicy
 }
 
-func (h *Handler) updateVerticalPolicy(up *sdk.ScalingPolicy) error {
-	return h.configureVerticalPolicy()
+func (nv *noopVerticalCheckRunner) RunCheckAndCapCount(_ context.Context, currentCount int64) (sdk.ScalingAction, error) {
+	a := sdk.ScalingAction{
+		Direction: sdk.ScaleDirectionNone,
+		Count:     currentCount,
+	}
+
+	a.CapCount(nv.policy.Min, nv.policy.Max)
+
+	return a, nil
+}
+
+func (nv *noopVerticalCheckRunner) Group() string {
+	return ""
+}
+
+func (h *Handler) loadVerticalCheckRunner() (*noopVerticalCheckRunner, error) {
+	return &noopVerticalCheckRunner{
+		policy: h.policy,
+	}, nil
 }

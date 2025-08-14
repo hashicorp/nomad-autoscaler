@@ -51,10 +51,10 @@ func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// GetNewCountFromStrategy begins the execution of the checks and returns
+// getNewCountFromStrategy begins the execution of the checks and returns
 // and action containing the instance count after applying the strategy to the
 // metrics.
-func (ch *checkRunner) GetNewCountFromStrategy(ctx context.Context, currentCount int64,
+func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount int64,
 	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("calculating new count", "current count", currentCount)
 
@@ -175,4 +175,21 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	sort.Sort(ms)
 
 	return ms, nil
+}
+
+func (ch *checkRunner) RunCheck(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+	ch.log.Debug("received policy check for evaluation")
+
+	metrics, err := ch.QueryMetrics(ctx)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+	}
+
+	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
+
+	}
+
+	return action, nil
 }

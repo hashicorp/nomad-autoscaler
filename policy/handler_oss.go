@@ -7,21 +7,14 @@
 package policy
 
 import (
-	"context"
-
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-type historicalAPMGetter interface{}
+type HistoricalAPMGetter interface{}
+
+type noopHistoricalAPMGetter struct{}
 
 func (h *Handler) configureVerticalPolicy() error {
-
-	h.calculateNewCount = func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
-		return sdk.ScalingAction{
-			Count:  currentCount,
-			Reason: "Vertical scaling is not supported in OSS mode",
-		}, nil
-	}
 	return nil
 }
 

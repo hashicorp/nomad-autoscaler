@@ -94,11 +94,13 @@ type Handler struct {
 	cooldownLock    sync.RWMutex
 	outOfCooldownOn time.Time
 
-	pm                  dependencyGetter
-	historicalAPMGetter historicalAPMGetter
-	calculateNewCount   func(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
-	minCount            int64
-	maxCount            int64
+	pm       dependencyGetter
+	minCount int64
+	maxCount int64
+
+	// Ent only field
+	evaluateAfter       time.Duration
+	historicalAPMGetter HistoricalAPMGetter
 }
 
 type HandlerConfig struct {
@@ -109,7 +111,8 @@ type HandlerConfig struct {
 	TargetController    targetpkg.Controller
 	Limiter             *Limiter
 	DependencyGetter    dependencyGetter
-	HistoricalAPMGetter historicalAPMGetter
+	HistoricalAPMGetter HistoricalAPMGetter
+	EvaluateAfter       time.Duration
 }
 
 func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
@@ -121,6 +124,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		},
 		pm:                  config.DependencyGetter,
 		historicalAPMGetter: config.HistoricalAPMGetter,
+		evaluateAfter:       config.EvaluateAfter,
 		targetController:    config.TargetController,
 		updatesCh:           config.UpdatesChan,
 		policy:              config.Policy,
@@ -175,6 +179,23 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	return h, nil
 }
 
+// Convert the last event string.
+func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
+	// If the target status includes a last event meta key, check for cooldown
+	// due to out-of-band events. This is also useful if the Autoscaler has
+	// been re-deployed.
+	if status.Meta == nil {
+		return 0, nil
+	}
+
+	ts, ok := status.Meta[sdk.TargetStatusMetaKeyLastEvent]
+	if !ok {
+		return 0, nil
+	}
+
+	return strconv.ParseInt(ts, 10, 64)
+}
+
 func (h *Handler) configureHorizontalPolicy() error {
 	return h.updateHorizontalPolicy(h.policy)
 }
@@ -188,7 +209,6 @@ func (h *Handler) updateHorizontalPolicy(up *sdk.ScalingPolicy) error {
 	h.minCount = up.Min
 	h.maxCount = up.Max
 
-	h.calculateNewCount = h.calculateHorizontalNewCount
 	return nil
 }
 
@@ -219,6 +239,7 @@ func (h *Handler) loadCheckRunners() error {
 
 	// Do the update as a single operation to avoid partial updates.
 	h.checkRunners = runners
+
 	return nil
 }
 
@@ -364,23 +385,6 @@ func (h *Handler) waitAndScale(ctx context.Context) error {
 	return nil
 }
 
-// Convert the last event string.
-func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
-	// If the target status includes a last event meta key, check for cooldown
-	// due to out-of-band events. This is also useful if the Autoscaler has
-	// been re-deployed.
-	if status.Meta == nil {
-		return 0, nil
-	}
-
-	ts, ok := status.Meta[sdk.TargetStatusMetaKeyLastEvent]
-	if !ok {
-		return 0, nil
-	}
-
-	return strconv.ParseInt(ts, 10, 64)
-}
-
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
 func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
@@ -436,7 +440,7 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 // gets the metrics and the necessary new count to keep up with the policy
 // and generates a scaling action if needed, but only for horizontal policies:
 // horizontal app and horizontal cluster scaling policies.
-func (h *Handler) calculateHorizontalNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 
 	// Record the start time of the eval portion of this function. The labels
@@ -451,24 +455,16 @@ func (h *Handler) calculateHorizontalNewCount(ctx context.Context, currentCount 
 	checkGroups := make(map[string][]checkResult)
 
 	for _, ch := range h.checkRunners {
-		h.log.Debug("received policy check for evaluation")
-
-		metrics, err := ch.QueryMetrics(ctx)
-		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
-		}
-
-		action, err := ch.GetNewCountFromStrategy(ctx, currentCount, metrics)
+		action, err := ch.RunCheck(ctx, currentCount)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
 		}
 
-		group := ch.check.Group
-		checkGroups[group] = append(checkGroups[group], checkResult{
+		checkGroups[ch.check.Group] = append(checkGroups[ch.check.Group], checkResult{
 			action:  &action,
 			handler: ch,
-			group:   group,
+			group:   ch.check.Group,
 		})
 	}
 

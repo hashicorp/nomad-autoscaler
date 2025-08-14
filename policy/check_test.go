@@ -154,7 +154,7 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 				Policy:         tt.policy,
 			}, ch)
 
-			action, err := runner.GetNewCountFromStrategy(context.Background(), 3, tt.metrics)
+			action, err := runner.getNewCountFromStrategy(context.Background(), 3, tt.metrics)
 			must.Eq(t, tt.expectedAction, action)
 			must.Eq(t, tt.expError, errors.Unwrap(err))
 

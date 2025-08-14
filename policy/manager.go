@@ -65,23 +65,25 @@ type Manager struct {
 
 	// Ent only fields
 	evaluateAfter       time.Duration
-	historicalAPMGetter historicalAPMGetter
+	historicalAPMGetter HistoricalAPMGetter
 }
 
 // NewManager returns a new Manager.
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
-		log:             log.ResetNamed("policy_manager"),
-		policySources:   ps,
-		targetGetter:    pm,
-		handlersLock:    sync.RWMutex{},
-		handlers:        make(map[SourceName]map[PolicyID]*handlerTracker),
-		metricsInterval: mInt,
-		policyIDsCh:     make(chan IDMessage, 2),
-		policyIDsErrCh:  make(chan error, 2),
-		Limiter:         l,
-		pluginManager:   pm,
+		log:                 log.ResetNamed("policy_manager"),
+		policySources:       ps,
+		targetGetter:        pm,
+		handlersLock:        sync.RWMutex{},
+		handlers:            make(map[SourceName]map[PolicyID]*handlerTracker),
+		metricsInterval:     mInt,
+		policyIDsCh:         make(chan IDMessage, 2),
+		policyIDsErrCh:      make(chan error, 2),
+		Limiter:             l,
+		pluginManager:       pm,
+		evaluateAfter:       0,
+		historicalAPMGetter: &noopHistoricalAPMGetter{},
 	}
 }
 
@@ -366,6 +368,10 @@ func (m *Manager) ReloadSources() {
 
 func (m *Manager) SetEvaluateAfter(ea time.Duration) {
 	m.evaluateAfter = ea
+}
+
+func (m *Manager) SetHistoricalAPMGetter(hag HistoricalAPMGetter) {
+	m.historicalAPMGetter = hag
 }
 
 // periodicMetricsReporter periodically emits metrics for the policy manager

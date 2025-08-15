@@ -19,7 +19,14 @@ func TestScalingPolicy_Validate(t *testing.T) {
 		{
 			name:          "nil policy",
 			policy:        nil,
-			expectedError: "",
+			expectedError: "empty policy",
+		},
+		{
+			name: "no type",
+			policy: &ScalingPolicy{
+				Type: "",
+			},
+			expectedError: "policy has not type defined",
 		},
 		{
 			name: "invalid on_check_error",

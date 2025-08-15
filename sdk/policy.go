@@ -4,6 +4,7 @@
 package sdk
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -86,10 +87,14 @@ type ScalingPolicy struct {
 // Validate applies validation rules that are independent of policy source.
 func (p *ScalingPolicy) Validate() error {
 	if p == nil {
-		return nil
+		return errors.New("empty policy")
 	}
 
 	var result *multierror.Error
+
+	if p.Type == "" {
+		result = multierror.Append(result, errors.New("policy has not type defined"))
+	}
 
 	switch p.OnCheckError {
 	case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:

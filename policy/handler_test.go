@@ -399,6 +399,7 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 }
 
 var policy = &sdk.ScalingPolicy{
+	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",
 	EvaluationInterval: 20 * time.Millisecond,
 	Min:                1,

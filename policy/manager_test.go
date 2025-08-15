@@ -148,7 +148,7 @@ var policy1 = &sdk.ScalingPolicy{
 var policy2 = &sdk.ScalingPolicy{
 	ID:      "policy2",
 	Enabled: true,
-	Type:    sdk.ScalingPolicyTypeVerticalCPU,
+	Type:    sdk.ScalingPolicyTypeHorizontal,
 	Checks: []*sdk.ScalingPolicyCheck{
 		{
 			Name: "check1",

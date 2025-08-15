@@ -68,22 +68,24 @@ type Manager struct {
 	historicalAPMGetter HistoricalAPMGetter
 }
 
+type noopHistoricalAPMGetter struct{}
+
 // NewManager returns a new Manager.
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
-		log:             log.ResetNamed("policy_manager"),
-		policySources:   ps,
-		targetGetter:    pm,
-		handlersLock:    sync.RWMutex{},
-		handlers:        make(map[SourceName]map[PolicyID]*handlerTracker),
-		metricsInterval: mInt,
-		policyIDsCh:     make(chan IDMessage, 2),
-		policyIDsErrCh:  make(chan error, 2),
-		Limiter:         l,
-		pluginManager:   pm,
-		evaluateAfter:   0,
-		//historicalAPMGetter: &noopHistoricalAPMGetter{},
+		log:                 log.ResetNamed("policy_manager"),
+		policySources:       ps,
+		targetGetter:        pm,
+		handlersLock:        sync.RWMutex{},
+		handlers:            make(map[SourceName]map[PolicyID]*handlerTracker),
+		metricsInterval:     mInt,
+		policyIDsCh:         make(chan IDMessage, 2),
+		policyIDsErrCh:      make(chan error, 2),
+		Limiter:             l,
+		pluginManager:       pm,
+		evaluateAfter:       0,
+		historicalAPMGetter: &noopHistoricalAPMGetter{},
 	}
 }
 
@@ -280,12 +282,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			Log: m.log.Named("policy_handler").With("policy_id", policyID,
 				"source", message.Source, "target", updatedPolicy.Target.Name,
 				"target_config", updatedPolicy.Target.Config),
-			Policy:           updatedPolicy,
-			UpdatesChan:      upCh,
-			ErrChan:          m.policyIDsErrCh,
-			TargetController: tg,
-			DependencyGetter: m.pluginManager,
-			Limiter:          m.Limiter,
+			Policy:              updatedPolicy,
+			UpdatesChan:         upCh,
+			ErrChan:             m.policyIDsErrCh,
+			TargetController:    tg,
+			DependencyGetter:    m.pluginManager,
+			Limiter:             m.Limiter,
+			HistoricalAPMGetter: m.historicalAPMGetter,
 		})
 		if err != nil {
 			m.log.Error("encountered an error starting the policy handler",

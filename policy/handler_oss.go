@@ -14,8 +14,6 @@ import (
 
 type HistoricalAPMGetter interface{}
 
-type noopHistoricalAPMGetter struct{}
-
 type noopVerticalCheckRunner struct {
 	policy *sdk.ScalingPolicy
 }

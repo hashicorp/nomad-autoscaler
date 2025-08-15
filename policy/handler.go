@@ -137,7 +137,10 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		state:               StateIdle,
 	}
 
-	h.loadCheckRunners()
+	err := h.loadCheckRunners()
+	if err != nil {
+		return nil, fmt.Errorf("unable to load the checks for the handler: %w", err)
+	}
 
 	currentStatus, err := h.runTargetStatus()
 	if err != nil {

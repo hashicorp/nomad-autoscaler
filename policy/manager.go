@@ -68,8 +68,6 @@ type Manager struct {
 	historicalAPMGetter HistoricalAPMGetter
 }
 
-type noopHistoricalAPMGetter struct{}
-
 // NewManager returns a new Manager.
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 

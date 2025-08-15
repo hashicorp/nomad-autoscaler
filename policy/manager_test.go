@@ -121,6 +121,7 @@ func (ms *mockSource) ReloadIDsMonitor()                                        
 
 var policy1 = &sdk.ScalingPolicy{
 	ID:      "policy1",
+	Type:    sdk.ScalingPolicyTypeCluster,
 	Enabled: true,
 	Checks: []*sdk.ScalingPolicyCheck{
 		{
@@ -147,6 +148,7 @@ var policy1 = &sdk.ScalingPolicy{
 var policy2 = &sdk.ScalingPolicy{
 	ID:      "policy2",
 	Enabled: true,
+	Type:    sdk.ScalingPolicyTypeVerticalCPU,
 	Checks: []*sdk.ScalingPolicyCheck{
 		{
 			Name: "check1",
@@ -164,6 +166,7 @@ var policy2 = &sdk.ScalingPolicy{
 
 var policy3 = &sdk.ScalingPolicy{
 	ID:      "policy3",
+	Type:    sdk.ScalingPolicyTypeHorizontal,
 	Enabled: true,
 	Checks: []*sdk.ScalingPolicyCheck{
 		{
@@ -552,7 +555,8 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				name: "mock-source",
 				latestVersion: map[PolicyID]*sdk.ScalingPolicy{
 					"policy1": {
-						ID: "policy1",
+						ID:   "policy1",
+						Type: sdk.ScalingPolicyTypeCluster,
 						Checks: []*sdk.ScalingPolicyCheck{
 							{
 								Name: "check1",
@@ -563,7 +567,8 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 						},
 					},
 					"policy2": {
-						ID: "policy2",
+						ID:   "policy2",
+						Type: sdk.ScalingPolicyTypeHorizontal,
 						Checks: []*sdk.ScalingPolicyCheck{
 							{
 								Name: "check1",
@@ -574,7 +579,8 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 						},
 					},
 					"policy3": {
-						ID: "policy3",
+						ID:   "policy3",
+						Type: sdk.ScalingPolicyTypeVerticalCPU,
 						Checks: []*sdk.ScalingPolicyCheck{
 							{
 								Name: "check1",

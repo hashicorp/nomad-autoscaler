@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
@@ -270,9 +271,24 @@ func (t *TargetPlugin) calculateDirection(asgDesired, strategyDesired int64) (in
 	return 0, ""
 }
 
+func warmPoolActivity(activity types.Activity) bool {
+	if activity.Description == nil {
+		return false
+	}
+
+	desc := *activity.Description
+	return strings.Contains(desc, "Launching a new EC2 instance into warm pool:") ||
+		strings.Contains(desc, "Terminating EC2 instance from warm pool:")
+}
+
 // processLastActivity updates the status object based on the details within
 // the last scaling activity.
 func processLastActivity(activity types.Activity, status *sdk.TargetStatus) {
+	// Warm pool activities are not considered scaling activities in the context of
+	// scaling the asg in or out, so we skip them.
+	if warmPoolActivity(activity) {
+		return
+	}
 
 	// If the last activities progress is not nil then check whether this
 	// finished or not. In the event there is a current activity in progress

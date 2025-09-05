@@ -332,7 +332,8 @@ func (h *Handler) Run(ctx context.Context) {
 }
 
 func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
-	return a.Direction != sdk.ScaleDirectionNone && countCount != a.Count
+	return (a.Direction == sdk.ScaleDirectionNone && countCount != a.Count) ||
+		a.Direction != sdk.ScaleDirectionNone
 }
 
 func (h *Handler) waitAndScale(ctx context.Context) error {
@@ -450,7 +451,7 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	}
 
 	winner := pickWinnerActionFromGroups(checkGroups)
-	if winner.handler == nil || winner.action == nil || winner.action.Direction == sdk.ScaleDirectionNone {
+	if winner.handler == nil || winner.action == nil {
 		return sdk.ScalingAction{}, nil
 	}
 

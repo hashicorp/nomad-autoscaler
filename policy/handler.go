@@ -332,6 +332,8 @@ func (h *Handler) Run(ctx context.Context) {
 }
 
 func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
+	// The DAS returns count but the direction is none, for vertical and horizontal
+	// policies checking the direction is enough.
 	return (a.Direction == sdk.ScaleDirectionNone && countCount != a.Count) ||
 		a.Direction != sdk.ScaleDirectionNone
 }
@@ -417,10 +419,9 @@ func (h *Handler) applyMutators(p *sdk.ScalingPolicy) {
 	}
 }
 
-// calculateHorizontalNewCount is the main part of the controller, it
+// calculateNewCount is the main part of the controller, it
 // gets the metrics and the necessary new count to keep up with the policy
-// and generates a scaling action if needed, but only for horizontal policies:
-// horizontal app and horizontal cluster scaling policies.
+// and generates a scaling action if needed.
 func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	h.log.Debug("received policy for evaluation")
 

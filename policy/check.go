@@ -51,10 +51,10 @@ func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// GetNewCountFromStrategy begins the execution of the checks and returns
+// getNewCountFromStrategy begins the execution of the checks and returns
 // and action containing the instance count after applying the strategy to the
 // metrics.
-func (ch *checkRunner) GetNewCountFromStrategy(ctx context.Context, currentCount int64,
+func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount int64,
 	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("calculating new count", "current count", currentCount)
 
@@ -132,7 +132,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 }
 
 // QueryMetrics wraps the apm.Query call to provide operational functionality.
-func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
+func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
 	// Trigger a metric measure to track latency of the call.
@@ -175,4 +175,27 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	sort.Sort(ms)
 
 	return ms, nil
+}
+
+func (ch *checkRunner) Group() string {
+	return ch.check.Group
+}
+
+func (ch *checkRunner) RunCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+	ch.log.Debug("received policy check for evaluation")
+
+	metrics, err := ch.queryMetrics(ctx)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+	}
+
+	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
+
+	}
+
+	action.CapCount(ch.policy.Min, ch.policy.Max)
+
+	return action, nil
 }

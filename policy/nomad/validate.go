@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 )
@@ -54,9 +55,9 @@ func validateScalingPolicy(policy *api.ScalingPolicy) error {
 
 func validateScalingPolicyByType(policy *api.ScalingPolicy) error {
 	switch policy.Type {
-	case "horizontal", "":
+	case sdk.ScalingPolicyTypeHorizontal, "":
 		return validateHorizontalPolicy(policy)
-	case "cluster":
+	case sdk.ScalingPolicyTypeCluster:
 		return validateClusterPolicy(policy)
 	default:
 		return additionalPolicyTypeValidation(policy)

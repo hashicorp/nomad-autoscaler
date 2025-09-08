@@ -50,8 +50,7 @@ type TargetPlugin struct {
 	logger  hclog.Logger
 	service *compute.Service
 
-	// retryAttempts and retryInterval are used when waiting for GCE
-    // scaling activities to complete.
+	// retryAttempts is used when waiting for GCE scaling activities to complete.
     retryAttempts  int
 
 	// clusterUtils provides general cluster scaling utilities for querying the

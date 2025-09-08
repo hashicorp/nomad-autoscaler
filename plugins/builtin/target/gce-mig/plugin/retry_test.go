@@ -39,7 +39,7 @@ func Test_retry(t *testing.T) {
 				return false, errors.New("error")
 			},
 			expectedOutput: errors.New("reached retry limit"),
-			name:           "function never successful and reaches retry limit",
+			name:           "function never successful and reaches retry attempts limit",
 		},
 	}
 

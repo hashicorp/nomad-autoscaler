@@ -19,7 +19,7 @@ import (
 
 const (
 	defaultRetryInterval = 10 * time.Second
-	defaultRetryLimit    = 15
+	defaultRetryAttempts = 15
 
 	// nodeAttrGCEHostname is the node attribute to use when identifying the
 	// GCE hostname of a node.
@@ -142,7 +142,7 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
+	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
 }
 
 func pathOrContents(poc string) (string, error) {

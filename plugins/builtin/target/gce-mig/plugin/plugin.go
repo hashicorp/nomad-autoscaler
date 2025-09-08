@@ -6,6 +6,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -26,6 +27,7 @@ const (
 	configKeyRegion      = "region"
 	configKeyZone        = "zone"
 	configKeyMIGName     = "mig_name"
+	configKeyRetryAttempts  = "retry_attempts"
 )
 
 var (
@@ -48,6 +50,10 @@ type TargetPlugin struct {
 	logger  hclog.Logger
 	service *compute.Service
 
+	// retryAttempts and retryInterval are used when waiting for GCE
+    // scaling activities to complete.
+    retryAttempts  int
+
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
 	clusterUtils *scaleutils.ClusterScaleUtils
@@ -58,6 +64,7 @@ type TargetPlugin struct {
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
 		logger: log,
+		retryAttempts: defaultRetryAttempts,
 	}
 }
 
@@ -69,6 +76,14 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	if err := t.setupGCEClients(config); err != nil {
 		return err
 	}
+
+	if val, ok := t.config[configKeyRetryAttempts]; ok {
+        attempts, err := strconv.Atoi(val)
+        if err != nil {
+            return fmt.Errorf("invalid value for %s: %v", configKeyRetryAttempts, err)
+        }
+        t.retryAttempts = attempts
+    }
 
 	clusterUtils, err := scaleutils.NewClusterScaleUtils(nomad.ConfigFromNamespacedMap(config), t.logger)
 	if err != nil {

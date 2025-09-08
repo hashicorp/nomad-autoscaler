@@ -4,8 +4,10 @@
 package plugin
 
 import (
+	"strconv"
 	"testing"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -49,4 +51,24 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 			assert.Equal(t, tc.expectedOutputString, actualString, tc.name)
 		})
 	}
+}
+
+func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
+    p := NewGCEMIGPlugin(hclog.NewNullLogger())
+
+    assert.Equal(t, defaultRetryAttempts, p.retryAttempts, "expected default retry attempts")
+
+    customAttempts := 20
+    config := map[string]string{
+        configKeyRetryAttempts: strconv.Itoa(customAttempts),
+    }
+    err := p.SetConfig(config)
+    assert.NoError(t, err, "expected no error for valid config")
+    assert.Equal(t, customAttempts, p.retryAttempts, "expected custom retry attempts")
+
+    invalidConfig := map[string]string{
+        configKeyRetryAttempts: "not-a-number",
+    }
+    err = p.SetConfig(invalidConfig)
+    assert.Error(t, err, "expected an error for invalid retry attempts")
 }

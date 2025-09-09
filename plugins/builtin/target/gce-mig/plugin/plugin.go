@@ -22,12 +22,18 @@ const (
 	// pluginName is the unique name of the this plugin amongst Target plugins.
 	pluginName = "gce-mig"
 
+	// configKeys represents the known configuration parameters required at
+	// varying points throughout the plugins lifecycle.	
 	configKeyCredentials = "credentials"
 	configKeyProject     = "project"
 	configKeyRegion      = "region"
 	configKeyZone        = "zone"
 	configKeyMIGName     = "mig_name"
 	configKeyRetryAttempts  = "retry_attempts"
+
+	// configValues are the default values used when a configuration key is not
+	// supplied by the operator that are specific to the plugin.
+	configValueRetryAttemptsDefault = "15"
 )
 
 var (
@@ -63,7 +69,6 @@ type TargetPlugin struct {
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
 	return &TargetPlugin{
 		logger: log,
-		retryAttempts: defaultRetryAttempts,
 	}
 }
 
@@ -76,14 +81,6 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 		return err
 	}
 
-	if val, ok := t.config[configKeyRetryAttempts]; ok {
-        attempts, err := strconv.Atoi(val)
-        if err != nil {
-            return fmt.Errorf("invalid value for %s: %v", configKeyRetryAttempts, err)
-        }
-        t.retryAttempts = attempts
-    }
-
 	clusterUtils, err := scaleutils.NewClusterScaleUtils(nomad.ConfigFromNamespacedMap(config), t.logger)
 	if err != nil {
 		return err
@@ -92,6 +89,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	// Store and set the remote ID callback function.
 	t.clusterUtils = clusterUtils
 	t.clusterUtils.ClusterNodeIDLookupFunc = gceNodeIDMap
+
+	retryLimit, err := strconv.Atoi(getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	if err != nil {
+		return err
+	}
+	t.retryAttempts = retryLimit
 
 	return nil
 }
@@ -223,6 +226,8 @@ func (t *TargetPlugin) calculateMIG(config map[string]string) (instanceGroup, er
 	}
 }
 
+// getValue retrieves a configuration value from either the provided config
+// map or the plugin's stored config map.
 func (t *TargetPlugin) getValue(config map[string]string, name string) (string, bool) {
 	v, ok := config[name]
 	if ok {
@@ -235,4 +240,15 @@ func (t *TargetPlugin) getValue(config map[string]string, name string) (string, 
 	}
 
 	return "", false
+}
+
+// getConfigValue handles parameters that are optional in the operator's config 
+// but required for the plugin's functionality.
+func getConfigValue(config map[string]string, key string, defaultValue string) string {
+	value, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+
+	return value
 }

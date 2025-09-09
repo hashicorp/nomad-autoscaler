@@ -56,6 +56,9 @@ type TargetPlugin struct {
 	logger  hclog.Logger
 	service *compute.Service
 
+	// Allows mocking of the setupGCEClients in tests.
+	setupGCEClientsFunc func(config map[string]string) error
+
 	// retryAttempts is used when waiting for GCE scaling activities to complete.
     retryAttempts  int
 
@@ -67,18 +70,20 @@ type TargetPlugin struct {
 // NewGCEMIGPlugin returns the GCE MIG implementation of the target.Target
 // interface.
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
-	return &TargetPlugin{
-		logger: log,
-	}
+    p := &TargetPlugin{
+        logger: log,
+    }
+    // Initialize the function variable with the actual method.
+    p.setupGCEClientsFunc = p.setupGCEClients
+    return p
 }
 
 // SetConfig satisfies the SetConfig function on the base.Base interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
-
 	t.config = config
 
-	if err := t.setupGCEClients(config); err != nil {
-		return err
+	if err := t.setupGCEClientsFunc(config); err != nil {
+        return err
 	}
 
 	clusterUtils, err := scaleutils.NewClusterScaleUtils(nomad.ConfigFromNamespacedMap(config), t.logger)

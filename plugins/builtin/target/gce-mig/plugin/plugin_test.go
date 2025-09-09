@@ -54,36 +54,40 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 }
 
 func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
+    mockPlugin := &TargetPlugin{
+        logger: hclog.NewNullLogger(),
+    }
+    mockPlugin.setupGCEClientsFunc = func(config map[string]string) error {
+        return nil
+    }
+
     // Test case for the default value.
     t.Run("default value is used when not provided", func(t *testing.T) {
-        p := NewGCEMIGPlugin(hclog.NewNullLogger())
         config := map[string]string{}
-        err := p.SetConfig(config)
+        err := mockPlugin.SetConfig(config)
         assert.NoError(t, err)
-    
+        
         defaultValue, _ := strconv.Atoi(configValueRetryAttemptsDefault)
-        assert.Equal(t, defaultValue, p.retryAttempts)
+        assert.Equal(t, defaultValue, mockPlugin.retryAttempts)
     })
 
     // Test case for a valid custom retry attempts value.
     t.Run("valid custom value is used", func(t *testing.T) {
-        p := NewGCEMIGPlugin(hclog.NewNullLogger())
         customAttempts := 20
         config := map[string]string{
             configKeyRetryAttempts: strconv.Itoa(customAttempts),
         }
-        err := p.SetConfig(config)
+        err := mockPlugin.SetConfig(config)
         assert.NoError(t, err, "expected no error for valid config")
-        assert.Equal(t, customAttempts, p.retryAttempts, "expected custom retry attempts")
+        assert.Equal(t, customAttempts, mockPlugin.retryAttempts, "expected custom retry attempts")
     })
 
     // Test case for an invalid retry attempts value (non-integer).
     t.Run("invalid value returns an error", func(t *testing.T) {
-        p := NewGCEMIGPlugin(hclog.NewNullLogger())
         invalidConfig := map[string]string{
             configKeyRetryAttempts: "not-a-number",
         }
-        err := p.SetConfig(invalidConfig)
+        err := mockPlugin.SetConfig(invalidConfig)
         assert.Error(t, err, "expected an error for invalid retry attempts")
     })
 }

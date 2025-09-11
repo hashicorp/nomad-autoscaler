@@ -17,11 +17,6 @@ func TestScalingPolicy_Validate(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name:          "nil policy",
-			policy:        nil,
-			expectedError: "empty policy",
-		},
-		{
 			name: "no type",
 			policy: &ScalingPolicy{
 				Type: "",

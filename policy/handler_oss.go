@@ -20,7 +20,7 @@ type noopVerticalCheckRunner struct {
 	policy *sdk.ScalingPolicy
 }
 
-func (nv *noopVerticalCheckRunner) RunCheckAndCapCount(_ context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (nv *noopVerticalCheckRunner) runCheckAndCapCount(_ context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	a := sdk.ScalingAction{
 		Direction: sdk.ScaleDirectionNone,
 		Count:     currentCount,
@@ -31,7 +31,7 @@ func (nv *noopVerticalCheckRunner) RunCheckAndCapCount(_ context.Context, curren
 	return a, nil
 }
 
-func (nv *noopVerticalCheckRunner) Group() string {
+func (nv *noopVerticalCheckRunner) group() string {
 	return ""
 }
 

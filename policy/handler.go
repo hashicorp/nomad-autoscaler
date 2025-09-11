@@ -61,8 +61,8 @@ type limiter interface {
 }
 
 type checker interface {
-	RunCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
-	Group() string
+	runCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
+	group() string
 }
 
 // Handler monitors a policy for changes and controls when them are sent for
@@ -107,27 +107,26 @@ type Handler struct {
 }
 
 type HandlerConfig struct {
-	UpdatesChan         chan *sdk.ScalingPolicy
-	ErrChan             chan<- error
-	Policy              *sdk.ScalingPolicy
-	Log                 hclog.Logger
-	TargetController    targetpkg.Controller
-	Limiter             *Limiter
-	DependencyGetter    dependencyGetter
+	UpdatesChan      chan *sdk.ScalingPolicy
+	ErrChan          chan<- error
+	Policy           *sdk.ScalingPolicy
+	Log              hclog.Logger
+	TargetController targetpkg.Controller
+	Limiter          *Limiter
+	DependencyGetter dependencyGetter
+
+	// Ent only field
 	HistoricalAPMGetter HistoricalAPMGetter
 	EvaluateAfter       time.Duration
 }
 
 func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
-
 	h := &Handler{
 		log: config.Log,
 		mutators: []Mutator{
 			NomadAPMMutator{},
 		},
 		pm:                  config.DependencyGetter,
-		historicalAPMGetter: config.HistoricalAPMGetter,
-		evaluateAfter:       config.EvaluateAfter,
 		targetController:    config.TargetController,
 		updatesCh:           config.UpdatesChan,
 		policy:              config.Policy,
@@ -135,11 +134,13 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		limiter:             config.Limiter,
 		stateLock:           sync.RWMutex{},
 		state:               StateIdle,
+		historicalAPMGetter: config.HistoricalAPMGetter,
+		evaluateAfter:       config.EvaluateAfter,
 	}
 
 	err := h.loadCheckRunners()
 	if err != nil {
-		return nil, fmt.Errorf("unable to load the checks for the handler: %w", err)
+		return nil, fmt.Errorf("failed to load check handlers: %w", err)
 	}
 
 	currentStatus, err := h.runTargetStatus()
@@ -174,7 +175,8 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 	return h, nil
 }
 
-// Convert the last event string.
+// checkForOutOfBandEvents tries to determine if there has been any recent
+// scaling events in case of the autoscaler going offline.
 func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 	// If the target status includes a last event meta key, check for cooldown
 	// due to out-of-band events. This is also useful if the Autoscaler has
@@ -208,7 +210,7 @@ func (h *Handler) loadCheckRunners() error {
 				return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
 			}
 
-			runner := NewCheckRunner(&CheckRunnerConfig{
+			runner := newCheckRunner(&CheckRunnerConfig{
 				Log: h.log.Named("check_handler").With("check", check.Name,
 					"source", check.Source, "strategy", check.Strategy.Name),
 				StrategyRunner: s,
@@ -437,13 +439,13 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	checkGroups := make(map[string][]checkResult)
 
 	for _, ch := range h.checkRunners {
-		action, err := ch.RunCheckAndCapCount(ctx, currentCount)
+		action, err := ch.runCheckAndCapCount(ctx, currentCount)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 
 		}
 
-		g := ch.Group()
+		g := ch.group()
 		checkGroups[g] = append(checkGroups[g], checkResult{
 			action:  &action,
 			handler: ch,

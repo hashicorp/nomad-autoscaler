@@ -41,7 +41,7 @@ type checkRunner struct {
 }
 
 // NewCheckHandler returns a new checkHandler instance.
-func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
+func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
 		log:            config.Log,
 		check:          c,
@@ -131,7 +131,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 	return *runResp.Action, nil
 }
 
-// QueryMetrics wraps the apm.Query call to provide operational functionality.
+// queryMetrics wraps the apm.Query call to provide operational functionality.
 func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
@@ -177,11 +177,11 @@ func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	return ms, nil
 }
 
-func (ch *checkRunner) Group() string {
+func (ch *checkRunner) group() string {
 	return ch.check.Group
 }
 
-func (ch *checkRunner) RunCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
 	metrics, err := ch.queryMetrics(ctx)

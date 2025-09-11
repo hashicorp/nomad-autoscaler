@@ -290,7 +290,6 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 				must.Eq(t, tt.wantAction.Direction, result.action.Direction)
 				must.Eq(t, tt.wantAction.Count, result.action.Count)
 				must.NotNil(t, result.handler)
-				//must.Eq(t, tt.wantHandler.check.Name, result.handler.check.Name)
 			}
 		})
 	}

@@ -148,7 +148,7 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 				},
 			}
 
-			runner := NewCheckRunner(&CheckRunnerConfig{
+			runner := newCheckRunner(&CheckRunnerConfig{
 				Log:            hclog.NewNullLogger(),
 				StrategyRunner: sr,
 				Policy:         tt.policy,
@@ -226,7 +226,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}
 
-			handler := NewCheckRunner(&CheckRunnerConfig{
+			handler := newCheckRunner(&CheckRunnerConfig{
 				Log:           hclog.NewNullLogger(),
 				MetricsGetter: mockLooker,
 				Policy: &sdk.ScalingPolicy{

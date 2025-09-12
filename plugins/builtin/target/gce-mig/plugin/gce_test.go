@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
 	"github.com/shoenig/test"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/compute/v1"
 )
 
@@ -67,8 +66,14 @@ func Test_gceNodeIDMap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualID, actualErr := gceNodeIDMap(tc.inputNode)
-			assert.Equal(t, tc.expectedOutputID, actualID, tc.name)
-			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
+			test.Eq(t, tc.expectedOutputID, actualID, test.Sprint("IDs should be equal"))
+
+			if tc.expectedOutputError != nil {
+				test.Error(t, actualErr, test.Sprint("expected an error"))
+				test.Eq(t, tc.expectedOutputError.Error(), actualErr.Error(), test.Sprint("errors should be equal"))
+			} else {
+				test.NoError(t, actualErr, test.Sprint("expected no error"))
+			}
 		})
 	}
 }
@@ -139,7 +144,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 
 		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG)
 
-		assert.Error(t, err, "expected an error when MIG does not become stable")
-		assert.Equal(t, 2, attempts, "expected 2 attempts (the limit) to be made")
+		test.Error(t, err, test.Sprint("expected an error when MIG does not become stable"))
+		test.Eq(t, 2, attempts, test.Sprint("expected 2 attempts (the limit) to be made"))
 	})
 }

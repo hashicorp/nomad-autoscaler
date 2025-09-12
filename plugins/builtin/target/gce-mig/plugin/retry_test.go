@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test"
 )
 
 func Test_retry(t *testing.T) {
@@ -46,7 +46,7 @@ func Test_retry(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+			test.Eq(t, tc.expectedOutput, actualOutput, test.Sprint(tc.name))
 		})
 	}
 }

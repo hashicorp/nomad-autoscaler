@@ -100,11 +100,13 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	t.clusterUtils = clusterUtils
 	t.clusterUtils.ClusterNodeIDLookupFunc = gceNodeIDMap
 
-	retryLimit, err := strconv.Atoi(getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault))
+	retryAttemptsStr := getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault)
+
+	attempts, err := strconv.Atoi(retryAttemptsStr)
 	if err != nil {
-		return err
+		return fmt.Errorf("invalid value for %s: %v", configKeyRetryAttempts, err)
 	}
-	t.retryAttempts = retryLimit
+	t.retryAttempts = attempts
 
 	return nil
 }

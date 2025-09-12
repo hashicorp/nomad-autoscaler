@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +23,9 @@ import (
 const DefaultLimiterTimeout = 2 * time.Minute
 
 type handlerTracker struct {
-	cancel  context.CancelFunc
-	updates chan<- *sdk.ScalingPolicy
+	policyType string
+	cancel     context.CancelFunc
+	updates    chan<- *sdk.ScalingPolicy
 }
 
 type targetGetter interface {
@@ -60,22 +62,28 @@ type Manager struct {
 	*Limiter
 
 	pluginManager dependencyGetter
+
+	// Ent only fields
+	evaluateAfter       time.Duration
+	historicalAPMGetter HistoricalAPMGetter
 }
 
 // NewManager returns a new Manager.
 func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginManager, mInt time.Duration, l *Limiter) *Manager {
 
 	return &Manager{
-		log:             log.ResetNamed("policy_manager"),
-		policySources:   ps,
-		targetGetter:    pm,
-		handlersLock:    sync.RWMutex{},
-		handlers:        make(map[SourceName]map[PolicyID]*handlerTracker),
-		metricsInterval: mInt,
-		policyIDsCh:     make(chan IDMessage, 2),
-		policyIDsErrCh:  make(chan error, 2),
-		Limiter:         l,
-		pluginManager:   pm,
+		log:                 log.ResetNamed("policy_manager"),
+		policySources:       ps,
+		targetGetter:        pm,
+		handlersLock:        sync.RWMutex{},
+		handlers:            make(map[SourceName]map[PolicyID]*handlerTracker),
+		metricsInterval:     mInt,
+		policyIDsCh:         make(chan IDMessage, 2),
+		policyIDsErrCh:      make(chan error, 2),
+		Limiter:             l,
+		pluginManager:       pm,
+		evaluateAfter:       0,
+		historicalAPMGetter: &noopHistoricalAPMGetter{},
 	}
 }
 
@@ -250,8 +258,9 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		upCh := make(chan *sdk.ScalingPolicy, 1)
 
 		nht := &handlerTracker{
-			updates: upCh,
-			cancel:  handlerCancel,
+			updates:    upCh,
+			cancel:     handlerCancel,
+			policyType: updatedPolicy.Type,
 		}
 
 		m.log.Debug("creating new policy handler",
@@ -271,12 +280,13 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			Log: m.log.Named("policy_handler").With("policy_id", policyID,
 				"source", message.Source, "target", updatedPolicy.Target.Name,
 				"target_config", updatedPolicy.Target.Config),
-			Policy:           updatedPolicy,
-			UpdatesChan:      upCh,
-			ErrChan:          m.policyIDsErrCh,
-			TargetController: tg,
-			DependencyGetter: m.pluginManager,
-			Limiter:          m.Limiter,
+			Policy:              updatedPolicy,
+			UpdatesChan:         upCh,
+			ErrChan:             m.policyIDsErrCh,
+			TargetController:    tg,
+			DependencyGetter:    m.pluginManager,
+			Limiter:             m.Limiter,
+			HistoricalAPMGetter: m.historicalAPMGetter,
 		})
 		if err != nil {
 			m.log.Error("encountered an error starting the policy handler",
@@ -304,19 +314,11 @@ func (m *Manager) stopHandlers() {
 	for source, handlers := range m.handlers {
 		for id := range handlers {
 			m.stopHandler(source, id)
+			delete(handlers, id)
 		}
+
 		delete(m.handlers, source)
 	}
-}
-
-func (m *Manager) addHandlerTracker(source SourceName, id PolicyID, nht *handlerTracker) {
-	m.handlersLock.Lock()
-	if m.handlers[source] == nil {
-		m.handlers[source] = make(map[PolicyID]*handlerTracker)
-	}
-
-	m.handlers[source][id] = nht
-	m.handlersLock.Unlock()
 }
 
 // stopHandler stops a handler and removes it from the manager's internal
@@ -332,6 +334,30 @@ func (m *Manager) stopHandler(source SourceName, id PolicyID) {
 	close(ht.updates)
 }
 
+func (m *Manager) StopHandlersByType(typesToStop ...string) {
+	m.handlersLock.Lock()
+	defer m.handlersLock.Unlock()
+
+	for source, handlers := range m.handlers {
+		for id, tracker := range handlers {
+			if slices.Contains(typesToStop, tracker.policyType) {
+				m.stopHandler(source, id)
+				delete(handlers, id)
+			}
+		}
+	}
+}
+
+func (m *Manager) addHandlerTracker(source SourceName, id PolicyID, nht *handlerTracker) {
+	m.handlersLock.Lock()
+	if m.handlers[source] == nil {
+		m.handlers[source] = make(map[PolicyID]*handlerTracker)
+	}
+
+	m.handlers[source][id] = nht
+	m.handlersLock.Unlock()
+}
+
 // ReloadSources triggers a reload of all the policy sources.
 func (m *Manager) ReloadSources() {
 
@@ -339,6 +365,14 @@ func (m *Manager) ReloadSources() {
 	for _, policySource := range m.policySources {
 		policySource.ReloadIDsMonitor()
 	}
+}
+
+func (m *Manager) SetEvaluateAfter(ea time.Duration) {
+	m.evaluateAfter = ea
+}
+
+func (m *Manager) SetHistoricalAPMGetter(hag HistoricalAPMGetter) {
+	m.historicalAPMGetter = hag
 }
 
 // periodicMetricsReporter periodically emits metrics for the policy manager
@@ -388,14 +422,18 @@ type Limiter struct {
 
 var ErrExecutionTimeout = errors.New("timeout while waiting for slot")
 
-func NewLimiter(timeout time.Duration, hWorkersCount, cWorkersCount int) *Limiter {
+func NewLimiter(timeout time.Duration, workersConfig map[string]int) *Limiter {
 	return &Limiter{
 		timeout: timeout,
 		slots: map[string]chan struct{}{
-			"horizontal": make(chan struct{}, hWorkersCount),
-			"cluster":    make(chan struct{}, cWorkersCount),
+			sdk.ScalingPolicyTypeHorizontal: make(chan struct{}, workersConfig["horizontal"]),
+			sdk.ScalingPolicyTypeCluster:    make(chan struct{}, workersConfig["cluster"]),
 		},
 	}
+}
+
+func (l *Limiter) AddQueue(queue string, size int) {
+	l.slots[queue] = make(chan struct{}, size)
 }
 
 func (l *Limiter) QueueSize(queue string) int {

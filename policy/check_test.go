@@ -148,13 +148,13 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 				},
 			}
 
-			runner := NewCheckRunner(&CheckRunnerConfig{
+			runner := newCheckRunner(&CheckRunnerConfig{
 				Log:            hclog.NewNullLogger(),
 				StrategyRunner: sr,
 				Policy:         tt.policy,
 			}, ch)
 
-			action, err := runner.GetNewCountFromStrategy(context.Background(), 3, tt.metrics)
+			action, err := runner.getNewCountFromStrategy(context.Background(), 3, tt.metrics)
 			must.Eq(t, tt.expectedAction, action)
 			must.Eq(t, tt.expError, errors.Unwrap(err))
 
@@ -226,7 +226,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}
 
-			handler := NewCheckRunner(&CheckRunnerConfig{
+			handler := newCheckRunner(&CheckRunnerConfig{
 				Log:           hclog.NewNullLogger(),
 				MetricsGetter: mockLooker,
 				Policy: &sdk.ScalingPolicy{
@@ -234,7 +234,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}, check)
 
-			result, err := handler.QueryMetrics(context.Background())
+			result, err := handler.queryMetrics(context.Background())
 			must.Eq(t, tc.expResult, result)
 			must.True(t, errors.Is(err, tc.expErr))
 		})

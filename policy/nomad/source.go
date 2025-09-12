@@ -254,9 +254,9 @@ func (s *Source) canonicalizePolicy(p *sdk.ScalingPolicy) {
 
 func (s *Source) canonicalizePolicyByType(p *sdk.ScalingPolicy) {
 	switch p.Type {
-	case "horizontal":
+	case sdk.ScalingPolicyTypeHorizontal:
 		s.canonicalizeHorizontalPolicy(p)
-	case "cluster":
+	case sdk.ScalingPolicyTypeCluster:
 		// Nothing to do for now.
 	default:
 		s.canonicalizeAdditionalTypes(p)

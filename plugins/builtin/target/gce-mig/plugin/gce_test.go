@@ -118,8 +118,8 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 
 		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG)
 
-		assert.NoError(t, err, "expected no error when MIG becomes stable")
-		assert.Equal(t, 3, attempts, "expected 3 attempts to become stable")
+		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable"))
+		test.Eq(t, 3, attempts, test.Sprint("expected 3 attempts to become stable"))
 	})
 
 	// Test case 2: MIG never becomes stable and reaches the retry limit.

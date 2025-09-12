@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/go-homedir"
@@ -18,8 +17,6 @@ import (
 )
 
 const (
-	defaultRetryInterval = 10 * time.Second
-
 	// nodeAttrGCEHostname is the node attribute to use when identifying the
 	// GCE hostname of a node.
 	nodeAttrGCEHostname = "unique.platform.gce.hostname"

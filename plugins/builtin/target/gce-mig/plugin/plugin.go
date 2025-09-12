@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -34,6 +35,10 @@ const (
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
 	configValueRetryAttemptsDefault = "15"
+
+	// The default retry interval is paired with the default retry attempts
+	// to give a default max total duration of 2.5 minutes (15 attempts * 10s).
+	defaultRetryInterval = 10 * time.Second
 )
 
 var (

@@ -10,6 +10,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/api/compute/v1"
 )

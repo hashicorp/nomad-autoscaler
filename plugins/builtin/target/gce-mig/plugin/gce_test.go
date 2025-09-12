@@ -103,7 +103,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 	t.Run("mig becomes stable", func(t *testing.T) {
 		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
 		tp.retryAttempts = 3
-		
+
 		attempts := 0
 		mockIG := &mockInstanceGroup{
 			name: "test-mig-success",
@@ -126,7 +126,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 	t.Run("mig never becomes stable", func(t *testing.T) {
 		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
 		tp.retryAttempts = 2
-		
+
 		attempts := 0
 		mockIG := &mockInstanceGroup{
 			name: "test-mig-failure",

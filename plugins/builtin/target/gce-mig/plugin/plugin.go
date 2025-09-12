@@ -23,13 +23,13 @@ const (
 	pluginName = "gce-mig"
 
 	// configKeys represents the known configuration parameters required at
-	// varying points throughout the plugins lifecycle.	
-	configKeyCredentials = "credentials"
-	configKeyProject     = "project"
-	configKeyRegion      = "region"
-	configKeyZone        = "zone"
-	configKeyMIGName     = "mig_name"
-	configKeyRetryAttempts  = "retry_attempts"
+	// varying points throughout the plugins lifecycle.
+	configKeyCredentials   = "credentials"
+	configKeyProject       = "project"
+	configKeyRegion        = "region"
+	configKeyZone          = "zone"
+	configKeyMIGName       = "mig_name"
+	configKeyRetryAttempts = "retry_attempts"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
@@ -60,7 +60,7 @@ type TargetPlugin struct {
 	setupGCEClientsFunc func(config map[string]string) error
 
 	// retryAttempts is used when waiting for GCE scaling activities to complete.
-    retryAttempts  int
+	retryAttempts int
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
@@ -70,12 +70,12 @@ type TargetPlugin struct {
 // NewGCEMIGPlugin returns the GCE MIG implementation of the target.Target
 // interface.
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
-    p := &TargetPlugin{
-        logger: log,
-    }
-    // Initialize the function variable with the actual method.
-    p.setupGCEClientsFunc = p.setupGCEClients
-    return p
+	p := &TargetPlugin{
+		logger: log,
+	}
+	// Initialize the function variable with the actual method.
+	p.setupGCEClientsFunc = p.setupGCEClients
+	return p
 }
 
 // SetConfig satisfies the SetConfig function on the base.Base interface.
@@ -83,7 +83,7 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	t.config = config
 
 	if err := t.setupGCEClientsFunc(config); err != nil {
-        return err
+		return err
 	}
 
 	clusterUtils, err := scaleutils.NewClusterScaleUtils(nomad.ConfigFromNamespacedMap(config), t.logger)
@@ -247,7 +247,7 @@ func (t *TargetPlugin) getValue(config map[string]string, name string) (string, 
 	return "", false
 }
 
-// getConfigValue handles parameters that are optional in the operator's config 
+// getConfigValue handles parameters that are optional in the operator's config
 // but required for the plugin's functionality.
 func getConfigValue(config map[string]string, key string, defaultValue string) string {
 	value, ok := config[key]

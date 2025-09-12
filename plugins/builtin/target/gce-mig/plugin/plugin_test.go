@@ -54,40 +54,40 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 }
 
 func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
-    mockPlugin := &TargetPlugin{
-        logger: hclog.NewNullLogger(),
-    }
-    mockPlugin.setupGCEClientsFunc = func(config map[string]string) error {
-        return nil
-    }
+	mockPlugin := &TargetPlugin{
+		logger: hclog.NewNullLogger(),
+	}
+	mockPlugin.setupGCEClientsFunc = func(config map[string]string) error {
+		return nil
+	}
 
-    // Test case for the default value.
-    t.Run("default value is used when not provided", func(t *testing.T) {
-        config := map[string]string{}
-        err := mockPlugin.SetConfig(config)
-        assert.NoError(t, err)
-        
-        defaultValue, _ := strconv.Atoi(configValueRetryAttemptsDefault)
-        assert.Equal(t, defaultValue, mockPlugin.retryAttempts)
-    })
+	// Test case for the default value.
+	t.Run("default value is used when not provided", func(t *testing.T) {
+		config := map[string]string{}
+		err := mockPlugin.SetConfig(config)
+		assert.NoError(t, err)
 
-    // Test case for a valid custom retry attempts value.
-    t.Run("valid custom value is used", func(t *testing.T) {
-        customAttempts := 20
-        config := map[string]string{
-            configKeyRetryAttempts: strconv.Itoa(customAttempts),
-        }
-        err := mockPlugin.SetConfig(config)
-        assert.NoError(t, err, "expected no error for valid config")
-        assert.Equal(t, customAttempts, mockPlugin.retryAttempts, "expected custom retry attempts")
-    })
+		defaultValue, _ := strconv.Atoi(configValueRetryAttemptsDefault)
+		assert.Equal(t, defaultValue, mockPlugin.retryAttempts)
+	})
 
-    // Test case for an invalid retry attempts value (non-integer).
-    t.Run("invalid value returns an error", func(t *testing.T) {
-        invalidConfig := map[string]string{
-            configKeyRetryAttempts: "not-a-number",
-        }
-        err := mockPlugin.SetConfig(invalidConfig)
-        assert.Error(t, err, "expected an error for invalid retry attempts")
-    })
+	// Test case for a valid custom retry attempts value.
+	t.Run("valid custom value is used", func(t *testing.T) {
+		customAttempts := 20
+		config := map[string]string{
+			configKeyRetryAttempts: strconv.Itoa(customAttempts),
+		}
+		err := mockPlugin.SetConfig(config)
+		assert.NoError(t, err, "expected no error for valid config")
+		assert.Equal(t, customAttempts, mockPlugin.retryAttempts, "expected custom retry attempts")
+	})
+
+	// Test case for an invalid retry attempts value (non-integer).
+	t.Run("invalid value returns an error", func(t *testing.T) {
+		invalidConfig := map[string]string{
+			configKeyRetryAttempts: "not-a-number",
+		}
+		err := mockPlugin.SetConfig(invalidConfig)
+		assert.Error(t, err, "expected an error for invalid retry attempts")
+	})
 }

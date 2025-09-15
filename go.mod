@@ -32,7 +32,7 @@ require (
 	github.com/shoenig/test v1.12.2
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.29.0
-	golang.org/x/time v0.12.0
+	golang.org/x/time v0.13.0
 	google.golang.org/api v0.248.0
 	google.golang.org/grpc v1.75.1
 	google.golang.org/protobuf v1.36.8

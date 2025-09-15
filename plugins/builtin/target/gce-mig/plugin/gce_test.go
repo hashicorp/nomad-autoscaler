@@ -69,8 +69,7 @@ func Test_gceNodeIDMap(t *testing.T) {
 			test.Eq(t, tc.expectedOutputID, actualID, test.Sprint("IDs should be equal"))
 
 			if tc.expectedOutputError != nil {
-				test.Error(t, actualErr, test.Sprint("expected an error"))
-				test.Eq(t, tc.expectedOutputError.Error(), actualErr.Error(), test.Sprint("errors should be equal"))
+				test.EqError(t, tc.expectedOutputError, actualErr.Error())
 			} else {
 				test.NoError(t, actualErr, test.Sprint("expected no error"))
 			}
@@ -144,7 +143,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 
 		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG)
 
-		test.Error(t, err, test.Sprint("expected an error when MIG does not become stable"))
+		test.ErrorContains(t, err, "reached retry limit", test.Sprint("expected an error with the correct message"))
 		test.Eq(t, 2, attempts, test.Sprint("expected 2 attempts (the limit) to be made"))
 	})
 }

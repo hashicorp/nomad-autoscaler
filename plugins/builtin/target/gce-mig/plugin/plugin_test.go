@@ -47,8 +47,8 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualNum, actualString := tp.calculateDirection(tc.inputMigTarget, tc.inputStrategyDesired)
-			test.Eq(t, tc.expectedOutputNum, actualNum, test.Sprint(tc.name))
-			test.Eq(t, tc.expectedOutputString, actualString, test.Sprint(tc.name))
+			test.Eq(t, tc.expectedOutputNum, actualNum)
+			test.Eq(t, tc.expectedOutputString, actualString)
 		})
 	}
 }
@@ -88,6 +88,6 @@ func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
 			configKeyRetryAttempts: "not-a-number",
 		}
 		err := mockPlugin.SetConfig(invalidConfig)
-		test.Error(t, err, test.Sprint("expected an error for invalid retry attempts"))
+		test.ErrorContains(t, err, "invalid value for retry_attempts", test.Sprint("expected error for invalid config (non-integer)"))
 	})
 }

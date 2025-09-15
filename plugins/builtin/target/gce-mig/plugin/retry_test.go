@@ -46,7 +46,7 @@ func Test_retry(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
-			test.Eq(t, tc.expectedOutput, actualOutput, test.Sprint(tc.name))
+			test.Eq(t, tc.expectedOutput, actualOutput)
 		})
 	}
 }

@@ -6,7 +6,7 @@ package agent
 import (
 	"net/http"
 
-	metrics "github.com/armon/go-metrics"
+	metrics "github.com/hashicorp/go-metrics"
 )
 
 type MockAgentHTTP struct{}

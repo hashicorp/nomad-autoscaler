@@ -32,7 +32,7 @@ func TestServer_getMetrics(t *testing.T) {
 			inputReq:             httptest.NewRequest("GET", "/v1/metrics", nil),
 			inputWriter:          httptest.NewRecorder(),
 			expectedRespCode:     200,
-			expectedRespContains: "Counters\":[],\"Gauges\":[],\"Points\":[],\"Samples\":[]",
+			expectedRespContains: `"Counters":[],"Gauges":[],"Points":[],"PrecisionGauges":null,"Samples":[]`,
 			enableProm:           false,
 			name:                 "correct request for JSON metrics",
 		},

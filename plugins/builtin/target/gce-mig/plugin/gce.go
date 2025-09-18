@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/go-homedir"
@@ -18,9 +17,6 @@ import (
 )
 
 const (
-	defaultRetryInterval = 10 * time.Second
-	defaultRetryLimit    = 15
-
 	// nodeAttrGCEHostname is the node attribute to use when identifying the
 	// GCE hostname of a node.
 	nodeAttrGCEHostname = "unique.platform.gce.hostname"
@@ -132,6 +128,11 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 }
 
 func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup) error {
+	logger := t.logger.With(
+		"mig_name", group.getName(),
+		"retry_attempts", t.retryAttempts,
+		"retry_interval", defaultRetryInterval,
+	)
 
 	f := func(ctx context.Context) (bool, error) {
 		stable, _, err := group.status(ctx, t.service)
@@ -142,8 +143,10 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	return retry(ctx, defaultRetryInterval, defaultRetryLimit, f)
-}
+	logger.Info("retrying check of instance group stability")
+
+	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
+} 
 
 func pathOrContents(poc string) (string, error) {
 	if len(poc) == 0 {

@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
 )
 
 // retryFunc is the function signature for a function which is retryable. The
@@ -21,7 +23,7 @@ type retryFunc func(ctx context.Context) (stop bool, err error)
 //   - the function returns stop=true and err=nil
 //   - the retryAttempts limit is reached
 //   - the context is cancelled
-func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, f retryFunc) error {
+func retry(ctx context.Context, logger hclog.Logger, retryInterval time.Duration, retryAttempts int, f retryFunc) error {
 
 	var (
 		retryCount int
@@ -48,6 +50,8 @@ func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, 
 		if err == nil {
 			return nil
 		}
+
+		logger.Debug("retrying...", "retry_count", retryCount+1, "retry_attempts", retryAttempts, "error", err.Error())
 
 		retryCount++
 

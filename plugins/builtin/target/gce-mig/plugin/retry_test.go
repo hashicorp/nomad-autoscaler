@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/shoenig/test"
 )
 
@@ -45,7 +46,8 @@ func Test_retry(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
+			logger := hclog.NewNullLogger()
+			actualOutput := retry(tc.inputContext, logger, tc.inputInterval, tc.inputRetry, tc.inputFunc)
 			test.Eq(t, tc.expectedOutput, actualOutput)
 		})
 	}

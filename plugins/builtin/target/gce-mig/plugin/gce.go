@@ -145,8 +145,8 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 
 	logger.Info("retrying check of instance group stability")
 
-	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
-} 
+	return retry(ctx, logger, defaultRetryInterval, t.retryAttempts, f)
+}
 
 func pathOrContents(poc string) (string, error) {
 	if len(poc) == 0 {

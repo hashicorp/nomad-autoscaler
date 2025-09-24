@@ -121,7 +121,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 			},
 		}
 
-		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG)
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, map[string]string{})
 
 		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable"))
 		test.Eq(t, 3, attempts, test.Sprint("expected 3 attempts to become stable"))
@@ -141,9 +141,36 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 			},
 		}
 
-		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG)
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, map[string]string{})
 
 		test.ErrorContains(t, err, "reached retry limit", test.Sprint("expected an error with the correct message"))
 		test.Eq(t, 2, attempts, test.Sprint("expected 2 attempts (the limit) to be made"))
+	})
+
+	// Test case 3: Policy-level retry_attempts override.
+	t.Run("policy-level retry attempts override", func(t *testing.T) {
+		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
+		tp.retryAttempts = 2 // Plugin-level default
+
+		attempts := 0
+		mockIG := &mockInstanceGroup{
+			name: "test-mig-override",
+			statusFunc: func(ctx context.Context, s *compute.Service) (bool, int64, error) {
+				attempts++
+				if attempts <= 3 {
+					return false, 0, nil
+				}
+				return true, 10, nil
+			},
+		}
+
+		// Policy config overrides retry attempts to 4
+		config := map[string]string{
+			"retry_attempts": "4",
+		}
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, config)
+
+		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable with policy override"))
+		test.Eq(t, 4, attempts, test.Sprint("expected 4 attempts based on policy override"))
 	})
 }

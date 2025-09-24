@@ -142,7 +142,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	case "in":
 		err = t.scaleIn(ctx, migRef, num, config)
 	case "out":
-		err = t.scaleOut(ctx, migRef, num)
+		err = t.scaleOut(ctx, migRef, num, config)
 	default:
 		t.logger.Info("scaling not required", "mig_name", migRef.getName(),
 			"current_count", currentCount, "strategy_count", action.Count)

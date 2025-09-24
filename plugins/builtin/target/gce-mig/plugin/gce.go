@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/nomad/api"
@@ -55,12 +56,12 @@ func (t *TargetPlugin) status(ctx context.Context, ig instanceGroup) (bool, int6
 	return ig.status(ctx, t.service)
 }
 
-func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64) error {
+func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64, config map[string]string) error {
 	log := t.logger.With("action", "scale_out", "instance_group", ig.getName())
 	if err := ig.resize(ctx, t.service, num); err != nil {
 		return fmt.Errorf("failed to scale out GCE Instance Group: %v", err)
 	}
-	if err := t.ensureInstanceGroupIsStable(ctx, ig); err != nil {
+	if err := t.ensureInstanceGroupIsStable(ctx, ig, config); err != nil {
 		return fmt.Errorf("failed to confirm scale out GCE Instance Group: %v", err)
 	}
 	log.Debug("scale out GCE MIG confirmed")
@@ -113,7 +114,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 
 	log.Info("successfully deleted GCE MIG instances")
 
-	if err := t.ensureInstanceGroupIsStable(ctx, group); err != nil {
+	if err := t.ensureInstanceGroupIsStable(ctx, group, config); err != nil {
 		return fmt.Errorf("failed to confirm scale in GCE MIG: %v", err)
 	}
 
@@ -127,7 +128,22 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 	return nil
 }
 
-func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup) error {
+func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup, config map[string]string) error {
+	// Check if policy overrides the plugin configuration for retry_attempts.
+	retryAttempts := t.retryAttempts
+	if str, ok := config[configKeyRetryAttempts]; ok {
+		attempts, err := strconv.Atoi(str)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s value from policy: %w", configKeyRetryAttempts, err)
+		}
+		retryAttempts = attempts
+	}
+
+	logger := t.logger.With(
+		"mig_name", group.getName(),
+		"retry_interval", defaultRetryInterval,
+		"retry_attempts", retryAttempts,
+	)
 
 	f := func(ctx context.Context) (bool, error) {
 		stable, _, err := group.status(ctx, t.service)
@@ -138,7 +154,9 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
+	logger.Info("retrying check on instance group stability")
+
+	return retry(ctx, logger, defaultRetryInterval, retryAttempts, f)
 }
 
 func pathOrContents(poc string) (string, error) {

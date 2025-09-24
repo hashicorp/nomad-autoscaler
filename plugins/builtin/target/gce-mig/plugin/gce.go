@@ -128,11 +128,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 }
 
 func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup) error {
-	logger := t.logger.With(
-		"mig_name", group.getName(),
-		"retry_attempts", t.retryAttempts,
-		"retry_interval", defaultRetryInterval,
-	)
 
 	f := func(ctx context.Context) (bool, error) {
 		stable, _, err := group.status(ctx, t.service)
@@ -143,9 +138,7 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	logger.Info("retrying check of instance group stability")
-
-	return retry(ctx, logger, defaultRetryInterval, t.retryAttempts, f)
+	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)
 }
 
 func pathOrContents(poc string) (string, error) {

@@ -6,6 +6,8 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -21,11 +23,22 @@ const (
 	// pluginName is the unique name of the this plugin amongst Target plugins.
 	pluginName = "gce-mig"
 
-	configKeyCredentials = "credentials"
-	configKeyProject     = "project"
-	configKeyRegion      = "region"
-	configKeyZone        = "zone"
-	configKeyMIGName     = "mig_name"
+	// configKeys represents the known configuration parameters required at
+	// varying points throughout the plugins lifecycle.
+	configKeyCredentials   = "credentials"
+	configKeyProject       = "project"
+	configKeyRegion        = "region"
+	configKeyZone          = "zone"
+	configKeyMIGName       = "mig_name"
+	configKeyRetryAttempts = "retry_attempts"
+
+	// configValues are the default values used when a configuration key is not
+	// supplied by the operator that are specific to the plugin.
+	configValueRetryAttemptsDefault = "15"
+
+	// The default retry interval is paired with the default retry attempts
+	// to give a default max total duration of 2.5 minutes (15 attempts * 10s).
+	defaultRetryInterval = 10 * time.Second
 )
 
 var (
@@ -48,6 +61,12 @@ type TargetPlugin struct {
 	logger  hclog.Logger
 	service *compute.Service
 
+	// Allows mocking of the setupGCEClients in tests.
+	setupGCEClientsFunc func(config map[string]string) error
+
+	// retryAttempts is used when waiting for GCE scaling activities to complete.
+	retryAttempts int
+
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
 	clusterUtils *scaleutils.ClusterScaleUtils
@@ -56,17 +75,19 @@ type TargetPlugin struct {
 // NewGCEMIGPlugin returns the GCE MIG implementation of the target.Target
 // interface.
 func NewGCEMIGPlugin(log hclog.Logger) *TargetPlugin {
-	return &TargetPlugin{
+	p := &TargetPlugin{
 		logger: log,
 	}
+	// Initialize the function variable with the actual method.
+	p.setupGCEClientsFunc = p.setupGCEClients
+	return p
 }
 
 // SetConfig satisfies the SetConfig function on the base.Base interface.
 func (t *TargetPlugin) SetConfig(config map[string]string) error {
-
 	t.config = config
 
-	if err := t.setupGCEClients(config); err != nil {
+	if err := t.setupGCEClientsFunc(config); err != nil {
 		return err
 	}
 
@@ -78,6 +99,14 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 	// Store and set the remote ID callback function.
 	t.clusterUtils = clusterUtils
 	t.clusterUtils.ClusterNodeIDLookupFunc = gceNodeIDMap
+
+	retryAttemptsStr := getConfigValue(config, configKeyRetryAttempts, configValueRetryAttemptsDefault)
+
+	attempts, err := strconv.Atoi(retryAttemptsStr)
+	if err != nil {
+		return fmt.Errorf("invalid value for %s: %v", configKeyRetryAttempts, err)
+	}
+	t.retryAttempts = attempts
 
 	return nil
 }
@@ -113,7 +142,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	case "in":
 		err = t.scaleIn(ctx, migRef, num, config)
 	case "out":
-		err = t.scaleOut(ctx, migRef, num)
+		err = t.scaleOut(ctx, migRef, num, config)
 	default:
 		t.logger.Info("scaling not required", "mig_name", migRef.getName(),
 			"current_count", currentCount, "strategy_count", action.Count)
@@ -209,6 +238,8 @@ func (t *TargetPlugin) calculateMIG(config map[string]string) (instanceGroup, er
 	}
 }
 
+// getValue retrieves a configuration value from either the provided config
+// map or the plugin's stored config map.
 func (t *TargetPlugin) getValue(config map[string]string, name string) (string, bool) {
 	v, ok := config[name]
 	if ok {
@@ -221,4 +252,15 @@ func (t *TargetPlugin) getValue(config map[string]string, name string) (string, 
 	}
 
 	return "", false
+}
+
+// getConfigValue handles parameters that are optional in the operator's config
+// but required for the plugin's functionality.
+func getConfigValue(config map[string]string, key string, defaultValue string) string {
+	value, ok := config[key]
+	if !ok {
+		return defaultValue
+	}
+
+	return value
 }

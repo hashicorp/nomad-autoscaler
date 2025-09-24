@@ -4,9 +4,11 @@
 package plugin
 
 import (
+	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/hashicorp/go-hclog"
+	"github.com/shoenig/test"
 )
 
 func TestTargetPlugin_calculateDirection(t *testing.T) {
@@ -45,8 +47,47 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualNum, actualString := tp.calculateDirection(tc.inputMigTarget, tc.inputStrategyDesired)
-			assert.Equal(t, tc.expectedOutputNum, actualNum, tc.name)
-			assert.Equal(t, tc.expectedOutputString, actualString, tc.name)
+			test.Eq(t, tc.expectedOutputNum, actualNum)
+			test.Eq(t, tc.expectedOutputString, actualString)
 		})
 	}
+}
+
+func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
+	mockPlugin := &TargetPlugin{
+		logger: hclog.NewNullLogger(),
+	}
+	mockPlugin.setupGCEClientsFunc = func(config map[string]string) error {
+		return nil
+	}
+
+	// Test case for the default value.
+	t.Run("default value is used when not provided", func(t *testing.T) {
+		config := map[string]string{}
+		err := mockPlugin.SetConfig(config)
+		test.NoError(t, err)
+
+		defaultValue, _ := strconv.Atoi(configValueRetryAttemptsDefault)
+		test.Eq(t, defaultValue, mockPlugin.retryAttempts, test.Sprint("expected default retry attempts"))
+	})
+
+	// Test case for a valid custom retry attempts value.
+	t.Run("valid custom value is used", func(t *testing.T) {
+		customAttempts := 20
+		config := map[string]string{
+			configKeyRetryAttempts: strconv.Itoa(customAttempts),
+		}
+		err := mockPlugin.SetConfig(config)
+		test.NoError(t, err, test.Sprint("expected no error for valid config"))
+		test.Eq(t, customAttempts, mockPlugin.retryAttempts, test.Sprint("expected custom retry attempts"))
+	})
+
+	// Test case for an invalid retry attempts value (non-integer).
+	t.Run("invalid value returns an error", func(t *testing.T) {
+		invalidConfig := map[string]string{
+			configKeyRetryAttempts: "not-a-number",
+		}
+		err := mockPlugin.SetConfig(invalidConfig)
+		test.ErrorContains(t, err, "invalid value for retry_attempts", test.Sprint("expected error for invalid config (non-integer)"))
+	})
 }

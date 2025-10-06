@@ -148,9 +148,7 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	t.logger.Info("retrying check on instance group stability",
-		"mig_name", group.getName(),
-		"retry_attempts", retryAttempts)
+	t.logger.Info("waiting for instance group stability", "mig_name", group.getName())
 
 	return retry(ctx, defaultRetryInterval, retryAttempts, f)
 }

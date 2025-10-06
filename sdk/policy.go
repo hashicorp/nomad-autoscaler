@@ -267,6 +267,8 @@ func (fpd *FileDecodeScalingPolicy) Translate() *ScalingPolicy {
 	p.Cooldown = fpd.Doc.Cooldown
 	p.CooldownOnScaleUp = fpd.Doc.CooldownOnScaleUp
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
+
+	fmt.Printf("DEBUG: Policy translation - Cooldown: %v, CooldownOnScaleUp: %v\n", p.Cooldown, p.CooldownOnScaleUp)
 	p.OnCheckError = fpd.Doc.OnCheckError
 	p.Target = fpd.Doc.Target
 

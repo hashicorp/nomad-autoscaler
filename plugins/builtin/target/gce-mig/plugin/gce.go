@@ -139,12 +139,6 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		retryAttempts = attempts
 	}
 
-	logger := t.logger.With(
-		"mig_name", group.getName(),
-		"retry_interval", defaultRetryInterval,
-		"retry_attempts", retryAttempts,
-	)
-
 	f := func(ctx context.Context) (bool, error) {
 		stable, _, err := group.status(ctx, t.service)
 		if stable || err != nil {
@@ -154,9 +148,11 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 		}
 	}
 
-	logger.Info("retrying check on instance group stability")
+	t.logger.Info("retrying check on instance group stability",
+		"mig_name", group.getName(),
+		"retry_attempts", retryAttempts)
 
-	return retry(ctx, logger, defaultRetryInterval, retryAttempts, f)
+	return retry(ctx, defaultRetryInterval, retryAttempts, f)
 }
 
 func pathOrContents(poc string) (string, error) {

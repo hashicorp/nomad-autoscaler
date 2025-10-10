@@ -60,7 +60,7 @@ type limiter interface {
 	ReleaseSlot(p *sdk.ScalingPolicy)
 }
 
-// Handler monitors a policy for changes and controls when the are sent for
+// Handler monitors a policy for changes and controls when they are sent for
 // evaluation.
 type Handler struct {
 	log hclog.Logger

@@ -6,7 +6,9 @@
 
 package agent
 
-import "context"
+import (
+	"context"
+)
 
 func (a *Agent) initEnt(ctx context.Context, reload <-chan any) {
 	go func() {

@@ -4,6 +4,7 @@
 package sdk
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,8 +14,10 @@ import (
 )
 
 const (
-	ScalingPolicyTypeCluster    = "cluster"
-	ScalingPolicyTypeHorizontal = "horizontal"
+	ScalingPolicyTypeCluster     = "cluster"
+	ScalingPolicyTypeHorizontal  = "horizontal"
+	ScalingPolicyTypeVerticalCPU = "vertical_cpu"
+	ScalingPolicyTypeVerticalMem = "vertical_mem"
 
 	ScalingPolicyOnErrorFail   = "fail"
 	ScalingPolicyOnErrorIgnore = "ignore"
@@ -88,6 +91,10 @@ func (p *ScalingPolicy) Validate() error {
 	}
 
 	var result *multierror.Error
+
+	if p.Type == "" {
+		result = multierror.Append(result, errors.New("policy has not type defined"))
+	}
 
 	switch p.OnCheckError {
 	case "", ScalingPolicyOnErrorFail, ScalingPolicyOnErrorIgnore:

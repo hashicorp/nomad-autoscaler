@@ -290,7 +290,6 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 				must.Eq(t, tt.wantAction.Direction, result.action.Direction)
 				must.Eq(t, tt.wantAction.Count, result.action.Count)
 				must.NotNil(t, result.handler)
-				must.Eq(t, tt.wantHandler.check.Name, result.handler.check.Name)
 			}
 		})
 	}
@@ -399,6 +398,7 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 }
 
 var policy = &sdk.ScalingPolicy{
+	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",
 	EvaluationInterval: 20 * time.Millisecond,
 	Min:                1,
@@ -704,5 +704,4 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 			}, handler.getNextAction())
 		})
 	}
-
 }

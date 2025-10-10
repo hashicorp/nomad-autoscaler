@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/armon/go-metrics"
 	"github.com/hashicorp/go-cleanhttp"
+	"github.com/hashicorp/go-metrics"
 	"golang.org/x/time/rate"
 )
 

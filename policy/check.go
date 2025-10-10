@@ -9,8 +9,8 @@ import (
 	"sort"
 	"time"
 
-	metrics "github.com/armon/go-metrics"
 	hclog "github.com/hashicorp/go-hclog"
+	metrics "github.com/hashicorp/go-metrics"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -41,7 +41,7 @@ type checkRunner struct {
 }
 
 // NewCheckHandler returns a new checkHandler instance.
-func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
+func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
 		log:            config.Log,
 		check:          c,
@@ -51,10 +51,10 @@ func NewCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// GetNewCountFromStrategy begins the execution of the checks and returns
+// getNewCountFromStrategy begins the execution of the checks and returns
 // and action containing the instance count after applying the strategy to the
 // metrics.
-func (ch *checkRunner) GetNewCountFromStrategy(ctx context.Context, currentCount int64,
+func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount int64,
 	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("calculating new count", "current count", currentCount)
 
@@ -131,8 +131,8 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 	return *runResp.Action, nil
 }
 
-// QueryMetrics wraps the apm.Query call to provide operational functionality.
-func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
+// queryMetrics wraps the apm.Query call to provide operational functionality.
+func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
 	// Trigger a metric measure to track latency of the call.
@@ -175,4 +175,27 @@ func (ch *checkRunner) QueryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	sort.Sort(ms)
 
 	return ms, nil
+}
+
+func (ch *checkRunner) group() string {
+	return ch.check.Group
+}
+
+func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+	ch.log.Debug("received policy check for evaluation")
+
+	metrics, err := ch.queryMetrics(ctx)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+	}
+
+	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
+	if err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
+
+	}
+
+	action.CapCount(ch.policy.Min, ch.policy.Max)
+
+	return action, nil
 }

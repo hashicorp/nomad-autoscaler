@@ -121,7 +121,7 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 			},
 		}
 
-		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, map[string]string{})
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, 15)
 
 		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable"))
 		test.Eq(t, 3, attempts, test.Sprint("expected 3 attempts to become stable"))
@@ -141,16 +141,16 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 			},
 		}
 
-		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, map[string]string{})
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, 2)
 
 		test.ErrorContains(t, err, "reached retry limit", test.Sprint("expected an error with the correct message"))
 		test.Eq(t, 2, attempts, test.Sprint("expected 2 attempts (the limit) to be made"))
 	})
 
-	// Test case 3: Policy-level retry_attempts override.
-	t.Run("policy-level retry attempts override", func(t *testing.T) {
+	// Test case 3: Custom retry attempts parameter.
+	t.Run("custom retry attempts", func(t *testing.T) {
 		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
-		tp.retryAttempts = 2 // Plugin-level default
+		tp.retryAttempts = 2
 
 		attempts := 0
 		mockIG := &mockInstanceGroup{
@@ -164,13 +164,47 @@ func TestTargetPlugin_ensureInstanceGroupIsStable(t *testing.T) {
 			},
 		}
 
-		// Policy config overrides retry attempts to 4
-		config := map[string]string{
-			"retry_attempts": "4",
-		}
-		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, config)
+		// Test with 4 retry attempts (custom value)
+		err := tp.ensureInstanceGroupIsStable(context.Background(), mockIG, 4)
 
-		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable with policy override"))
-		test.Eq(t, 4, attempts, test.Sprint("expected 4 attempts based on policy override"))
+		test.NoError(t, err, test.Sprint("expected no error when MIG becomes stable with custom retry attempts"))
+		test.Eq(t, 4, attempts, test.Sprint("expected 4 attempts based on custom retry attempts"))
+	})
+}
+
+func TestTargetPlugin_resolveRetryAttempts(t *testing.T) {
+	t.Run("uses plugin default when no config override", func(t *testing.T) {
+		tp := &TargetPlugin{retryAttempts: 15}
+		config := map[string]string{}
+
+		result, err := tp.resolveRetryAttempts(config)
+
+		test.NoError(t, err)
+		test.Eq(t, 15, result, test.Sprint("should use plugin default"))
+	})
+
+	t.Run("uses policy override when provided", func(t *testing.T) {
+		tp := &TargetPlugin{retryAttempts: 15}
+		config := map[string]string{
+			"retry_attempts": "30",
+		}
+
+		result, err := tp.resolveRetryAttempts(config)
+
+		test.NoError(t, err)
+		test.Eq(t, 30, result, test.Sprint("should use policy override"))
+	})
+
+	t.Run("returns error for invalid retry_attempts", func(t *testing.T) {
+		tp := &TargetPlugin{retryAttempts: 15}
+		config := map[string]string{
+			"retry_attempts": "invalid",
+		}
+
+		result, err := tp.resolveRetryAttempts(config)
+
+		test.Error(t, err)
+		test.Eq(t, 0, result, test.Sprint("should return 0 on error"))
+		test.StrContains(t, err.Error(), "failed to parse retry_attempts value from policy")
 	})
 }

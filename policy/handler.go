@@ -60,7 +60,7 @@ type limiter interface {
 	ReleaseSlot(p *sdk.ScalingPolicy)
 }
 
-// Handler monitors a policy for changes and controls when them are sent for
+// Handler monitors a policy for changes and controls when the are sent for
 // evaluation.
 type Handler struct {
 	log hclog.Logger
@@ -497,11 +497,9 @@ func (h *Handler) runTargetScale(action sdk.ScalingAction) error {
 
 func calculateCooldown(p *sdk.ScalingPolicy, a sdk.ScalingAction) time.Duration {
 	if a.Direction == sdk.ScaleDirectionUp {
-		fmt.Printf("DEBUG: Scale UP - using CooldownOnScaleUp: %v (regular Cooldown: %v)\n", p.CooldownOnScaleUp, p.Cooldown)
 		return p.CooldownOnScaleUp
 	}
 
-	fmt.Printf("DEBUG: Scale DOWN - using Cooldown: %v\n", p.Cooldown)
 	return p.Cooldown
 }
 

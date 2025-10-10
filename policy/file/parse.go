@@ -4,7 +4,6 @@
 package file
 
 import (
-	"fmt"
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -56,9 +55,6 @@ func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 			return err
 		}
 		decodePolicy.Doc.CooldownOnScaleUp = d
-		fmt.Printf("DEBUG: Parsed cooldown_on_scale_up from policy file: %s -> %v\n", decodePolicy.Doc.CooldownOnScaleUpHCL, d)
-	} else {
-		fmt.Printf("DEBUG: No cooldown_on_scale_up found in policy file\n")
 	}
 
 	if decodePolicy.Doc.EvaluationIntervalHCL != "" {

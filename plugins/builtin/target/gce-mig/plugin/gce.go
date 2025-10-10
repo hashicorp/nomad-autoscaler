@@ -52,6 +52,20 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 	return nil
 }
 
+// resolveRetryAttempts checks if policy overrides the plugin configuration for retry_attempts
+// and returns the resolved value.
+func (t *TargetPlugin) resolveRetryAttempts(config map[string]string) (int, error) {
+	retryAttempts := t.retryAttempts
+	if str, ok := config[configKeyRetryAttempts]; ok {
+		attempts, err := strconv.Atoi(str)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse %s value from policy: %w", configKeyRetryAttempts, err)
+		}
+		retryAttempts = attempts
+	}
+	return retryAttempts, nil
+}
+
 func (t *TargetPlugin) status(ctx context.Context, ig instanceGroup) (bool, int64, error) {
 	return ig.status(ctx, t.service)
 }
@@ -61,7 +75,13 @@ func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64
 	if err := ig.resize(ctx, t.service, num); err != nil {
 		return fmt.Errorf("failed to scale out GCE Instance Group: %v", err)
 	}
-	if err := t.ensureInstanceGroupIsStable(ctx, ig, config); err != nil {
+
+	retryAttempts, err := t.resolveRetryAttempts(config)
+	if err != nil {
+		return err
+	}
+
+	if err := t.ensureInstanceGroupIsStable(ctx, ig, retryAttempts); err != nil {
 		return fmt.Errorf("failed to confirm scale out GCE Instance Group: %v", err)
 	}
 	log.Debug("scale out GCE MIG confirmed")
@@ -114,7 +134,12 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 
 	log.Info("successfully deleted GCE MIG instances")
 
-	if err := t.ensureInstanceGroupIsStable(ctx, group, config); err != nil {
+	retryAttempts, err := t.resolveRetryAttempts(config)
+	if err != nil {
+		return err
+	}
+
+	if err := t.ensureInstanceGroupIsStable(ctx, group, retryAttempts); err != nil {
 		return fmt.Errorf("failed to confirm scale in GCE MIG: %v", err)
 	}
 
@@ -128,16 +153,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, group instanceGroup, num int
 	return nil
 }
 
-func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup, config map[string]string) error {
-	// Check if policy overrides the plugin configuration for retry_attempts.
-	retryAttempts := t.retryAttempts
-	if str, ok := config[configKeyRetryAttempts]; ok {
-		attempts, err := strconv.Atoi(str)
-		if err != nil {
-			return fmt.Errorf("failed to parse %s value from policy: %w", configKeyRetryAttempts, err)
-		}
-		retryAttempts = attempts
-	}
+func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group instanceGroup, retryAttempts int) error {
 
 	f := func(ctx context.Context) (bool, error) {
 		stable, _, err := group.status(ctx, t.service)

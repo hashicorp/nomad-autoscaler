@@ -240,6 +240,7 @@ type FileDecodeScalingPolicy struct {
 type FileDecodePolicyDoc struct {
 	Cooldown              time.Duration
 	CooldownHCL           string `hcl:"cooldown,optional"`
+	CooldownOnScaleUp     time.Duration
 	CooldownOnScaleUpHCL  string `hcl:"cooldown_on_scale_up,optional"`
 	EvaluationInterval    time.Duration
 	EvaluationIntervalHCL string                      `hcl:"evaluation_interval,optional"`
@@ -271,7 +272,9 @@ func (fpd *FileDecodeScalingPolicy) Translate() *ScalingPolicy {
 	p.Enabled = fpd.Enabled
 	p.Type = fpd.Type
 	p.Cooldown = fpd.Doc.Cooldown
+	p.CooldownOnScaleUp = fpd.Doc.CooldownOnScaleUp
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
+
 	p.OnCheckError = fpd.Doc.OnCheckError
 	p.Target = fpd.Doc.Target
 

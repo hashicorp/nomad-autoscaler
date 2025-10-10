@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/shoenig/test"
 )
 
 func Test_retry(t *testing.T) {
@@ -39,14 +39,14 @@ func Test_retry(t *testing.T) {
 				return false, errors.New("error")
 			},
 			expectedOutput: errors.New("reached retry limit"),
-			name:           "function never successful and reaches retry limit",
+			name:           "function never successful and reaches retry attempts limit",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+			test.Eq(t, tc.expectedOutput, actualOutput)
 		})
 	}
 }

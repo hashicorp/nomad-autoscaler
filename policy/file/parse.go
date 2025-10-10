@@ -49,6 +49,14 @@ func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 		decodePolicy.Doc.Cooldown = d
 	}
 
+	if decodePolicy.Doc.CooldownOnScaleUpHCL != "" {
+		d, err := time.ParseDuration(decodePolicy.Doc.CooldownOnScaleUpHCL)
+		if err != nil {
+			return err
+		}
+		decodePolicy.Doc.CooldownOnScaleUp = d
+	}
+
 	if decodePolicy.Doc.EvaluationIntervalHCL != "" {
 		d, err := time.ParseDuration(decodePolicy.Doc.EvaluationIntervalHCL)
 		if err != nil {

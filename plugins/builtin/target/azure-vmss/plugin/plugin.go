@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	hclog "github.com/hashicorp/go-hclog"
@@ -23,13 +26,16 @@ const (
 	// pluginName is the unique name of the this plugin amongst Target plugins.
 	pluginName = "azure-vmss"
 
+	// limit for concurrent instance view requests in processInstanceViewFlexible
+	concurrentInstanceViewRequestLimit = 5
+
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
 	configKeySubscriptionID = "subscription_id"
 	configKeyTenantID       = "tenant_id"
 	configKeyClientID       = "client_id"
 	configKeySecretKey      = "secret_access_key"
-	configKeyResoureGroup   = "resource_group"
+	configKeyResourceGroup  = "resource_group"
 	configKeyVMSS           = "vm_scale_set"
 )
 
@@ -59,6 +65,10 @@ type TargetPlugin struct {
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
 	clusterUtils *scaleutils.ClusterScaleUtils
+
+	// readyInstances is a list of instances that are ready for scale in actions.
+	// used with the flexible orchestration mode to prevent the need for multiple calls to the Azure API to check.
+	readyFlexibleInstances []string
 }
 
 // NewAzureVMSSPlugin returns the Azure VMSS implementation of the target.Target
@@ -103,19 +113,20 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	}
 
 	// We cannot scale an Scale Set without knowing the resource group and name.
-	resourceGroup, ok := config[configKeyResoureGroup]
+	resourceGroup, ok := config[configKeyResourceGroup]
 	if !ok {
-		return fmt.Errorf("required config param %s not found", configKeyResoureGroup)
+		return fmt.Errorf("required config param %s not found", configKeyResourceGroup)
 	}
 	vmScaleSet, ok := config[configKeyVMSS]
 	if !ok {
 		return fmt.Errorf("required config param %s not found", configKeyVMSS)
 	}
+
 	ctx := context.Background()
 
 	currVMSS, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet, nil)
 	if err != nil {
-		return fmt.Errorf("failed to get Azure vmss: %v", err)
+		return fmt.Errorf("failed to get Azure vmss: %w", err)
 	}
 
 	capacity := *currVMSS.SKU.Capacity
@@ -141,7 +152,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	// If we received an error while scaling, format this with an outer message
 	// so its nice for the operators and then return any error to the caller.
 	if err != nil {
-		err = fmt.Errorf("failed to perform scaling action: %v", err)
+		err = fmt.Errorf("failed to perform scaling action: %w", err)
 	}
 	return err
 }
@@ -154,16 +165,16 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	// outcome.
 	ready, err := t.clusterUtils.IsPoolReady(config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to run Nomad node readiness check: %v", err)
+		return nil, fmt.Errorf("failed to run Nomad node readiness check: %w", err)
 	}
 	if !ready {
 		return &sdk.TargetStatus{Ready: ready}, nil
 	}
 
 	// We cannot scale an vmss without knowing the vmss resource group and name.
-	resourceGroup, ok := config[configKeyResoureGroup]
+	resourceGroup, ok := config[configKeyResourceGroup]
 	if !ok {
-		return nil, fmt.Errorf("required config param %s not found", configKeyResoureGroup)
+		return nil, fmt.Errorf("required config param %s not found", configKeyResourceGroup)
 	}
 	vmScaleSet, ok := config[configKeyVMSS]
 	if !ok {
@@ -176,7 +187,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 
 	vmss, err := t.vmss.Get(ctx, resourceGroup, vmScaleSet, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get Azure ScaleSet: %v", err)
+		return nil, fmt.Errorf("failed to get Azure ScaleSet: %w", err)
 	}
 
 	vmssMode := string(*vmss.Properties.OrchestrationMode)
@@ -195,7 +206,6 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 		}
 
 		vms = flexVMs
-
 	}
 
 	// GetInstanceView - Gets the status of a VM scale set instance.
@@ -203,7 +213,7 @@ func (t *TargetPlugin) Status(config map[string]string) (*sdk.TargetStatus, erro
 	if vmssMode == orchestrationModeUniform {
 		instanceView, err = t.vmss.GetInstanceView(ctx, resourceGroup, vmScaleSet, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %v", err)
+			return nil, fmt.Errorf("failed to get Azure ScaleSet Instance View: %w", err)
 		}
 	}
 
@@ -268,34 +278,70 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 }
 
 func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
+	readyInstances := []string{}
+	var mu sync.Mutex
+
+	t.logger.Debug("Processing VM instance views for Flexible VMSS", "vm_count", len(vms))
+	t.readyFlexibleInstances = []string{}
 
 	if len(vms) == 0 {
 		t.logger.Debug("No VMs found in the VMSS, skipping instance view processing.")
 		return
 	}
 
-	t.logger.Debug("Total VMs found in the Flexible VMSS", "count", len(vms))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	var statusReady = true
-	ctx := context.Background()
+	var wg sync.WaitGroup
+	requests := make(chan struct{}, concurrentInstanceViewRequestLimit)
+	var notReady atomic.Bool
 
 	for _, vmName := range vms {
-		instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
-		if err != nil {
-			t.logger.Error("Failed to get instance view for VM during status check", "vm_name", vmName, "error", err)
-			continue
-		}
-
-		if !isFlexibleVMReady(instanceView.Statuses) {
-			t.logger.Debug("VM not ready", "vm_name", vmName, "statuses", instanceView.Statuses)
-
-			t.logger.Debug("Setting status to not ready", "vm_name", vmName)
-			statusReady = false
+		if ctx.Err() != nil {
+			t.logger.Debug("Context cancelled, stopping further processing of VMs")
 			break
-
 		}
-		t.logger.Debug("VM instance view is ready", "vm_name", vmName)
-	}
 
-	status.Ready = statusReady
+		wg.Add(1)
+		requests <- struct{}{}
+
+		go func(vm string) {
+			defer wg.Done()
+			defer func() { <-requests }()
+
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+
+			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
+			if err != nil {
+				if strings.Contains(err.Error(), "RESPONSE 404") {
+					t.logger.Debug("VM not found", "vm_name", vm)
+				} else {
+					t.logger.Error("Failed to get instance view for VM during status check", "vm_name", vm, "error", err)
+				}
+				return
+			}
+
+			if !isFlexibleVMReady(instanceView.Statuses) {
+				t.logger.Info("VM not ready", "vm_name", vm, "statuses", instanceView.Statuses)
+				if notReady.CompareAndSwap(false, true) {
+					t.logger.Info("Setting status to not ready and cancelling context", "vm_name", vm)
+					cancel()
+				}
+				return
+			}
+
+			t.logger.Debug("vm instance view is ready", "vm_name", vm, "statuses", instanceView.Statuses)
+			mu.Lock()
+			readyInstances = append(readyInstances, vm)
+			mu.Unlock()
+		}(vmName)
+	}
+	wg.Wait()
+
+	status.Ready = !notReady.Load()
+	t.readyFlexibleInstances = readyInstances
 }

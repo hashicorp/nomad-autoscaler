@@ -133,26 +133,30 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	switch vmssMode {
 	case orchestrationModeUniform:
 		remoteIDs = vms
-
-		// Should not get here, but adding.
-		if len(remoteIDs) == 0 {
-			return fmt.Errorf("no remote IDs")
-		}
-
 	case orchestrationModeFlexible:
-		remoteIDs, err = t.getFlexibleReadyRemoteIDs(ctx, resourceGroup, vms)
-		if err != nil {
-			return fmt.Errorf("failed to get ready remote IDs: %w", err)
-		}
+		remoteIDs = t.readyFlexibleInstances
 	default:
 		return fmt.Errorf("unsupported VMSS mode: %s", vmssMode)
+	}
+
+	if len(remoteIDs) == 0 {
+		return fmt.Errorf("no remote IDs")
 	}
 
 	// run pre-scale tasks using remoteIDs
 	log.Debug("starting pre-scale tasks for Azure ScaleSet instances", "remote_ids", remoteIDs)
 	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
-		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %v", err)
+
+		// Possible to be hit rate limit if trying to scale too many nodes at once.
+		if strings.Contains(err.Error(), "Unexpected response code: 429") {
+			return fmt.Errorf("rate limit exceeded while performing pre-scale Nomad scale in tasks: %w", err)
+		}
+
+		// TODO: Need to handle the case where the pre-scale tasks fail
+		// for nodes which were made ineligibe, we would need to revert.
+
+		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %w", err)
 	}
 
 	if len(ids) == 0 {
@@ -194,15 +198,17 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 
 	_, err = future.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to scale in Azure ScaleSet: %v", err)
+		return fmt.Errorf("failed to scale in Azure ScaleSet: %w", err)
 	}
 
 	log.Info("successfully deleted Azure ScaleSet instances")
 
 	// Run any post scale in tasks that are desired.
 	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
-		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %v", err)
+		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %w", err)
 	}
+
+	t.readyFlexibleInstances = []string{}
 
 	return nil
 }
@@ -224,7 +230,7 @@ func azureNodeIDMap(n *api.Node) (string, error) {
 
 // getVMSSVMs to get VM names.
 // handles both uniform and flexible VMSS modes.
-func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vmssMode string, vmScaleSet string) (vms []string, err error) {
+func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vmssMode string, vmScaleSet string) ([]string, error) {
 	var vmNames []string
 
 	options := &armcompute.VirtualMachineScaleSetVMsClientListOptions{}
@@ -271,32 +277,6 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 	}
 
 	return vmNames, nil
-}
-
-func (t TargetPlugin) getFlexibleReadyRemoteIDs(ctx context.Context, resourceGroup string, vms []string) ([]string, error) {
-	var remoteIDs []string
-
-	for _, vmName := range vms {
-		instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vmName, nil)
-		if err != nil {
-			t.logger.Debug("Failed to get instance view for VM", "vm_name", vmName, "error", err)
-			continue
-		}
-
-		if !isFlexibleVMReady(instanceView.Statuses) {
-			t.logger.Debug("Instance not ready", "vm_name", vmName)
-			continue
-		}
-
-		t.logger.Debug("Instance candidate for scale-in action", "vm_name", vmName)
-		remoteIDs = append(remoteIDs, vmName)
-	}
-
-	if len(remoteIDs) == 0 {
-		return nil, fmt.Errorf("no provisioned and running instances found")
-	}
-
-	return remoteIDs, nil
 }
 
 // isFlexibleVMReady checks whether the Flexible VMSS VM has both ProvisioningState/succeeded and PowerState/running.

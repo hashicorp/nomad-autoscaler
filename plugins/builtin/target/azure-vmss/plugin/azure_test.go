@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 )
@@ -50,6 +51,39 @@ func Test_azureNodeIDMap(t *testing.T) {
 			actualID, actualErr := azureNodeIDMap(tc.inputNode)
 			assert.Equal(t, tc.expectedOutputID, actualID, tc.name)
 			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
+		})
+	}
+}
+
+func Test_isFlexibleVMReady(t *testing.T) {
+	testCases := []struct {
+		name     string
+		statuses []*armcompute.InstanceViewStatus
+		expected bool
+	}{
+		{
+			name: "both provisioned and running present",
+			statuses: func() []*armcompute.InstanceViewStatus {
+				a := "ProvisioningState/succeeded"
+				b := "PowerState/running"
+				return []*armcompute.InstanceViewStatus{
+					{Code: &a},
+					{Code: &b},
+				}
+			}(),
+			expected: true,
+		},
+		{
+			name:     "empty",
+			statuses: []*armcompute.InstanceViewStatus{},
+			expected: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actual := isFlexibleVMReady(tc.statuses)
+			assert.Equal(t, tc.expected, actual, tc.name)
 		})
 	}
 }

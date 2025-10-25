@@ -201,13 +201,12 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 		return fmt.Errorf("failed to scale in Azure ScaleSet: %w", err)
 	}
 
-	log.Info("successfully deleted Azure ScaleSet instances")
+	log.Info("successfully performed scaling in")
 
 	// Run any post scale in tasks that are desired.
 	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
 		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %w", err)
 	}
-
 	t.readyFlexibleInstances = []string{}
 
 	return nil

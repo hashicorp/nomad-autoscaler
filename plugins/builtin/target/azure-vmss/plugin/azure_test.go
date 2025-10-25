@@ -87,3 +87,61 @@ func Test_isFlexibleVMReady(t *testing.T) {
 		})
 	}
 }
+
+// Flexible orchestration mode instance name: {scale-set-name}_{8-char-guid}
+// Uniform orchestration mode instance name: {scale-set-name}_{instance-id}
+func Test_idFromRemoteID(t *testing.T) {
+	testCases := []struct {
+		name           string
+		mode           string
+		remoteResource string
+		vmScaleSet     string
+		expectedID     string
+		expectError    bool
+	}{
+		{
+			name:           "uniform valid",
+			mode:           orchestrationModeUniform,
+			remoteResource: "myScaleSet_42",
+			vmScaleSet:     "myScaleSet",
+			expectedID:     "42",
+			expectError:    false,
+		},
+		{
+			name:           "flexible valid",
+			mode:           orchestrationModeFlexible,
+			remoteResource: "myFlexibleVM_abc123",
+			vmScaleSet:     "myFlexibleVM",
+			expectedID:     "myFlexibleVM_abc123",
+			expectError:    false,
+		},
+		{
+			name:           "uniform invalid name format",
+			mode:           orchestrationModeUniform,
+			remoteResource: "myScaleSet42",
+			vmScaleSet:     "myScaleSet",
+			expectedID:     "",
+			expectError:    true,
+		},
+		{
+			name:           "flexible invalid name format",
+			mode:           orchestrationModeFlexible,
+			remoteResource: "myFlexibleVMabc123",
+			vmScaleSet:     "incorrectscaleset",
+			expectedID:     "",
+			expectError:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := idFromRemoteID(tc.mode, tc.remoteResource, tc.vmScaleSet)
+			if tc.expectError {
+				assert.Error(t, err, tc.name)
+			} else {
+				assert.NoError(t, err, tc.name)
+				assert.Equal(t, tc.expectedID, got, tc.name)
+			}
+		})
+	}
+}

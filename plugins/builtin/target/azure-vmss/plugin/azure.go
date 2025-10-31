@@ -147,15 +147,6 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	log.Debug("starting pre-scale tasks for Azure ScaleSet instances", "remote_ids", remoteIDs)
 	ids, err := t.clusterUtils.RunPreScaleInTasksWithRemoteCheck(ctx, config, remoteIDs, int(num))
 	if err != nil {
-
-		// Possible to be hit rate limit if trying to scale too many nodes at once.
-		if strings.Contains(err.Error(), "Unexpected response code: 429") {
-			return fmt.Errorf("rate limit exceeded while performing pre-scale Nomad scale in tasks: %w", err)
-		}
-
-		// TODO: Need to handle the case where the pre-scale tasks fail
-		// for nodes which were made ineligibe, we would need to revert.
-
 		return fmt.Errorf("failed to perform pre-scale Nomad scale in tasks: %w", err)
 	}
 

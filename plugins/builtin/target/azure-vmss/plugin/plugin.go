@@ -298,7 +298,6 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 
 	for _, vmName := range vms {
 		if ctx.Err() != nil {
-			t.logger.Debug("Context cancelled, stopping further processing of VMs")
 			break
 		}
 

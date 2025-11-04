@@ -250,8 +250,6 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 					if s.Code != nil && *s.Code == "PowerState/running" {
 						vmNames = append(vmNames, *vm.Name)
 						break
-					} else {
-						t.logger.Debug("skipping instance - power state is not running", "name", *vm.Name, "instance_id", *vm.InstanceID, "code", *s.Code)
 					}
 				}
 			} else if vmssMode == orchestrationModeFlexible {

@@ -332,8 +332,6 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 				}
 				return
 			}
-
-			t.logger.Debug("vm instance view is ready", "vm_name", vm, "statuses", instanceView.Statuses)
 			mu.Lock()
 			readyInstances = append(readyInstances, vm)
 			mu.Unlock()

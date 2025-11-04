@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -134,7 +135,9 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	case orchestrationModeUniform:
 		remoteIDs = vms
 	case orchestrationModeFlexible:
-		remoteIDs = t.readyFlexibleInstances
+		t.readyFlexibleInstancesLock.Lock()
+		remoteIDs = slices.Clone(t.readyFlexibleInstances)
+		t.readyFlexibleInstancesLock.Unlock()
 	default:
 		return fmt.Errorf("unsupported VMSS mode: %s", vmssMode)
 	}

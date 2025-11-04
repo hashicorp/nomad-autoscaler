@@ -248,7 +248,6 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 			if vm.Properties != nil && vm.Properties.InstanceView != nil && vm.Properties.InstanceView.Statuses != nil {
 				for _, s := range vm.Properties.InstanceView.Statuses {
 					if s.Code != nil && *s.Code == "PowerState/running" {
-						t.logger.Debug("found healthy instance", "name", *vm.Name, "instance_id", *vm.InstanceID)
 						vmNames = append(vmNames, *vm.Name)
 						break
 					} else {
@@ -256,9 +255,11 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 					}
 				}
 			} else if vmssMode == orchestrationModeFlexible {
-				// If mode is flexible, we cannot get the instanceView.
-				t.logger.Debug("adding instance by default for flexible mode", "name", *vm.Name, "instance_id", *vm.InstanceID)
-				vmNames = append(vmNames, *vm.Name)
+				if t.verifyFlexibleVM(ctx, resourceGroup, *vm.Name, nil) {
+					vmNames = append(vmNames, *vm.Name)
+				} else {
+					t.logger.Debug("skipping flexible instance - not found", "name", *vm.Name, "instance_id", *vm.InstanceID)
+				}
 			} else {
 				// Defaults to previous logic with uniform scale sets.
 				t.logger.Debug("skipping instance", "id", *vm.ID, "instance_id", *vm.InstanceID)
@@ -269,6 +270,15 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 	return vmNames, nil
 }
 
+func (t *TargetPlugin) verifyFlexibleVM(ctx context.Context, resourceGroupName string, vmName string, options *armcompute.VirtualMachinesClientGetOptions) bool {
+	_, err := t.vm.Get(ctx, resourceGroupName, vmName, options)
+	if err != nil {
+		t.logger.Debug("failed to get VM", "name", vmName)
+		return false
+	}
+	return true
+}
+
 // isFlexibleVMReady checks whether the Flexible VMSS VM has both ProvisioningState/succeeded and PowerState/running.
 func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
 	var provisioned, poweredOn bool
@@ -277,7 +287,6 @@ func isFlexibleVMReady(statuses []*armcompute.InstanceViewStatus) bool {
 		if s.Code == nil {
 			continue
 		}
-
 		switch *s.Code {
 		case "ProvisioningState/succeeded":
 			provisioned = true

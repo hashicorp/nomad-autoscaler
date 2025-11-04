@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -317,9 +316,7 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 
 			instanceView, err := t.vm.InstanceView(ctx, resourceGroup, vm, nil)
 			if err != nil {
-				if strings.Contains(err.Error(), "RESPONSE 404") {
-					t.logger.Debug("VM not found", "vm_name", vm)
-				} else if errors.Is(err, context.Canceled) {
+				if errors.Is(err, context.Canceled) {
 					t.logger.Debug("Context cancelled during instance view retrieval", "vm_name", vm)
 				} else {
 					t.logger.Error("Failed to get instance view for VM during status check", "vm_name", vm, "error", err)

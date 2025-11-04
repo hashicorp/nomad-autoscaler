@@ -130,14 +130,23 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 		return fmt.Errorf("failed to get Azure vmss: %w", err)
 	}
 
-	capacity := *currVMSS.SKU.Capacity
+	orchestrationMode := string(*currVMSS.Properties.OrchestrationMode)
+
+	// Recommended removing this since it only gets the requested capacity and not the actual count.
+	// capacity := *currVMSS.SKU.Capacity
+
+	vms, err := t.getVMSSVMs(ctx, resourceGroup, orchestrationMode, vmScaleSet)
+
+	if err != nil {
+		return fmt.Errorf("failed to get VMSS VMs: %w", err)
+	}
+
+	capacity := int64(len(vms))
 
 	// The Azure VMSS target requires different details depending on which
 	// direction we want to scale. Therefore calculate the direction and the
 	// relevant number so we can correctly perform the AWS work.
 	num, direction := t.calculateDirection(capacity, action.Count)
-
-	orchestrationMode := string(*currVMSS.Properties.OrchestrationMode)
 
 	switch direction {
 	case "in":

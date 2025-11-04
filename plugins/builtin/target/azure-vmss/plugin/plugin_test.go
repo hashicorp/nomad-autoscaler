@@ -4,11 +4,11 @@
 package plugin
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2020-06-01/compute"
-	"github.com/Azure/go-autorest/autorest/date"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
@@ -56,29 +56,54 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 }
 
 func Test_processInstanceView(t *testing.T) {
-
-	testTime := time.Date(2020, time.April, 13, 8, 4, 0, 0, time.UTC)
+	testTime := time.Now()
 
 	testCases := []struct {
-		inputInstanceView compute.VirtualMachineScaleSetInstanceView
+		inputInstanceView *armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse
 		inputStatus       *sdk.TargetStatus
 		expectedStatus    *sdk.TargetStatus
 		name              string
 	}{
 		{
-			inputInstanceView: compute.VirtualMachineScaleSetInstanceView{
-				VirtualMachine: &compute.VirtualMachineScaleSetInstanceViewStatusesSummary{
-					StatusesSummary: &[]compute.VirtualMachineStatusCodeCount{
-						{
-							Code:  stringToPtr("ProvisioningState/creating"),
-							Count: int32ToPtr(1),
-						},
-					},
+			inputInstanceView: nil,
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			name: "nil instance view",
+		},
+		{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{},
 				},
-				Statuses: &[]compute.InstanceViewStatus{
-					{
-						Code: stringToPtr("ProvisioningState/creating"),
-						Time: nil,
+			},
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			name: "empty statuses",
+		},
+		{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{
+						{
+							Code: stringToPtr("ProvisioningState/creating"),
+							Time: &testTime,
+						},
 					},
 				},
 			},
@@ -90,61 +115,20 @@ func Test_processInstanceView(t *testing.T) {
 			expectedStatus: &sdk.TargetStatus{
 				Ready: false,
 				Count: 1,
-				Meta:  map[string]string{},
+				Meta: map[string]string{
+					sdk.TargetStatusMetaKeyLastEvent: strconv.FormatInt(testTime.UnixNano(), 10),
+				},
 			},
-			name: "InstanceView still in progress",
+			name: "provisioning in progress",
 		},
 		{
-			inputInstanceView: compute.VirtualMachineScaleSetInstanceView{
-				VirtualMachine: &compute.VirtualMachineScaleSetInstanceViewStatusesSummary{
-					StatusesSummary: &[]compute.VirtualMachineStatusCodeCount{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{
 						{
-							Code:  stringToPtr("ProvisioningState/succeeded"),
-							Count: int32ToPtr(1),
+							Code: stringToPtr("ProvisioningState/succeeded"),
+							Time: &testTime,
 						},
-						{
-							Code:  stringToPtr("ProvisioningState/creating"),
-							Count: int32ToPtr(1),
-						},
-					},
-				},
-				Statuses: &[]compute.InstanceViewStatus{
-					{
-						Code: stringToPtr("ProvisioningState/succeeded"),
-						Time: nil,
-					},
-					{
-						Code: stringToPtr("ProvisioningState/creating"),
-						Time: nil,
-					},
-				},
-			},
-			inputStatus: &sdk.TargetStatus{
-				Ready: true,
-				Count: 2,
-				Meta:  map[string]string{},
-			},
-			expectedStatus: &sdk.TargetStatus{
-				Ready: false,
-				Count: 2,
-				Meta:  map[string]string{},
-			},
-			name: "InstanceView still in progress",
-		},
-		{
-			inputInstanceView: compute.VirtualMachineScaleSetInstanceView{
-				VirtualMachine: &compute.VirtualMachineScaleSetInstanceViewStatusesSummary{
-					StatusesSummary: &[]compute.VirtualMachineStatusCodeCount{
-						{
-							Code:  stringToPtr("ProvisioningState/succeeded"),
-							Count: int32ToPtr(1),
-						},
-					},
-				},
-				Statuses: &[]compute.InstanceViewStatus{
-					{
-						Code: stringToPtr("ProvisioningState/succeeded"),
-						Time: &date.Time{Time: testTime},
 					},
 				},
 			},
@@ -157,25 +141,19 @@ func Test_processInstanceView(t *testing.T) {
 				Ready: true,
 				Count: 1,
 				Meta: map[string]string{
-					"nomad_autoscaler.last_event": "1586765040000000000",
+					sdk.TargetStatusMetaKeyLastEvent: strconv.FormatInt(testTime.UnixNano(), 10),
 				},
 			},
-			name: "InstanceView with not nil time",
+			name: "provisioning succeeded",
 		},
 		{
-			inputInstanceView: compute.VirtualMachineScaleSetInstanceView{
-				VirtualMachine: &compute.VirtualMachineScaleSetInstanceViewStatusesSummary{
-					StatusesSummary: &[]compute.VirtualMachineStatusCodeCount{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{
 						{
-							Code:  stringToPtr("ProvisioningState/succeeded"),
-							Count: int32ToPtr(1),
+							Code: stringToPtr("ProvisioningState/succeeded"),
+							Time: nil,
 						},
-					},
-				},
-				Statuses: &[]compute.InstanceViewStatus{
-					{
-						Code: stringToPtr("ProvisioningState/succeeded"),
-						Time: nil,
 					},
 				},
 			},
@@ -189,7 +167,61 @@ func Test_processInstanceView(t *testing.T) {
 				Count: 1,
 				Meta:  map[string]string{},
 			},
-			name: "InstanceView with nil time",
+			name: "provisioning succeeded with nil time",
+		},
+		{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{
+						{
+							Code: stringToPtr("ProvisioningState/succeeded"),
+							Time: &testTime,
+						},
+						{
+							Code: stringToPtr("ProvisioningState/creating"),
+							Time: &testTime,
+						},
+					},
+				},
+			},
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 2,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: false,
+				Count: 2,
+				Meta: map[string]string{
+					sdk.TargetStatusMetaKeyLastEvent: strconv.FormatInt(testTime.UnixNano(), 10),
+				},
+			},
+			name: "multiple statuses with one not ready",
+		},
+		{
+			inputInstanceView: &armcompute.VirtualMachineScaleSetsClientGetInstanceViewResponse{
+				VirtualMachineScaleSetInstanceView: armcompute.VirtualMachineScaleSetInstanceView{
+					Statuses: []*armcompute.InstanceViewStatus{
+						{
+							Code: nil,
+							Time: &testTime,
+						},
+					},
+				},
+			},
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta: map[string]string{
+					sdk.TargetStatusMetaKeyLastEvent: strconv.FormatInt(testTime.UnixNano(), 10),
+				},
+			},
+			name: "nil code",
 		},
 	}
 
@@ -199,10 +231,6 @@ func Test_processInstanceView(t *testing.T) {
 			assert.Equal(t, tc.expectedStatus, tc.inputStatus, tc.name)
 		})
 	}
-}
-
-func int32ToPtr(v int32) *int32 {
-	return &v
 }
 
 func stringToPtr(v string) *string {

@@ -68,7 +68,8 @@ type TargetPlugin struct {
 
 	// readyInstances is a list of instances that are ready for scale in actions.
 	// used with the flexible orchestration mode to prevent the need for multiple calls to the Azure API to check.
-	readyFlexibleInstances []string
+	readyFlexibleInstances     []string
+	readyFlexibleInstancesLock sync.Mutex
 }
 
 // NewAzureVMSSPlugin returns the Azure VMSS implementation of the target.Target
@@ -278,9 +279,6 @@ func processInstanceView(instanceView *armcompute.VirtualMachineScaleSetsClientG
 }
 
 func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup string, status *sdk.TargetStatus) {
-	readyInstances := []string{}
-	var mu sync.Mutex
-
 	t.logger.Debug("Processing VM instance views for Flexible VMSS", "vm_count", len(vms))
 	t.readyFlexibleInstances = []string{}
 
@@ -332,13 +330,12 @@ func (t *TargetPlugin) processInstanceViewFlexible(vms []string, resourceGroup s
 				}
 				return
 			}
-			mu.Lock()
-			readyInstances = append(readyInstances, vm)
-			mu.Unlock()
+			t.readyFlexibleInstancesLock.Lock()
+			defer t.readyFlexibleInstancesLock.Unlock()
+			t.readyFlexibleInstances = append(t.readyFlexibleInstances, vm)
 		}(vmName)
 	}
 	wg.Wait()
 
 	status.Ready = !notReady.Load()
-	t.readyFlexibleInstances = readyInstances
 }

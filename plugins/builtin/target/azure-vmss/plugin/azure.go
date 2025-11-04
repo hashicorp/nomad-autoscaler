@@ -198,7 +198,13 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, resourceGroup string, vmScal
 	if err := t.clusterUtils.RunPostScaleInTasks(ctx, config, ids); err != nil {
 		return fmt.Errorf("failed to perform post-scale Nomad scale in tasks: %w", err)
 	}
-	t.readyFlexibleInstances = []string{}
+
+	if vmssMode == orchestrationModeFlexible {
+		// Clear ready flexible instances after scale in.
+		t.readyFlexibleInstancesLock.Lock()
+		defer t.readyFlexibleInstancesLock.Unlock()
+		t.readyFlexibleInstances = []string{}
+	}
 
 	return nil
 }

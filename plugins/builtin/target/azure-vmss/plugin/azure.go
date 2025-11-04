@@ -257,8 +257,6 @@ func (t *TargetPlugin) getVMSSVMs(ctx context.Context, resourceGroup string, vms
 			} else if vmssMode == orchestrationModeFlexible {
 				if t.verifyFlexibleVM(ctx, resourceGroup, *vm.Name, nil) {
 					vmNames = append(vmNames, *vm.Name)
-				} else {
-					t.logger.Debug("skipping flexible instance - not found", "name", *vm.Name, "instance_id", *vm.InstanceID)
 				}
 			} else {
 				// Defaults to previous logic with uniform scale sets.

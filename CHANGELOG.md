@@ -3,6 +3,7 @@
 IMPROVEMENTS:
 
 * build: Updated to Go 1.25.4 [[GH-1189](https://github.com/hashicorp/nomad-autoscaler/pull/1189)]
+* build: Updated Nomad API dependency to 1.11.0 [[GH-1190](https://github.com/hashicorp/nomad-autoscaler/pull/1190)]
 
 ## 0.4.7 (July 9, 2025)
 

@@ -4,6 +4,8 @@
 
 IMPROVEMENTS:
 
+* Azure plugin: Support Flexible VMSS  [[GH-1106](https://github.com/hashicorp/nomad-autoscaler/pull/1106)]
+* GCE plugin: Configurable `retry_attempts` and parse `cooldown_on_scale_up`  [[GH-1161](https://github.com/hashicorp/nomad-autoscaler/pull/1161)]
 * build: Updated to Go 1.25.4 [[GH-1189](https://github.com/hashicorp/nomad-autoscaler/pull/1189)]
 * build: Updated Nomad API dependency to 1.11.0 [[GH-1190](https://github.com/hashicorp/nomad-autoscaler/pull/1190)]
 

@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/common v0.67.2
 	github.com/shoenig/test v1.12.2
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/text v0.30.0
+	golang.org/x/text v0.31.0
 	golang.org/x/time v0.14.0
 	google.golang.org/api v0.255.0
 	google.golang.org/grpc v1.76.0
@@ -126,12 +126,12 @@ require (
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.43.0 // indirect
-	golang.org/x/mod v0.28.0 // indirect
+	golang.org/x/mod v0.29.0 // indirect
 	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/oauth2 v0.32.0 // indirect
-	golang.org/x/sync v0.17.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
-	golang.org/x/tools v0.37.0 // indirect
+	golang.org/x/tools v0.38.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251029180050-ab9386a59fda // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect

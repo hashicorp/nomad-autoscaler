@@ -12,6 +12,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test"
 	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
@@ -703,5 +704,37 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				},
 			}, handler.getNextAction())
 		})
+	}
+}
+
+func TestHandlerScalingNeeded(t *testing.T) {
+
+	testCases := []struct {
+		direction    sdk.ScaleDirection
+		actionCount  int64
+		currentCount int64
+		expect       bool
+	}{
+		{sdk.ScaleDirectionNone, 2, 1, true}, // for DAS
+		{sdk.ScaleDirectionNone, 1, 2, true}, // for DAS
+		{sdk.ScaleDirectionNone, 1, 1, false},
+		{sdk.ScaleDirectionUp, 2, 1, true},
+		{sdk.ScaleDirectionUp, 1, 2, true},
+		{sdk.ScaleDirectionUp, 1, 1, false},
+		{sdk.ScaleDirectionDown, 2, 1, true},
+		{sdk.ScaleDirectionDown, 1, 2, true},
+		{sdk.ScaleDirectionDown, 1, 1, false},
+	}
+	for _, tc := range testCases {
+		action := sdk.ScalingAction{Direction: tc.direction, Count: tc.actionCount}
+		if tc.expect {
+			test.True(t, scalingNeeded(action, tc.currentCount),
+				test.Sprintf("expected to need scaling: action=%+v count=%v",
+					action, tc.currentCount))
+		} else {
+			test.False(t, scalingNeeded(action, tc.currentCount),
+				test.Sprintf("expected not to need scaling: action=%+v count=%v",
+					action, tc.currentCount))
+		}
 	}
 }

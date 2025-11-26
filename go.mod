@@ -30,7 +30,7 @@ require (
 	golang.org/x/text v0.31.0
 	golang.org/x/time v0.14.0
 	google.golang.org/api v0.256.0
-	google.golang.org/grpc v1.76.0
+	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 )
 
@@ -119,11 +119,11 @@ require (
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
 	github.com/zclconf/go-cty v1.16.3 // indirect
 	go.mongodb.org/mongo-driver v1.17.2 // indirect
-	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
-	go.opentelemetry.io/otel v1.37.0 // indirect
-	go.opentelemetry.io/otel/metric v1.37.0 // indirect
-	go.opentelemetry.io/otel/trace v1.37.0 // indirect
+	go.opentelemetry.io/otel v1.38.0 // indirect
+	go.opentelemetry.io/otel/metric v1.38.0 // indirect
+	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/mod v0.29.0 // indirect

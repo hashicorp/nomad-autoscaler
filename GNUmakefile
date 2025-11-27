@@ -89,7 +89,7 @@ proto: ## Generate the protocol buffers
 lint: lint-tools generate-tools hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
 	@GOPROXY=direct \
-	golangci-lint run -j 1 --build-tags "$(GO_TAGS)" --timeout=8m
+	golangci-lint run -j 1 --build-tags "$(GO_TAGS)" --timeout=15m
 	@staticcheck ./...
 	@hclogvet .
 	@buf lint --config=./tools/buf/buf.yaml

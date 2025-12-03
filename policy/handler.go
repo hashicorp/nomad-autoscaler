@@ -334,10 +334,7 @@ func (h *Handler) Run(ctx context.Context) {
 }
 
 func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
-	// The DAS returns count but the direction is none, for vertical and horizontal
-	// policies checking the direction is enough.
-	return (a.Direction == sdk.ScaleDirectionNone && countCount != a.Count) ||
-		a.Direction != sdk.ScaleDirectionNone
+	return a.Direction != sdk.ScaleDirectionNone && countCount != a.Count
 }
 
 func (h *Handler) waitAndScale(ctx context.Context) error {

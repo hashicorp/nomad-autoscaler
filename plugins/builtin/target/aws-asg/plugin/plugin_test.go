@@ -55,6 +55,57 @@ func TestTargetPlugin_calculateDirection(t *testing.T) {
 	}
 }
 
+func Test_warmPoolActivity(t *testing.T) {
+	testCases := []struct {
+		inputActivity    types.Activity
+		expectedResponse bool
+		name             string
+	}{
+		{
+			inputActivity: types.Activity{
+				Description: ptr.Of("Launching a new EC2 instance into warm pool: i-0b22a22eec53b9321"),
+			},
+			expectedResponse: true,
+			name:             "instance launched into warm pool",
+		},
+		{
+			inputActivity: types.Activity{
+				Description: ptr.Of("Terminating EC2 instance from warm pool: i-0b22a22eec53b9321"),
+			},
+			expectedResponse: true,
+			name:             "instance terminated from warm pool",
+		},
+		{
+			inputActivity: types.Activity{
+				Description: ptr.Of("Launching a new EC2 instance from warm pool: i-0b22a22eec53b9321"),
+			},
+			expectedResponse: false,
+			name:             "instance launched into ASG from warm pool",
+		},
+		{
+			inputActivity: types.Activity{
+				Description: nil,
+			},
+			expectedResponse: false,
+			name:             "nil description",
+		},
+		{
+			inputActivity: types.Activity{
+				Description: ptr.Of(""),
+			},
+			expectedResponse: false,
+			name:             "empty description",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := warmPoolActivity(tc.inputActivity)
+			assert.Equal(t, tc.expectedResponse, res, tc.name)
+		})
+	}
+}
+
 func Test_processLastActivity(t *testing.T) {
 
 	testTime := time.Date(2020, time.April, 13, 8, 4, 0, 0, time.UTC)
@@ -113,6 +164,40 @@ func Test_processLastActivity(t *testing.T) {
 				Meta:  map[string]string{},
 			},
 			name: "latest activity all nils",
+		},
+		{
+			inputActivity: types.Activity{
+				Progress:    ptr.Of(int32(75)),
+				Description: ptr.Of("Launching a new EC2 instance into warm pool:"),
+			},
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			name: "latest activity was instance launched into warm pool",
+		},
+		{
+			inputActivity: types.Activity{
+				Progress:    ptr.Of(int32(75)),
+				Description: ptr.Of("Terminating EC2 instance from warm pool:"),
+			},
+			inputStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			expectedStatus: &sdk.TargetStatus{
+				Ready: true,
+				Count: 1,
+				Meta:  map[string]string{},
+			},
+			name: "latest activity was instance terminated from warm pool",
 		},
 	}
 

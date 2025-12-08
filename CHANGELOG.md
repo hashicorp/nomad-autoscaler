@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+BUG FIXES:
+* plugin/target/aws-asg: Ignore warm pool activities when determining ASG readiness [[GH-1151]](https://github.com/hashicorp/nomad-autoscaler/pull/1151)
+
 ## 0.4.8 (November 13, 2025)
 
 IMPROVEMENTS:

@@ -113,12 +113,11 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// Start the metrics reporter.
 	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
-	// Create a separate context so we can stop the goroutine monitoring the
-	// list of policies independently from the parent context.
-	monitorCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
 	for {
+		// Create a separate context so we can stop the goroutine monitoring the
+		// list of policies independently from the parent context.
+		monitorCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
 
 		// Start the policy source and listen for changes in the list of policy IDs
 		for _, s := range m.policySources {

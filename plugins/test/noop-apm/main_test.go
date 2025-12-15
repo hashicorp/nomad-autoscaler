@@ -111,6 +111,7 @@ func TestQuery(t *testing.T) {
 				assert.Equal(c.expected, got)
 			case "random":
 				start, err := strconv.ParseFloat(parts[1], 10)
+				assert.NoError(err)
 				end, err := strconv.ParseFloat(parts[2], 10)
 				assert.NoError(err)
 

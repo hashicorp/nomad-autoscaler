@@ -333,11 +333,12 @@ func (h *Handler) Run(ctx context.Context) {
 	}
 }
 
-func scalingNeeded(a sdk.ScalingAction, countCount int64) bool {
-	// The DAS returns count but the direction is none, for vertical and horizontal
-	// policies checking the direction is enough.
-	return (a.Direction == sdk.ScaleDirectionNone && countCount != a.Count) ||
-		a.Direction != sdk.ScaleDirectionNone
+// scalingNeeded determines if the action requires a change from the current
+// count.  Although we could potentially include the sdk.ScalingDirection in
+// this calculation, the Enterprise-only Dynamic Application Sizing feature
+// always has sdk.ScalingDirectionNone as its direction.
+func scalingNeeded(a sdk.ScalingAction, currentCount int64) bool {
+	return a.Count != currentCount
 }
 
 func (h *Handler) waitAndScale(ctx context.Context) error {

@@ -70,7 +70,7 @@ pkg/%.zip: pkg/%/nomad-autoscaler ## Build and zip Nomad Autoscaler for GOOS_GOA
 	zip -j $@ $(dir $<)*
 
 .PHONY: dev
-dev: lint ## Build for the current development version
+dev: hclfmt ## Build for the current development version
 	@echo "==> Building autoscaler..."
 	@CGO_ENABLED=0 GOPROXY=direct go build \
 		-ldflags $(GO_LDFLAGS) \
@@ -86,7 +86,7 @@ proto: ## Generate the protocol buffers
 	@echo "==> Done"
 
 .PHONY: lint
-lint: lint-tools generate-tools hclfmt ## Lint the source code
+lint: hclfmt ## Lint the source code
 	@echo "==> Linting source code..."
 	@GOPROXY=direct \
 	golangci-lint run -j 1 --build-tags "$(GO_TAGS)" --timeout=15m

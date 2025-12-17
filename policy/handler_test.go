@@ -715,9 +715,10 @@ func TestHandlerScalingNeeded(t *testing.T) {
 		currentCount int64
 		expect       bool
 	}{
-		{sdk.ScaleDirectionNone, 2, 1, true}, // for DAS
-		{sdk.ScaleDirectionNone, 1, 2, true}, // for DAS
-		{sdk.ScaleDirectionNone, 1, 1, false},
+		{sdk.ScaleDirectionRecommendation, 2, 1, true},  // ex. DAS
+		{sdk.ScaleDirectionRecommendation, 1, 1, false}, // ex. DAS
+		{sdk.ScaleDirectionNone, 2, 1, false},           // ex. target-value/threshold
+		{sdk.ScaleDirectionNone, 1, 1, false},           // ex. target-value/threshold
 		{sdk.ScaleDirectionUp, 2, 1, true},
 		{sdk.ScaleDirectionUp, 1, 2, true},
 		{sdk.ScaleDirectionUp, 1, 1, false},

@@ -402,6 +402,22 @@ func TestPreemptAction(t *testing.T) {
 				Direction: ScaleDirectionUp,
 			},
 		},
+		{
+			// note: we should never actually see these at the same time
+			name: "recommendation vs up",
+			a: &ScalingAction{
+				Count:     3,
+				Direction: ScaleDirectionUp,
+			},
+			b: &ScalingAction{
+				Count:     2,
+				Direction: ScaleDirectionRecommendation,
+			},
+			expected: &ScalingAction{
+				Count:     2,
+				Direction: ScaleDirectionRecommendation,
+			},
+		},
 	}
 
 	for _, tc := range testCases {

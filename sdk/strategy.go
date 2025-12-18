@@ -41,9 +41,8 @@ type ScalingAction struct {
 	Error bool
 
 	// Direction is the scaling direction the strategy has decided should
-	// happen. This is particularly helpful for non-Nomad target
-	// implementations whose APIs dead with increment changes rather than
-	// absolute counts.
+	// happen. This is particularly helpful for non-Nomad target implementations
+	// whose APIs deal with increment changes rather than absolute counts.
 	Direction ScaleDirection
 
 	// Meta
@@ -68,6 +67,10 @@ const (
 	// ScaleDirectionUp indicates the target should increase the number of
 	// running instances of the resource.
 	ScaleDirectionUp
+
+	// ScaleDirectionRecommendation indicates the plugin has made a
+	// recommendation but the autoscaler should not trigger a target plugin
+	ScaleDirectionRecommendation = 127
 )
 
 // String satisfies the Stringer interface and returns as string representation
@@ -78,6 +81,8 @@ func (d ScaleDirection) String() string {
 		return "down"
 	case ScaleDirectionUp:
 		return "up"
+	case ScaleDirectionRecommendation:
+		return "recommendation"
 	default:
 		return "none"
 	}

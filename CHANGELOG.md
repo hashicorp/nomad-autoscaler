@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.4.9 (January 6, 2026)
 
 BUG FIXES:
 * manager: Fixed a bug where reloading the configuation would prevent policies from being checked. [[GH-1207](https://github.com/hashicorp/nomad-autoscaler/pull/1207)]

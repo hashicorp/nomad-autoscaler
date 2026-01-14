@@ -79,7 +79,7 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			}
 		}
 	} else {
-		ch.log.Debug("strategy returned count", "strategy", ch.check.Strategy.Name, "check", ch.check.Name, "count", a.Count, "reason", a.Reason)
+		ch.log.Debug("check returned count", "strategy", ch.check.Strategy.Name, "check", ch.check.Name, "count", a.Count, "reason", a.Reason)
 	}
 
 	return a, nil

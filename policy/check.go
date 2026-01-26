@@ -78,6 +78,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 				return sdk.ScalingAction{}, err
 			}
 		}
+	} else {
+		ch.log.Debug("check returned count", "strategy", ch.check.Strategy.Name, "check", ch.check.Name, "count", a.Count, "reason", a.Reason)
 	}
 
 	return a, nil

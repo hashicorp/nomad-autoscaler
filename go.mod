@@ -29,7 +29,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.34.0
 	golang.org/x/time v0.14.0
-	google.golang.org/api v0.266.0
+	google.golang.org/api v0.267.0
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
 )

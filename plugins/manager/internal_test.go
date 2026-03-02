@@ -41,6 +41,11 @@ func TestPluginManager_useInternal(t *testing.T) {
 		},
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPlugin:    plugins.InternalAPMInfluxDB,
+			expectedOutput: true,
+		},
+		{
+			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    "this-plugin-doesnt-exist-either",
 			expectedOutput: false,
 		},

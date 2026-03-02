@@ -54,6 +54,9 @@ const (
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
 
+	// InternalAPMInfluxDB is the InfluxDB APM plugin name.
+	InternalAPMInfluxDB = "influxdb"
+
 	// InternalTargetIBMIG is the IBMCloud Instance Group target
 	// plugin.
 	InternalTargetIBMIG = "ibmcloud-ig"

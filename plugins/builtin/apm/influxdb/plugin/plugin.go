@@ -72,15 +72,15 @@ type influxQueryResponse struct {
 }
 
 type influxQueryResult struct {
-	StatementID int                  `json:"statement_id"`
-	Series      []influxQuerySeries  `json:"series"`
-	Error       string               `json:"error,omitempty"`
+	StatementID int                 `json:"statement_id"`
+	Series      []influxQuerySeries `json:"series"`
+	Error       string              `json:"error,omitempty"`
 }
 
 type influxQuerySeries struct {
-	Name    string            `json:"name"`
-	Columns []string          `json:"columns"`
-	Values  [][]interface{}   `json:"values"`
+	Name    string          `json:"name"`
+	Columns []string        `json:"columns"`
+	Values  [][]interface{} `json:"values"`
 }
 
 // APMPlugin is the InfluxDB implementation of the APM interface.
@@ -98,8 +98,7 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 	}
 }
 
-// SetConfig parses and validates the plugin configuration. It mirrors the
-// Datadog plugin's early-validation approach: all required fields are checked
+// SetConfig parses and validates the plugin configuration. all required fields are checked
 // before any client is stored.
 func (a *APMPlugin) SetConfig(config map[string]string) error {
 	a.config = config

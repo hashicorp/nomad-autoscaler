@@ -26,7 +26,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 		{
 			name:         "no required config parameters set",
 			inputConfig:  map[string]string{},
-			expectOutput: errors.New(`"address" config value cannot be empty`),
+			expectOutput: errors.New(`"address" config value cannot be empty`), // Todo check project specific syntax for error message matching
 		},
 		{
 			name:         "missing database",
@@ -163,6 +163,25 @@ func TestAPMPlugin_Query(t *testing.T) {
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "only 1 is expected")
+			},
+		},
+		{
+			name:    "query memory with mean aggregation",
+			fixture: "query_memory.json",
+			pluginConfig: map[string]string{
+				configKeyDatabase: "telegraf",
+			},
+			query: "SELECT mean(used_percent) FROM mem WHERE time > now() - 5m",
+			timeRange: sdk.TimeRange{
+				From: time.Unix(1600000000, 0),
+				To:   time.Unix(1600000200, 0),
+			},
+			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
+				require.NoError(t, err)
+				require.Len(t, m, 4)
+				// Verify values are parsed correctly from "mean" column
+				require.Equal(t, 75.5, m[0].Value)
+				require.Equal(t, 78.2, m[1].Value)
 			},
 		},
 	}

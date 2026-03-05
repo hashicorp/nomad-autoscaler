@@ -98,8 +98,8 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 	}
 }
 
-// SetConfig parses and validates the plugin configuration. all required fields are checked
-// before any client is stored.
+// SetConfig parses and validates the plugin configuration. All required fields
+// are checked before any client is stored.
 func (a *APMPlugin) SetConfig(config map[string]string) error {
 	a.config = config
 
@@ -113,17 +113,13 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
-	version := strings.TrimSpace(a.config[configKeyVersion])
-	if version == "" {
-		version = configVersion1
-	}
-	if version != configVersion1 {
-		switch version {
-		case "2", "3":
-			return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
-		default:
-			return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
-		}
+	switch version := strings.TrimSpace(a.config[configKeyVersion]); version {
+	case "", configVersion1:
+		// ok — v1 is the default
+	case "2", "3":
+		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
+	default:
+		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
 	}
 
 	parsedURL, err := url.Parse(address)
@@ -147,7 +143,7 @@ func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {
 
 // Query executes a single InfluxQL query and returns exactly one metric
 // stream. If the query returns zero or more than one series, an appropriate
-// error is returned. This matches the Datadog plugin's Query semantics.
+// error is returned.
 func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
 	m, err := a.QueryMultiple(q, r)
 	if err != nil {
@@ -172,10 +168,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	queryURL, err := url.Parse(a.baseURL.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to construct query URL: %v", err)
-	}
+	queryURL := *a.baseURL
 	queryURL.Path = strings.TrimSuffix(queryURL.Path, "/") + "/query"
 
 	queryValues := queryURL.Query()

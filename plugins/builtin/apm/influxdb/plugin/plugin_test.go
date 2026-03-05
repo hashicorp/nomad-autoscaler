@@ -26,7 +26,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 		{
 			name:         "no required config parameters set",
 			inputConfig:  map[string]string{},
-			expectOutput: errors.New(`"address" config value cannot be empty`), // Todo check project specific syntax for error message matching
+			expectOutput: errors.New(`"address" config value cannot be empty`),
 		},
 		{
 			name:         "missing database",
@@ -75,6 +75,14 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyDB:      "telegraf",
 			},
 			expectOutput: nil,
+		},
+		{
+			name: "invalid URL",
+			inputConfig: map[string]string{
+				configKeyAddress:  "not-a-valid-url",
+				configKeyDatabase: "telegraf",
+			},
+			expectOutput: errors.New(`"address" must be a valid absolute URL`),
 		},
 	}
 
@@ -208,6 +216,82 @@ func TestAPMPlugin_Query(t *testing.T) {
 			metrics, err := plugin.Query(tc.query, tc.timeRange)
 			if tc.validateMetrics != nil {
 				tc.validateMetrics(t, metrics, err)
+			}
+		})
+	}
+}
+
+func TestAPMPlugin_Query_Errors(t *testing.T) {
+	testCases := []struct {
+		name         string
+		fixture      string
+		statusCode   int
+		pluginConfig map[string]string
+		query        string
+		expectError  string
+	}{
+		{
+			name:       "http error response",
+			statusCode: 500,
+			fixture:    "query_200.json",
+			pluginConfig: map[string]string{
+				configKeyDatabase: "telegraf",
+			},
+			query:       "SELECT mean(usage_idle) FROM cpu",
+			expectError: "influxdb query failed with status 500",
+		},
+		{
+			name:       "influxdb level error",
+			statusCode: 200,
+			fixture:    "query_error.json",
+			pluginConfig: map[string]string{
+				configKeyDatabase: "telegraf",
+			},
+			query:       "SELECT mean(usage_idle) FROM cpu",
+			expectError: "influxdb query error: database not found: telegraf_unknown",
+		},
+		{
+			name:       "empty result",
+			statusCode: 200,
+			fixture:    "query_empty.json",
+			pluginConfig: map[string]string{
+				configKeyDatabase: "telegraf",
+			},
+			query:       "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 1s",
+			expectError: "",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if tc.statusCode != 200 {
+					w.WriteHeader(tc.statusCode)
+					_, _ = w.Write([]byte("Internal Server Error"))
+					return
+				}
+				http.ServeFile(w, r, path.Join("./test-fixtures", tc.fixture))
+			}))
+			defer srv.Close()
+
+			plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
+			err := plugin.SetConfig(map[string]string{
+				configKeyAddress:  srv.URL,
+				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
+			})
+			require.NoError(t, err)
+
+			metrics, err := plugin.Query(tc.query, sdk.TimeRange{
+				From: time.Unix(1600000000, 0),
+				To:   time.Unix(1610000000, 0),
+			})
+
+			if tc.expectError != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tc.expectError)
+			} else {
+				require.NoError(t, err)
+				require.Empty(t, metrics)
 			}
 		})
 	}

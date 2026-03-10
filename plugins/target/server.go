@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package target
@@ -8,7 +8,7 @@ import (
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
+	proto "github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
 )
 
 // pluginServer is the gRPC server implementation of the Target interface.

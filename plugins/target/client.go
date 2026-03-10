@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package target
@@ -9,7 +9,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
+	proto "github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 

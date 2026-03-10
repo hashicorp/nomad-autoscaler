@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugins
@@ -53,6 +53,9 @@ const (
 
 	// InternalAPMDatadog is the Datadog APM plugin name.
 	InternalAPMDatadog = "datadog"
+
+	// InternalAPMInfluxDB is the InfluxDB APM plugin name.
+	InternalAPMInfluxDB = "influxdb"
 
 	// InternalTargetIBMIG is the IBMCloud Instance Group target
 	// plugin.

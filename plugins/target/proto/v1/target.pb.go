@@ -11,6 +11,9 @@ package proto
 
 import (
 	context "context"
+	reflect "reflect"
+	sync "sync"
+
 	proto "github.com/golang/protobuf/proto"
 	v1 "github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
 	grpc "google.golang.org/grpc"
@@ -18,8 +21,6 @@ import (
 	status "google.golang.org/grpc/status"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	reflect "reflect"
-	sync "sync"
 )
 
 const (

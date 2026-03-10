@@ -8,7 +8,7 @@ import (
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1"
+	proto "github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 

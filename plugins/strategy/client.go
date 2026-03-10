@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/base"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	sharedProto "github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1"
-	"github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1"
+	proto "github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 

@@ -84,6 +84,46 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			},
 			expectOutput: errors.New(`"address" must be a valid absolute URL`),
 		},
+		{
+			name: "token auth only",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyToken:    "my-token-123",
+			},
+			expectOutput: nil,
+		},
+		{
+			name: "token conflicts with username",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyToken:    "my-token",
+				configKeyUsername: "user",
+			},
+			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+		},
+		{
+			name: "token conflicts with password",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyToken:    "my-token",
+				configKeyPassword: "pass",
+			},
+			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+		},
+		{
+			name: "token conflicts with both username and password",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyToken:    "my-token",
+				configKeyUsername: "user",
+				configKeyPassword: "pass",
+			},
+			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+		},
 	}
 
 	for _, tc := range testCases {
@@ -133,8 +173,13 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.Equal(t, "telegraf", qp.Get("db"))
 				require.Equal(t, "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m", qp.Get("q"))
 				require.Equal(t, "s", qp.Get("epoch"))
-				require.Equal(t, "user", qp.Get("u"))
-				require.Equal(t, "pass", qp.Get("p"))
+				// Verify credentials are NOT in query params (security fix)
+				require.Empty(t, qp.Get("u"))
+				require.Empty(t, qp.Get("p"))
+				// Verify Basic auth header is set
+				authHeader := r.Header.Get("Authorization")
+				require.NotEmpty(t, authHeader)
+				require.Equal(t, "Basic dXNlcjpwYXNz", authHeader) // base64(user:pass)
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
 				require.NoError(t, err)
@@ -152,9 +197,43 @@ func TestAPMPlugin_Query(t *testing.T) {
 				From: time.Unix(1660000000, 0),
 				To:   time.Unix(1670000000, 0),
 			},
+			validateRequest: func(t *testing.T, r *http.Request) {
+				// Verify no auth header when credentials not provided
+				require.Empty(t, r.Header.Get("Authorization"))
+				// Verify no credentials in query params
+				require.Empty(t, r.URL.Query().Get("u"))
+				require.Empty(t, r.URL.Query().Get("p"))
+			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
 				require.NoError(t, err)
 				require.Len(t, m, 2)
+			},
+		},
+		{
+			name:    "token auth",
+			fixture: "query_200.json",
+			pluginConfig: map[string]string{
+				configKeyDatabase: "telegraf",
+				configKeyToken:    "my-secret-token",
+			},
+			query: "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m",
+			timeRange: sdk.TimeRange{
+				From: time.Unix(1600000000, 0),
+				To:   time.Unix(1610000000, 0),
+			},
+			validateRequest: func(t *testing.T, r *http.Request) {
+				require.Equal(t, "/query", r.URL.Path)
+				// Verify token is in Authorization header
+				authHeader := r.Header.Get("Authorization")
+				require.Equal(t, "Token my-secret-token", authHeader)
+				// Verify no credentials in query params
+				qp := r.URL.Query()
+				require.Empty(t, qp.Get("u"))
+				require.Empty(t, qp.Get("p"))
+			},
+			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
+				require.NoError(t, err)
+				require.Len(t, m, 3)
 			},
 		},
 		{
@@ -210,6 +289,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
 				configKeyUsername: tc.pluginConfig[configKeyUsername],
 				configKeyPassword: tc.pluginConfig[configKeyPassword],
+				configKeyToken:    tc.pluginConfig[configKeyToken],
 			})
 			require.NoError(t, err)
 

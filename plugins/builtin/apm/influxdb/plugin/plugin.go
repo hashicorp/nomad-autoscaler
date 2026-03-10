@@ -40,6 +40,11 @@ const (
 	// configKeyPassword is the optional authentication password.
 	configKeyPassword = "password"
 
+	// configKeyToken is the optional authentication token. When set, it
+	// takes precedence over username/password and cannot be used together
+	// with them. Supports InfluxDB 1.x Enterprise token-based auth.
+	configKeyToken = "token"
+
 	// configKeyVersion selects the InfluxDB API version. Only "1" is
 	// currently supported; "3" is reserved for future implementation.
 	configKeyVersion = "version"
@@ -113,6 +118,14 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
+	// Validate mutual exclusivity: token cannot be used with username/password.
+	token := strings.TrimSpace(a.config[configKeyToken])
+	username := strings.TrimSpace(a.config[configKeyUsername])
+	password := strings.TrimSpace(a.config[configKeyPassword])
+	if token != "" && (username != "" || password != "") {
+		return fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q or %q", configKeyToken, configKeyUsername, configKeyPassword)
+	}
+
 	switch version := strings.TrimSpace(a.config[configKeyVersion]); version {
 	case "", configVersion1:
 		// ok — v1 is the default
@@ -162,6 +175,10 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 
 // QueryMultiple executes an InfluxQL query against the InfluxDB 1.x /query
 // endpoint and returns all result series as separate metric streams.
+//
+// Note: Time filtering must be explicitly included in your InfluxQL query.
+// The timeRange parameter is logged but not automatically applied.
+// Example: "SELECT mean(cpu) FROM metrics WHERE time >= now() - 10m"
 func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
 	a.logger.Debug("querying InfluxDB", "query", q, "range", r)
 
@@ -175,19 +192,14 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	queryValues.Set("db", a.database())
 	queryValues.Set("q", q)
 	queryValues.Set("epoch", "s")
-
-	if user := strings.TrimSpace(a.config[configKeyUsername]); user != "" {
-		queryValues.Set("u", user)
-	}
-	if pass := strings.TrimSpace(a.config[configKeyPassword]); pass != "" {
-		queryValues.Set("p", pass)
-	}
 	queryURL.RawQuery = queryValues.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build influxdb query request: %v", err)
 	}
+
+	a.setAuthHeader(req)
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -240,6 +252,24 @@ func (a *APMPlugin) database() string {
 		return db
 	}
 	return strings.TrimSpace(a.config[configKeyDB])
+}
+
+// setAuthHeader applies the appropriate authentication method to the HTTP
+// request. It supports both token-based auth (for InfluxDB 1.x Enterprise)
+// and username/password basic auth (for InfluxDB 1.x OSS).
+func (a *APMPlugin) setAuthHeader(req *http.Request) {
+	if token := strings.TrimSpace(a.config[configKeyToken]); token != "" {
+		req.Header.Set("Authorization", "Token "+token)
+		return
+	}
+
+	username := strings.TrimSpace(a.config[configKeyUsername])
+	password := strings.TrimSpace(a.config[configKeyPassword])
+	if username != "" || password != "" {
+		req.SetBasicAuth(username, password)
+	}
+	// If neither token nor username/password is set, the request remains
+	// unauthenticated (for local/testing scenarios).
 }
 
 // parseSeries converts an InfluxDB result series into sdk.TimestampedMetrics.

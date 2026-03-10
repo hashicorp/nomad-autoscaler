@@ -1,4 +1,4 @@
-# Copyright IBM Corp. 2020, 2026
+# Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
 url_docker_registry_dockerhub = "https://hub.docker.com/r/hashicorp/nomad-autoscaler"

@@ -390,6 +390,8 @@ func TestMonitoringIDs(t *testing.T) {
 		sourcePolicies           []*api.ScalingPolicyListStub
 		listModifyIndex          uint64
 		initialMonitoredPolicies map[policy.PolicyID]modifyIndex
+		allowedNamespaces        map[string]bool
+		multiNamespaceMode       bool
 
 		// Expected results
 		expectedUpdates           map[policy.PolicyID]bool
@@ -491,6 +493,41 @@ func TestMonitoringIDs(t *testing.T) {
 			expectedUpdates:           map[policy.PolicyID]bool{},
 			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
 		},
+		{
+			name: "multi_namespace_filters_out_other_namespaces",
+			sourcePolicies: []*api.ScalingPolicyListStub{
+				{
+					ID:          "policy-ns1",
+					Enabled:     true,
+					ModifyIndex: 1,
+					Target:      map[string]string{"Namespace": "ns1"},
+				},
+				{
+					ID:          "policy-ns2",
+					Enabled:     true,
+					ModifyIndex: 1,
+					Target:      map[string]string{"Namespace": "ns2"},
+				},
+				{
+					ID:          "policy-ns3",
+					Enabled:     true,
+					ModifyIndex: 1,
+					Target:      map[string]string{"Namespace": "ns3"},
+				},
+			},
+			listModifyIndex:          2,
+			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
+			allowedNamespaces:        map[string]bool{"ns1": true, "ns2": true},
+			multiNamespaceMode:       true,
+			expectedUpdates: map[policy.PolicyID]bool{
+				"policy-ns1": true,
+				"policy-ns2": true,
+			},
+			expectedMonitoredPolicies: map[policy.PolicyID]modifyIndex{
+				"policy-ns1": 1,
+				"policy-ns2": 1,
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -505,11 +542,13 @@ func TestMonitoringIDs(t *testing.T) {
 			}
 
 			testSource := Source{
-				log:               hclog.NewNullLogger(),
+				log:                hclog.NewNullLogger(),
 				policiesGetter:    mpg,
 				policyProcessor:   pr,
 				monitoredPolicies: tc.initialMonitoredPolicies,
 				latestIndex:       1,
+				allowedNamespaces:  tc.allowedNamespaces,
+				multiNamespaceMode: tc.multiNamespaceMode,
 			}
 
 			resultsChannel := make(chan policy.IDMessage, 1)

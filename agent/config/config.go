@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -131,8 +132,14 @@ type Nomad struct {
 	// Region to use.
 	Region string `hcl:"region,optional"`
 
-	// Namespace to use.
-	Namespace string `hcl:"namespace,optional"`
+	// Namespace is the list of Nomad namespaces to monitor for scaling
+	// policies. Accepts exact namespace names or "*" to monitor all
+	// namespaces. When a single namespace is provided the autoscaler
+	// restricts all Nomad API queries to that namespace. When multiple
+	// namespaces (or "*") are provided, policies are listed across all
+	// namespaces and filtered locally. Defaults to the namespace inferred
+	// from the Nomad client environment (typically "default").
+	Namespace []string `hcl:"namespace,optional"`
 
 	// Token is the SecretID of an ACL token to use to authenticate API
 	// requests with.
@@ -655,9 +662,10 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	if b.Region != "" {
 		result.Region = b.Region
 	}
-	if b.Namespace != "" {
+	if len(b.Namespace) > 0 {
 		result.Namespace = b.Namespace
 	}
+	result.Namespace = normalizeNamespaces(result.Namespace)
 	if b.Token != "" {
 		result.Token = b.Token
 	}
@@ -687,6 +695,30 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	}
 
 	return &result
+}
+
+// normalizeNamespaces deduplicates and canonicalises a namespace slice.
+// If "*" appears alongside other entries the result is collapsed to ["*"],
+// empty/whitespace-only entries are dropped, and ordering is preserved
+// (de-duplicated in-place).
+func normalizeNamespaces(ns []string) []string {
+	if len(ns) == 0 {
+		return ns
+	}
+	seen := make(map[string]bool, len(ns))
+	result := ns[:0]
+	for _, n := range ns {
+		n = strings.TrimSpace(n)
+		if n == "" || seen[n] {
+			continue
+		}
+		if n == "*" {
+			return []string{"*"}
+		}
+		seen[n] = true
+		result = append(result, n)
+	}
+	return result
 }
 
 func (t *Telemetry) merge(b *Telemetry) *Telemetry {

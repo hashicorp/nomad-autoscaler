@@ -154,7 +154,7 @@ func Test_MergeDefaultWithAgentConfig(t *testing.T) {
 			inputConfig: &config.Nomad{
 				Address:            "http://demo.nomad:4646",
 				Region:             "vlc",
-				Namespace:          "platform",
+				Namespace:          []string{"platform"},
 				Token:              "shhhhhhhh",
 				HTTPAuth:           "admin:admin",
 				CACert:             "/path/to/long-lived/ca-cert",

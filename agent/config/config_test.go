@@ -110,7 +110,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
-			Namespace:     "fra-mauro",
+			Namespace:     []string{"fra-mauro"},
 			Token:         "super-secret-tokeny-thing",
 			HTTPAuth:      "admin:admin",
 			CACert:        "/etc/nomad.d/ca.crt",
@@ -215,7 +215,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:            "https://nomad-new.systems:4646",
 			Region:             "moon-base-1",
-			Namespace:          "fra-mauro",
+			Namespace:          []string{"fra-mauro"},
 			Token:              "super-secret-tokeny-thing",
 			HTTPAuth:           "admin:admin",
 			CACert:             "/etc/nomad.d/ca.crt",

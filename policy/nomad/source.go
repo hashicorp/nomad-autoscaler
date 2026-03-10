@@ -91,17 +91,54 @@ type Source struct {
 	reloadCh chan struct{}
 
 	latestIndex modifyIndex
+
+	// namespaceMu protects allowedNamespaces and multiNamespaceMode.
+	namespaceMu        sync.RWMutex
+	allowedNamespaces  map[string]bool
+	multiNamespaceMode bool
 }
 
 // NewNomadSource returns a new Nomad policy source.
-func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
-	return &Source{
+//
+// namespaces is the list of Nomad namespaces to monitor. When more than one
+// namespace is specified, a local filter is applied after the API list call
+// so that only policies from the listed namespaces are surfaced.
+func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor, namespaces []string) *Source {
+	s := &Source{
 		log:               log.ResetNamed("nomad_policy_source"),
 		policiesGetter:    newNomadPolicyGetter(nomad),
 		policyProcessor:   policyProcessor,
 		reloadCh:          make(chan struct{}),
 		monitoredPolicies: map[policy.PolicyID]modifyIndex{},
 		latestIndex:       1,
+	}
+	if len(namespaces) > 1 {
+		allowed := make(map[string]bool, len(namespaces))
+		for _, ns := range namespaces {
+			allowed[ns] = true
+		}
+		s.allowedNamespaces = allowed
+		s.multiNamespaceMode = true
+	}
+	return s
+}
+
+// SetNamespaces updates the namespace filter used by MonitorIDs.
+// It is safe to call concurrently and is typically invoked during a
+// configuration reload (SIGHUP) before ReloadIDsMonitor is triggered.
+func (s *Source) SetNamespaces(namespaces []string) {
+	s.namespaceMu.Lock()
+	defer s.namespaceMu.Unlock()
+	if len(namespaces) > 1 {
+		allowed := make(map[string]bool, len(namespaces))
+		for _, ns := range namespaces {
+			allowed[ns] = true
+		}
+		s.allowedNamespaces = allowed
+		s.multiNamespaceMode = true
+	} else {
+		s.allowedNamespaces = nil
+		s.multiNamespaceMode = false
 	}
 }
 
@@ -189,6 +226,17 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		policies = slices.DeleteFunc(policies, func(p *api.ScalingPolicyListStub) bool {
 			return !p.Enabled
 		})
+
+		// If multi-namespace mode is active, filter to only the allowed namespaces.
+		s.namespaceMu.RLock()
+		multiMode := s.multiNamespaceMode
+		allowed := s.allowedNamespaces
+		s.namespaceMu.RUnlock()
+		if multiMode {
+			policies = slices.DeleteFunc(policies, func(p *api.ScalingPolicyListStub) bool {
+				return !allowed[p.Target["Namespace"]]
+			})
+		}
 
 		// Now removed the policies that are no longer present  in the
 		// updated list of policies meanning they were deleted or disabled.

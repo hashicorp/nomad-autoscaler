@@ -40,7 +40,7 @@ func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults))
 
 	pr := policy.NewProcessor(sourceConfig, []string{"nomad-apm"})
 
-	return NewNomadSource(log, nomad, pr)
+	return NewNomadSource(log, nomad, pr, nil)
 }
 
 // TestParseJob parses a file into an *api.Job object.

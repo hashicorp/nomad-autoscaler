@@ -3,6 +3,9 @@
 FEATURES:
 * **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)] 
 
+IMPROVEMENTS:
+* policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)] 
+
 ## 0.4.9 (January 6, 2026)
 
 BUG FIXES:

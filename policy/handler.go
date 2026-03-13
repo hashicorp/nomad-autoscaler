@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -61,7 +61,7 @@ type limiter interface {
 }
 
 type checker interface {
-	runCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error)
+	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }
 
@@ -277,7 +277,7 @@ func (h *Handler) Run(ctx context.Context) {
 				continue
 			}
 
-			if currentStatus != nil && !currentStatus.Ready {
+			if !currentStatus.Ready {
 				h.log.Debug("skipping evaluation, target not ready")
 				continue
 			}
@@ -443,9 +443,10 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 
 	// Store check results by group so we can compare their results together.
 	checkGroups := make(map[string][]checkResult)
+	queryCache := newQueryMetricsCache()
 
 	for _, ch := range h.checkRunners {
-		action, err := ch.runCheckAndCapCount(ctx, currentCount)
+		action, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
 

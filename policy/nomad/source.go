@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -91,11 +91,19 @@ type Source struct {
 	reloadCh chan struct{}
 
 	latestIndex modifyIndex
+
+	// namespaceMu protects allowedNamespaces.
+	namespaceMu       sync.RWMutex
+	allowedNamespaces map[string]bool
 }
 
 // NewNomadSource returns a new Nomad policy source.
-func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor) *Source {
-	return &Source{
+//
+// namespaces is the list of Nomad namespaces to monitor. When more than one
+// namespace is specified, a local filter is applied after the API list call
+// so that only policies from the listed namespaces are surfaced.
+func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy.Processor, namespaces []string) *Source {
+	s := &Source{
 		log:               log.ResetNamed("nomad_policy_source"),
 		policiesGetter:    newNomadPolicyGetter(nomad),
 		policyProcessor:   policyProcessor,
@@ -103,6 +111,44 @@ func NewNomadSource(log hclog.Logger, nomad *api.Client, policyProcessor *policy
 		monitoredPolicies: map[policy.PolicyID]modifyIndex{},
 		latestIndex:       1,
 	}
+	s.allowedNamespaces = buildAllowedNamespaces(namespaces)
+	return s
+}
+
+// SetNamespaces updates the namespace filter used by MonitorIDs.
+// It is safe to call concurrently and is typically invoked during a
+// configuration reload (SIGHUP) before ReloadIDsMonitor is triggered.
+func (s *Source) SetNamespaces(namespaces []string) {
+	s.namespaceMu.Lock()
+	defer s.namespaceMu.Unlock()
+	s.allowedNamespaces = buildAllowedNamespaces(namespaces)
+}
+
+func buildAllowedNamespaces(namespaces []string) map[string]bool {
+	if len(namespaces) <= 1 {
+		return nil
+	}
+
+	allowed := make(map[string]bool, len(namespaces))
+	for _, ns := range namespaces {
+		allowed[ns] = true
+	}
+
+	return allowed
+}
+
+func shouldMonitorPolicy(p *api.ScalingPolicyListStub, allowedNamespaces map[string]bool) bool {
+	if !p.Enabled {
+		return false
+	}
+
+	// An empty allowedNamespaces map means single-namespace mode (or unspecified)
+	// where filtering is handled by the Nomad client query scope.
+	if len(allowedNamespaces) == 0 {
+		return true
+	}
+
+	return allowedNamespaces[p.Target["Namespace"]]
 }
 
 func (s *Source) SetNomadClient(nomad *api.Client) {
@@ -185,22 +231,26 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 			continue
 		}
 
-		// Let's remove all the dissabled policies from the updates.
-		policies = slices.DeleteFunc(policies, func(p *api.ScalingPolicyListStub) bool {
-			return !p.Enabled
-		})
+		// Read namespace filtering config once per loop.
+		s.namespaceMu.RLock()
+		allowed := s.allowedNamespaces
+		s.namespaceMu.RUnlock()
 
 		// Now removed the policies that are no longer present  in the
 		// updated list of policies meanning they were deleted or disabled.
 		maps.DeleteFunc(s.monitoredPolicies, func(policyID policy.PolicyID, _ modifyIndex) bool {
 			return !slices.ContainsFunc(policies, func(p *api.ScalingPolicyListStub) bool {
-				return p.ID == policyID
+				return p.ID == policyID && shouldMonitorPolicy(p, allowed)
 			})
 		})
 
 		// Now let's add all the updated and all the new policies.
 		policyUpdates := map[policy.PolicyID]bool{}
 		for _, newPolicy := range policies {
+			if !shouldMonitorPolicy(newPolicy, allowed) {
+				continue
+			}
+
 			policyUpdates[newPolicy.ID] = true
 
 			if oldPolicyModifyIndex, ok := s.monitoredPolicies[newPolicy.ID]; ok {

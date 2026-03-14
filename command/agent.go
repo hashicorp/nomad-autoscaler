@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package command
@@ -118,6 +118,8 @@ Nomad Options:
 
   -nomad-namespace=<namespace>
     The target namespace for queries and actions bound to a namespace.
+    May be specified multiple times to monitor policies across several
+    namespaces. Use '*' to monitor all namespaces.
 
   -nomad-token=<token>
     The SecretID of an ACL token to use to authenticate API requests with.
@@ -511,7 +513,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	// Specify our Nomad client CLI flags.
 	flags.StringVar(&cmdConfig.Nomad.Address, "nomad-address", "", "")
 	flags.StringVar(&cmdConfig.Nomad.Region, "nomad-region", "", "")
-	flags.StringVar(&cmdConfig.Nomad.Namespace, "nomad-namespace", "", "")
+	flags.Var((*flaghelper.StringFlag)(&cmdConfig.Nomad.Namespaces), "nomad-namespace", "")
 	flags.StringVar(&cmdConfig.Nomad.Token, "nomad-token", "", "")
 	flags.StringVar(&cmdConfig.Nomad.HTTPAuth, "nomad-http-auth", "", "")
 	flags.StringVar(&cmdConfig.Nomad.CACert, "nomad-ca-cert", "", "")

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package config
@@ -110,7 +110,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
-			Namespace:     "fra-mauro",
+			Namespaces:    []string{"fra-mauro"},
 			Token:         "super-secret-tokeny-thing",
 			HTTPAuth:      "admin:admin",
 			CACert:        "/etc/nomad.d/ca.crt",
@@ -215,7 +215,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:            "https://nomad-new.systems:4646",
 			Region:             "moon-base-1",
-			Namespace:          "fra-mauro",
+			Namespaces:         []string{"fra-mauro"},
 			Token:              "super-secret-tokeny-thing",
 			HTTPAuth:           "admin:admin",
 			CACert:             "/etc/nomad.d/ca.crt",
@@ -386,6 +386,38 @@ func TestAgent_parseFile(t *testing.T) {
 	}
 	assert.Nil(t, parseFile(fh.Name(), cfg))
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+
+	// Reset the test file.
+	if err := fh.Truncate(0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if _, err := fh.Seek(0, 0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Legacy scalar namespace should parse into a one-item []string.
+	cfg = &Agent{}
+	if _, err := fh.WriteString("nomad { namespace = \"staging\" }"); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	assert.Nil(t, parseFile(fh.Name(), cfg))
+	assert.Equal(t, []string{"staging"}, cfg.Nomad.Namespaces)
+
+	// Reset the test file.
+	if err := fh.Truncate(0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if _, err := fh.Seek(0, 0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Native list namespace should continue to parse.
+	cfg = &Agent{}
+	if _, err := fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }"); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	assert.Nil(t, parseFile(fh.Name(), cfg))
+	assert.Equal(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
 }
 
 func TestConfig_Load(t *testing.T) {

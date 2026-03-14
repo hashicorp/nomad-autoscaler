@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package config
@@ -9,15 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/copystructure"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // Agent is the overall configuration of an autoscaler agent and includes all
@@ -131,8 +135,14 @@ type Nomad struct {
 	// Region to use.
 	Region string `hcl:"region,optional"`
 
-	// Namespace to use.
-	Namespace string `hcl:"namespace,optional"`
+	// Namespaces is the list of Nomad namespaces to monitor for scaling
+	// policies. Accepts exact namespace names or "*" to monitor all
+	// namespaces. When a single namespace is provided the autoscaler
+	// restricts all Nomad API queries to that namespace. When multiple
+	// namespaces (or "*") are provided, policies are listed across all
+	// namespaces and filtered locally. Defaults to the namespace inferred
+	// from the Nomad client environment (typically "default").
+	Namespaces []string `hcl:"namespace,optional"`
 
 	// Token is the SecretID of an ACL token to use to authenticate API
 	// requests with.
@@ -655,9 +665,10 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	if b.Region != "" {
 		result.Region = b.Region
 	}
-	if b.Namespace != "" {
-		result.Namespace = b.Namespace
+	if len(b.Namespaces) > 0 {
+		result.Namespaces = b.Namespaces
 	}
+	result.Namespaces = normalizeNamespaces(result.Namespaces)
 	if b.Token != "" {
 		result.Token = b.Token
 	}
@@ -687,6 +698,30 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	}
 
 	return &result
+}
+
+// normalizeNamespaces deduplicates and canonicalises a namespace slice.
+// If "*" appears alongside other entries the result is collapsed to ["*"],
+// empty/whitespace-only entries are dropped, and ordering is preserved
+// (de-duplicated in-place).
+func normalizeNamespaces(ns []string) []string {
+	if len(ns) == 0 {
+		return ns
+	}
+	seen := make(map[string]bool, len(ns))
+	result := make([]string, 0, len(ns))
+	for _, n := range ns {
+		n = strings.TrimSpace(n)
+		if n == "" || seen[n] {
+			continue
+		}
+		if n == "*" {
+			return []string{"*"}
+		}
+		seen[n] = true
+		result = append(result, n)
+	}
+	return result
 }
 
 func (t *Telemetry) merge(b *Telemetry) *Telemetry {
@@ -1033,7 +1068,16 @@ func policySourceConfigSetMerge(first, second []*PolicySource) []*PolicySource {
 }
 
 func parseFile(file string, cfg *Agent) error {
-	if err := hclsimple.DecodeFile(file, nil, cfg); err != nil {
+	src, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	if strings.EqualFold(filepath.Ext(file), ".hcl") {
+		src = rewriteLegacyNamespaceString(file, src)
+	}
+
+	if err := hclsimple.Decode(file, src, nil, cfg); err != nil {
 		return err
 	}
 
@@ -1139,6 +1183,70 @@ func parseFile(file string, cfg *Agent) error {
 	}
 
 	return nil
+}
+
+// rewriteLegacyNamespaceString preserves backwards compatibility for configs
+// that still use nomad.namespace as a scalar string by rewriting it to a
+// one-item list before decode.
+func rewriteLegacyNamespaceString(file string, src []byte) []byte {
+	type replacement struct {
+		start int
+		end   int
+	}
+
+	parsed, diags := hclsyntax.ParseConfig(src, file, hcl.InitialPos)
+	if diags.HasErrors() {
+		return src
+	}
+
+	body, ok := parsed.Body.(*hclsyntax.Body)
+	if !ok {
+		return src
+	}
+
+	replacements := make([]replacement, 0, len(body.Blocks))
+	for _, block := range body.Blocks {
+		if block.Type != "nomad" {
+			continue
+		}
+
+		attr, ok := block.Body.Attributes["namespace"]
+		if !ok {
+			continue
+		}
+
+		v, vDiags := attr.Expr.Value(nil)
+		if vDiags.HasErrors() || v.Type() != cty.String {
+			continue
+		}
+
+		rng := attr.Expr.Range()
+		if rng.Start.Byte < 0 || rng.End.Byte > len(src) || rng.Start.Byte >= rng.End.Byte {
+			continue
+		}
+
+		replacements = append(replacements, replacement{start: rng.Start.Byte, end: rng.End.Byte})
+	}
+
+	if len(replacements) == 0 {
+		return src
+	}
+
+	sort.Slice(replacements, func(i, j int) bool {
+		return replacements[i].start > replacements[j].start
+	})
+
+	for _, r := range replacements {
+		rewritten := make([]byte, 0, len(src)+2)
+		rewritten = append(rewritten, src[:r.start]...)
+		rewritten = append(rewritten, '[')
+		rewritten = append(rewritten, src[r.start:r.end]...)
+		rewritten = append(rewritten, ']')
+		rewritten = append(rewritten, src[r.end:]...)
+		src = rewritten
+	}
+
+	return src
 }
 
 func LoadPaths(paths []string) (*Agent, error) {

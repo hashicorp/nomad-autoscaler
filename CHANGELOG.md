@@ -1,7 +1,10 @@
 ## UNRELEASED
 
 FEATURES:
-* **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)] 
+* **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)]
+
+IMPROVEMENTS:
+* agent: The `nomad.namespace` config field and `-nomad-namespace` CLI flag now accept multiple values, allowing the autoscaler to monitor scaling policies across several Nomad namespaces. Use `*` to monitor all namespaces. When a single namespace is provided the existing behaviour is preserved. [[GH-1251](https://github.com/hashicorp/nomad-autoscaler/pull/1251)]
 
 ## 0.4.9 (January 6, 2026)
 

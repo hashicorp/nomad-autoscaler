@@ -391,7 +391,6 @@ func TestMonitoringIDs(t *testing.T) {
 		listModifyIndex          uint64
 		initialMonitoredPolicies map[policy.PolicyID]modifyIndex
 		allowedNamespaces        map[string]bool
-		multiNamespaceMode       bool
 
 		// Expected results
 		expectedUpdates           map[policy.PolicyID]bool
@@ -518,7 +517,6 @@ func TestMonitoringIDs(t *testing.T) {
 			listModifyIndex:          2,
 			initialMonitoredPolicies: map[policy.PolicyID]modifyIndex{},
 			allowedNamespaces:        map[string]bool{"ns1": true, "ns2": true},
-			multiNamespaceMode:       true,
 			expectedUpdates: map[policy.PolicyID]bool{
 				"policy-ns1": true,
 				"policy-ns2": true,
@@ -542,13 +540,12 @@ func TestMonitoringIDs(t *testing.T) {
 			}
 
 			testSource := Source{
-				log:                hclog.NewNullLogger(),
+				log:               hclog.NewNullLogger(),
 				policiesGetter:    mpg,
 				policyProcessor:   pr,
 				monitoredPolicies: tc.initialMonitoredPolicies,
 				latestIndex:       1,
-				allowedNamespaces:  tc.allowedNamespaces,
-				multiNamespaceMode: tc.multiNamespaceMode,
+				allowedNamespaces: tc.allowedNamespaces,
 			}
 
 			resultsChannel := make(chan policy.IDMessage, 1)

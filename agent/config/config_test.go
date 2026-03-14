@@ -386,6 +386,38 @@ func TestAgent_parseFile(t *testing.T) {
 	}
 	assert.Nil(t, parseFile(fh.Name(), cfg))
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+
+	// Reset the test file.
+	if err := fh.Truncate(0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if _, err := fh.Seek(0, 0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Legacy scalar namespace should parse into a one-item []string.
+	cfg = &Agent{}
+	if _, err := fh.WriteString("nomad { namespace = \"staging\" }"); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	assert.Nil(t, parseFile(fh.Name(), cfg))
+	assert.Equal(t, []string{"staging"}, cfg.Nomad.Namespace)
+
+	// Reset the test file.
+	if err := fh.Truncate(0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if _, err := fh.Seek(0, 0); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+
+	// Native list namespace should continue to parse.
+	cfg = &Agent{}
+	if _, err := fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }"); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	assert.Nil(t, parseFile(fh.Name(), cfg))
+	assert.Equal(t, []string{"staging", "prod"}, cfg.Nomad.Namespace)
 }
 
 func TestConfig_Load(t *testing.T) {

@@ -13,12 +13,15 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/file"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/copystructure"
+	"github.com/zclconf/go-cty/cty"
 )
 
 // Agent is the overall configuration of an autoscaler agent and includes all
@@ -706,7 +709,7 @@ func normalizeNamespaces(ns []string) []string {
 		return ns
 	}
 	seen := make(map[string]bool, len(ns))
-	result := ns[:0]
+	result := make([]string, 0, len(ns))
 	for _, n := range ns {
 		n = strings.TrimSpace(n)
 		if n == "" || seen[n] {
@@ -1065,7 +1068,16 @@ func policySourceConfigSetMerge(first, second []*PolicySource) []*PolicySource {
 }
 
 func parseFile(file string, cfg *Agent) error {
-	if err := hclsimple.DecodeFile(file, nil, cfg); err != nil {
+	src, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+
+	if strings.EqualFold(filepath.Ext(file), ".hcl") {
+		src = rewriteLegacyNamespaceString(file, src)
+	}
+
+	if err := hclsimple.Decode(file, src, nil, cfg); err != nil {
 		return err
 	}
 
@@ -1171,6 +1183,70 @@ func parseFile(file string, cfg *Agent) error {
 	}
 
 	return nil
+}
+
+// rewriteLegacyNamespaceString preserves backwards compatibility for configs
+// that still use nomad.namespace as a scalar string by rewriting it to a
+// one-item list before decode.
+func rewriteLegacyNamespaceString(file string, src []byte) []byte {
+	type replacement struct {
+		start int
+		end   int
+	}
+
+	parsed, diags := hclsyntax.ParseConfig(src, file, hcl.InitialPos)
+	if diags.HasErrors() {
+		return src
+	}
+
+	body, ok := parsed.Body.(*hclsyntax.Body)
+	if !ok {
+		return src
+	}
+
+	replacements := make([]replacement, 0, len(body.Blocks))
+	for _, block := range body.Blocks {
+		if block.Type != "nomad" {
+			continue
+		}
+
+		attr, ok := block.Body.Attributes["namespace"]
+		if !ok {
+			continue
+		}
+
+		v, vDiags := attr.Expr.Value(nil)
+		if vDiags.HasErrors() || v.Type() != cty.String {
+			continue
+		}
+
+		rng := attr.Expr.Range()
+		if rng.Start.Byte < 0 || rng.End.Byte > len(src) || rng.Start.Byte >= rng.End.Byte {
+			continue
+		}
+
+		replacements = append(replacements, replacement{start: rng.Start.Byte, end: rng.End.Byte})
+	}
+
+	if len(replacements) == 0 {
+		return src
+	}
+
+	sort.Slice(replacements, func(i, j int) bool {
+		return replacements[i].start > replacements[j].start
+	})
+
+	for _, r := range replacements {
+		rewritten := make([]byte, 0, len(src)+2)
+		rewritten = append(rewritten, src[:r.start]...)
+		rewritten = append(rewritten, '[')
+		rewritten = append(rewritten, src[r.start:r.end]...)
+		rewritten = append(rewritten, ']')
+		rewritten = append(rewritten, src[r.end:]...)
+		src = rewritten
+	}
+
+	return src
 }
 
 func LoadPaths(paths []string) (*Agent, error) {

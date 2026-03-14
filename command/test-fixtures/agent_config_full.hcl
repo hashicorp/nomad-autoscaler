@@ -15,7 +15,7 @@ http {
 nomad {
   address         = "http://nomad_from_file.example.com:4646"
   region          = "file"
-  namespace       = ["staging"]
+  namespace       = "staging"
   token           = "TOKEN_FROM_FILE"
   http_auth       = "user:file"
   ca_cert         = "./ca-cert-from-file.pem"

@@ -175,11 +175,11 @@ func MergeDefaultWithAgentConfig(agentCfg *config.Nomad) *api.Config {
 	if agentCfg.Region != "" {
 		cfg.Region = agentCfg.Region
 	}
-	switch len(agentCfg.Namespace) {
+	switch len(agentCfg.Namespaces) {
 	case 1:
 		// Single namespace (including "*"): set it directly on the client so
 		// all API requests are scoped accordingly.
-		cfg.Namespace = agentCfg.Namespace[0]
+		cfg.Namespace = agentCfg.Namespaces[0]
 	case 0:
 		// Not configured: leave the client default / env-var value intact.
 	default:

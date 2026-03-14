@@ -513,7 +513,7 @@ func (c *AgentCommand) readConfig() (*config.Agent, []string) {
 	// Specify our Nomad client CLI flags.
 	flags.StringVar(&cmdConfig.Nomad.Address, "nomad-address", "", "")
 	flags.StringVar(&cmdConfig.Nomad.Region, "nomad-region", "", "")
-	flags.Var((*flaghelper.StringFlag)(&cmdConfig.Nomad.Namespace), "nomad-namespace", "")
+	flags.Var((*flaghelper.StringFlag)(&cmdConfig.Nomad.Namespaces), "nomad-namespace", "")
 	flags.StringVar(&cmdConfig.Nomad.Token, "nomad-token", "", "")
 	flags.StringVar(&cmdConfig.Nomad.HTTPAuth, "nomad-http-auth", "", "")
 	flags.StringVar(&cmdConfig.Nomad.CACert, "nomad-ca-cert", "", "")

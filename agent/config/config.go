@@ -135,14 +135,14 @@ type Nomad struct {
 	// Region to use.
 	Region string `hcl:"region,optional"`
 
-	// Namespace is the list of Nomad namespaces to monitor for scaling
+	// Namespaces is the list of Nomad namespaces to monitor for scaling
 	// policies. Accepts exact namespace names or "*" to monitor all
 	// namespaces. When a single namespace is provided the autoscaler
 	// restricts all Nomad API queries to that namespace. When multiple
 	// namespaces (or "*") are provided, policies are listed across all
 	// namespaces and filtered locally. Defaults to the namespace inferred
 	// from the Nomad client environment (typically "default").
-	Namespace []string `hcl:"namespace,optional"`
+	Namespaces []string `hcl:"namespace,optional"`
 
 	// Token is the SecretID of an ACL token to use to authenticate API
 	// requests with.
@@ -665,10 +665,10 @@ func (n *Nomad) merge(b *Nomad) *Nomad {
 	if b.Region != "" {
 		result.Region = b.Region
 	}
-	if len(b.Namespace) > 0 {
-		result.Namespace = b.Namespace
+	if len(b.Namespaces) > 0 {
+		result.Namespaces = b.Namespaces
 	}
-	result.Namespace = normalizeNamespaces(result.Namespace)
+	result.Namespaces = normalizeNamespaces(result.Namespaces)
 	if b.Token != "" {
 		result.Token = b.Token
 	}

@@ -138,7 +138,7 @@ func (a *Agent) reload() {
 	ps, ok := a.policySources[policy.SourceNameNomad]
 	if ok {
 		ps.(*nomadPolicy.Source).SetNomadClient(a.NomadClient)
-		ps.(*nomadPolicy.Source).SetNamespaces(a.config.Nomad.Namespace)
+		ps.(*nomadPolicy.Source).SetNamespaces(a.config.Nomad.Namespaces)
 	}
 	a.policyManager.ReloadSources()
 
@@ -167,7 +167,7 @@ func (a *Agent) setupPolicyManager(limiter *policy.Limiter) error {
 
 		switch policy.SourceName(s.Name) {
 		case policy.SourceNameNomad:
-			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.NomadClient, policyProcessor, a.config.Nomad.Namespace)
+			sources[policy.SourceNameNomad] = nomadPolicy.NewNomadSource(a.logger, a.NomadClient, policyProcessor, a.config.Nomad.Namespaces)
 		case policy.SourceNameFile:
 			// Only setup the file source if operators have configured a
 			// scaling policy directory to read from.

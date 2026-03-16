@@ -160,6 +160,13 @@ type ScalingPolicyCheck struct {
 	// the query window.
 	QueryWindowOffset time.Duration
 
+	// QueryInstant enables instant query evaluation semantics for this check.
+	//
+	// When true, the query is evaluated at a single point in time instead of
+	// over a range. This is source-dependent and currently used by supported
+	// APM plugins such as Prometheus.
+	QueryInstant bool
+
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
 	Strategy *ScalingPolicyStrategy
@@ -258,6 +265,7 @@ type FileDecodePolicyCheckDoc struct {
 	QueryWindowHCL       string `hcl:"query_window,optional"`
 	QueryWindowOffset    time.Duration
 	QueryWindowOffsetHCL string                 `hcl:"query_window_offset,optional"`
+	QueryInstant         bool                   `hcl:"query_instant,optional"`
 	OnError              string                 `hcl:"on_error,optional"`
 	Strategy             *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
@@ -303,6 +311,7 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
 	c.QueryWindowOffset = fdc.QueryWindowOffset
+	c.QueryInstant = fdc.QueryInstant
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

@@ -105,6 +105,75 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			expectedOutput: nil,
 			name:           "valid node_class horizontal cluster scaling policy",
 		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-valid",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "1",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant threshold check",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-missing-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-missing-trigger\": \"within_bounds_trigger\" must be set to 1 when query_instant is true"),
+				},
+			},
+			name: "invalid instant threshold check missing trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-invalid-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "5",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-invalid-trigger\": \"within_bounds_trigger\" must be set to 1 when query_instant is true"),
+				},
+			},
+			name: "invalid instant threshold check trigger not one",
+		},
 	}
 
 	pr := Processor{}

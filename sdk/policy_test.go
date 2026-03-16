@@ -189,6 +189,7 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 							QueryWindowHCL:       "1m",
 							QueryWindowOffset:    2 * time.Minute,
 							QueryWindowOffsetHCL: "2m",
+							QueryInstant:         true,
 							Strategy: &ScalingPolicyStrategy{
 								Name: "approach-velocity",
 								Config: map[string]string{
@@ -219,6 +220,7 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 						Query:             "how-fast-am-i-going",
 						QueryWindow:       time.Minute,
 						QueryWindowOffset: 2 * time.Minute,
+						QueryInstant:      true,
 						Strategy: &ScalingPolicyStrategy{
 							Name: "approach-velocity",
 							Config: map[string]string{

@@ -152,6 +152,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	// Parse query and source with _ to avoid panics.
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
+	queryInstant, _ := checkMap[keyQueryInstant].(bool)
 	on_error, _ := checkMap[keyOnError].(string)
 	group, _ := checkMap[keyGroup].(string)
 
@@ -170,6 +171,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 		Query:             query,
 		QueryWindow:       queryWindow,
 		QueryWindowOffset: queryWindowOffset,
+		QueryInstant:      queryInstant,
 		Source:            source,
 		Strategy:          strategy,
 		OnError:           on_error,

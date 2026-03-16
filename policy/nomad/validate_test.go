@@ -273,6 +273,41 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "policy.check.query_instant is not a bool",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:       "source",
+									keyQuery:        "query",
+									keyQueryInstant: "true",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"strategy": []interface{}{
+												map[string]interface{}{
+													"key": "value",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
 			name:        "policy.check.query is empty",
 			inputFile:   "invalid-empty-query",
 			expectError: true,

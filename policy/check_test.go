@@ -178,14 +178,11 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 	mockLooker := &mockAPMLooker{
 		t:     t,
 		query: testQuery,
-		timeRange: sdk.TimeRange{
-			From: now.Add(-testWindow),
-			To:   now,
-		},
 	}
 
 	tests := []struct {
 		name       string
+		instant    bool
 		metrics    sdk.TimestampedMetrics
 		queryError error
 		expResult  sdk.TimestampedMetrics
@@ -193,6 +190,13 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 	}{
 		{
 			name:      "valid_metrics_returned",
+			metrics:   testMetrics,
+			expErr:    nil,
+			expResult: testMetrics,
+		},
+		{
+			name:      "valid_metrics_returned_query_instant",
+			instant:   true,
 			metrics:   testMetrics,
 			expErr:    nil,
 			expResult: testMetrics,
@@ -214,6 +218,10 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockLooker.metrics = tc.metrics
 			mockLooker.err = tc.queryError
+			mockLooker.timeRange = sdk.TimeRange{From: now.Add(-testWindow), To: now}
+			if tc.instant {
+				mockLooker.timeRange = sdk.TimeRange{From: now, To: now}
+			}
 
 			check := &sdk.ScalingPolicyCheck{
 				Name:              "check",
@@ -221,6 +229,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				Query:             testQuery,
 				QueryWindow:       testWindow,
 				QueryWindowOffset: 0,
+				QueryInstant:      tc.instant,
 				Strategy: &sdk.ScalingPolicyStrategy{
 					Name: "strategy",
 				},

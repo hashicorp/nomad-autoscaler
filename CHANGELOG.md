@@ -2,6 +2,7 @@
 
 FEATURES:
 * **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)] 
+* **policy/plugin/apm/prometheus**: Add optional `query_instant` support for checks. When enabled, Prometheus queries are executed as instant queries; existing range-query behavior remains unchanged unless this field is explicitly set.
 
 ## 0.4.9 (January 6, 2026)
 

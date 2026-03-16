@@ -219,6 +219,15 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 		}
 	}
 
+	// Validate QueryInstant, if present.
+	//   1. QueryInstant should be a boolean value.
+	if queryInstant, ok := c[keyQueryInstant]; ok {
+		if _, isBool := queryInstant.(bool); !isBool {
+			result = multierror.Append(result,
+				fmt.Errorf("%s.%s must be bool, found %T", path, keyQueryInstant, queryInstant))
+		}
+	}
+
 	// Some strategy plugins do not require an APM
 	var strategyValidator validatorWithLabelFunc
 	if !queryOk && !sourceOk {

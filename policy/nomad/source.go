@@ -28,6 +28,7 @@ const (
 	keyQuery              = "query"
 	keyQueryWindow        = "query_window"
 	keyQueryWindowOffset  = "query_window_offset"
+	keyQueryInstant       = "query_instant"
 	keyEvaluationInterval = "evaluation_interval"
 	keyOnCheckError       = "on_check_error"
 	keyOnError            = "on_error"

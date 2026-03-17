@@ -406,6 +406,29 @@ func TestAgent_parseFile(t *testing.T) {
 	must.NoError(t, err)
 	must.NoError(t, parseFile(fh.Name(), cfg))
 	must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+
+	jsonFile, err := os.CreateTemp("", "nomad-autoscaler*.json")
+	must.NoError(t, err)
+	defer os.RemoveAll(jsonFile.Name())
+
+	// Legacy scalar JSON namespace should parse into a one-item []string.
+	cfg = &Agent{}
+	_, err = jsonFile.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(jsonFile.Name(), cfg))
+	must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+
+	// Reset the test file.
+	must.NoError(t, jsonFile.Truncate(0))
+	_, err = jsonFile.Seek(0, 0)
+	must.NoError(t, err)
+
+	// Native list JSON namespace should continue to parse.
+	cfg = &Agent{}
+	_, err = jsonFile.WriteString("{\"nomad\":{\"namespace\":[\"staging\",\"prod\"]}}")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(jsonFile.Name(), cfg))
+	must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
 }
 
 func TestConfig_Load(t *testing.T) {

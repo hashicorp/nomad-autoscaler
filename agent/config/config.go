@@ -4,6 +4,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -1073,9 +1074,7 @@ func parseFile(file string, cfg *Agent) error {
 		return err
 	}
 
-	if strings.EqualFold(filepath.Ext(file), ".hcl") {
-		src = rewriteLegacyNamespaceString(file, src)
-	}
+	src = rewriteLegacyNamespaceValue(file, src)
 
 	if err := hclsimple.Decode(file, src, nil, cfg); err != nil {
 		return err
@@ -1185,10 +1184,24 @@ func parseFile(file string, cfg *Agent) error {
 	return nil
 }
 
-// rewriteLegacyNamespaceString preserves backwards compatibility for configs
+// rewriteLegacyNamespaceValue preserves backwards compatibility for configs
 // that still use nomad.namespace as a scalar string by rewriting it to a
-// one-item list before decode.
-func rewriteLegacyNamespaceString(file string, src []byte) []byte {
+// one-item list before decode. It supports both HCL and JSON config syntax.
+func rewriteLegacyNamespaceValue(file string, src []byte) []byte {
+	ext := strings.ToLower(filepath.Ext(file))
+
+	if ext == ".json" {
+		return rewriteLegacyNamespaceJSON(src)
+	}
+
+	if rewritten := rewriteLegacyNamespaceHCL(file, src); !bytesEqual(rewritten, src) {
+		return rewritten
+	}
+
+	return rewriteLegacyNamespaceJSON(src)
+}
+
+func rewriteLegacyNamespaceHCL(file string, src []byte) []byte {
 	type replacement struct {
 		start int
 		end   int
@@ -1247,6 +1260,53 @@ func rewriteLegacyNamespaceString(file string, src []byte) []byte {
 	}
 
 	return src
+}
+
+func rewriteLegacyNamespaceJSON(src []byte) []byte {
+	var raw map[string]any
+	if err := json.Unmarshal(src, &raw); err != nil {
+		return src
+	}
+
+	nomadRaw, ok := raw["nomad"]
+	if !ok {
+		return src
+	}
+
+	nomad, ok := nomadRaw.(map[string]any)
+	if !ok {
+		return src
+	}
+
+	namespaceRaw, ok := nomad["namespace"]
+	if !ok {
+		return src
+	}
+
+	namespace, ok := namespaceRaw.(string)
+	if !ok {
+		return src
+	}
+
+	nomad["namespace"] = []string{namespace}
+	rewritten, err := json.Marshal(raw)
+	if err != nil {
+		return src
+	}
+
+	return rewritten
+}
+
+func bytesEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func LoadPaths(paths []string) (*Agent, error) {

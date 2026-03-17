@@ -13,6 +13,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -357,67 +358,54 @@ func TestAgent_Merge(t *testing.T) {
 
 func TestAgent_parseFile(t *testing.T) {
 	// Should receive a non-nil response as the file doesn't exist.
-	assert.NotNil(t, parseFile("/honeybadger/", &Agent{}))
+	must.NotNil(t, parseFile("/honeybadger/", &Agent{}))
 
 	// Create a temporary file for use.
 	fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
-	assert.Nil(t, err)
+	must.NoError(t, err)
 	defer os.RemoveAll(fh.Name())
 
 	// Write some nonsense content and expect to receive a non-nil response.
-	if _, err := fh.WriteString("¿qué?"); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.NotNil(t, parseFile(fh.Name(), &Agent{}))
+	_, err = fh.WriteString("¿qué?")
+	must.NoError(t, err)
+	must.NotNil(t, parseFile(fh.Name(), &Agent{}))
 
 	// Reset the test file.
-	if err := fh.Truncate(0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	if _, err := fh.Seek(0, 0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
 
 	// Write some valid content, and ensure this is read and parsed.
 	cfg := &Agent{}
 
-	if _, err := fh.WriteString("plugin_dir = \"/opt/nomad-autoscaler/plugins\""); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.Nil(t, parseFile(fh.Name(), cfg))
-	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+	_, err = fh.WriteString("plugin_dir = \"/opt/nomad-autoscaler/plugins\"")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
 
 	// Reset the test file.
-	if err := fh.Truncate(0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	if _, err := fh.Seek(0, 0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
 
 	// Legacy scalar namespace should parse into a one-item []string.
 	cfg = &Agent{}
-	if _, err := fh.WriteString("nomad { namespace = \"staging\" }"); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.Nil(t, parseFile(fh.Name(), cfg))
-	assert.Equal(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	_, err = fh.WriteString("nomad { namespace = \"staging\" }")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
 
 	// Reset the test file.
-	if err := fh.Truncate(0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	if _, err := fh.Seek(0, 0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
 
 	// Native list namespace should continue to parse.
 	cfg = &Agent{}
-	if _, err := fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }"); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.Nil(t, parseFile(fh.Name(), cfg))
-	assert.Equal(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+	_, err = fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
 }
 
 func TestConfig_Load(t *testing.T) {

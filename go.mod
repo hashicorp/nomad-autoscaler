@@ -27,6 +27,7 @@ require (
 	github.com/prometheus/common v0.67.5
 	github.com/shoenig/test v1.12.2
 	github.com/stretchr/testify v1.11.1
+	github.com/zclconf/go-cty v1.16.3
 	golang.org/x/text v0.34.0
 	golang.org/x/time v0.14.0
 	google.golang.org/api v0.269.0
@@ -118,7 +119,6 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
-	github.com/zclconf/go-cty v1.16.3
 	go.mongodb.org/mongo-driver v1.17.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect

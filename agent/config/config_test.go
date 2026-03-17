@@ -461,6 +461,118 @@ func TestConfig_Load(t *testing.T) {
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
 }
 
+func TestConfig_Load_BackwardCompatibilityAndFormats(t *testing.T) {
+	t.Run("single file hcl scalar namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = \"staging\" }")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file hcl list namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file json scalar namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.json")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file json list namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.json")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":[\"staging\",\"prod\"]}}")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file without nomad block", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("plugin_dir = \"/tmp/plugins\"")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.Eq(t, "/tmp/plugins", cfg.PluginDir)
+	})
+
+	t.Run("single file unsupported extension rejected", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.txt")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+		must.NoError(t, err)
+
+		_, err = Load(fh.Name())
+		must.Error(t, err)
+		if !strings.Contains(err.Error(), "Unsupported file format") {
+			t.Fatalf("expected unsupported format error, got: %v", err)
+		}
+	})
+
+	t.Run("single file duplicate nomad blocks rejected", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = \"staging\" }\nnomad { namespace = \"prod\" }")
+		must.NoError(t, err)
+
+		_, err = Load(fh.Name())
+		must.Error(t, err)
+	})
+
+	t.Run("directory load json scalar namespace", func(t *testing.T) {
+		dir, err := os.MkdirTemp("", "nomad-autoscaler")
+		must.NoError(t, err)
+		defer os.RemoveAll(dir)
+
+		jsonFile := filepath.Join(dir, "config1.json")
+		must.NoError(t, os.WriteFile(jsonFile, []byte("{\"nomad\":{\"namespace\":\"staging\"}}"), 0600))
+
+		cfg, err := Load(dir)
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
+}
+
 func TestAgent_loadDir(t *testing.T) {
 	// Should receive a non-nil response as the dir doesn't exist.
 	_, err := loadDir("/honeybadger/")

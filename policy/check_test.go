@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -40,9 +40,11 @@ type mockAPMLooker struct {
 	timeRange sdk.TimeRange
 	metrics   sdk.TimestampedMetrics
 	err       error
+	queryCalls int
 }
 
 func (m *mockAPMLooker) Query(query string, timeRange sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+	m.queryCalls++
 	must.StrContains(m.t, m.query, query)
 	must.Eq(m.t, m.timeRange, timeRange)
 
@@ -234,9 +236,75 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 				},
 			}, check)
 
-			result, err := handler.queryMetrics(context.Background())
+			result, err := handler.queryMetrics(context.Background(), nil)
 			must.Eq(t, tc.expResult, result)
 			must.True(t, errors.Is(err, tc.expErr))
 		})
 	}
+}
+
+func TestCheckHandler_runAPMQuery_UsesSharedCacheForIdenticalChecks(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2020, 1, 1, 0, 10, 0, 0, time.UTC)
+	}
+
+	now := nowFunc()
+	query := "rate(http_requests_total[5m])"
+	window := 10 * time.Minute
+	metrics := sdk.TimestampedMetrics{
+		{Timestamp: now.Add(-time.Minute), Value: 1.0},
+		{Timestamp: now, Value: 2.0},
+	}
+
+	mockLooker := &mockAPMLooker{
+		t:       t,
+		query:   query,
+		metrics: metrics,
+		timeRange: sdk.TimeRange{
+			From: now.Add(-window),
+			To:   now,
+		},
+	}
+
+	policy := &sdk.ScalingPolicy{ID: "testPolicy"}
+	cache := newQueryMetricsCache()
+
+	runnerA := newCheckRunner(&CheckRunnerConfig{
+		Log:           hclog.NewNullLogger(),
+		MetricsGetter: mockLooker,
+		Policy:        policy,
+	}, &sdk.ScalingPolicyCheck{
+		Name:              "check-a",
+		Source:            "mock",
+		Query:             query,
+		QueryWindow:       window,
+		QueryWindowOffset: 0,
+		Strategy: &sdk.ScalingPolicyStrategy{
+			Name: "strategy",
+		},
+	})
+
+	runnerB := newCheckRunner(&CheckRunnerConfig{
+		Log:           hclog.NewNullLogger(),
+		MetricsGetter: mockLooker,
+		Policy:        policy,
+	}, &sdk.ScalingPolicyCheck{
+		Name:              "check-b",
+		Source:            "mock",
+		Query:             query,
+		QueryWindow:       window,
+		QueryWindowOffset: 0,
+		Strategy: &sdk.ScalingPolicyStrategy{
+			Name: "strategy",
+		},
+	})
+
+	resultA, errA := runnerA.queryMetrics(context.Background(), cache)
+	must.NoError(t, errA)
+	resultB, errB := runnerB.queryMetrics(context.Background(), cache)
+	must.NoError(t, errB)
+
+	must.Eq(t, metrics, resultA)
+	must.Eq(t, metrics, resultB)
+	must.Eq(t, 1, mockLooker.queryCalls)
 }

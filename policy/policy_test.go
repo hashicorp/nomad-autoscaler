@@ -174,6 +174,44 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			},
 			name: "invalid instant threshold check trigger not one",
 		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-target-value-without-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "target-value",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant non-threshold check without trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "range-threshold-missing-trigger",
+						QueryInstant: false,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid non-instant threshold check missing trigger",
+		},
 	}
 
 	pr := Processor{}

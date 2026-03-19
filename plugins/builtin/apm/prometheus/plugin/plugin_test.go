@@ -87,6 +87,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, "user", username)
 				require.Equal(t, "pass", password)
+				require.Equal(t, "/api/v1/query_range", r.URL.Path)
 
 				// Verify request body.
 				r.ParseForm()
@@ -129,6 +130,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				// Verify request body.
 				r.ParseForm()
 				require.Equal(t, "nomad_client_allocated_memory", r.FormValue("query"))
+				require.Equal(t, "1610000000", r.FormValue("time"))
 
 				// Verify custom headers.
 				require.Equal(t, "true", r.Header.Get("test"))

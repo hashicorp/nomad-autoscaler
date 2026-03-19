@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -406,4 +407,26 @@ func Test_parseBlock(t *testing.T) {
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
+}
+
+func Test_parseCheck_QueryInstant(t *testing.T) {
+	check := parseCheck([]interface{}{
+		map[string]interface{}{
+			keySource:       "prometheus",
+			keyQuery:        "avg(up)",
+			keyQueryInstant: true,
+			keyStrategy: []interface{}{
+				map[string]interface{}{
+					"threshold": []interface{}{
+						map[string]interface{}{
+							"within_bounds_trigger": 1,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	must.NotNil(t, check)
+	must.True(t, check.QueryInstant)
 }

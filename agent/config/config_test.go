@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package config
@@ -13,6 +13,7 @@ import (
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/ptr"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -110,7 +111,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:       "https://nomad-new.systems:4646",
 			Region:        "moon-base-1",
-			Namespace:     "fra-mauro",
+			Namespaces:    []string{"fra-mauro"},
 			Token:         "super-secret-tokeny-thing",
 			HTTPAuth:      "admin:admin",
 			CACert:        "/etc/nomad.d/ca.crt",
@@ -215,7 +216,7 @@ func TestAgent_Merge(t *testing.T) {
 		Nomad: &Nomad{
 			Address:            "https://nomad-new.systems:4646",
 			Region:             "moon-base-1",
-			Namespace:          "fra-mauro",
+			Namespaces:         []string{"fra-mauro"},
 			Token:              "super-secret-tokeny-thing",
 			HTTPAuth:           "admin:admin",
 			CACert:             "/etc/nomad.d/ca.crt",
@@ -357,35 +358,77 @@ func TestAgent_Merge(t *testing.T) {
 
 func TestAgent_parseFile(t *testing.T) {
 	// Should receive a non-nil response as the file doesn't exist.
-	assert.NotNil(t, parseFile("/honeybadger/", &Agent{}))
+	must.NotNil(t, parseFile("/honeybadger/", &Agent{}))
 
 	// Create a temporary file for use.
 	fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
-	assert.Nil(t, err)
+	must.NoError(t, err)
 	defer os.RemoveAll(fh.Name())
 
 	// Write some nonsense content and expect to receive a non-nil response.
-	if _, err := fh.WriteString("¿qué?"); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.NotNil(t, parseFile(fh.Name(), &Agent{}))
+	_, err = fh.WriteString("¿qué?")
+	must.NoError(t, err)
+	must.NotNil(t, parseFile(fh.Name(), &Agent{}))
 
 	// Reset the test file.
-	if err := fh.Truncate(0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	if _, err := fh.Seek(0, 0); err != nil {
-		t.Fatalf("err: %s", err)
-	}
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
 
 	// Write some valid content, and ensure this is read and parsed.
 	cfg := &Agent{}
 
-	if _, err := fh.WriteString("plugin_dir = \"/opt/nomad-autoscaler/plugins\""); err != nil {
-		t.Fatalf("err: %s", err)
-	}
-	assert.Nil(t, parseFile(fh.Name(), cfg))
-	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+	_, err = fh.WriteString("plugin_dir = \"/opt/nomad-autoscaler/plugins\"")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+
+	// Reset the test file.
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
+
+	// Legacy scalar namespace should parse into a one-item []string.
+	cfg = &Agent{}
+	_, err = fh.WriteString("nomad { namespace = \"staging\" }")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+
+	// Reset the test file.
+	must.NoError(t, fh.Truncate(0))
+	_, err = fh.Seek(0, 0)
+	must.NoError(t, err)
+
+	// Native list namespace should continue to parse.
+	cfg = &Agent{}
+	_, err = fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(fh.Name(), cfg))
+	must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+
+	jsonFile, err := os.CreateTemp("", "nomad-autoscaler*.json")
+	must.NoError(t, err)
+	defer os.RemoveAll(jsonFile.Name())
+
+	// Legacy scalar JSON namespace should parse into a one-item []string.
+	cfg = &Agent{}
+	_, err = jsonFile.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(jsonFile.Name(), cfg))
+	must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+
+	// Reset the test file.
+	must.NoError(t, jsonFile.Truncate(0))
+	_, err = jsonFile.Seek(0, 0)
+	must.NoError(t, err)
+
+	// Native list JSON namespace should continue to parse.
+	cfg = &Agent{}
+	_, err = jsonFile.WriteString("{\"nomad\":{\"namespace\":[\"staging\",\"prod\"]}}")
+	must.NoError(t, err)
+	must.NoError(t, parseFile(jsonFile.Name(), cfg))
+	must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
 }
 
 func TestConfig_Load(t *testing.T) {
@@ -416,6 +459,118 @@ func TestConfig_Load(t *testing.T) {
 	cfg, err = Load(dir)
 	assert.Nil(t, err)
 	assert.Equal(t, "/opt/nomad-autoscaler/plugins", cfg.PluginDir)
+}
+
+func TestConfig_Load_BackwardCompatibilityAndFormats(t *testing.T) {
+	t.Run("single file hcl scalar namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = \"staging\" }")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file hcl list namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = [\"staging\", \"prod\"] }")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file json scalar namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.json")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file json list namespace", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.json")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":[\"staging\",\"prod\"]}}")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging", "prod"}, cfg.Nomad.Namespaces)
+	})
+
+	t.Run("single file without nomad block", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("plugin_dir = \"/tmp/plugins\"")
+		must.NoError(t, err)
+
+		cfg, err := Load(fh.Name())
+		must.NoError(t, err)
+		must.Eq(t, "/tmp/plugins", cfg.PluginDir)
+	})
+
+	t.Run("single file unsupported extension rejected", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.txt")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("{\"nomad\":{\"namespace\":\"staging\"}}")
+		must.NoError(t, err)
+
+		_, err = Load(fh.Name())
+		must.Error(t, err)
+		if !strings.Contains(err.Error(), "Unsupported file format") {
+			t.Fatalf("expected unsupported format error, got: %v", err)
+		}
+	})
+
+	t.Run("single file duplicate nomad blocks rejected", func(t *testing.T) {
+		fh, err := os.CreateTemp("", "nomad-autoscaler*.hcl")
+		must.NoError(t, err)
+		defer os.Remove(fh.Name())
+
+		_, err = fh.WriteString("nomad { namespace = \"staging\" }\nnomad { namespace = \"prod\" }")
+		must.NoError(t, err)
+
+		_, err = Load(fh.Name())
+		must.Error(t, err)
+	})
+
+	t.Run("directory load json scalar namespace", func(t *testing.T) {
+		dir, err := os.MkdirTemp("", "nomad-autoscaler")
+		must.NoError(t, err)
+		defer os.RemoveAll(dir)
+
+		jsonFile := filepath.Join(dir, "config1.json")
+		must.NoError(t, os.WriteFile(jsonFile, []byte("{\"nomad\":{\"namespace\":\"staging\"}}"), 0600))
+
+		cfg, err := Load(dir)
+		must.NoError(t, err)
+		must.NotNil(t, cfg.Nomad)
+		must.Eq(t, []string{"staging"}, cfg.Nomad.Namespaces)
+	})
 }
 
 func TestAgent_loadDir(t *testing.T) {

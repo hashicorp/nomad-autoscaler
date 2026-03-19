@@ -219,8 +219,7 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 		}
 	}
 
-	// Validate QueryInstant, if present.
-	//   1. QueryInstant should be a boolean value.
+	// Validate QueryInstant (boolean), if present.
 	if queryInstant, ok := c[keyQueryInstant]; ok {
 		if _, isBool := queryInstant.(bool); !isBool {
 			result = multierror.Append(result,

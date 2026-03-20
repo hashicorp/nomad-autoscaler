@@ -24,6 +24,8 @@ var nonMetricStrategies = map[string]bool{
 	plugins.InternalStrategyFixedValue: true,
 }
 
+const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
+
 // validateScalingPolicy validates an api.ScalingPolicy object from the Nomad API
 func validateScalingPolicy(policy *api.ScalingPolicy) error {
 	var result *multierror.Error
@@ -246,7 +248,38 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 		result = multierror.Append(result, strategyErrs)
 	}
 
+	if err := validateInstantThresholdTrigger(c, path); err != nil {
+		result = multierror.Append(result, err)
+	}
+
 	return result.ErrorOrNil()
+}
+
+func validateInstantThresholdTrigger(c map[string]interface{}, path string) error {
+	queryInstant, ok := c[keyQueryInstant].(bool)
+	if !ok || !queryInstant {
+		return nil
+	}
+
+	strategyBlocks := parseBlocks(c[keyStrategy])
+	thresholdBlock, ok := strategyBlocks[plugins.InternalStrategyThreshold]
+	if !ok {
+		return nil
+	}
+
+	thresholdConfig := parseBlock(thresholdBlock)
+	if thresholdConfig == nil {
+		return nil
+	}
+
+	trigger, ok := thresholdConfig[thresholdWithinBoundsTriggerConfigKey]
+	if !ok || fmt.Sprintf("%v", trigger) != "1" {
+		return fmt.Errorf("%s.%s[%s].%s must be set to 1 when %s is true",
+			path, keyStrategy, plugins.InternalStrategyThreshold,
+			thresholdWithinBoundsTriggerConfigKey, keyQueryInstant)
+	}
+
+	return nil
 }
 
 // validateStrategy validates strategy blocks within a policy check.

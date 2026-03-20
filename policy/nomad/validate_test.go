@@ -308,6 +308,79 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "policy.check.query_instant threshold missing within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:       "prometheus",
+									keyQuery:        "query",
+									keyQueryInstant: true,
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound": 0.1,
+													"delta":       1,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.query_instant threshold invalid within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:       "prometheus",
+									keyQuery:        "query",
+									keyQueryInstant: true,
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound":           0.1,
+													"delta":                 1,
+													"within_bounds_trigger": 3,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
 			name:        "policy.check.query is empty",
 			inputFile:   "invalid-empty-query",
 			expectError: true,

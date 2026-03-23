@@ -265,7 +265,6 @@ type FileDecodePolicyCheckDoc struct {
 	QueryWindowHCL       string `hcl:"query_window,optional"`
 	QueryWindowOffset    time.Duration
 	QueryWindowOffsetHCL string                 `hcl:"query_window_offset,optional"`
-	QueryInstant         bool                   `hcl:"query_instant,optional"`
 	OnError              string                 `hcl:"on_error,optional"`
 	Strategy             *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
@@ -311,7 +310,7 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
 	c.QueryWindowOffset = fdc.QueryWindowOffset
-	c.QueryInstant = fdc.QueryInstant
+	c.QueryInstant = fdc.QueryWindowHCL == "instant"
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

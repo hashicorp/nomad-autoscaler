@@ -213,20 +213,18 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 	}
 
 	// Validate QueryWindow, if present.
-	//   1. QueryWindow should be a valid time duration.
+	//   1. QueryWindow should be a valid time duration or the literal "instant".
 	queryWindow, ok := c[keyQueryWindow]
 	if ok {
-		if err := validateDuration(queryWindow, path+"."+keyQueryWindow); err != nil {
+		if err := validateDurationOrInstant(queryWindow, path+"."+keyQueryWindow); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
 
-	// Validate QueryInstant (boolean), if present.
-	if queryInstant, ok := c[keyQueryInstant]; ok {
-		if _, isBool := queryInstant.(bool); !isBool {
-			result = multierror.Append(result,
-				fmt.Errorf("%s.%s must be bool, found %T", path, keyQueryInstant, queryInstant))
-		}
+	if removedQueryInstant, ok := c[removedKeyQueryInstant]; ok {
+		result = multierror.Append(result,
+			fmt.Errorf("%s.%s is not supported; use %s.%s = %q", path, removedKeyQueryInstant, path, keyQueryWindow, "instant"))
+		_ = removedQueryInstant
 	}
 
 	// Some strategy plugins do not require an APM
@@ -256,8 +254,8 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 }
 
 func validateInstantThresholdTrigger(c map[string]interface{}, path string) error {
-	queryInstant, ok := c[keyQueryInstant].(bool)
-	if !ok || !queryInstant {
+	queryWindow, ok := c[keyQueryWindow].(string)
+	if !ok || queryWindow != "instant" {
 		return nil
 	}
 
@@ -274,9 +272,9 @@ func validateInstantThresholdTrigger(c map[string]interface{}, path string) erro
 
 	trigger, ok := thresholdConfig[thresholdWithinBoundsTriggerConfigKey]
 	if !ok || fmt.Sprintf("%v", trigger) != "1" {
-		return fmt.Errorf("%s.%s[%s].%s must be set to 1 when %s is true",
+		return fmt.Errorf("%s.%s[%s].%s must be set to 1 when %s.%s = %q",
 			path, keyStrategy, plugins.InternalStrategyThreshold,
-			thresholdWithinBoundsTriggerConfigKey, keyQueryInstant)
+			thresholdWithinBoundsTriggerConfigKey, path, keyQueryWindow, "instant")
 	}
 
 	return nil
@@ -343,6 +341,23 @@ func validateDuration(d interface{}, path string) error {
 
 	if _, err := time.ParseDuration(dStr); err != nil {
 		return fmt.Errorf(`%s must have time.Duration format, found "%s"`, path, dStr)
+	}
+
+	return nil
+}
+
+func validateDurationOrInstant(d interface{}, path string) error {
+	dStr, ok := d.(string)
+	if !ok {
+		return fmt.Errorf("%s must be string, found %T", path, d)
+	}
+
+	if dStr == "instant" {
+		return nil
+	}
+
+	if _, err := time.ParseDuration(dStr); err != nil {
+		return fmt.Errorf("%s must have time.Duration format or be \"instant\", found %q", path, dStr)
 	}
 
 	return nil

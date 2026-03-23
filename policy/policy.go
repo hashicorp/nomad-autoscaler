@@ -94,23 +94,23 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 		triggerRaw, ok := c.Strategy.Config[thresholdWithinBoundsTriggerConfigKey]
 		if !ok {
 			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_instant is true",
-					c.Name, thresholdWithinBoundsTriggerConfigKey))
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
 			continue
 		}
 
 		triggerValue, err := strconv.Atoi(triggerRaw)
 		if err != nil {
 			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_instant is true",
-					c.Name, thresholdWithinBoundsTriggerConfigKey))
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
 			continue
 		}
 
 		if triggerValue != 1 {
 			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_instant is true",
-					c.Name, thresholdWithinBoundsTriggerConfigKey))
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
 		}
 	}
 

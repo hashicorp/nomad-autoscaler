@@ -24,20 +24,20 @@ import (
 // Keys represent the scaling policy document keys and help translate
 // the opaque object into a usable autoscaling policy.
 const (
-	keySource             = "source"
-	keyQuery              = "query"
-	keyQueryWindow        = "query_window"
-	keyQueryWindowOffset  = "query_window_offset"
-	keyQueryInstant       = "query_instant"
-	keyEvaluationInterval = "evaluation_interval"
-	keyOnCheckError       = "on_check_error"
-	keyOnError            = "on_error"
-	keyTarget             = "target"
-	keyChecks             = "check"
-	keyGroup              = "group"
-	keyStrategy           = "strategy"
-	keyCooldown           = "cooldown"
-	keyCooldownOnScaleUp  = "cooldown_on_scale_up"
+	keySource              = "source"
+	keyQuery               = "query"
+	keyQueryWindow         = "query_window"
+	keyQueryWindowOffset   = "query_window_offset"
+	keyEvaluationInterval  = "evaluation_interval"
+	keyOnCheckError        = "on_check_error"
+	keyOnError             = "on_error"
+	keyTarget              = "target"
+	keyChecks              = "check"
+	keyGroup               = "group"
+	keyStrategy            = "strategy"
+	keyCooldown            = "cooldown"
+	keyCooldownOnScaleUp   = "cooldown_on_scale_up"
+	removedKeyQueryInstant = "query_instant"
 )
 
 // Ensure NomadSource satisfies the Source interface.

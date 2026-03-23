@@ -2,7 +2,7 @@
 
 FEATURES:
 * **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)]
-* **policy/plugin/apm/prometheus**: Add optional `query_instant` support for checks. When enabled, Prometheus queries are executed as instant queries; existing range-query behavior remains unchanged unless this field is explicitly set. For threshold strategy with query_instant, within_bounds_trigger must be set to 1.[[GH-1256](https://github.com/hashicorp/nomad-autoscaler/pull/1256)]
+* **policy/plugin/apm/prometheus**: Add `query_window = "instant"` support for checks. When set, Prometheus queries are executed as instant queries; existing range-query behavior remains unchanged for duration-based query windows. For threshold strategy with `query_window = "instant"`, `within_bounds_trigger` must be set to 1.[[GH-1256](https://github.com/hashicorp/nomad-autoscaler/pull/1256)]
 
 IMPROVEMENTS:
 * agent: The `nomad.namespace` config field and `-nomad-namespace` CLI flag now accept multiple values, allowing the autoscaler to monitor scaling policies across several Nomad namespaces. Use `*` to monitor all namespaces. When a single namespace is provided the existing behaviour is preserved. [[GH-1251](https://github.com/hashicorp/nomad-autoscaler/pull/1251)]

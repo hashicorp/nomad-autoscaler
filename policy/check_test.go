@@ -197,7 +197,7 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 			expResult: testMetrics,
 		},
 		{
-			name:      "valid_metrics_returned_query_instant",
+			name:      "valid_metrics_returned_instant_query_window",
 			instant:   true,
 			metrics:   testMetrics,
 			expErr:    nil,

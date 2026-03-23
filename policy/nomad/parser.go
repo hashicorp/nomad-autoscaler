@@ -152,15 +152,19 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	// Parse query and source with _ to avoid panics.
 	query, _ := checkMap[keyQuery].(string)
 	source, _ := checkMap[keySource].(string)
-	queryInstant, _ := checkMap[keyQueryInstant].(bool)
 	on_error, _ := checkMap[keyOnError].(string)
 	group, _ := checkMap[keyGroup].(string)
 
 	// Parse query_window and query_window_offset ignoring errors since we
 	// assume policy has been validated.
 	var queryWindow, queryWindowOffset time.Duration
+	var queryInstant bool
 	if queryWindowStr, ok := checkMap[keyQueryWindow].(string); ok {
-		queryWindow, _ = time.ParseDuration(queryWindowStr)
+		if queryWindowStr == "instant" {
+			queryInstant = true
+		} else {
+			queryWindow, _ = time.ParseDuration(queryWindowStr)
+		}
 	}
 	if queryWindowOffsetStr, ok := checkMap[keyQueryWindowOffset].(string); ok {
 		queryWindowOffset, _ = time.ParseDuration(queryWindowOffsetStr)

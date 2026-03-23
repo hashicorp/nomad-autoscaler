@@ -409,12 +409,12 @@ func Test_parseBlock(t *testing.T) {
 	}
 }
 
-func Test_parseCheck_QueryInstant(t *testing.T) {
+func Test_parseCheck_QueryWindowInstant(t *testing.T) {
 	check := parseCheck([]interface{}{
 		map[string]interface{}{
-			keySource:       "prometheus",
-			keyQuery:        "avg(up)",
-			keyQueryInstant: true,
+			keySource:      "prometheus",
+			keyQuery:       "avg(up)",
+			keyQueryWindow: "instant",
 			keyStrategy: []interface{}{
 				map[string]interface{}{
 					"threshold": []interface{}{

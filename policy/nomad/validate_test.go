@@ -273,7 +273,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.check.query_instant is not a bool",
+			name: "policy.check.query_instant is not supported",
 			input: &api.ScalingPolicy{
 				ID:   "id",
 				Type: "horizontal",
@@ -287,9 +287,9 @@ func Test_validateScalingPolicy(t *testing.T) {
 						map[string]interface{}{
 							"check": []interface{}{
 								map[string]interface{}{
-									keySource:       "source",
-									keyQuery:        "query",
-									keyQueryInstant: "true",
+									keySource:              "source",
+									keyQuery:               "query",
+									removedKeyQueryInstant: true,
 									keyStrategy: []interface{}{
 										map[string]interface{}{
 											"strategy": []interface{}{
@@ -308,7 +308,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.check.query_instant threshold missing within_bounds_trigger",
+			name: "policy.check.query_window instant threshold missing within_bounds_trigger",
 			input: &api.ScalingPolicy{
 				ID:   "id",
 				Type: "horizontal",
@@ -322,9 +322,9 @@ func Test_validateScalingPolicy(t *testing.T) {
 						map[string]interface{}{
 							"check": []interface{}{
 								map[string]interface{}{
-									keySource:       "prometheus",
-									keyQuery:        "query",
-									keyQueryInstant: true,
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
 									keyStrategy: []interface{}{
 										map[string]interface{}{
 											"threshold": []interface{}{
@@ -344,7 +344,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.check.query_instant threshold invalid within_bounds_trigger",
+			name: "policy.check.query_window instant threshold invalid within_bounds_trigger",
 			input: &api.ScalingPolicy{
 				ID:   "id",
 				Type: "horizontal",
@@ -358,9 +358,9 @@ func Test_validateScalingPolicy(t *testing.T) {
 						map[string]interface{}{
 							"check": []interface{}{
 								map[string]interface{}{
-									keySource:       "prometheus",
-									keyQuery:        "query",
-									keyQueryInstant: true,
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
 									keyStrategy: []interface{}{
 										map[string]interface{}{
 											"threshold": []interface{}{

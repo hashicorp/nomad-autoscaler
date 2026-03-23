@@ -70,11 +70,13 @@ func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 		check := decodePolicy.Doc.Checks[i]
 
 		if check.QueryWindowHCL != "" {
-			w, err := time.ParseDuration(check.QueryWindowHCL)
-			if err != nil {
-				return err
+			if check.QueryWindowHCL != "instant" {
+				w, err := time.ParseDuration(check.QueryWindowHCL)
+				if err != nil {
+					return err
+				}
+				decodePolicy.Doc.Checks[i].QueryWindow = w
 			}
-			decodePolicy.Doc.Checks[i].QueryWindow = w
 		}
 
 		if check.QueryWindowOffsetHCL != "" {

@@ -144,7 +144,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			},
 			expectedOutput: &multierror.Error{
 				Errors: []error{
-					errors.New("check \"instant-threshold-missing-trigger\": \"within_bounds_trigger\" must be set to 1 when query_instant is true"),
+					errors.New("check \"instant-threshold-missing-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
 				},
 			},
 			name: "invalid instant threshold check missing trigger",
@@ -169,7 +169,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			},
 			expectedOutput: &multierror.Error{
 				Errors: []error{
-					errors.New("check \"instant-threshold-invalid-trigger\": \"within_bounds_trigger\" must be set to 1 when query_instant is true"),
+					errors.New("check \"instant-threshold-invalid-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
 				},
 			},
 			name: "invalid instant threshold check trigger not one",

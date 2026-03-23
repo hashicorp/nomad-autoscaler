@@ -35,11 +35,11 @@ func (m *mockStrategyRunner) Run(eval *sdk.ScalingCheckEvaluation, count int64) 
 }
 
 type mockAPMLooker struct {
-	t         *testing.T
-	query     string
-	timeRange sdk.TimeRange
-	metrics   sdk.TimestampedMetrics
-	err       error
+	t          *testing.T
+	query      string
+	timeRange  sdk.TimeRange
+	metrics    sdk.TimestampedMetrics
+	err        error
 	queryCalls int
 }
 

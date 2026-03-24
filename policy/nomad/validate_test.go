@@ -273,41 +273,6 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "policy.check.query_instant is not supported",
-			input: &api.ScalingPolicy{
-				ID:   "id",
-				Type: "horizontal",
-				Target: map[string]string{
-					"key": "value",
-				},
-				Min: ptr.Of(int64(1)),
-				Max: ptr.Of(int64(5)),
-				Policy: map[string]interface{}{
-					keyChecks: []interface{}{
-						map[string]interface{}{
-							"check": []interface{}{
-								map[string]interface{}{
-									keySource:              "source",
-									keyQuery:               "query",
-									removedKeyQueryInstant: true,
-									keyStrategy: []interface{}{
-										map[string]interface{}{
-											"strategy": []interface{}{
-												map[string]interface{}{
-													"key": "value",
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			expectError: true,
-		},
-		{
 			name: "policy.check.query_window instant threshold missing within_bounds_trigger",
 			input: &api.ScalingPolicy{
 				ID:   "id",

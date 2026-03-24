@@ -221,12 +221,6 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 		}
 	}
 
-	if removedQueryInstant, ok := c[removedKeyQueryInstant]; ok {
-		result = multierror.Append(result,
-			fmt.Errorf("%s.%s is not supported; use %s.%s = %q", path, removedKeyQueryInstant, path, keyQueryWindow, "instant"))
-		_ = removedQueryInstant
-	}
-
 	// Some strategy plugins do not require an APM
 	var strategyValidator validatorWithLabelFunc
 	if !queryOk && !sourceOk {

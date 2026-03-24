@@ -157,6 +157,10 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 }
 
 func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	if r.From.Equal(r.To) {
+		return nil, fmt.Errorf("query_window = %q is not supported by %s", "instant", pluginName)
+	}
+
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 

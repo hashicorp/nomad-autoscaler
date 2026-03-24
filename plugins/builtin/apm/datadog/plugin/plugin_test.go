@@ -244,3 +244,17 @@ func TestAPMPlugin_Query(t *testing.T) {
 		})
 	}
 }
+
+func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
+	plugin := NewDatadogPlugin(hclog.NewNullLogger())
+	err := plugin.SetConfig(map[string]string{
+		configKeyClientAPPKey: "app",
+		configKeyClientAPIKey: "key",
+	})
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	_, err = plugin.Query("avg:nomad.client.allocated.memory", sdk.TimeRange{From: now, To: now})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `query_window = "instant" is not supported by datadog`)
+}

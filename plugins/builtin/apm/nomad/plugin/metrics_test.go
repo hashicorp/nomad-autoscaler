@@ -6,7 +6,9 @@ package plugin
 import (
 	"errors"
 	"testing"
+	"time"
 
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -55,4 +57,12 @@ func Test_validateMetric(t *testing.T) {
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
+}
+
+func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
+	apmPlugin := &APMPlugin{}
+	now := time.Now().UTC()
+
+	_, err := apmPlugin.Query("taskgroup_avg_cpu/group/job@default", sdk.TimeRange{From: now, To: now})
+	assert.EqualError(t, err, `query_window = "instant" is not supported by nomad-apm`)
 }

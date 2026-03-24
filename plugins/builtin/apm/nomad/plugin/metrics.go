@@ -36,7 +36,13 @@ const (
 // Query satisfies the Query function on the apm.APM interface.
 // The Nomad Metrics API doesn't provide historical data, so time range
 // for the query is not used.
-func (a *APMPlugin) Query(q string, _ sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) {
+	// The Nomad APM plugin only serves current-state metrics and does not
+	// support query_window = "instant" semantics.
+	if r.From.Equal(r.To) {
+		return nil, fmt.Errorf("query_window = %q is not supported by %s", "instant", pluginName)
+	}
+
 	// Split the input query so we can understand which query type we are
 	// dealing with.
 	querySplit := strings.Split(q, "_")

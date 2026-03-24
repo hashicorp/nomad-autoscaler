@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -104,6 +104,113 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			},
 			expectedOutput: nil,
 			name:           "valid node_class horizontal cluster scaling policy",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-valid",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "1",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant threshold check",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-missing-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-missing-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
+				},
+			},
+			name: "invalid instant threshold check missing trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-invalid-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "5",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-invalid-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
+				},
+			},
+			name: "invalid instant threshold check trigger not one",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-target-value-without-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "target-value",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant non-threshold check without trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "range-threshold-missing-trigger",
+						QueryInstant: false,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid non-instant threshold check missing trigger",
 		},
 	}
 

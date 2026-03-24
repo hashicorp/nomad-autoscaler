@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package sdk
@@ -160,6 +160,13 @@ type ScalingPolicyCheck struct {
 	// the query window.
 	QueryWindowOffset time.Duration
 
+	// QueryInstant requests point-in-time evaluation for this check.
+	//
+	// When true, the query is evaluated at a single timestamp instead of over
+	// QueryWindow. This behavior depends on the source plugin. For Prometheus,
+	// this maps to the instant query API.
+	QueryInstant bool
+
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
 	Strategy *ScalingPolicyStrategy
@@ -303,6 +310,7 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
 	c.QueryWindowOffset = fdc.QueryWindowOffset
+	c.QueryInstant = fdc.QueryWindowHCL == "instant"
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

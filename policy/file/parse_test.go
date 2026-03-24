@@ -1,9 +1,10 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package file
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -132,4 +133,62 @@ func Test_decodeFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_decodePolicyDoc_QueryWindowInstant(t *testing.T) {
+	decodePolicy := &sdk.FileDecodeScalingPolicy{
+		Doc: &sdk.FileDecodePolicyDoc{
+			Checks: []*sdk.FileDecodePolicyCheckDoc{{
+				QueryWindowHCL:       "instant",
+				QueryWindowOffsetHCL: "10m",
+			}},
+		},
+	}
+
+	err := decodePolicyDoc(decodePolicy)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Duration(0), decodePolicy.Doc.Checks[0].QueryWindow)
+	assert.Equal(t, 10*time.Minute, decodePolicy.Doc.Checks[0].QueryWindowOffset)
+
+	translated := &sdk.ScalingPolicyCheck{}
+	decodePolicy.Doc.Checks[0].Translate(translated)
+	assert.True(t, translated.QueryInstant)
+	assert.Equal(t, time.Duration(0), translated.QueryWindow)
+	assert.Equal(t, 10*time.Minute, translated.QueryWindowOffset)
+}
+
+func Test_decodePolicyDoc_QueryWindowDuration(t *testing.T) {
+	decodePolicy := &sdk.FileDecodeScalingPolicy{
+		Doc: &sdk.FileDecodePolicyDoc{
+			Checks: []*sdk.FileDecodePolicyCheckDoc{{
+				QueryWindowHCL:       "5m",
+				QueryWindowOffsetHCL: "10m",
+			}},
+		},
+	}
+
+	err := decodePolicyDoc(decodePolicy)
+	assert.NoError(t, err)
+	assert.Equal(t, 5*time.Minute, decodePolicy.Doc.Checks[0].QueryWindow)
+	assert.Equal(t, 10*time.Minute, decodePolicy.Doc.Checks[0].QueryWindowOffset)
+
+	translated := &sdk.ScalingPolicyCheck{}
+	decodePolicy.Doc.Checks[0].Translate(translated)
+	assert.False(t, translated.QueryInstant)
+	assert.Equal(t, 5*time.Minute, translated.QueryWindow)
+	assert.Equal(t, 10*time.Minute, translated.QueryWindowOffset)
+}
+
+func Test_decodePolicyDoc_QueryWindowInvalid(t *testing.T) {
+	decodePolicy := &sdk.FileDecodeScalingPolicy{
+		Doc: &sdk.FileDecodePolicyDoc{
+			Checks: []*sdk.FileDecodePolicyCheckDoc{{
+				QueryWindowHCL: "not-a-duration",
+			}},
+		},
+	}
+
+	err := decodePolicyDoc(decodePolicy)
+	assert.Error(t, err)
+	assert.True(t, strings.Contains(err.Error(), "not-a-duration"))
 }

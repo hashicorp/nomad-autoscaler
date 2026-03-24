@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -270,6 +270,79 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name:        "policy.check.query_window is not a duration",
 			inputFile:   "invalid-query-window2",
+			expectError: true,
+		},
+		{
+			name: "policy.check.query_window instant threshold missing within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound": 0.1,
+													"delta":       1,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.query_window instant threshold invalid within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound":           0.1,
+													"delta":                 1,
+													"within_bounds_trigger": 3,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
 			expectError: true,
 		},
 		{

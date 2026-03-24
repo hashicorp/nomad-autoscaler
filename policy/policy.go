@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -6,6 +6,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	multierror "github.com/hashicorp/go-multierror"
@@ -14,6 +15,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
+
+const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
 
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
@@ -77,6 +80,38 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 	}
 	if p.Min > p.Max {
 		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
+	}
+
+	for _, c := range p.Checks {
+		if c == nil || !c.QueryInstant || c.Strategy == nil {
+			continue
+		}
+
+		if c.Strategy.Name != plugins.InternalStrategyThreshold {
+			continue
+		}
+
+		triggerRaw, ok := c.Strategy.Config[thresholdWithinBoundsTriggerConfigKey]
+		if !ok {
+			mErr = multierror.Append(mErr,
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+			continue
+		}
+
+		triggerValue, err := strconv.Atoi(triggerRaw)
+		if err != nil {
+			mErr = multierror.Append(mErr,
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+			continue
+		}
+
+		if triggerValue != 1 {
+			mErr = multierror.Append(mErr,
+				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+		}
 	}
 
 	return mErr.ErrorOrNil()

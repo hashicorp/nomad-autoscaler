@@ -191,6 +191,9 @@ func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCach
 	// Calculate query range from the query window defined in the ch.check.
 	to := nowFunc().Add(-ch.check.QueryWindowOffset)
 	from := to.Add(-ch.check.QueryWindow)
+	if ch.check.QueryInstant {
+		from = to
+	}
 	r := sdk.TimeRange{From: from, To: to}
 
 	var err error

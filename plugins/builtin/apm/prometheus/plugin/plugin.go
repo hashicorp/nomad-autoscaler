@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -140,8 +140,18 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	promRange := v1.Range{Start: r.From, End: r.To, Step: time.Second}
-	result, warnings, err := v1api.QueryRange(ctx, q, promRange)
+	var (
+		result   model.Value
+		warnings v1.Warnings
+		err      error
+	)
+
+	if r.From.Equal(r.To) {
+		result, warnings, err = v1api.Query(ctx, q, r.To)
+	} else {
+		promRange := v1.Range{Start: r.From, End: r.To, Step: time.Second}
+		result, warnings, err = v1api.QueryRange(ctx, q, promRange)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query: %v", err)
 	}

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -158,8 +158,13 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 	// Parse query_window and query_window_offset ignoring errors since we
 	// assume policy has been validated.
 	var queryWindow, queryWindowOffset time.Duration
+	var queryInstant bool
 	if queryWindowStr, ok := checkMap[keyQueryWindow].(string); ok {
-		queryWindow, _ = time.ParseDuration(queryWindowStr)
+		if queryWindowStr == "instant" {
+			queryInstant = true
+		} else {
+			queryWindow, _ = time.ParseDuration(queryWindowStr)
+		}
 	}
 	if queryWindowOffsetStr, ok := checkMap[keyQueryWindowOffset].(string); ok {
 		queryWindowOffset, _ = time.ParseDuration(queryWindowOffsetStr)
@@ -170,6 +175,7 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 		Query:             query,
 		QueryWindow:       queryWindow,
 		QueryWindowOffset: queryWindowOffset,
+		QueryInstant:      queryInstant,
 		Source:            source,
 		Strategy:          strategy,
 		OnError:           on_error,

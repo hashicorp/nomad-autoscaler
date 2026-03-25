@@ -180,6 +180,10 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 // The timeRange parameter is logged but not automatically applied.
 // Example: "SELECT mean(cpu) FROM metrics WHERE time >= now() - 10m"
 func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	if r.From.Equal(r.To) {
+		return nil, fmt.Errorf("query_window = %q is not supported by %s", "instant", pluginName)
+	}
+
 	a.logger.Debug("querying InfluxDB", "query", q, "range", r)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

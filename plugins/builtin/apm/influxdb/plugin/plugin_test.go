@@ -301,6 +301,20 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}
 }
 
+func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
+	plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
+	err := plugin.SetConfig(map[string]string{
+		configKeyAddress:  "http://localhost:8086",
+		configKeyDatabase: "telegraf",
+	})
+	require.NoError(t, err)
+
+	now := time.Now().UTC()
+	_, err = plugin.Query("SELECT mean(usage_idle) FROM cpu", sdk.TimeRange{From: now, To: now})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `query_window = "instant" is not supported by influxdb`)
+}
+
 func TestAPMPlugin_Query_Errors(t *testing.T) {
 	testCases := []struct {
 		name         string

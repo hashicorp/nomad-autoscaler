@@ -429,9 +429,14 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	must.NoError(t, handler.loadCheckRunners())
 
-	go handler.Run(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handler.Run(ctx)
+	}()
 	time.Sleep(25 * time.Millisecond)
 	cancel()
+	<-done
 
 	select {
 	case err := <-errCh:
@@ -512,9 +517,14 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 
 	must.NoError(t, handler.loadCheckRunners())
 
-	go handler.Run(ctx)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		handler.Run(ctx)
+	}()
 	time.Sleep(30 * time.Millisecond)
 	cancel()
+	<-done
 
 	must.False(t, mtc.getScaleCalled())
 	must.Eq(t, StateIdle, handler.getState())

@@ -21,11 +21,13 @@ type mockStrategyRunner struct {
 	t         *testing.T
 	count     int64
 	direction sdk.ScaleDirection
+	runCalls  int
 
 	err error
 }
 
 func (m *mockStrategyRunner) Run(eval *sdk.ScalingCheckEvaluation, count int64) (*sdk.ScalingCheckEvaluation, error) {
+	m.runCalls++
 	test.NotNil(m.t, eval)
 	test.NotNil(m.t, eval.Metrics)
 	eval.Action.Count = m.count
@@ -316,4 +318,36 @@ func TestCheckHandler_runAPMQuery_UsesSharedCacheForIdenticalChecks(t *testing.T
 	must.Eq(t, metrics, resultA)
 	must.Eq(t, metrics, resultB)
 	must.Eq(t, 1, mockLooker.queryCalls)
+}
+
+func TestCheckHandler_runCheckAndCapCount_OutsideSchedule(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
+	}
+
+	sr := &mockStrategyRunner{t: t, count: 10, direction: sdk.ScaleDirectionUp}
+	ml := &mockAPMLooker{t: t, query: "query", metrics: sdk.TimestampedMetrics{{Timestamp: nowFunc(), Value: 1}}}
+
+	runner := newCheckRunner(&CheckRunnerConfig{
+		Log:            hclog.NewNullLogger(),
+		StrategyRunner: sr,
+		MetricsGetter:  ml,
+		Policy:         testPolicy,
+	}, &sdk.ScalingPolicyCheck{
+		Name:        "scheduled-check",
+		Source:      "mock",
+		Query:       "query",
+		QueryWindow: time.Minute,
+		Schedule: &sdk.ScalingPolicySchedule{
+			Start:    "0 9 * * *",
+			Duration: "30m",
+		},
+		Strategy: &sdk.ScalingPolicyStrategy{Name: "strategy"},
+	})
+
+	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
+	must.NoError(t, err)
+	must.Eq(t, sdk.ScalingAction{}, action)
+	must.Eq(t, 0, ml.queryCalls)
+	must.Eq(t, 0, sr.runCalls)
 }

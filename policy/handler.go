@@ -101,6 +101,8 @@ type Handler struct {
 
 	pm dependencyGetter
 
+	policySchedule *compiledSchedule
+
 	// Ent only field
 	evaluateAfter       time.Duration
 	historicalAPMGetter HistoricalAPMGetter
@@ -194,6 +196,11 @@ func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 }
 
 func (h *Handler) loadCheckRunners() error {
+	compiledPolicySchedule, err := compileSchedule(h.policy.Schedule)
+	if err != nil {
+		return fmt.Errorf("failed to compile policy schedule: %w", err)
+	}
+
 	runners := []checker{}
 
 	switch h.policy.Type {
@@ -233,6 +240,7 @@ func (h *Handler) loadCheckRunners() error {
 
 	// Do the update as a single operation to avoid partial updates.
 	h.checkRunners = runners
+	h.policySchedule = compiledPolicySchedule
 	return nil
 }
 
@@ -263,6 +271,10 @@ func (h *Handler) Run(ctx context.Context) {
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
+			if h.policySchedule != nil && !h.policySchedule.activeAt(nowFunc()) {
+				h.log.Debug("skipping evaluation, outside schedule window")
+				continue
+			}
 
 			currentStatus, err := h.runTargetStatus()
 			if err != nil {
@@ -404,17 +416,21 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	h.policyLock.Lock()
 	defer h.policyLock.Unlock()
 
+	previousPolicy := h.policy
+	h.policy = updatedPolicy
+
 	// Clear existing check handlers and load new ones.
 	h.checkRunners = nil
 
 	err := h.loadCheckRunners()
 	if err != nil {
+		h.policy = previousPolicy
+		_ = h.loadCheckRunners()
 		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
 		return
 	}
 
 	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
-	h.policy = updatedPolicy
 }
 
 // applyMutators applies the mutators registered with the handler in order and

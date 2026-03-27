@@ -398,6 +398,48 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
+func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	updatesCh := make(chan *sdk.ScalingPolicy)
+	policy := &sdk.ScalingPolicy{
+		ID:                 "test-policy",
+		EvaluationInterval: 10 * time.Millisecond,
+		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
+		Schedule: &sdk.ScalingPolicySchedule{
+			Start:    "0 9 * * *",
+			Duration: "30m",
+		},
+	}
+
+	handler := &Handler{
+		log:              hclog.NewNullLogger(),
+		policy:           policy,
+		updatesCh:        updatesCh,
+		errChn:           errCh,
+		targetController: &mockTargetController{statusErr: testErr},
+		state:            StateIdle,
+	}
+
+	must.NoError(t, handler.loadCheckRunners())
+
+	go handler.Run(ctx)
+	time.Sleep(25 * time.Millisecond)
+	cancel()
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("expected no evaluation while outside schedule window, got error: %v", err)
+	default:
+	}
+}
+
 var policy = &sdk.ScalingPolicy{
 	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",

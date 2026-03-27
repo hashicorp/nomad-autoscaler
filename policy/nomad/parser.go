@@ -23,11 +23,12 @@ func parsePolicy(p *api.ScalingPolicy) sdk.ScalingPolicy {
 	}
 
 	to := sdk.ScalingPolicy{
-		ID:      p.ID,
-		Type:    p.Type,
-		Max:     *p.Max, // Nomad always ensures Max is populated.
-		Enabled: true,
-		Checks:  parseChecks(p.Policy[keyChecks]),
+		ID:       p.ID,
+		Type:     p.Type,
+		Max:      *p.Max, // Nomad always ensures Max is populated.
+		Enabled:  true,
+		Checks:   parseChecks(p.Policy[keyChecks]),
+		Schedule: parseSchedule(p.Policy[keySchedule]),
 	}
 
 	// Add non-typed values.
@@ -176,9 +177,31 @@ func parseCheck(c interface{}) *sdk.ScalingPolicyCheck {
 		QueryWindow:       queryWindow,
 		QueryWindowOffset: queryWindowOffset,
 		QueryInstant:      queryInstant,
+		Schedule:          parseSchedule(checkMap[keySchedule]),
 		Source:            source,
 		Strategy:          strategy,
 		OnError:           on_error,
+	}
+}
+
+func parseSchedule(s interface{}) *sdk.ScalingPolicySchedule {
+	if s == nil {
+		return nil
+	}
+
+	scheduleMap := parseBlock(s)
+	if scheduleMap == nil {
+		return nil
+	}
+
+	start, _ := scheduleMap["start"].(string)
+	end, _ := scheduleMap["end"].(string)
+	duration, _ := scheduleMap["duration"].(string)
+
+	return &sdk.ScalingPolicySchedule{
+		Start:    start,
+		End:      end,
+		Duration: duration,
 	}
 }
 

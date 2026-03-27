@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -38,6 +39,9 @@ type checkRunner struct {
 	metricsGetter  apm.Looker
 	check          *sdk.ScalingPolicyCheck
 	policy         *sdk.ScalingPolicy
+	schedule       *compiledSchedule
+	scheduleErr    error
+	scheduleOnce   sync.Once
 }
 
 type queryMetricsCacheKey struct {
@@ -79,6 +83,13 @@ func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 		metricsGetter:  config.MetricsGetter,
 		policy:         config.Policy,
 	}
+}
+
+func (ch *checkRunner) ensureCompiledSchedule() error {
+	ch.scheduleOnce.Do(func() {
+		ch.schedule, ch.scheduleErr = compileSchedule(ch.check.Schedule)
+	})
+	return ch.scheduleErr
 }
 
 // getNewCountFromStrategy begins the execution of the checks and returns
@@ -244,6 +255,15 @@ func (ch *checkRunner) group() string {
 
 func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
+
+	if err := ch.ensureCompiledSchedule(); err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed to compile check schedule: %w", err)
+	}
+
+	if ch.schedule != nil && !ch.schedule.activeAt(nowFunc()) {
+		ch.log.Debug("skipping check, outside schedule window")
+		return sdk.ScalingAction{}, nil
+	}
 
 	metrics, err := ch.queryMetrics(ctx, cache)
 	if err != nil {

@@ -88,7 +88,7 @@ func validateScheduleDefinition(s *sdk.ScalingPolicySchedule) error {
 		return fmt.Errorf("schedule.start must use strict 5-field cron format")
 	}
 
-	if hasEnd && len(strings.Fields(s.End)) != 5 { 
+	if hasEnd && len(strings.Fields(s.End)) != 5 {
 		return fmt.Errorf("schedule.end must use strict 5-field cron format")
 	}
 

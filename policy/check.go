@@ -165,6 +165,10 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCache) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
 
+	if ch.check.Query == "" {
+		return sdk.TimestampedMetrics{}, nil
+	}
+
 	cacheKey := queryMetricsCacheKey{
 		source:            ch.check.Source,
 		query:             ch.check.Query,

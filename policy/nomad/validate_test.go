@@ -245,7 +245,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name:        "policy is missing",
 			inputFile:   "missing-policy",
-			expectError: true,
+			expectError: false,
 		},
 		{
 			name:        "policy.check.source is not a string",
@@ -353,7 +353,7 @@ func Test_validateScalingPolicy(t *testing.T) {
 		{
 			name:        "policy.check.strategy is missing",
 			inputFile:   "missing-strategy",
-			expectError: true,
+			expectError: false,
 		},
 		{
 			name:        "policy.check.strategy without metrics",

@@ -81,7 +81,7 @@ func validatePolicy(p map[string]interface{}) error {
 	var result *multierror.Error
 
 	if p == nil {
-		return multierror.Append(result, fmt.Errorf("empty policy, this policy won't execute any verification or scaling and should have enabled set to false"))
+		return nil
 	}
 
 	// Validate EvaluationInterval, if present.
@@ -435,7 +435,7 @@ func validateBlocks(in interface{}, path string, validator validatorFunc) error 
 	var result *multierror.Error
 
 	if in == nil {
-		return multierror.Append(result, fmt.Errorf("empty checks, this policy won't execute any verification or scaling and should have enabled set to false"))
+		return nil
 	}
 
 	inList, ok := in.([]interface{})

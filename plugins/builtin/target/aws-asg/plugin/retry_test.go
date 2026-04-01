@@ -18,7 +18,7 @@ func Test_retry(t *testing.T) {
 		inputInterval  time.Duration
 		inputRetry     int
 		inputFunc      retryFunc
-		expectedOutput error
+		expectedOutput string
 		name           string
 	}{
 		{
@@ -28,7 +28,7 @@ func Test_retry(t *testing.T) {
 			inputFunc: func(ctx context.Context) (stop bool, err error) {
 				return true, nil
 			},
-			expectedOutput: nil,
+			expectedOutput: "",
 			name:           "successful function first time",
 		},
 		{
@@ -38,7 +38,7 @@ func Test_retry(t *testing.T) {
 			inputFunc: func(ctx context.Context) (stop bool, err error) {
 				return false, errors.New("error")
 			},
-			expectedOutput: errors.New("reached retry limit"),
+			expectedOutput: "reached retry limit: error",
 			name:           "function never successful and reaches retry limit",
 		},
 	}
@@ -46,7 +46,12 @@ func Test_retry(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+			if tc.expectedOutput == "" {
+				assert.NoError(t, actualOutput, tc.name)
+				return
+			}
+
+			assert.EqualError(t, actualOutput, tc.expectedOutput, tc.name)
 		})
 	}
 }

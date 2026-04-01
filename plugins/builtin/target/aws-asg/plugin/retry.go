@@ -53,6 +53,9 @@ func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, 
 		retryCount++
 
 		if retryCount == retryAttempts {
+			if lastErr != nil {
+				return fmt.Errorf("reached retry limit: %w", lastErr)
+			}
 			return errors.New("reached retry limit")
 		}
 		time.Sleep(retryInterval)

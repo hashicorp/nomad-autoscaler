@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -340,7 +340,19 @@ func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int6
 		if len(asg.Instances) == int(desired) {
 			return true, nil
 		}
-		return false, fmt.Errorf("AutoScaling Group at %v instances of desired %v", asg.Instances, desired)
+
+		instanceIDs := make([]string, 0, len(asg.Instances))
+		for _, instance := range asg.Instances {
+			if instance.InstanceId != nil {
+				instanceIDs = append(instanceIDs, *instance.InstanceId)
+			}
+		}
+
+		return false, fmt.Errorf(
+			"AutoScaling Group has %d instances, desired %d (instance_ids=%v)",
+			len(asg.Instances), desired, instanceIDs,
+		)
+
 	}
 
 	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)

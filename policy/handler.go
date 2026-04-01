@@ -138,7 +138,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		evaluateAfter:       config.EvaluateAfter,
 	}
 
-	err := h.loadCheckRunners()
+	err := h.loadCheckRunners(h.policy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load check handlers: %w", err)
 	}
@@ -193,12 +193,12 @@ func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 	return strconv.ParseInt(ts, 10, 64)
 }
 
-func (h *Handler) loadCheckRunners() error {
+func (h *Handler) loadCheckRunners(policy *sdk.ScalingPolicy) error {
 	runners := []checker{}
 
-	switch h.policy.Type {
+	switch policy.Type {
 	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
-		for _, check := range h.policy.Checks {
+		for _, check := range policy.Checks {
 
 			s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
 			if err != nil {
@@ -215,7 +215,7 @@ func (h *Handler) loadCheckRunners() error {
 					"source", check.Source, "strategy", check.Strategy.Name),
 				StrategyRunner: s,
 				MetricsGetter:  mg,
-				Policy:         h.policy,
+				Policy:         policy,
 			}, check)
 
 			runners = append(runners, runner)
@@ -225,7 +225,7 @@ func (h *Handler) loadCheckRunners() error {
 	case sdk.ScalingPolicyTypeVerticalCPU, sdk.ScalingPolicyTypeVerticalMem:
 		runner, err := h.loadVerticalCheckRunner()
 		if err != nil {
-			return fmt.Errorf("failed to load vertical check %s: %w", h.policy.Type, err)
+			return fmt.Errorf("failed to load vertical check %s: %w", policy.Type, err)
 		}
 
 		runners = append(runners, runner)
@@ -407,7 +407,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	// Clear existing check handlers and load new ones.
 	h.checkRunners = nil
 
-	err := h.loadCheckRunners()
+	err := h.loadCheckRunners(updatedPolicy)
 	if err != nil {
 		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
 		return

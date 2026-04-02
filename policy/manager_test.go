@@ -55,6 +55,8 @@ type mockTargetController struct {
 	scaleCalled bool
 	scaleDelay  time.Duration
 	lastAction  sdk.ScalingAction
+	statusLock   sync.Mutex
+	statusCalled bool
 	status      *sdk.TargetStatus
 	statusErr   error
 }
@@ -66,7 +68,18 @@ func (msg *mockTargetController) getScaleCalled() bool {
 	return msg.scaleCalled
 }
 
+func (msg *mockTargetController) getStatusCalled() bool {
+	msg.statusLock.Lock()
+	defer msg.statusLock.Unlock()
+
+	return msg.statusCalled
+}
+
 func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetStatus, error) {
+	msg.statusLock.Lock()
+	msg.statusCalled = true
+	msg.statusLock.Unlock()
+
 	return msg.status, msg.statusErr
 }
 

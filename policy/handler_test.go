@@ -427,6 +427,8 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		state:            StateIdle,
 	}
 
+	mtc := handler.targetController.(*mockTargetController)
+
 	must.NoError(t, handler.loadCheckRunners())
 
 	done := make(chan struct{})
@@ -443,6 +445,8 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		t.Fatalf("expected no evaluation while outside schedule window, got error: %v", err)
 	default:
 	}
+
+	must.False(t, mtc.getStatusCalled())
 }
 
 var policy = &sdk.ScalingPolicy{

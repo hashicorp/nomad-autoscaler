@@ -20,6 +20,10 @@ type compiledSchedule struct {
 	usesEnd   bool // true if this schedule uses an end time, false if it uses a duration
 }
 
+// lastOccurrenceSearchHorizonYears bounds the backward search used to approximate the
+// last cron occurrence because cronexpr exposes Next() but not Last().
+const lastOccurrenceSearchHorizonYears = 32
+
 func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	if s == nil {
 		return nil, nil
@@ -63,14 +67,49 @@ func (s *compiledSchedule) activeAt(now time.Time) bool {
 	nowUTC := now.UTC()
 
 	if s.usesEnd {
-		nextStart := s.startExpr.Next(nowUTC)
-		nextEnd := s.endExpr.Next(nowUTC)
-		return nextStart.After(nextEnd)
+		lastStart, ok := lastOccurrenceAtOrBefore(s.startExpr, nowUTC)
+		if !ok {
+			return false
+		}
+
+		lastEnd, ok := lastOccurrenceAtOrBefore(s.endExpr, nowUTC)
+		if !ok {
+			return true
+		}
+
+		return lastStart.After(lastEnd)
 	}
 
 	windowStart := nowUTC.Add(-s.duration).Add(time.Nanosecond)
 	nextStart := s.startExpr.Next(windowStart)
 	return !nextStart.After(nowUTC)
+}
+
+func lastOccurrenceAtOrBefore(expr *cronexpr.Expression, now time.Time) (time.Time, bool) {
+	searchStart := now.AddDate(-lastOccurrenceSearchHorizonYears, 0, 0)
+	first := expr.Next(searchStart.Add(-time.Nanosecond))
+	if first.After(now) {
+		return time.Time{}, false
+	}
+
+	low := searchStart.UnixNano() - 1
+	high := now.UnixNano()
+	last := first
+
+	// binary search
+	for low <= high {
+		mid := low + (high-low)/2
+		next := expr.Next(time.Unix(0, mid).UTC())
+		if !next.After(now) {
+			last = next
+			low = mid + 1
+			continue
+		}
+
+		high = mid - 1
+	}
+
+	return last, true
 }
 
 func validateScheduleDefinition(s *sdk.ScalingPolicySchedule) error {

@@ -407,7 +407,7 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 
-	outsideSchedulePolicy := &sdk.ScalingPolicy{
+	policy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
 		EvaluationInterval: 10 * time.Millisecond,
 		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
@@ -425,7 +425,7 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	handler := &Handler{
 		log:              logger,
-		policy:           outsideSchedulePolicy,
+		policy:           policy,
 		updatesCh:        updatesCh,
 		errChn:           errCh,
 		targetController: &mockTargetController{statusErr: testErr},
@@ -434,16 +434,12 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	mtc := handler.targetController.(*mockTargetController)
 
-	must.NoError(t, handler.applyPolicyState(outsideSchedulePolicy))
+	must.NoError(t, handler.applyPolicyState(policy))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(t.Context(), policy.EvaluationInterval*3)
+	defer cancel()
 
-	go func() {
-		time.Sleep(outsideSchedulePolicy.EvaluationInterval * 3)
-		cancel()
-	}()
-
-	handler.Run(ctx) // blocking; guaranteed done when this returns
+	handler.Run(ctx) // blocking call
 
 	select {
 	case err := <-errCh:

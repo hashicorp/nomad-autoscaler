@@ -594,6 +594,7 @@ func Test_validateSchedule(t *testing.T) {
 				"start": "0 9 * * *",
 				"end":   "0 17 * * *",
 			},
+			errorText: "",
 		},
 		{
 			name: "valid start duration",
@@ -601,6 +602,7 @@ func Test_validateSchedule(t *testing.T) {
 				"start":    "0 9 * * *",
 				"duration": "8h",
 			},
+			errorText: "",
 		},
 		{
 			name: "missing start",

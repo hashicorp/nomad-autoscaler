@@ -4,6 +4,7 @@
 package policy
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
@@ -403,12 +404,10 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
-	policy := &sdk.ScalingPolicy{
+
+	outsideSchedulePolicy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
 		EvaluationInterval: 10 * time.Millisecond,
 		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
@@ -418,9 +417,15 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		},
 	}
 
+	logs := bytes.NewBuffer(nil)
+	logger := hclog.New(&hclog.LoggerOptions{
+		Output: logs,
+		Level:  hclog.Debug,
+	})
+
 	handler := &Handler{
-		log:              hclog.NewNullLogger(),
-		policy:           policy,
+		log:              logger,
+		policy:           outsideSchedulePolicy,
 		updatesCh:        updatesCh,
 		errChn:           errCh,
 		targetController: &mockTargetController{statusErr: testErr},
@@ -429,16 +434,16 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	mtc := handler.targetController.(*mockTargetController)
 
-	must.NoError(t, handler.applyPolicyState(handler.policy))
+	must.NoError(t, handler.applyPolicyState(outsideSchedulePolicy))
 
-	done := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+
 	go func() {
-		defer close(done)
-		handler.Run(ctx)
+		time.Sleep(outsideSchedulePolicy.EvaluationInterval * 3)
+		cancel()
 	}()
-	time.Sleep(25 * time.Millisecond)
-	cancel()
-	<-done
+
+	handler.Run(ctx) // blocking; guaranteed done when this returns
 
 	select {
 	case err := <-errCh:
@@ -447,6 +452,10 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 	}
 
 	must.False(t, mtc.getStatusCalled())
+
+	out := logs.String()
+	must.StrContains(t, out, "skipping evaluation, outside schedule window")
+	must.StrContains(t, out, "stopping policy handler due to context done")
 }
 
 var policy = &sdk.ScalingPolicy{
@@ -521,14 +530,9 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 
 	must.NoError(t, handler.applyPolicyState(handler.policy))
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		handler.Run(ctx)
-	}()
+	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
 	cancel()
-	<-done
 
 	must.False(t, mtc.getScaleCalled())
 	must.Eq(t, StateIdle, handler.getState())

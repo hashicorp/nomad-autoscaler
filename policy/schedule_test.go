@@ -16,7 +16,7 @@ func TestCompiledSchedule_ActiveAt_EndSchedule(t *testing.T) {
 		Start: "0 14 * * *",
 		End:   "0 15 * * *",
 	})
-	must.NoError(t, err)
+	must.NoError(t, err, must.Sprint("failed to compile end-based schedule for activeAt test"))
 
 	tests := []struct {
 		name   string
@@ -62,7 +62,8 @@ func TestCompiledSchedule_ActiveAt_EndSchedule(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			must.Eq(t, tc.active, s.activeAt(tc.now))
+			errMsg := must.Sprint("end-based schedule activeAt mismatch for case: ", tc.name)
+			must.Eq(t, tc.active, s.activeAt(tc.now), errMsg)
 		})
 	}
 }
@@ -72,7 +73,7 @@ func TestCompiledSchedule_ActiveAt_DurationSchedule(t *testing.T) {
 		Start:    "0 14 * * *",
 		Duration: "1h",
 	})
-	must.NoError(t, err)
+	must.NoError(t, err, must.Sprint("failed to compile duration-based schedule for activeAt test"))
 
 	tests := []struct {
 		name   string
@@ -118,7 +119,8 @@ func TestCompiledSchedule_ActiveAt_DurationSchedule(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			must.Eq(t, tc.active, s.activeAt(tc.now))
+			errMsg := must.Sprint("duration-based schedule activeAt mismatch for case: ", tc.name)
+			must.Eq(t, tc.active, s.activeAt(tc.now), errMsg)
 		})
 	}
 }
@@ -244,9 +246,12 @@ func TestCompiledSchedule_ActiveAt_EndSchedule_EdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			compileErrMsg := must.Sprint("failed to compile edge-case schedule for case: ", tc.name)
+			activeErrMsg := must.Sprint("edge-case schedule activeAt mismatch for case: ", tc.name)
+
 			s, err := compileSchedule(tc.schedule)
-			must.NoError(t, err)
-			must.Eq(t, tc.active, s.activeAt(tc.now))
+			must.NoError(t, err, compileErrMsg)
+			must.Eq(t, tc.active, s.activeAt(tc.now), activeErrMsg)
 		})
 	}
 }

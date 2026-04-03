@@ -16,7 +16,8 @@ func Test_validateSchedule(t *testing.T) {
 		errorText string
 	}{
 		{
-			name: "nil schedule",
+			name:      "nil schedule",
+			errorText: "",
 		},
 		{
 			name: "valid start end",
@@ -24,6 +25,7 @@ func Test_validateSchedule(t *testing.T) {
 				Start: "0 9 * * *",
 				End:   "0 17 * * *",
 			},
+			errorText: "",
 		},
 		{
 			name: "valid start duration",
@@ -31,6 +33,7 @@ func Test_validateSchedule(t *testing.T) {
 				Start:    "0 9 * * *",
 				Duration: "8h",
 			},
+			errorText: "",
 		},
 		{
 			name: "missing start",
@@ -73,8 +76,7 @@ func Test_validateSchedule(t *testing.T) {
 				must.NoError(t, err)
 				return
 			}
-			must.Error(t, err)
-			must.StrContains(t, err.Error(), tc.errorText)
+			must.ErrorContains(t, err, tc.errorText)
 		})
 	}
 }

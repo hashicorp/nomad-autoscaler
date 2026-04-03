@@ -429,7 +429,7 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	mtc := handler.targetController.(*mockTargetController)
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	done := make(chan struct{})
 	go func() {
@@ -519,7 +519,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 		pm:               mdg,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	done := make(chan struct{})
 	go func() {
@@ -587,7 +587,7 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		limiter:          ml,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
@@ -743,7 +743,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				nextAction:      sdk.ScalingAction{},
 			}
 
-			must.NoError(t, handler.loadCheckRunners())
+			must.NoError(t, handler.applyPolicyState(handler.policy))
 
 			go handler.Run(ctx)
 			time.Sleep(30 * time.Millisecond)

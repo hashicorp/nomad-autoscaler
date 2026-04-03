@@ -50,15 +50,15 @@ func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarge
 }
 
 type mockTargetController struct {
-	scaleErr    error
-	scaleLock   sync.Mutex
-	scaleCalled bool
-	scaleDelay  time.Duration
-	lastAction  sdk.ScalingAction
+	scaleErr     error
+	scaleLock    sync.Mutex
+	scaleCalled  bool
+	scaleDelay   time.Duration
+	lastAction   sdk.ScalingAction
 	statusLock   sync.Mutex
 	statusCalled bool
-	status      *sdk.TargetStatus
-	statusErr   error
+	status       *sdk.TargetStatus
+	statusErr    error
 }
 
 func (msg *mockTargetController) getScaleCalled() bool {

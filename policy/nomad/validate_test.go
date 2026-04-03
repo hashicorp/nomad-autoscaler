@@ -642,8 +642,7 @@ func Test_validateSchedule(t *testing.T) {
 				must.NoError(t, err)
 				return
 			}
-			must.Error(t, err)
-			must.StrContains(t, err.Error(), tc.errorText)
+			must.ErrorContains(t, err, tc.errorText)
 		})
 	}
 }

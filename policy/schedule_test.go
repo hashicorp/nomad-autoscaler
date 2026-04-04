@@ -246,8 +246,8 @@ func TestCompiledSchedule_ActiveAt_EndSchedule_EdgeCases(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			compileErrMsg := must.Sprint("failed to compile edge-case schedule for case: ", tc.name)
-			activeErrMsg := must.Sprint("edge-case schedule activeAt mismatch for case: ", tc.name)
+			compileErrMsg := must.Sprint("failed to compile edge-case schedule")
+			activeErrMsg := must.Sprint("edge-case schedule activeAt mismatch")
 
 			s, err := compileSchedule(tc.schedule)
 			must.NoError(t, err, compileErrMsg)

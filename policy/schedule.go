@@ -86,9 +86,10 @@ func (s *compiledSchedule) activeAt(now time.Time) bool {
 }
 
 func lastOccurrenceAtOrBefore(expr *cronexpr.Expression, now time.Time) (time.Time, bool) {
+	now = now.UTC() // just to be sure
 	searchStart := now.AddDate(-lastOccurrenceSearchHorizonYears, 0, 0)
 	first := expr.Next(searchStart.Add(-time.Nanosecond))
-	if first.After(now) {
+	if first.IsZero() || first.After(now) {
 		return time.Time{}, false
 	}
 

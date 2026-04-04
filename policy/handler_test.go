@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -449,9 +450,17 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 
 	must.False(t, mtc.getStatusCalled())
 
-	out := logs.String()
-	must.StrContains(t, out, "skipping evaluation, outside schedule window")
-	must.StrContains(t, out, "stopping policy handler due to context done")
+	logLines := strings.Split(logs.String(), "\n")
+	// we expect one log for "context done" and at least one log for "skipping evaluation, outside schedule window"
+	must.Greater(t, 2, len(logLines), must.Sprintf("not enough logs: %v", logLines))
+	for _, line := range logLines {
+		if line == "" || strings.Contains(line, "context done") {
+			continue
+		}
+		if !strings.Contains(line, "skipping evaluation, outside schedule window") {
+			t.Errorf("expected only 'outside schedule window' logs, got: %q", line)
+		}
+	}
 }
 
 var policy = &sdk.ScalingPolicy{

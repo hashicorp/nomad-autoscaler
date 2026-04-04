@@ -180,6 +180,10 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 					CooldownHCL:           "10ms",
 					EvaluationInterval:    10 * time.Nanosecond,
 					EvaluationIntervalHCL: "10ns",
+					Schedule: &ScalingPolicySchedule{
+						Start: "0 9 * * *",
+						End:   "0 17 * * *",
+					},
 					Checks: []*FileDecodePolicyCheckDoc{
 						{
 							Name:                 "approach-speed",
@@ -188,6 +192,10 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 							QueryWindowHCL:       "instant",
 							QueryWindowOffset:    2 * time.Minute,
 							QueryWindowOffsetHCL: "2m",
+							Schedule: &ScalingPolicySchedule{
+								Start:    "0 12 * * *",
+								Duration: "2h",
+							},
 							Strategy: &ScalingPolicyStrategy{
 								Name: "approach-velocity",
 								Config: map[string]string{
@@ -211,6 +219,10 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 				Enabled:            true,
 				Cooldown:           10 * time.Millisecond,
 				EvaluationInterval: 10 * time.Nanosecond,
+				Schedule: &ScalingPolicySchedule{
+					Start: "0 9 * * *",
+					End:   "0 17 * * *",
+				},
 				Checks: []*ScalingPolicyCheck{
 					{
 						Name:              "approach-speed",
@@ -219,6 +231,10 @@ func TestFileDecodePolicy_Translate(t *testing.T) {
 						QueryWindow:       0,
 						QueryWindowOffset: 2 * time.Minute,
 						QueryInstant:      true,
+						Schedule: &ScalingPolicySchedule{
+							Start:    "0 12 * * *",
+							Duration: "2h",
+						},
 						Strategy: &ScalingPolicyStrategy{
 							Name: "approach-velocity",
 							Config: map[string]string{

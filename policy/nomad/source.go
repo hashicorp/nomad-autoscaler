@@ -35,6 +35,7 @@ const (
 	keyChecks             = "check"
 	keyGroup              = "group"
 	keyStrategy           = "strategy"
+	keySchedule           = "schedule"
 	keyCooldown           = "cooldown"
 	keyCooldownOnScaleUp  = "cooldown_on_scale_up"
 )

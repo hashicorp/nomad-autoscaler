@@ -34,8 +34,8 @@ func (nv *noopVerticalCheckRunner) group() string {
 	return ""
 }
 
-func (h *Handler) loadVerticalCheckRunner() (*noopVerticalCheckRunner, error) {
+func (h *Handler) loadVerticalCheckRunner(policy *sdk.ScalingPolicy) (*noopVerticalCheckRunner, error) {
 	return &noopVerticalCheckRunner{
-		policy: h.policy,
+		policy: policy,
 	}, nil
 }

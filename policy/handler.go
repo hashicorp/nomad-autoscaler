@@ -76,6 +76,9 @@ type Handler struct {
 	policyLock sync.RWMutex
 	policy     *sdk.ScalingPolicy
 
+	// Compiled schedule cached from policy.Schedule for runtime window checks.
+	compiledPolicySchedule *compiledSchedule
+
 	checkRunners []checker
 
 	targetController targetpkg.Controller
@@ -138,9 +141,8 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		evaluateAfter:       config.EvaluateAfter,
 	}
 
-	err := h.loadCheckRunners()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load check handlers: %w", err)
+	if err := h.applyPolicyState(h.policy); err != nil {
+		return nil, fmt.Errorf("failed to initialize policy state: %w", err)
 	}
 
 	currentStatus, err := h.runTargetStatus()
@@ -193,21 +195,49 @@ func checkForOutOfBandEvents(status *sdk.TargetStatus) (int64, error) {
 	return strconv.ParseInt(ts, 10, 64)
 }
 
-func (h *Handler) loadCheckRunners() error {
+// applyPolicyState validates and atomically applies policy-derived state.
+// Caller must ensure exclusive access after Run starts (for example, hold
+// policyLock). It is safe during initialization.
+func (h *Handler) applyPolicyState(policy *sdk.ScalingPolicy) error {
+	if policy == nil {
+		return errors.New("handler policy cannot be nil")
+	}
+
+	// Load check runners for the new policy to validate it before applying
+	checkRunners, err := h.loadCheckRunners(policy)
+	if err != nil {
+		return err
+	}
+
+	// Re-compile schedule for validation before applying.
+	compiledSchedule, err := compileSchedule(policy.Schedule)
+	if err != nil {
+		return err
+	}
+
+	// Everything is successful, update the handler's internal state.
+	h.policy = policy
+	h.compiledPolicySchedule = compiledSchedule
+	h.checkRunners = checkRunners
+
+	return nil
+}
+
+func (h *Handler) loadCheckRunners(policy *sdk.ScalingPolicy) ([]checker, error) {
 	runners := []checker{}
 
-	switch h.policy.Type {
+	switch policy.Type {
 	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
-		for _, check := range h.policy.Checks {
+		for _, check := range policy.Checks {
 
 			s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
 			if err != nil {
-				return fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
+				return nil, fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
 			}
 
 			mg, err := h.pm.GetAPMLooker(check.Source)
 			if err != nil {
-				return fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
+				return nil, fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
 			}
 
 			runner := newCheckRunner(&CheckRunnerConfig{
@@ -215,7 +245,7 @@ func (h *Handler) loadCheckRunners() error {
 					"source", check.Source, "strategy", check.Strategy.Name),
 				StrategyRunner: s,
 				MetricsGetter:  mg,
-				Policy:         h.policy,
+				Policy:         policy,
 			}, check)
 
 			runners = append(runners, runner)
@@ -223,17 +253,15 @@ func (h *Handler) loadCheckRunners() error {
 		}
 
 	case sdk.ScalingPolicyTypeVerticalCPU, sdk.ScalingPolicyTypeVerticalMem:
-		runner, err := h.loadVerticalCheckRunner()
+		runner, err := h.loadVerticalCheckRunner(policy)
 		if err != nil {
-			return fmt.Errorf("failed to load vertical check %s: %w", h.policy.Type, err)
+			return nil, fmt.Errorf("failed to load vertical check %s: %w", policy.Type, err)
 		}
 
 		runners = append(runners, runner)
 	}
 
-	// Do the update as a single operation to avoid partial updates.
-	h.checkRunners = runners
-	return nil
+	return runners, nil
 }
 
 //	Run starts the handler for the given policy
@@ -263,6 +291,10 @@ func (h *Handler) Run(ctx context.Context) {
 			h.updateHandler(updatedPolicy)
 
 		case <-h.ticker.C:
+			if h.compiledPolicySchedule != nil && !h.compiledPolicySchedule.activeAt(nowFunc()) {
+				h.log.Info("skipping evaluation, outside schedule window")
+				continue
+			}
 
 			currentStatus, err := h.runTargetStatus()
 			if err != nil {
@@ -386,11 +418,18 @@ func (h *Handler) waitAndScale(ctx context.Context) error {
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
 func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
-
 	h.log.Trace("updating handler", "policy_id", updatedPolicy.ID)
 
-	// Update ticker if the policy's evaluation interval has changed.
-	if h.policy.EvaluationInterval != updatedPolicy.EvaluationInterval {
+	h.policyLock.Lock()
+	intervalChanged := h.policy.EvaluationInterval != updatedPolicy.EvaluationInterval
+	err := h.applyPolicyState(updatedPolicy)
+	h.policyLock.Unlock()
+	if err != nil {
+		h.errChn <- fmt.Errorf("unable to build and apply updated policy state for policy ID %s: %w", updatedPolicy.ID, err)
+		return
+	}
+
+	if intervalChanged {
 		h.ticker.Stop()
 
 		// Add a small random delay between 0 and 300ms to spread the first
@@ -401,20 +440,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 		h.ticker = time.NewTicker(updatedPolicy.EvaluationInterval)
 	}
 
-	h.policyLock.Lock()
-	defer h.policyLock.Unlock()
-
-	// Clear existing check handlers and load new ones.
-	h.checkRunners = nil
-
-	err := h.loadCheckRunners()
-	if err != nil {
-		h.errChn <- fmt.Errorf("unable to update policy, failed to load check handlers: %w", err)
-		return
-	}
-
 	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
-	h.policy = updatedPolicy
 }
 
 // applyMutators applies the mutators registered with the handler in order and

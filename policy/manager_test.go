@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -50,13 +50,15 @@ func (mtrg *mockTargetGetter) GetTargetController(target *sdk.ScalingPolicyTarge
 }
 
 type mockTargetController struct {
-	scaleErr    error
-	scaleLock   sync.Mutex
-	scaleCalled bool
-	scaleDelay  time.Duration
-	lastAction  sdk.ScalingAction
-	status      *sdk.TargetStatus
-	statusErr   error
+	scaleErr     error
+	scaleLock    sync.Mutex
+	scaleCalled  bool
+	scaleDelay   time.Duration
+	lastAction   sdk.ScalingAction
+	statusLock   sync.Mutex
+	statusCalled bool
+	status       *sdk.TargetStatus
+	statusErr    error
 }
 
 func (msg *mockTargetController) getScaleCalled() bool {
@@ -66,7 +68,18 @@ func (msg *mockTargetController) getScaleCalled() bool {
 	return msg.scaleCalled
 }
 
+func (msg *mockTargetController) getStatusCalled() bool {
+	msg.statusLock.Lock()
+	defer msg.statusLock.Unlock()
+
+	return msg.statusCalled
+}
+
 func (msg *mockTargetController) Status(config map[string]string) (*sdk.TargetStatus, error) {
+	msg.statusLock.Lock()
+	msg.statusCalled = true
+	msg.statusLock.Unlock()
+
 	return msg.status, msg.statusErr
 }
 

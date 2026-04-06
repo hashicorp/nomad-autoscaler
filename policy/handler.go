@@ -292,7 +292,7 @@ func (h *Handler) Run(ctx context.Context) {
 
 		case <-h.ticker.C:
 			if h.compiledPolicySchedule != nil && !h.compiledPolicySchedule.activeAt(nowFunc()) {
-				h.log.Debug("skipping evaluation, outside schedule window")
+				h.log.Info("skipping evaluation, outside schedule window")
 				continue
 			}
 

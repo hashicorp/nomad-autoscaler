@@ -27,6 +27,23 @@ type MockLimiter struct {
 	releaseCalled bool
 }
 
+type stubChecker struct {
+	action        sdk.ScalingAction
+	participating bool
+	err           error
+	groupName     string
+	calls         int
+}
+
+func (s *stubChecker) runCheckAndCapCount(_ context.Context, _ int64, _ *queryMetricsCache) (sdk.ScalingAction, bool, error) {
+	s.calls++
+	return s.action, s.participating, s.err
+}
+
+func (s *stubChecker) group() string {
+	return s.groupName
+}
+
 func (m *MockLimiter) getReleaseCalled() bool {
 	m.callslock.Lock()
 	defer m.callslock.Unlock()
@@ -296,6 +313,44 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestHandler_calculateNewCount_SkipsNonParticipatingChecks(t *testing.T) {
+	skippedCheck := &stubChecker{
+		action: sdk.ScalingAction{
+			Direction: sdk.ScaleDirectionNone,
+			Count:     2,
+		},
+		participating: false,
+	}
+
+	downCheck := &stubChecker{
+		action: sdk.ScalingAction{
+			Direction: sdk.ScaleDirectionDown,
+			Count:     0,
+		},
+		participating: true,
+	}
+
+	handler := &Handler{
+		log: hclog.NewNullLogger(),
+		policy: &sdk.ScalingPolicy{
+			ID: "test-policy",
+			Target: &sdk.ScalingPolicyTarget{
+				Name:   "mock-target",
+				Config: map[string]string{},
+			},
+		},
+		checkRunners: []checker{skippedCheck, downCheck},
+	}
+
+	action, err := handler.calculateNewCount(context.Background(), 2)
+	errMsg := must.Sprint("non-participating checks should be excluded from winner selection")
+	must.NoError(t, err, errMsg)
+	must.Eq(t, sdk.ScaleDirectionDown, action.Direction, errMsg)
+	must.Eq(t, int64(0), action.Count, errMsg)
+	must.Eq(t, 1, skippedCheck.calls, must.Sprint("expected skipped check to be evaluated once"))
+	must.Eq(t, 1, downCheck.calls, must.Sprint("expected active check to be evaluated once"))
 }
 
 func TestHandler_Run_TargetError_Integration(t *testing.T) {

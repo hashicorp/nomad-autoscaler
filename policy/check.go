@@ -253,30 +253,40 @@ func (ch *checkRunner) group() string {
 	return ch.check.Group
 }
 
-func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
+// runCheckAndCapCount evaluates the check and caps the returned action.
+//
+// participating reports whether the check took part in winner selection for
+// this evaluation cycle. It is false when the check is skipped or canceled,
+// such as when it falls outside its schedule window.
+func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, participating bool, err error) {
 	ch.log.Debug("received policy check for evaluation")
 
 	if err := ch.ensureCompiledSchedule(); err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed to compile check schedule: %w", err)
+		return sdk.ScalingAction{}, false, fmt.Errorf("failed to compile check schedule: %w", err)
 	}
 
 	if ch.schedule != nil && !ch.schedule.activeAt(nowFunc()) {
 		ch.log.Debug("skipping check, outside schedule window")
-		return sdk.ScalingAction{}, nil
+		return sdk.ScalingAction{}, false, nil
 	}
 
 	metrics, err := ch.queryMetrics(ctx, cache)
 	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+		return sdk.ScalingAction{}, false, fmt.Errorf("failed to query source: %v", err)
+	}
+	if ctx.Err() != nil {
+		return sdk.ScalingAction{}, false, nil
 	}
 
-	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
+	action, err = ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
-
+		return sdk.ScalingAction{}, false, fmt.Errorf("failed get count from metrics: %v", err)
+	}
+	if ctx.Err() != nil {
+		return sdk.ScalingAction{}, false, nil
 	}
 
 	action.CapCount(ch.policy.Min, ch.policy.Max)
 
-	return action, nil
+	return action, true, nil
 }

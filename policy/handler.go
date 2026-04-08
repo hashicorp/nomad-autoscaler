@@ -61,7 +61,7 @@ type limiter interface {
 }
 
 type checker interface {
-	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
+	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, bool, error)
 	group() string
 }
 
@@ -472,10 +472,13 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	queryCache := newQueryMetricsCache()
 
 	for _, ch := range h.checkRunners {
-		action, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
+		action, participating, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
 		if err != nil {
 			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
+		}
 
+		if !participating {
+			continue
 		}
 
 		g := ch.group()

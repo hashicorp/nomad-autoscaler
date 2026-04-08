@@ -8,10 +8,7 @@ IMPROVEMENTS:
 * agent: The `nomad.namespace` config field and `-nomad-namespace` CLI flag now accept multiple values, allowing the autoscaler to monitor scaling policies across several Nomad namespaces. Use `*` to monitor all namespaces. When a single namespace is provided the existing behaviour is preserved. [[GH-1251](https://github.com/hashicorp/nomad-autoscaler/pull/1251)]
 * policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)] 
 
-## 0.4.9 (January 6, 2026)
-
-BUG FIXES:
-* manager: Fixed a bug where reloading the configuation would prevent policies from being checked. [[GH-1207](https://github.com/hashicorp/nomad-autoscaler/pull/1207)]
+207)]
 * plugin/target/aws-asg: Ignore warm pool activities when determining ASG readiness [[GH-1151](https://github.com/hashicorp/nomad-autoscaler/pull/1151)]
 * policy: Fixed a bug where policy evaluations made scaling requests even when no change was required. [[GH-1221](https://github.com/hashicorp/nomad-autoscaler/pull/1221)]
 

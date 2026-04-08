@@ -49,7 +49,12 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 	return FilterNodesWithOptions(n, idFn, nil)
 }
 
-// FilterNodesWithOptions is an experimental function. Use FilterNodes instead.
+// FilterNodesWithOptions returns a filtered list of nodes using additional
+// filtering options for handling initializing and draining nodes.
+//
+// This function is supported with caveats. Ignoring initializing or draining
+// nodes can improve responsiveness during long transitions, but may increase
+// the risk of oscillation or temporary capacity overshoot.
 func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool, opts *NodeFilterOptions) ([]*api.NodeListStub, error) {
 
 	// Create our output list object.
@@ -132,8 +137,10 @@ func filterOutNodeID(n []*api.NodeListStub, id string) []*api.NodeListStub {
 	return n
 }
 
-// EXPERIMENTAL
-// Node filter options are experimental features and should not be used.
+// Node filter options are supported with caveats.
+//
+// Enabling ignore options can reduce blocked evaluations in environments with
+// long drain/init windows, but may reduce strict readiness guarantees.
 const (
 	XNodeFilterOptionIgnoreInit  = "node_filter_ignore_init"
 	XNodeFilterOptionIgnoreDrain = "node_filter_ignore_drain"

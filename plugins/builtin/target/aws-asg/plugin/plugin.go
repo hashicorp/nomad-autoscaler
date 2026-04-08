@@ -36,8 +36,9 @@ const (
 	configKeyRetryAttempts      = "retry_attempts"
 	configKeyScaleInProtection  = "scale_in_protection"
 
-	// EXPERIMENTAL
-	// The configKeys below are considered experimental and should not be used.
+	// Supported with caveats:
+	// The config key below can improve responsiveness in long-running transition
+	// periods, but can reduce strict readiness behavior.
 	xConfigKeyIgnoreASGEvents = "ignore_asg_events"
 
 	// configValues are the default values used when a configuration key is not

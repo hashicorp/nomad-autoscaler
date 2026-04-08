@@ -84,14 +84,24 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 // make calculations.
 func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*nodePoolResources, error) {
 
-	nodes, _, err := a.client.Nodes().List(nil)
+	client, config := a.getClientAndConfigSnapshot()
+	if client == nil {
+		return nil, errors.New("nomad client not configured")
+	}
+
+	nodes, _, err := client.Nodes().List(nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list Nomad nodes: %v", err)
 	}
 
+	filterOpts, err := scaleutils.NewNodeFilterOptions(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse node filter options: %v", err)
+	}
+
 	// Perform our node filtering so we are left with a list of nodes that form
 	// our pool and that are in the correct state.
-	nodePoolList, err := scaleutils.FilterNodes(nodes, id.IsPoolMember)
+	nodePoolList, err := scaleutils.FilterNodesWithOptions(nodes, id.IsPoolMember, filterOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify nodes within pool: %v", err)
 	}
@@ -110,10 +120,10 @@ func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*no
 
 		// If we get a single error when performing the following lookups we
 		// cannot reliably make calculations.
-		if err := a.getNodeAllocatableResources(node.ID, resp.allocatable); err != nil {
+		if err := a.getNodeAllocatableResources(client, node.ID, resp.allocatable); err != nil {
 			return nil, fmt.Errorf("failed to get allocatable resources on node %s: %v", node.ID, err)
 		}
-		if err := a.getNodeAllocatedResources(node.ID, resp.allocated); err != nil {
+		if err := a.getNodeAllocatedResources(client, node.ID, resp.allocated); err != nil {
 			return nil, fmt.Errorf("failed to get allocated resources on node %s: %v", node.ID, err)
 		}
 	}
@@ -123,11 +133,14 @@ func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*no
 
 // getNodeAllocatableResources updates the poolResources tracking with the
 // allocatable resources on the node.
-func (a *APMPlugin) getNodeAllocatableResources(nodeID string, pool *poolResources) error {
+func (a *APMPlugin) getNodeAllocatableResources(client *api.Client, nodeID string, pool *poolResources) error {
 
-	nodeInfo, _, err := a.client.Nodes().Info(nodeID, nil)
+	nodeInfo, _, err := client.Nodes().Info(nodeID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to read Nomad node info: %v", err)
+	}
+	if nodeInfo == nil || nodeInfo.NodeResources == nil || nodeInfo.ReservedResources == nil {
+		return errors.New("node resources are incomplete")
 	}
 
 	// Update our tracking, making sure to account for reserved resources
@@ -140,9 +153,9 @@ func (a *APMPlugin) getNodeAllocatableResources(nodeID string, pool *poolResourc
 
 // getNodeAllocatedResources updates the poolResources tracking with the
 // allocated resources on the node.
-func (a *APMPlugin) getNodeAllocatedResources(nodeID string, pool *poolResources) error {
+func (a *APMPlugin) getNodeAllocatedResources(client *api.Client, nodeID string, pool *poolResources) error {
 
-	nodeAllocs, _, err := a.client.Nodes().Allocations(nodeID, nil)
+	nodeAllocs, _, err := client.Nodes().Allocations(nodeID, nil)
 	if err != nil {
 		return fmt.Errorf("failed to read Nomad node allocs : %v", err)
 	}
@@ -152,6 +165,9 @@ func (a *APMPlugin) getNodeAllocatedResources(nodeID string, pool *poolResources
 		// Do not use the allocations stats if it is in a terminal status.
 		if isServerTerminalStatus(alloc) || isClientTerminalStatus(alloc) {
 			continue
+		}
+		if alloc.Resources == nil || alloc.Resources.CPU == nil || alloc.Resources.MemoryMB == nil {
+			return errors.New("allocation resources are incomplete")
 		}
 
 		// Update our tracking with the resources of the allocation.

@@ -4,7 +4,10 @@
 package plugin
 
 import (
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
@@ -190,6 +193,179 @@ func Test_isClientTerminalStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := isClientTerminalStatus(tc.inputAlloc)
 			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+		})
+	}
+}
+
+func TestAPMPlugin_getPoolResources(t *testing.T) {
+	id := nodepool.NewNodeClassPoolIdentifier("1")
+	cpu := 20
+	mem := 15
+
+	testCases := []struct {
+		name          string
+		config        map[string]string
+		httpHandler   http.HandlerFunc
+		expectError   bool
+		expectedErr   string
+		expectedCPU   int64
+		expectedMemMB int64
+	}{
+		{
+			name:        "draining node fails by default",
+			config:      map[string]string{},
+			expectError: true,
+			expectedErr: "node node-draining is draining",
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-draining", NodeClass: "1", Drain: true, Status: api.NodeStatusReady},
+						{ID: "node-ready", NodeClass: "1", Drain: false, Status: api.NodeStatusReady},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+		{
+			name: "draining node ignored when configured",
+			config: map[string]string{
+				"node_filter_ignore_drain": "true",
+			},
+			expectError:   false,
+			expectedCPU:   20,
+			expectedMemMB: 15,
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-draining", NodeClass: "1", Drain: true, Status: api.NodeStatusReady},
+						{ID: "node-ready", NodeClass: "1", Drain: false, Status: api.NodeStatusReady},
+					})
+				case "/v1/node/node-ready":
+					_ = json.NewEncoder(w).Encode(&api.Node{
+						ID: "node-ready",
+						NodeResources: &api.NodeResources{
+							Cpu:    api.NodeCpuResources{CpuShares: 300},
+							Memory: api.NodeMemoryResources{MemoryMB: 256},
+						},
+						ReservedResources: &api.NodeReservedResources{
+							Cpu:    api.NodeReservedCpuResources{CpuShares: 100},
+							Memory: api.NodeReservedMemoryResources{MemoryMB: 64},
+						},
+					})
+				case "/v1/node/node-ready/allocations":
+					_ = json.NewEncoder(w).Encode([]*api.Allocation{
+						{
+							DesiredStatus: api.AllocDesiredStatusRun,
+							ClientStatus:  api.AllocClientStatusRunning,
+							Resources: &api.Resources{
+								CPU:      &cpu,
+								MemoryMB: &mem,
+							},
+						},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+		{
+			name: "invalid node filter option",
+			config: map[string]string{
+				"node_filter_ignore_drain": "not-a-bool",
+			},
+			expectError: true,
+			expectedErr: "failed to parse node filter options",
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-ready", NodeClass: "1", Status: api.NodeStatusReady},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+		{
+			name:        "missing specific node resources",
+			config:      map[string]string{},
+			expectError: true,
+			expectedErr: "node resources are incomplete",
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-missing-res", NodeClass: "1", Status: api.NodeStatusReady},
+					})
+				case "/v1/node/node-missing-res":
+					_ = json.NewEncoder(w).Encode(&api.Node{ID: "node-missing-res"})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+		{
+			name:        "missing specific allocation resources",
+			config:      map[string]string{},
+			expectError: true,
+			expectedErr: "allocation resources are incomplete",
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-missing-alloc-res", NodeClass: "1", Status: api.NodeStatusReady},
+					})
+				case "/v1/node/node-missing-alloc-res":
+					_ = json.NewEncoder(w).Encode(&api.Node{
+						ID:                "node-missing-alloc-res",
+						NodeResources:     &api.NodeResources{},
+						ReservedResources: &api.NodeReservedResources{},
+					})
+				case "/v1/node/node-missing-alloc-res/allocations":
+					_ = json.NewEncoder(w).Encode([]*api.Allocation{
+						{
+							DesiredStatus: api.AllocDesiredStatusRun,
+							ClientStatus:  api.AllocClientStatusRunning,
+						},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ts := httptest.NewServer(tc.httpHandler)
+			defer ts.Close()
+
+			client, err := api.NewClient(&api.Config{Address: ts.URL})
+			assert.NoError(t, err)
+
+			p := &APMPlugin{client: client, config: tc.config}
+			resp, err := p.getPoolResources(id)
+
+			if tc.expectError {
+				assert.Error(t, err)
+				if tc.expectedErr != "" {
+					assert.ErrorContains(t, err, tc.expectedErr)
+				}
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, resp)
+			assert.Equal(t, tc.expectedCPU, resp.allocated.cpu)
+			assert.Equal(t, tc.expectedMemMB, resp.allocated.mem)
 		})
 	}
 }

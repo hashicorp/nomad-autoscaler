@@ -5,6 +5,7 @@ package plugin
 
 import (
 	"fmt"
+	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -37,6 +38,8 @@ var (
 )
 
 type APMPlugin struct {
+	mu     sync.RWMutex
+	config map[string]string
 	client *api.Client
 	logger hclog.Logger
 }
@@ -48,16 +51,41 @@ func NewNomadPlugin(log hclog.Logger) apm.APM {
 }
 
 func (a *APMPlugin) SetConfig(config map[string]string) error {
+	configCopy := copyConfigMap(config)
 
-	cfg := nomadHelper.ConfigFromNamespacedMap(config)
+	cfg := nomadHelper.ConfigFromNamespacedMap(configCopy)
 
 	client, err := api.NewClient(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate Nomad client: %v", err)
 	}
+
+	a.mu.Lock()
+	a.config = configCopy
 	a.client = client
+	a.mu.Unlock()
 
 	return nil
+}
+
+func (a *APMPlugin) getClientAndConfigSnapshot() (*api.Client, map[string]string) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	return a.client, copyConfigMap(a.config)
+}
+
+func copyConfigMap(config map[string]string) map[string]string {
+	if config == nil {
+		return nil
+	}
+
+	configCopy := make(map[string]string, len(config))
+	for k, v := range config {
+		configCopy[k] = v
+	}
+
+	return configCopy
 }
 
 func (a *APMPlugin) PluginInfo() (*base.PluginInfo, error) {

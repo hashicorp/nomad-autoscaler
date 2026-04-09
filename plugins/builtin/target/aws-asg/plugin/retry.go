@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -53,6 +53,9 @@ func retry(ctx context.Context, retryInterval time.Duration, retryAttempts int, 
 		retryCount++
 
 		if retryCount == retryAttempts {
+			if lastErr != nil {
+				return fmt.Errorf("reached retry limit: %w", lastErr)
+			}
 			return errors.New("reached retry limit")
 		}
 		time.Sleep(retryInterval)

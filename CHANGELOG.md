@@ -11,7 +11,7 @@ IMPROVEMENTS:
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
 
 BUG FIXES:
-* policy: Fixed a bug where fixed-target policies without checks failed validation. [[GH-1262](https://github.com/hashicorp/nomad-autoscaler/pull/1262)
+* policy: Fixed a bug where fixed-target policies without checks failed validation. [[GH-1262](https://github.com/hashicorp/nomad-autoscaler/pull/1262)]
 
 ## 0.4.9 (January 6, 2026)
 

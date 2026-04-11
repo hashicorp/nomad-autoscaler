@@ -582,6 +582,73 @@ func Test_validateScalingPolicy(t *testing.T) {
 	}
 }
 
+func Test_validateSchedule(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     map[string]interface{}
+		errorText string
+	}{
+		{
+			name: "valid start end",
+			input: map[string]interface{}{
+				"start": "0 9 * * *",
+				"end":   "0 17 * * *",
+			},
+			errorText: "",
+		},
+		{
+			name: "valid start duration",
+			input: map[string]interface{}{
+				"start":    "0 9 * * *",
+				"duration": "8h",
+			},
+			errorText: "",
+		},
+		{
+			name: "missing start",
+			input: map[string]interface{}{
+				"end": "0 17 * * *",
+			},
+			errorText: "start is required",
+		},
+		{
+			name: "missing end and duration",
+			input: map[string]interface{}{
+				"start": "0 9 * * *",
+			},
+			errorText: "exactly one of end or duration",
+		},
+		{
+			name: "both end and duration",
+			input: map[string]interface{}{
+				"start":    "0 9 * * *",
+				"end":      "0 17 * * *",
+				"duration": "8h",
+			},
+			errorText: "exactly one of end or duration",
+		},
+		{
+			name: "invalid cron fields",
+			input: map[string]interface{}{
+				"start":    "0 9 * *",
+				"duration": "8h",
+			},
+			errorText: "strict 5-field cron",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateSchedule(tc.input, "scaling.policy.schedule")
+			if tc.errorText == "" {
+				must.NoError(t, err)
+				return
+			}
+			must.ErrorContains(t, err, tc.errorText)
+		})
+	}
+}
+
 func Test_validateBlock(t *testing.T) {
 	testCases := []struct {
 		name        string

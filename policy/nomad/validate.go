@@ -6,8 +6,10 @@ package nomad
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/hashicorp/cronexpr"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -102,6 +104,12 @@ func validatePolicy(p map[string]interface{}) error {
 
 	if cooldownOnScaleUp, ok := p[keyCooldownOnScaleUp]; ok {
 		if err := validateDuration(cooldownOnScaleUp, path+"."+keyCooldownOnScaleUp); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	if scheduleInterface, ok := p[keySchedule]; ok {
+		if err := validateBlock(scheduleInterface, path+"."+keySchedule, validateSchedule); err != nil {
 			result = multierror.Append(result, err)
 		}
 	}
@@ -244,7 +252,66 @@ func validateCheck(c map[string]interface{}, path string, label string) error {
 		result = multierror.Append(result, err)
 	}
 
+	if scheduleInterface, ok := c[keySchedule]; ok {
+		if err := validateBlock(scheduleInterface, path+"."+keySchedule, validateSchedule); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
 	return result.ErrorOrNil()
+}
+
+func validateSchedule(in map[string]interface{}, path string) error {
+	var result *multierror.Error
+
+	start, _ := in["start"].(string)
+	end, endOk := in["end"].(string)
+	duration, durationOk := in["duration"].(string)
+
+	if start == "" {
+		result = multierror.Append(result, fmt.Errorf("%s.start is required", path))
+	}
+
+	hasEnd := endOk && end != ""
+	hasDuration := durationOk && duration != ""
+	if hasEnd == hasDuration {
+		result = multierror.Append(result, fmt.Errorf("%s must define exactly one of end or duration", path))
+	}
+
+	if start != "" {
+		if err := validateCron5(start, path+".start"); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	if hasEnd {
+		if err := validateCron5(end, path+".end"); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+
+	if hasDuration {
+		d, err := time.ParseDuration(duration)
+		if err != nil {
+			result = multierror.Append(result, fmt.Errorf("%s.duration must have time.Duration format, found %q", path, duration))
+		} else if d <= 0 {
+			result = multierror.Append(result, fmt.Errorf("%s.duration must be greater than zero", path))
+		}
+	}
+
+	return result.ErrorOrNil()
+}
+
+func validateCron5(expr string, path string) error {
+	if len(strings.Fields(expr)) != 5 {
+		return fmt.Errorf("%s must use strict 5-field cron format", path)
+	}
+
+	if _, err := cronexpr.Parse(expr); err != nil {
+		return fmt.Errorf("%s contains invalid cron expression: %v", path, err)
+	}
+
+	return nil
 }
 
 func validateInstantThresholdTrigger(c map[string]interface{}, path string) error {

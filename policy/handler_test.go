@@ -1,11 +1,13 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -398,6 +400,69 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
+func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
+	}
+
+	errCh := make(chan error, 1)
+	updatesCh := make(chan *sdk.ScalingPolicy)
+
+	policy := &sdk.ScalingPolicy{
+		ID:                 "test-policy",
+		EvaluationInterval: 10 * time.Millisecond,
+		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
+		Schedule: &sdk.ScalingPolicySchedule{
+			Start:    "0 9 * * *",
+			Duration: "30m",
+		},
+	}
+
+	logs := bytes.NewBuffer(nil)
+	logger := hclog.New(&hclog.LoggerOptions{
+		Output: logs,
+		Level:  hclog.Debug,
+	})
+
+	handler := &Handler{
+		log:              logger,
+		policy:           policy,
+		updatesCh:        updatesCh,
+		errChn:           errCh,
+		targetController: &mockTargetController{statusErr: testErr},
+		state:            StateIdle,
+	}
+
+	mtc := handler.targetController.(*mockTargetController)
+
+	must.NoError(t, handler.applyPolicyState(policy))
+
+	ctx, cancel := context.WithTimeout(t.Context(), policy.EvaluationInterval*3)
+	defer cancel()
+
+	handler.Run(ctx) // blocking call
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("expected no evaluation while outside schedule window, got error: %v", err)
+	default:
+	}
+
+	must.False(t, mtc.getStatusCalled())
+
+	logLines := strings.Split(logs.String(), "\n")
+	// we expect one log for "context done" and at least one log for "skipping evaluation, outside schedule window"
+	must.Greater(t, 2, len(logLines), must.Sprintf("not enough logs: %v", logLines))
+	for _, line := range logLines {
+		if line == "" || strings.Contains(line, "context done") {
+			continue
+		}
+		if !strings.Contains(line, "skipping evaluation, outside schedule window") {
+			t.Errorf("expected only 'outside schedule window' logs, got: %q", line)
+		}
+	}
+}
+
 var policy = &sdk.ScalingPolicy{
 	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",
@@ -468,7 +533,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 		pm:               mdg,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
@@ -531,7 +596,7 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		limiter:          ml,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
@@ -687,7 +752,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				nextAction:      sdk.ScalingAction{},
 			}
 
-			must.NoError(t, handler.loadCheckRunners())
+			must.NoError(t, handler.applyPolicyState(handler.policy))
 
 			go handler.Run(ctx)
 			time.Sleep(30 * time.Millisecond)

@@ -90,15 +90,22 @@ func (d ScaleDirection) String() string {
 
 // Canonicalize ensures Action has proper default values.
 func (a *ScalingAction) Canonicalize() {
+	a.ensureMeta()
+}
+
+// ensureMeta initializes the Meta map if it is nil and returns it.
+func (a *ScalingAction) ensureMeta() map[string]interface{} {
 	if a.Meta == nil {
 		a.Meta = make(map[string]interface{})
 	}
+	return a.Meta
 }
 
 // SetDryRun marks the Action to be executed in dry-run mode. Dry-run mode is
 // indicated using Meta tags. A dry-run action doesn't modify the Target's
 // count value.
 func (a *ScalingAction) SetDryRun() {
+	a.ensureMeta()
 	a.Meta[strategyActionMetaKeyDryRun] = true
 	a.Meta[strategyActionMetaKeyDryRunCount] = a.Count
 	a.Count = StrategyActionMetaValueDryRunCount
@@ -111,6 +118,8 @@ func (a *ScalingAction) CapCount(min, max int64) {
 	if a.Count == StrategyActionMetaValueDryRunCount {
 		return
 	}
+
+	a.ensureMeta()
 
 	oldCount, newCount := a.Count, a.Count
 	if newCount < min {
@@ -129,6 +138,8 @@ func (a *ScalingAction) CapCount(min, max int64) {
 
 // PushReason updates the Reason value and stores previous Reason into Meta.
 func (a *ScalingAction) pushReason(r string) {
+	a.ensureMeta()
+
 	history := []string{}
 
 	// Check if we already have a reason stack in Meta

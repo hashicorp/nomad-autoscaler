@@ -272,7 +272,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 
 	metrics, err := ch.queryMetrics(ctx, cache)
 	if err != nil {
-		return sdk.ScalingAction{}, false, fmt.Errorf("failed to query source: %v", err)
+		return sdk.ScalingAction{}, false, fmt.Errorf("failed to query source: %w", err)
 	}
 	if ctx.Err() != nil {
 		ch.log.Debug("skipping check participation, evaluation canceled after querying metrics", "error", ctx.Err())
@@ -281,7 +281,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 
 	action, err = ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
-		return sdk.ScalingAction{}, false, fmt.Errorf("failed get count from metrics: %v", err)
+		return sdk.ScalingAction{}, false, fmt.Errorf("failed get count from metrics: %w", err)
 	}
 	if ctx.Err() != nil {
 		ch.log.Debug("skipping check participation, evaluation canceled after running strategy", "error", ctx.Err())

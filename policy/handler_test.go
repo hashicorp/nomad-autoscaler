@@ -353,6 +353,43 @@ func TestHandler_calculateNewCount_SkipsNonParticipatingChecks(t *testing.T) {
 	must.Eq(t, 1, downCheck.calls, must.Sprint("expected active check to be evaluated once"))
 }
 
+func TestHandler_calculateNewCount_NoParticipatingChecks_ReturnsNoAction(t *testing.T) {
+	skippedA := &stubChecker{
+		action: sdk.ScalingAction{
+			Direction: sdk.ScaleDirectionUp,
+			Count:     5,
+		},
+		participating: false,
+	}
+
+	skippedB := &stubChecker{
+		action: sdk.ScalingAction{
+			Direction: sdk.ScaleDirectionDown,
+			Count:     0,
+		},
+		participating: false,
+	}
+
+	handler := &Handler{
+		log: hclog.NewNullLogger(),
+		policy: &sdk.ScalingPolicy{
+			ID: "test-policy",
+			Target: &sdk.ScalingPolicyTarget{
+				Name:   "mock-target",
+				Config: map[string]string{},
+			},
+		},
+		checkRunners: []checker{skippedA, skippedB},
+	}
+
+	action, err := handler.calculateNewCount(context.Background(), 2)
+	errMsg := must.Sprint("expected no action when no checks participate")
+	must.NoError(t, err, errMsg)
+	must.Eq(t, sdk.ScalingAction{}, action, errMsg)
+	must.Eq(t, 1, skippedA.calls, must.Sprint("expected first skipped check to be evaluated once"))
+	must.Eq(t, 1, skippedB.calls, must.Sprint("expected second skipped check to be evaluated once"))
+}
+
 func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

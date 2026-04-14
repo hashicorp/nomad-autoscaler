@@ -61,7 +61,9 @@ type limiter interface {
 }
 
 type checker interface {
-	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, bool, error)
+	// runCheckAndCapCount evaluates a check and returns its proposed scaling action.
+	// participating is false when the check is skipped (for example, outside schedule or canceled).
+	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, participating bool, err error)
 	group() string
 }
 
@@ -147,7 +149,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	currentStatus, err := h.runTargetStatus()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get target status: %v", err)
+		return nil, fmt.Errorf("failed to get target status: %w", err)
 	}
 
 	// A nil status indicates the target doesn't exist or is not ready, log and
@@ -474,7 +476,7 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	for _, ch := range h.checkRunners {
 		action, participating, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
 		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
+			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
 		}
 
 		if !participating {

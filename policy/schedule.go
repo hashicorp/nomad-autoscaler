@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/cronexpr"
@@ -29,7 +28,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 		return nil, nil
 	}
 
-	if err := validateScheduleDefinition(s); err != nil {
+	if err := sdk.ValidateScalingPolicySchedule(s, "schedule"); err != nil {
 		return nil, err
 	}
 
@@ -111,36 +110,4 @@ func lastOccurrenceAtOrBefore(expr *cronexpr.Expression, now time.Time) (time.Ti
 	}
 
 	return last, true
-}
-
-func validateScheduleDefinition(s *sdk.ScalingPolicySchedule) error {
-	if s.Start == "" {
-		return fmt.Errorf("schedule.start is required")
-	}
-
-	hasEnd := s.End != ""
-	hasDuration := s.Duration != ""
-	if hasEnd == hasDuration {
-		return fmt.Errorf("schedule must define exactly one of end or duration")
-	}
-
-	if len(strings.Fields(s.Start)) != 5 {
-		return fmt.Errorf("schedule.start must use strict 5-field cron format")
-	}
-
-	if hasEnd && len(strings.Fields(s.End)) != 5 {
-		return fmt.Errorf("schedule.end must use strict 5-field cron format")
-	}
-
-	if hasDuration {
-		d, err := time.ParseDuration(s.Duration)
-		if err != nil {
-			return fmt.Errorf("schedule.duration must have time.Duration format")
-		}
-		if d <= 0 {
-			return fmt.Errorf("schedule.duration must be greater than zero")
-		}
-	}
-
-	return nil
 }

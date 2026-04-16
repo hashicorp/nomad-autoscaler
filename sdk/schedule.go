@@ -11,8 +11,8 @@ import (
 	"github.com/hashicorp/cronexpr"
 )
 
-// validateSchedule validates a policy/check schedule definition.
-func validateSchedule(s *ScalingPolicySchedule, path string) error {
+// ValidateScalingPolicySchedule validates a policy/check schedule definition.
+func ValidateScalingPolicySchedule(s *ScalingPolicySchedule, path string) error {
 	if s == nil {
 		return nil
 	}
@@ -49,6 +49,11 @@ func validateSchedule(s *ScalingPolicySchedule, path string) error {
 	}
 
 	return nil
+}
+
+// validateSchedule validates a policy/check schedule definition.
+func validateSchedule(s *ScalingPolicySchedule, path string) error {
+	return ValidateScalingPolicySchedule(s, path)
 }
 
 func validateCron5Field(expr string, path string) error {

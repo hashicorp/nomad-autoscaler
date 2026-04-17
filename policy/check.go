@@ -92,8 +92,8 @@ func (ch *checkRunner) ensureCompiledSchedule() error {
 	return ch.scheduleErr
 }
 
-// getNewCountFromStrategy runs the check strategy and applies the effective
-// check or policy error-handling behavior to the result.
+// getNewCountFromStrategy runs the strategy for one check and returns a
+// scaling action, applying check-level and policy-level error handling.
 func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount int64,
 	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("calculating new count", "current count", currentCount)
@@ -104,8 +104,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			"on_error", ch.check.OnError, "on_check_error",
 			ch.policy.OnCheckError, "error", err)
 
-		// check.on_error has priority. If it is unset or unrecognized, fall
-		// back to policy.on_check_error.
+		// Use recognized check-level on_error values first.
+		// For unset or unrecognized values, fall back to policy on_check_error.
 		switch ch.check.OnError {
 		case sdk.ScalingPolicyOnErrorIgnore:
 			return sdk.ScalingAction{}, nil
@@ -118,6 +118,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 				return sdk.ScalingAction{}, err
 			}
 
+			// Non-fatal fallback path: skip this check result and continue evaluating
+			// the remaining checks in the policy.
 			return sdk.ScalingAction{}, nil
 		}
 	}

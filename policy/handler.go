@@ -64,7 +64,7 @@ type checker interface {
 	// runCheckAndCapCount evaluates a check and returns its proposed scaling action.
 	// It returns errCheckOutsideSchedule or errCheckEvaluationCanceled when the
 	// check should be skipped from winner selection for this cycle.
-	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, err error)
+	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }
 

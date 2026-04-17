@@ -19,15 +19,15 @@ type noopVerticalCheckRunner struct {
 	policy *sdk.ScalingPolicy
 }
 
-func (nv *noopVerticalCheckRunner) runCheckAndCapCount(_ context.Context, currentCount int64, _ *queryMetricsCache) (action sdk.ScalingAction, err error) {
-	action = sdk.ScalingAction{
+func (nv *noopVerticalCheckRunner) runCheckAndCapCount(_ context.Context, currentCount int64, _ *queryMetricsCache) (sdk.ScalingAction, error) {
+	a := sdk.ScalingAction{
 		Direction: sdk.ScaleDirectionNone,
 		Count:     currentCount,
 	}
 
-	action.CapCount(nv.policy.Min, nv.policy.Max)
+	a.CapCount(nv.policy.Min, nv.policy.Max)
 
-	return action, nil
+	return a, nil
 }
 
 func (nv *noopVerticalCheckRunner) group() string {

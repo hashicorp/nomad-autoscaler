@@ -262,7 +262,7 @@ var errCheckEvaluationCanceled = errors.New("check evaluation canceled")
 // The method signals non-participation with sentinel errors:
 //   - errCheckOutsideSchedule when the check is outside its schedule window.
 //   - errCheckEvaluationCanceled when evaluation is canceled mid-run.
-func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, err error) {
+func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
 	if err := ch.ensureCompiledSchedule(); err != nil {
@@ -281,7 +281,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		return sdk.ScalingAction{}, errCheckEvaluationCanceled
 	}
 
-	action, err = ch.getNewCountFromStrategy(ctx, currentCount, metrics)
+	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
 		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
 	}

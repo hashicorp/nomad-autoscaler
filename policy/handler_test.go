@@ -28,16 +28,15 @@ type MockLimiter struct {
 }
 
 type stubChecker struct {
-	action        sdk.ScalingAction
-	participating bool
-	err           error
-	groupName     string
-	calls         int
+	action    sdk.ScalingAction
+	err       error
+	groupName string
+	calls     int
 }
 
-func (s *stubChecker) runCheckAndCapCount(_ context.Context, _ int64, _ *queryMetricsCache) (sdk.ScalingAction, bool, error) {
+func (s *stubChecker) runCheckAndCapCount(_ context.Context, _ int64, _ *queryMetricsCache) (sdk.ScalingAction, error) {
 	s.calls++
-	return s.action, s.participating, s.err
+	return s.action, s.err
 }
 
 func (s *stubChecker) group() string {
@@ -315,79 +314,102 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 	}
 }
 
-func TestHandler_calculateNewCount_SkipsNonParticipatingChecks(t *testing.T) {
-	skippedCheck := &stubChecker{
-		action: sdk.ScalingAction{
-			Direction: sdk.ScaleDirectionNone,
-			Count:     2,
-		},
-		participating: false,
-	}
-
-	downCheck := &stubChecker{
-		action: sdk.ScalingAction{
-			Direction: sdk.ScaleDirectionDown,
-			Count:     0,
-		},
-		participating: true,
-	}
-
-	handler := &Handler{
-		log: hclog.NewNullLogger(),
-		policy: &sdk.ScalingPolicy{
-			ID: "test-policy",
-			Target: &sdk.ScalingPolicyTarget{
-				Name:   "mock-target",
-				Config: map[string]string{},
+func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *testing.T) {
+	testCases := []struct {
+		name            string
+		runners         []*stubChecker
+		expectedCalls   []int
+		expectedAction  sdk.ScalingAction
+		expectedErrText string
+	}{
+		{
+			name: "sentinel_skipped_outside_schedule",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    errCheckOutsideSchedule,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
+				},
 			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
 		},
-		checkRunners: []checker{skippedCheck, downCheck},
-	}
-
-	action, err := handler.calculateNewCount(context.Background(), 2)
-	errMsg := must.Sprint("non-participating checks should be excluded from winner selection")
-	must.NoError(t, err, errMsg)
-	must.Eq(t, sdk.ScaleDirectionDown, action.Direction, errMsg)
-	must.Eq(t, int64(0), action.Count, errMsg)
-	must.Eq(t, 1, skippedCheck.calls, must.Sprint("expected skipped check to be evaluated once"))
-	must.Eq(t, 1, downCheck.calls, must.Sprint("expected active check to be evaluated once"))
-}
-
-func TestHandler_calculateNewCount_NoParticipatingChecks_ReturnsNoAction(t *testing.T) {
-	skippedA := &stubChecker{
-		action: sdk.ScalingAction{
-			Direction: sdk.ScaleDirectionUp,
-			Count:     5,
-		},
-		participating: false,
-	}
-
-	skippedB := &stubChecker{
-		action: sdk.ScalingAction{
-			Direction: sdk.ScaleDirectionDown,
-			Count:     0,
-		},
-		participating: false,
-	}
-
-	handler := &Handler{
-		log: hclog.NewNullLogger(),
-		policy: &sdk.ScalingPolicy{
-			ID: "test-policy",
-			Target: &sdk.ScalingPolicyTarget{
-				Name:   "mock-target",
-				Config: map[string]string{},
+		{
+			name: "sentinel_skipped_evaluation_canceled",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    errCheckEvaluationCanceled,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
 			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
 		},
-		checkRunners: []checker{skippedA, skippedB},
+		{
+			name: "unknown_error_fails",
+			runners: []*stubChecker{
+				{
+					err: errors.New("boom"),
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
+			},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
+		},
+		{
+			name: "all_sentinels_returns_no_action",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: errCheckEvaluationCanceled},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{},
+		},
 	}
 
-	action, err := handler.calculateNewCount(context.Background(), 2)
-	errMsg := must.Sprint("expected no action when no checks participate")
-	must.NoError(t, err, errMsg)
-	must.Eq(t, sdk.ScalingAction{}, action, errMsg)
-	must.Eq(t, 1, skippedA.calls, must.Sprint("expected first skipped check to be evaluated once"))
-	must.Eq(t, 1, skippedB.calls, must.Sprint("expected second skipped check to be evaluated once"))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			checkRunners := make([]checker, len(tc.runners))
+			for i, runner := range tc.runners {
+				checkRunners[i] = runner
+			}
+
+			handler := &Handler{
+				log: hclog.NewNullLogger(),
+				policy: &sdk.ScalingPolicy{
+					ID: "test-policy",
+					Target: &sdk.ScalingPolicyTarget{
+						Name:   "mock-target",
+						Config: map[string]string{},
+					},
+				},
+				checkRunners: checkRunners,
+			}
+
+			action, err := handler.calculateNewCount(context.Background(), 2)
+			if tc.expectedErrText != "" {
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectedErrText)
+				for i, runner := range tc.runners {
+					must.Eq(t, tc.expectedCalls[i], runner.calls)
+				}
+				return
+			}
+
+			must.NoError(t, err)
+			must.Eq(t, tc.expectedAction, action)
+			for i, runner := range tc.runners {
+				must.Eq(t, tc.expectedCalls[i], runner.calls)
+			}
+		})
+	}
 }
 
 func TestHandler_Run_TargetError_Integration(t *testing.T) {

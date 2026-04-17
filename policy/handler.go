@@ -44,8 +44,8 @@ const (
 )
 
 var (
-	// errTargetNotReady is used by a check handler to indicate the policy target
-	// is not ready.
+	// errTargetNotFound is used by a check handler to indicate the policy target
+	// does not exist or is unavailable.
 	errTargetNotFound = errors.New("target not found")
 	errNoMetrics      = errors.New("no metrics available")
 )
@@ -62,8 +62,9 @@ type limiter interface {
 
 type checker interface {
 	// runCheckAndCapCount evaluates a check and returns its proposed scaling action.
-	// participating is false when the check is skipped (for example, outside schedule or canceled).
-	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, participating bool, err error)
+	// It returns errCheckOutsideSchedule or errCheckEvaluationCanceled when the
+	// check should be skipped from winner selection for this cycle.
+	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (action sdk.ScalingAction, err error)
 	group() string
 }
 
@@ -474,13 +475,17 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	queryCache := newQueryMetricsCache()
 
 	for _, ch := range h.checkRunners {
-		action, participating, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
+		action, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
 		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
-		}
-
-		if !participating {
-			continue
+			if errors.Is(err, errCheckOutsideSchedule) {
+				h.log.Debug("skipping check, outside schedule window")
+				continue
+			}
+			if errors.Is(err, errCheckEvaluationCanceled) {
+				h.log.Debug("skipping check participation, evaluation canceled", "error", err)
+				continue
+			}
+			return sdk.ScalingAction{}, fmt.Errorf("failed to run check and cap count: %w", err)
 		}
 
 		g := ch.group()

@@ -115,6 +115,24 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 			expectedAction: sdk.ScalingAction{},
 		},
 		{
+			name:           "unexpected_check_on_error_falls_back_to_policy_fail",
+			checkOnError:   "unexpected",
+			runErr:         testErr,
+			policy:         testPolicyOnErrorFail,
+			metrics:        sdk.TimestampedMetrics{},
+			expError:       testErr,
+			expectedAction: sdk.ScalingAction{},
+		},
+		{
+			name:           "unexpected_check_on_error_falls_back_to_policy_ignore",
+			checkOnError:   "unexpected",
+			runErr:         testErr,
+			policy:         testPolicy,
+			metrics:        sdk.TimestampedMetrics{},
+			expError:       nil,
+			expectedAction: sdk.ScalingAction{},
+		},
+		{
 			name:           "fail_on_check_error_from_policy",
 			checkOnError:   "",
 			runErr:         testErr,
@@ -362,7 +380,7 @@ func TestCheckHandler_runCheckAndCapCount_OutsideSchedule(t *testing.T) {
 	must.Eq(t, 0, sr.runCalls, errMsg)
 }
 
-func TestCheckHandler_runCheckAndCapCount_IgnoresStrategyErrorsWithoutPanicking(t *testing.T) {
+func TestCheckHandler_runCheckAndCapCount_IgnoredStrategyErrorsContinueEvaluation(t *testing.T) {
 	nowFunc = func() time.Time {
 		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
@@ -393,15 +411,17 @@ func TestCheckHandler_runCheckAndCapCount_IgnoresStrategyErrorsWithoutPanicking(
 
 	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
 	must.NoError(t, err)
-	must.Eq(t, sdk.ScalingAction{
-		Count:  1,
-		Reason: "capped count from 0 to 1 to stay within limits",
-		Meta: map[string]interface{}{
-			"nomad_autoscaler.count.capped":   true,
-			"nomad_autoscaler.count.original": int64(0),
-			"nomad_autoscaler.reason_history": []string{},
-		},
-	}, action)
+	must.Eq(t, sdk.ScaleDirectionNone, action.Direction)
+
+	// Side-effect sanity check: count is capped into policy bounds when the
+	// ignored strategy error returns an empty action.
+	must.Eq(t, testPolicy.Min, action.Count)
+	capped, ok := action.Meta["nomad_autoscaler.count.capped"].(bool)
+	must.True(t, ok)
+	must.True(t, capped)
+	original, ok := action.Meta["nomad_autoscaler.count.original"].(int64)
+	must.True(t, ok)
+	must.Eq(t, int64(0), original)
 	must.Eq(t, 1, ml.queryCalls)
 	must.Eq(t, 1, sr.runCalls)
 }

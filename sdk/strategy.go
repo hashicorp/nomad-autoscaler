@@ -88,7 +88,8 @@ func (d ScaleDirection) String() string {
 	}
 }
 
-// Canonicalize ensures Action has proper default values.
+// Canonicalize ensures the action is safe for downstream mutation by
+// initializing Meta when it is nil.
 func (a *ScalingAction) Canonicalize() {
 	a.ensureMeta()
 }

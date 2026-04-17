@@ -126,7 +126,7 @@ func TestAction_CapCount(t *testing.T) {
 				},
 				Reason: "capped count from 4 to 5 to stay within limits",
 			},
-			name: "empty input action canonicalized before capping",
+			name: "nil meta is canonicalized before capping",
 		},
 		{
 			inputAction: &ScalingAction{
@@ -222,7 +222,7 @@ func TestAction_pushReason(t *testing.T) {
 					"nomad_autoscaler.reason_history": []string{},
 				},
 			},
-			name: "no existing reason history",
+			name: "no existing reason history with nil meta",
 		},
 
 		{

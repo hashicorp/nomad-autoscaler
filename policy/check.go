@@ -118,6 +118,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			if ch.policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
 				return sdk.ScalingAction{}, err
 			}
+
+			return sdk.ScalingAction{}, nil
 		}
 	}
 

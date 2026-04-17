@@ -46,7 +46,7 @@ type ScalingAction struct {
 	Direction ScaleDirection
 
 	// Meta
-	Meta map[string]interface{}
+	Meta map[string]any
 }
 
 // ScaleDirection is an identifier used by strategy plugins to identify how the
@@ -91,24 +91,25 @@ func (d ScaleDirection) String() string {
 // Canonicalize ensures the action is safe for downstream mutation by
 // initializing Meta when it is nil.
 func (a *ScalingAction) Canonicalize() {
-	a.ensureMeta()
+	if a.Meta == nil {
+		a.Meta = make(map[string]any)
+	}
 }
 
-// ensureMeta initializes the Meta map if it is nil and returns it.
-func (a *ScalingAction) ensureMeta() map[string]interface{} {
+// setMeta safely stores a metadata value, initializing Meta when needed.
+func (a *ScalingAction) setMeta(key string, val any) {
 	if a.Meta == nil {
-		a.Meta = make(map[string]interface{})
+		a.Meta = make(map[string]any)
 	}
-	return a.Meta
+	a.Meta[key] = val
 }
 
 // SetDryRun marks the Action to be executed in dry-run mode. Dry-run mode is
 // indicated using Meta tags. A dry-run action doesn't modify the Target's
 // count value.
 func (a *ScalingAction) SetDryRun() {
-	a.ensureMeta()
-	a.Meta[strategyActionMetaKeyDryRun] = true
-	a.Meta[strategyActionMetaKeyDryRunCount] = a.Count
+	a.setMeta(strategyActionMetaKeyDryRun, true)
+	a.setMeta(strategyActionMetaKeyDryRunCount, a.Count)
 	a.Count = StrategyActionMetaValueDryRunCount
 	a.Direction = ScaleDirectionNone
 }
@@ -120,7 +121,7 @@ func (a *ScalingAction) CapCount(min, max int64) {
 		return
 	}
 
-	a.ensureMeta()
+	a.Canonicalize()
 
 	oldCount, newCount := a.Count, a.Count
 	if newCount < min {
@@ -130,8 +131,8 @@ func (a *ScalingAction) CapCount(min, max int64) {
 	}
 
 	if newCount != oldCount {
-		a.Meta[strategyActionMetaKeyCountCapped] = true
-		a.Meta[strategyActionMetaKeyCountOriginal] = oldCount
+		a.setMeta(strategyActionMetaKeyCountCapped, true)
+		a.setMeta(strategyActionMetaKeyCountOriginal, oldCount)
 		a.pushReason(fmt.Sprintf("capped count from %d to %d to stay within limits", oldCount, newCount))
 		a.Count = newCount
 	}
@@ -139,8 +140,6 @@ func (a *ScalingAction) CapCount(min, max int64) {
 
 // PushReason updates the Reason value and stores previous Reason into Meta.
 func (a *ScalingAction) pushReason(r string) {
-	a.ensureMeta()
-
 	history := []string{}
 
 	// Check if we already have a reason stack in Meta
@@ -154,7 +153,7 @@ func (a *ScalingAction) pushReason(r string) {
 	if a.Reason != "" {
 		history = append(history, a.Reason)
 	}
-	a.Meta[strategyActionMetaKeyReasonHistory] = history
+	a.setMeta(strategyActionMetaKeyReasonHistory, history)
 	a.Reason = r
 }
 

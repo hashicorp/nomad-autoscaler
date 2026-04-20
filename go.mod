@@ -28,7 +28,7 @@ require (
 	github.com/prometheus/common v0.67.5
 	github.com/shoenig/test v1.12.2
 	github.com/stretchr/testify v1.11.1
-	github.com/zclconf/go-cty v1.18.0
+	github.com/zclconf/go-cty v1.18.1
 	golang.org/x/text v0.36.0
 	golang.org/x/time v0.15.0
 	google.golang.org/api v0.276.0

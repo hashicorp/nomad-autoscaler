@@ -430,3 +430,27 @@ func Test_parseCheck_QueryWindowInstant(t *testing.T) {
 	must.NotNil(t, check)
 	must.True(t, check.QueryInstant)
 }
+
+func Test_parseSchedule(t *testing.T) {
+	t.Run("start and end", func(t *testing.T) {
+		schedule := parseSchedule([]interface{}{
+			map[string]interface{}{
+				"start": "0 9 * * *",
+				"end":   "0 17 * * *",
+			},
+		})
+
+		must.Eq(t, &sdk.ScalingPolicySchedule{Start: "0 9 * * *", End: "0 17 * * *"}, schedule)
+	})
+
+	t.Run("start and duration", func(t *testing.T) {
+		schedule := parseSchedule([]interface{}{
+			map[string]interface{}{
+				"start":    "0 9 * * *",
+				"duration": "8h",
+			},
+		})
+
+		must.Eq(t, &sdk.ScalingPolicySchedule{Start: "0 9 * * *", Duration: "8h"}, schedule)
+	})
+}

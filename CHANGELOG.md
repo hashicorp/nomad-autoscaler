@@ -11,6 +11,9 @@ IMPROVEMENTS:
 * policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)] 
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
 
+BUG FIXES:
+* policy: Fixed-value strategy checks no longer depend on APM lookup or metric query results, allowing fixed-value scaling to proceed when the configured metrics source is unavailable. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
+
 ## 0.4.9 (January 6, 2026)
 
 BUG FIXES:

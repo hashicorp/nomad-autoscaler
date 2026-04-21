@@ -12,6 +12,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	metrics "github.com/hashicorp/go-metrics"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
@@ -265,9 +266,14 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		return sdk.ScalingAction{}, nil
 	}
 
-	metrics, err := ch.queryMetrics(ctx, cache)
-	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+	metrics := sdk.TimestampedMetrics{}
+	// Fixed-value strategy does not require APM metrics; all other strategies still do.
+	if ch.check.Strategy.Name != plugins.InternalStrategyFixedValue {
+		var err error
+		metrics, err = ch.queryMetrics(ctx, cache)
+		if err != nil {
+			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+		}
 	}
 
 	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)

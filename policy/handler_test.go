@@ -13,6 +13,7 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test"
 	"github.com/shoenig/test/must"
@@ -461,6 +462,39 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 			t.Errorf("expected only 'outside schedule window' logs, got: %q", line)
 		}
 	}
+}
+
+func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
+	fixedValuePolicy := &sdk.ScalingPolicy{
+		ID:                 "fixed-value-policy",
+		Type:               sdk.ScalingPolicyTypeHorizontal,
+		EvaluationInterval: time.Second,
+		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
+		Checks: []*sdk.ScalingPolicyCheck{
+			{
+				Name:   "check-fixed-value",
+				Source: "missing-apm",
+				Strategy: &sdk.ScalingPolicyStrategy{
+					Name:   plugins.InternalStrategyFixedValue,
+					Config: map[string]string{"value": "3"},
+				},
+			},
+		},
+	}
+
+	h := &Handler{
+		log: hclog.NewNullLogger(),
+		pm: &MockDependencyGetter{
+			APMLookerErr: testErr,
+			StrategyRunner: &mockStrategyRunner{
+				t: t,
+			},
+		},
+	}
+
+	err := h.applyPolicyState(fixedValuePolicy)
+	must.NoError(t, err)
+	must.Eq(t, 1, len(h.checkRunners))
 }
 
 var policy = &sdk.ScalingPolicy{

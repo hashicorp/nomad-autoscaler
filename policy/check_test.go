@@ -10,6 +10,7 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test"
 	"github.com/shoenig/test/must"
@@ -351,4 +352,35 @@ func TestCheckHandler_runCheckAndCapCount_OutsideSchedule(t *testing.T) {
 	must.Eq(t, sdk.ScalingAction{}, action, errMsg)
 	must.Eq(t, 0, ml.queryCalls, errMsg)
 	must.Eq(t, 0, sr.runCalls, errMsg)
+}
+
+func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Time{}
+	}
+
+	sr := &mockStrategyRunner{t: t, count: 7, direction: sdk.ScaleDirectionUp}
+	ml := &mockAPMLooker{t: t, query: "query", err: testErr}
+
+	runner := newCheckRunner(&CheckRunnerConfig{
+		Log:            hclog.NewNullLogger(),
+		StrategyRunner: sr,
+		MetricsGetter:  ml,
+		Policy:         testPolicy,
+	}, &sdk.ScalingPolicyCheck{
+		Name:        "fixed-value-check",
+		Source:      "mock",
+		Query:       "query",
+		QueryWindow: time.Minute,
+		Strategy: &sdk.ScalingPolicyStrategy{
+			Name: plugins.InternalStrategyFixedValue,
+		},
+	})
+
+	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
+	must.NoError(t, err)
+	must.Eq(t, int64(7), action.Count)
+	must.Eq(t, sdk.ScaleDirectionUp, action.Direction)
+	must.Eq(t, 0, ml.queryCalls)
+	must.Eq(t, 1, sr.runCalls)
 }

@@ -5,6 +5,7 @@ package plugin
 
 import (
 	"fmt"
+	"maps"
 	"sync"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -81,9 +82,7 @@ func copyConfigMap(config map[string]string) map[string]string {
 	}
 
 	configCopy := make(map[string]string, len(config))
-	for k, v := range config {
-		configCopy[k] = v
-	}
+	maps.Copy(configCopy, config)
 
 	return configCopy
 }

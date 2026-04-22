@@ -17,30 +17,113 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClusterScaleUtils_IdentifyScaleInNodesHonorsNum(t *testing.T) {
+func TestClusterScaleUtils_IdentifyScaleInNodes(t *testing.T) {
+	testCases := []struct {
+		inputNum            int
+		expectedNodeCount   int
+		expectedFirstNodeID string
+		expectedError       string
+		name                string
+	}{
+		{
+			inputNum:            1,
+			expectedNodeCount:   1,
+			expectedFirstNodeID: "node-a",
+			expectedError:       "",
+			name:                "honors requested num",
+		},
+		{
+			inputNum:            0,
+			expectedNodeCount:   0,
+			expectedFirstNodeID: "",
+			expectedError:       "number of nodes requested for removal must be greater than zero",
+			name:                "rejects non positive num",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cu := newTestClusterScaleUtils(t)
+			nodes, err := cu.IdentifyScaleInNodes(testScaleInCfg(), tc.inputNum)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Nil(t, nodes)
+				assert.EqualError(t, err, tc.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, nodes, tc.expectedNodeCount)
+			assert.Equal(t, tc.expectedFirstNodeID, nodes[0].ID)
+		})
+	}
+}
+
+func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
+	testCases := []struct {
+		inputNum              int
+		inputRemoteIDs        []string
+		expectedResourceID    NodeResourceID
+		expectedResourceCount int
+		expectedError         string
+		name                  string
+	}{
+		{
+			inputNum:              1,
+			inputRemoteIDs:        []string{"node-b"},
+			expectedResourceID:    NodeResourceID{NomadNodeID: "node-b", RemoteResourceID: "node-b"},
+			expectedResourceCount: 1,
+			expectedError:         "",
+			name:                  "uses all eligible nodes before remote filtering",
+		},
+		{
+			inputNum:              0,
+			inputRemoteIDs:        []string{"node-a"},
+			expectedResourceID:    NodeResourceID{},
+			expectedResourceCount: 0,
+			expectedError:         "number of nodes requested for removal must be greater than zero",
+			name:                  "rejects non positive num",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cu := newTestClusterScaleUtilsWithRemoteCheck(t)
+			ids, err := cu.RunPreScaleInTasksWithRemoteCheck(context.Background(), testScaleInCfg(), tc.inputRemoteIDs, tc.inputNum)
+
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Nil(t, ids)
+				assert.EqualError(t, err, tc.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Len(t, ids, tc.expectedResourceCount)
+			assert.Equal(t, tc.expectedResourceID, ids[0])
+		})
+	}
+}
+
+func newTestClusterScaleUtils(t *testing.T) *ClusterScaleUtils {
+	t.Helper()
+
 	server := testNomadScaleInServer(t)
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	client := testNomadClient(t, server.URL)
-	cu := &ClusterScaleUtils{
+	return &ClusterScaleUtils{
 		log:    hclog.NewNullLogger(),
 		client: client,
 	}
-
-	cfg := map[string]string{
-		sdk.TargetConfigKeyClass:             "pool-a",
-		sdk.TargetConfigNodeSelectorStrategy: sdk.TargetNodeSelectorStrategyNewestCreateIndex,
-	}
-
-	nodes, err := cu.IdentifyScaleInNodes(cfg, 1)
-	require.NoError(t, err)
-	require.Len(t, nodes, 1)
-	assert.Equal(t, "node-a", nodes[0].ID)
 }
 
-func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheckUsesAllEligibleNodes(t *testing.T) {
+func newTestClusterScaleUtilsWithRemoteCheck(t *testing.T) *ClusterScaleUtils {
+	t.Helper()
+
 	server := testNomadScaleInServer(t)
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	client := testNomadClient(t, server.URL)
 	md := newMockDrainer()
@@ -53,7 +136,7 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheckUsesAllEligibleNodes
 		return outCh
 	}
 
-	cu := &ClusterScaleUtils{
+	return &ClusterScaleUtils{
 		log:    hclog.NewNullLogger(),
 		client: client,
 		ClusterNodeIDLookupFunc: func(node *api.Node) (string, error) {
@@ -61,61 +144,13 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheckUsesAllEligibleNodes
 		},
 		drainer: md,
 	}
-
-	cfg := map[string]string{
-		sdk.TargetConfigKeyClass:             "pool-a",
-		sdk.TargetConfigNodeSelectorStrategy: sdk.TargetNodeSelectorStrategyNewestCreateIndex,
-	}
-
-	ids, err := cu.RunPreScaleInTasksWithRemoteCheck(context.Background(), cfg, []string{"node-b"}, 1)
-	require.NoError(t, err)
-	require.Len(t, ids, 1)
-	assert.Equal(t, NodeResourceID{NomadNodeID: "node-b", RemoteResourceID: "node-b"}, ids[0])
 }
 
-func TestClusterScaleUtils_IdentifyScaleInNodesRejectsNonPositiveNum(t *testing.T) {
-	server := testNomadScaleInServer(t)
-	defer server.Close()
-
-	client := testNomadClient(t, server.URL)
-	cu := &ClusterScaleUtils{
-		log:    hclog.NewNullLogger(),
-		client: client,
-	}
-
-	cfg := map[string]string{
+func testScaleInCfg() map[string]string {
+	return map[string]string{
 		sdk.TargetConfigKeyClass:             "pool-a",
 		sdk.TargetConfigNodeSelectorStrategy: sdk.TargetNodeSelectorStrategyNewestCreateIndex,
 	}
-
-	nodes, err := cu.IdentifyScaleInNodes(cfg, 0)
-	require.Error(t, err)
-	require.Nil(t, nodes)
-	assert.EqualError(t, err, "number of nodes requested for removal must be greater than zero")
-}
-
-func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheckRejectsNonPositiveNum(t *testing.T) {
-	server := testNomadScaleInServer(t)
-	defer server.Close()
-
-	client := testNomadClient(t, server.URL)
-	cu := &ClusterScaleUtils{
-		log:    hclog.NewNullLogger(),
-		client: client,
-		ClusterNodeIDLookupFunc: func(node *api.Node) (string, error) {
-			return node.ID, nil
-		},
-	}
-
-	cfg := map[string]string{
-		sdk.TargetConfigKeyClass:             "pool-a",
-		sdk.TargetConfigNodeSelectorStrategy: sdk.TargetNodeSelectorStrategyNewestCreateIndex,
-	}
-
-	ids, err := cu.RunPreScaleInTasksWithRemoteCheck(context.Background(), cfg, []string{"node-a"}, 0)
-	require.Error(t, err)
-	require.Nil(t, ids)
-	assert.EqualError(t, err, "number of nodes requested for removal must be greater than zero")
 }
 
 func testNomadScaleInServer(t *testing.T) *httptest.Server {

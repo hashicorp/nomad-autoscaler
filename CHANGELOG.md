@@ -10,6 +10,7 @@ IMPROVEMENTS:
 * build: Updated the Alpine container image used to `alpine:3.23` [[GH-1272](https://github.com/hashicorp/nomad-autoscaler/pull/1272)]
 * policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)] 
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
+* scaleutils: Fix scale-in node identification to honor requested num and avoid selecting all eligible nodes. [[GH-1282](https://github.com/hashicorp/nomad-autoscaler/pull/1282)]
 
 ## 0.4.9 (January 6, 2026)
 

@@ -116,8 +116,12 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 		return nil, errors.New("required ClusterNodeIDLookupFunc not set")
 	}
 
+	if num < 1 {
+		return nil, fmt.Errorf("number of nodes requested for removal must be greater than zero")
+	}
+
 	// Find nodes in Nomad that match the node filtering criteria.
-	nodes, err := c.IdentifyScaleInNodes(cfg, num)
+	nodes, err := c.identifyEligibleScaleInNodes(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -189,6 +193,34 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 
 func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
+	filteredNodes, err := c.identifyEligibleScaleInNodes(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if num < 1 {
+		return nil, fmt.Errorf("number of nodes requested for removal must be greater than zero")
+	}
+
+	// If the caller has requested more nodes than we have available once
+	// filtered, adjust the value. This shouldn't cause the whole scaling
+	// action to fail, but we should warn.
+	if num > len(filteredNodes) {
+		c.log.Warn("can only identify portion of requested nodes for removal",
+			"requested", num, "available", len(filteredNodes))
+		num = len(filteredNodes)
+	}
+
+	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
+	if err != nil {
+		return nil, err
+	}
+
+	return selectedNodes, nil
+}
+
+func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) ([]*api.NodeListStub, error) {
+
 	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
 	if err != nil {
 		return nil, err
@@ -234,14 +266,6 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
 		return nil, fmt.Errorf("no nodes unfiltered for %s with value %s", poolID.Key(), poolID.Value())
-	}
-
-	// If the caller has requested more nodes than we have available once
-	// filtered, adjust the value. This shouldn't cause the whole scaling
-	// action to fail, but we should warn.
-	if num > len(filteredNodes) {
-		c.log.Warn("can only identify portion of requested nodes for removal",
-			"requested", num, "available", len(filteredNodes))
 	}
 
 	return filteredNodes, nil

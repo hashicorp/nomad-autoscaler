@@ -27,6 +27,8 @@ type nodeDrainer interface {
 	MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage
 }
 
+var errInvalidScaleInNum = errors.New("number of nodes requested for removal must be greater than zero")
+
 // ClusterScaleUtils provides common functionality when performing horizontal
 // cluster scaling evaluations and actions.
 type ClusterScaleUtils struct {
@@ -117,7 +119,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 	}
 
 	if num < 1 {
-		return nil, fmt.Errorf("number of nodes requested for removal must be greater than zero")
+		return nil, errInvalidScaleInNum
 	}
 
 	// Find nodes in Nomad that match the node filtering criteria.
@@ -199,7 +201,7 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 	}
 
 	if num < 1 {
-		return nil, fmt.Errorf("number of nodes requested for removal must be greater than zero")
+		return nil, errInvalidScaleInNum
 	}
 
 	// If the caller has requested more nodes than we have available once

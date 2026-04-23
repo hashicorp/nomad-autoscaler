@@ -62,9 +62,8 @@ type limiter interface {
 }
 
 type checker interface {
-	// runCheckAndCapCount evaluates a check and returns its proposed scaling action.
-	// It returns errCheckOutsideSchedule or errCheckEvaluationCanceled when the
-	// check should be skipped from winner selection for this cycle.
+	// It returns errCheckOutsideSchedule, context.Canceled.
+	// when the check should be skipped from winner selection for this cycle.
 	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }
@@ -495,8 +494,8 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 				h.log.Debug("skipping check, outside schedule window")
 				continue
 			}
-			if errors.Is(err, errCheckEvaluationCanceled) {
-				h.log.Debug("skipping check participation, evaluation canceled", "error", err)
+			if errors.Is(err, context.Canceled) {
+				h.log.Debug("skipping check participation, context canceled")
 				continue
 			}
 			return sdk.ScalingAction{}, fmt.Errorf("failed to run check and cap count: %w", err)

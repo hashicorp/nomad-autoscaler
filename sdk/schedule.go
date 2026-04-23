@@ -12,6 +12,8 @@ import (
 )
 
 // ValidateScalingPolicySchedule validates a policy/check schedule definition.
+// path is a caller-provided field prefix used to contextualize returned errors
+// (for example: policy.schedule or check <name>.schedule).
 func ValidateScalingPolicySchedule(s *ScalingPolicySchedule, path string) error {
 	if s == nil {
 		return nil
@@ -49,11 +51,6 @@ func ValidateScalingPolicySchedule(s *ScalingPolicySchedule, path string) error 
 	}
 
 	return nil
-}
-
-// validateSchedule validates a policy/check schedule definition.
-func validateSchedule(s *ScalingPolicySchedule, path string) error {
-	return ValidateScalingPolicySchedule(s, path)
 }
 
 func validateCron5Field(expr string, path string) error {

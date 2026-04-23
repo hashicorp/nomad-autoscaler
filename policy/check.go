@@ -259,13 +259,12 @@ func (ch *checkRunner) group() string {
 }
 
 var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
-var errCheckEvaluationCanceled = errors.New("check evaluation canceled")
 
 // runCheckAndCapCount evaluates the check and caps the returned action.
 //
 // The method signals non-participation with sentinel errors:
 //   - errCheckOutsideSchedule when the check is outside its schedule window.
-//   - errCheckEvaluationCanceled when evaluation is canceled mid-run.
+//   - ctx.Err() when evaluation is canceled mid-run.
 func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
@@ -287,7 +286,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		}
 	}
 	if ctx.Err() != nil {
-		return sdk.ScalingAction{}, errCheckEvaluationCanceled
+		return sdk.ScalingAction{}, ctx.Err()
 	}
 
 	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
@@ -295,7 +294,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
 	}
 	if ctx.Err() != nil {
-		return sdk.ScalingAction{}, errCheckEvaluationCanceled
+		return sdk.ScalingAction{}, ctx.Err()
 	}
 
 	action.CapCount(ch.policy.Min, ch.policy.Max)

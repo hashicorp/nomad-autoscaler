@@ -112,7 +112,7 @@ func (p *ScalingPolicy) Validate() error {
 		result = multierror.Append(result, fmt.Errorf("empty checks, this policy won't execute any verification or scaling and should have enabled set to false"))
 	}
 
-	if err := validateSchedule(p.Schedule, "policy.schedule"); err != nil {
+	if err := ValidateScalingPolicySchedule(p.Schedule, "policy.schedule"); err != nil {
 		result = multierror.Append(result, err)
 	}
 
@@ -122,7 +122,7 @@ func (p *ScalingPolicy) Validate() error {
 			continue
 		}
 
-		if err := validateSchedule(c.Schedule, fmt.Sprintf("check %s.schedule", c.Name)); err != nil {
+		if err := ValidateScalingPolicySchedule(c.Schedule, fmt.Sprintf("check %s.schedule", c.Name)); err != nil {
 			result = multierror.Append(result, err)
 		}
 

@@ -342,7 +342,7 @@ func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *te
 			runners: []*stubChecker{
 				{
 					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
-					err:    errCheckEvaluationCanceled,
+					err:    context.Canceled,
 				},
 				{
 					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
@@ -368,7 +368,7 @@ func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *te
 			name: "all_sentinels_returns_no_action",
 			runners: []*stubChecker{
 				{err: errCheckOutsideSchedule},
-				{err: errCheckEvaluationCanceled},
+				{err: context.Canceled},
 			},
 			expectedCalls:  []int{1, 1},
 			expectedAction: sdk.ScalingAction{},

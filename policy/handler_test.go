@@ -472,8 +472,8 @@ func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
 		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
 		Checks: []*sdk.ScalingPolicyCheck{
 			{
-				Name:   "check-fixed-value",
-				Source: "missing-apm",
+				Name: "check-fixed-value",
+				// source and query are not needed for fixed-value, because the APM query should be skipped entirely.
 				Strategy: &sdk.ScalingPolicyStrategy{
 					Name:   plugins.InternalStrategyFixedValue,
 					Config: map[string]string{"value": "3"},

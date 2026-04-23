@@ -13,7 +13,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
 * policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]
-* policy: Fixed-value strategy checks no longer depend on APM lookup or metric query results, allowing fixed-value scaling to proceed when the configured metrics source is unavailable. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
+* policy: Fixed-value strategy checks no longer require APM source or query configuration. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
 
 ## 0.4.9 (January 6, 2026)
 

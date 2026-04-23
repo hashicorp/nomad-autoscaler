@@ -428,10 +428,6 @@ func TestCheckHandler_runCheckAndCapCount_IgnoredStrategyErrorsContinueEvaluatio
 }
 
 func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) {
-	nowFunc = func() time.Time {
-		return time.Time{}
-	}
-
 	sr := &mockStrategyRunner{t: t, count: 7, direction: sdk.ScaleDirectionUp}
 	ml := &mockAPMLooker{t: t, query: "query", err: testErr}
 
@@ -441,9 +437,8 @@ func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) 
 		MetricsGetter:  ml,
 		Policy:         testPolicy,
 	}, &sdk.ScalingPolicyCheck{
-		Name:        "fixed-value-check",
-		Source:      "mock",
-		Query:       "query",
+		Name: "fixed-value-check",
+		// source and query are not needed for fixed-value, because the APM query should be skipped entirely.
 		QueryWindow: time.Minute,
 		Strategy: &sdk.ScalingPolicyStrategy{
 			Name: plugins.InternalStrategyFixedValue,
@@ -452,8 +447,8 @@ func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) 
 
 	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
 	must.NoError(t, err)
-	must.Eq(t, int64(7), action.Count)
-	must.Eq(t, sdk.ScaleDirectionUp, action.Direction)
-	must.Eq(t, 0, ml.queryCalls)
-	must.Eq(t, 1, sr.runCalls)
+	test.Eq(t, int64(7), action.Count)
+	test.Eq(t, sdk.ScaleDirectionUp, action.Direction)
+	test.Eq(t, 0, ml.queryCalls, test.Sprint("should not have made any apm queries"))
+	test.Eq(t, 1, sr.runCalls)
 }

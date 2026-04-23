@@ -14,6 +14,7 @@ import (
 
 	hclog "github.com/hashicorp/go-hclog"
 	metrics "github.com/hashicorp/go-metrics"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	targetpkg "github.com/hashicorp/nomad-autoscaler/plugins/target"
@@ -231,21 +232,34 @@ func (h *Handler) loadCheckRunners(policy *sdk.ScalingPolicy) ([]checker, error)
 
 	switch policy.Type {
 	case sdk.ScalingPolicyTypeCluster, sdk.ScalingPolicyTypeHorizontal:
-		for _, check := range policy.Checks {
-
-			s, err := h.pm.GetStrategyRunner(check.Strategy.Name)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get strategy %s: %w", check.Strategy.Name, err)
+		for i, check := range policy.Checks {
+			if check == nil {
+				return nil, fmt.Errorf("invalid check at index %d: check cannot be nil", i)
 			}
 
-			mg, err := h.pm.GetAPMLooker(check.Source)
+			if check.Strategy == nil || check.Strategy.Name == "" {
+				return nil, fmt.Errorf("invalid check %q: missing strategy value", check.Name)
+			}
+
+			strategyName := check.Strategy.Name
+
+			s, err := h.pm.GetStrategyRunner(strategyName)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get APM for strategy %s: %w", check.Strategy.Name, err)
+				return nil, fmt.Errorf("failed to get strategy %s: %w", strategyName, err)
+			}
+
+			var mg apm.Looker
+			// Fixed-value strategy does not need APM; keep looker nil and skip APM lookup.
+			if strategyName != plugins.InternalStrategyFixedValue {
+				mg, err = h.pm.GetAPMLooker(check.Source)
+				if err != nil {
+					return nil, fmt.Errorf("failed to get APM for strategy %s: %w", strategyName, err)
+				}
 			}
 
 			runner := newCheckRunner(&CheckRunnerConfig{
 				Log: h.log.Named("check_handler").With("check", check.Name,
-					"source", check.Source, "strategy", check.Strategy.Name),
+					"source", check.Source, "strategy", strategyName),
 				StrategyRunner: s,
 				MetricsGetter:  mg,
 				Policy:         policy,

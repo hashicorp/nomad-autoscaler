@@ -10,6 +10,7 @@ import (
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test"
 	"github.com/shoenig/test/must"
@@ -424,4 +425,30 @@ func TestCheckHandler_runCheckAndCapCount_IgnoredStrategyErrorsContinueEvaluatio
 	must.Eq(t, int64(0), original)
 	must.Eq(t, 1, ml.queryCalls)
 	must.Eq(t, 1, sr.runCalls)
+}
+
+func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) {
+	sr := &mockStrategyRunner{t: t, count: 7, direction: sdk.ScaleDirectionUp}
+	ml := &mockAPMLooker{t: t, query: "query", err: testErr}
+
+	runner := newCheckRunner(&CheckRunnerConfig{
+		Log:            hclog.NewNullLogger(),
+		StrategyRunner: sr,
+		MetricsGetter:  ml,
+		Policy:         testPolicy,
+	}, &sdk.ScalingPolicyCheck{
+		Name: "fixed-value-check",
+		// source and query are not needed for fixed-value, because the APM query should be skipped entirely.
+		QueryWindow: time.Minute,
+		Strategy: &sdk.ScalingPolicyStrategy{
+			Name: plugins.InternalStrategyFixedValue,
+		},
+	})
+
+	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
+	must.NoError(t, err)
+	test.Eq(t, int64(7), action.Count)
+	test.Eq(t, sdk.ScaleDirectionUp, action.Direction)
+	test.Eq(t, 0, ml.queryCalls, test.Sprint("should not have made any apm queries"))
+	test.Eq(t, 1, sr.runCalls)
 }

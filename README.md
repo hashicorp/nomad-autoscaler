@@ -41,6 +41,8 @@ The compatibility requirements are as follows:
 
 Documentation is available on the [Nomad project website](https://www.nomadproject.io/docs/autoscaling).
 
+Additional operator guidance for readiness override options is available in [docs/readiness-override-options.md](docs/readiness-override-options.md).
+
 ## Demo
 
 There are both [horizontal application scaling](https://github.com/hashicorp/nomad-autoscaler-demos/tree/main/vagrant/horizontal-app-scaling) and

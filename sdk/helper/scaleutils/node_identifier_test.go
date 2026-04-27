@@ -178,16 +178,31 @@ func Test_FilterNodes(t *testing.T) {
 					SchedulingEligibility: api.NodeSchedulingEligible,
 					Status:                api.NodeStatusReady,
 				},
+			},
+			expectedOutputError: nil,
+			name:                "filter of ready and eligible nodes",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
 				{
-					ID:                    "node-ready-ineligible",
+					ID:                    "node-ready-ineligible-1",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible-2",
 					NodeClass:             "lionel",
 					Drain:                 false,
 					SchedulingEligibility: api.NodeSchedulingIneligible,
 					Status:                api.NodeStatusReady,
 				},
 			},
+			inputIDCfg:          map[string]string{"node_class": "lionel"},
+			expectedOutputNodes: nil,
 			expectedOutputError: nil,
-			name:                "filter of nodes that are ready",
+			name:                "filter excludes all ready ineligible nodes",
 		},
 		{
 			inputNodeList: []*api.NodeListStub{
@@ -425,4 +440,70 @@ func Test_filterOutNodeID(t *testing.T) {
 			assert.ElementsMatch(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
+}
+
+func Test_NewNodeFilterOptions(t *testing.T) {
+	testCases := []struct {
+		inputConfig  map[string]string
+		expectInit   bool
+		expectDrain  bool
+		expectedErr  string
+		name         string
+	}{
+		{
+			inputConfig: map[string]string{},
+			expectInit:  false,
+			expectDrain: false,
+			expectedErr: "",
+			name:       "defaults",
+		},
+		{
+			inputConfig: map[string]string{
+				XNodeFilterOptionIgnoreInit:  "true",
+				XNodeFilterOptionIgnoreDrain: "true",
+			},
+			expectInit:  true,
+			expectDrain: true,
+			expectedErr: "",
+			name:       "valid bool values",
+		},
+		{
+			inputConfig: map[string]string{
+				XNodeFilterOptionIgnoreInit: "not-a-bool",
+			},
+			expectedErr: "failed to parse value not-a-bool for node_filter_ignore_init configuration",
+			name:       "invalid init bool",
+		},
+		{
+			inputConfig: map[string]string{
+				XNodeFilterOptionIgnoreDrain: "not-a-bool",
+			},
+			expectedErr: "failed to parse value not-a-bool for node_filter_ignore_drain configuration",
+			name:       "invalid drain bool",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			opts, err := NewNodeFilterOptions(tc.inputConfig)
+
+			if tc.expectedErr != "" {
+				assert.Error(t, err)
+				assert.ErrorContains(t, err, tc.expectedErr)
+				assert.Nil(t, opts)
+				return
+			}
+
+			assert.NoError(t, err)
+			assert.NotNil(t, opts)
+			assert.Equal(t, tc.expectInit, opts.IgnoreInit())
+			assert.Equal(t, tc.expectDrain, opts.IgnoreDrain())
+		})
+	}
+}
+
+func Test_NodeFilterOptions_IgnoreNilReceiver(t *testing.T) {
+	var opts *NodeFilterOptions
+	assert.False(t, opts.IgnoreInit())
+	assert.False(t, opts.IgnoreDrain())
 }

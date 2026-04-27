@@ -86,7 +86,8 @@ func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) 
 		// Assuming a cluster has most, if not all nodes in a correct state for
 		// scheduling then this is the fastest route. Only append in the event
 		// we have not encountered any error to save some cycles.
-		if !node.Drain && node.Status == api.NodeStatusReady {
+		if !node.Drain && node.Status == api.NodeStatusReady &&
+			node.SchedulingEligibility == api.NodeSchedulingEligible {
 			if err == nil {
 				out = append(out, node)
 			}

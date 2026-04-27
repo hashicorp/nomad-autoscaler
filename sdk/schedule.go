@@ -58,7 +58,7 @@ func validateCron5Field(expr string, path string) error {
 		return fmt.Errorf("%s must use strict 5-field cron format", path)
 	}
 	if _, err := cronexpr.Parse(expr); err != nil {
-		return fmt.Errorf("%s contains invalid cron expression: %v", path, err)
+		return fmt.Errorf("%s contains invalid cron expression: %w", path, err)
 	}
 	return nil
 }

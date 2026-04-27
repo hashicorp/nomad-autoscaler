@@ -28,6 +28,9 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 		return nil, nil
 	}
 
+	// Validate at runtime compile boundary as defense-in-depth.
+	// Source validation is the primary gate, but compileSchedule may be called
+	// from non-standard paths and should never compile invalid schedules.
 	if err := sdk.ValidateScalingPolicySchedule(s, "schedule"); err != nil {
 		return nil, err
 	}

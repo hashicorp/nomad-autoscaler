@@ -5,6 +5,7 @@ package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -161,7 +162,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 
 	select {
 	case <-ctx.Done():
-		return sdk.ScalingAction{}, nil
+		return sdk.ScalingAction{}, ctx.Err()
 	case <-strategyRunDoneCh:
 	}
 
@@ -224,7 +225,7 @@ func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCach
 
 	select {
 	case <-ctx.Done():
-		return nil, nil
+		return nil, ctx.Err()
 	case <-apmQueryDoneCh:
 	}
 
@@ -257,6 +258,13 @@ func (ch *checkRunner) group() string {
 	return ch.check.Group
 }
 
+var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
+
+// runCheckAndCapCount evaluates the check and caps the returned action.
+//
+// The method returns errCheckOutsideSchedule when the check is outside its
+// schedule window; the caller should skip this check and continue. Any other
+// error, including context errors, should abort the evaluation.
 func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
@@ -265,8 +273,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 	}
 
 	if ch.schedule != nil && !ch.schedule.activeAt(nowFunc()) {
-		ch.log.Debug("skipping check, outside schedule window")
-		return sdk.ScalingAction{}, nil
+		return sdk.ScalingAction{}, errCheckOutsideSchedule
 	}
 
 	metrics := sdk.TimestampedMetrics{}
@@ -275,14 +282,13 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		var err error
 		metrics, err = ch.queryMetrics(ctx, cache)
 		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %w", err)
 		}
 	}
 
 	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
-
+		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
 	}
 
 	action.CapCount(ch.policy.Min, ch.policy.Max)

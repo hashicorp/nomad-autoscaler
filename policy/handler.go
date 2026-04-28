@@ -45,8 +45,8 @@ const (
 )
 
 var (
-	// errTargetNotReady is used by a check handler to indicate the policy target
-	// is not ready.
+	// errTargetNotFound is used by a check handler to indicate the policy target
+	// does not exist or is unavailable.
 	errTargetNotFound = errors.New("target not found")
 	errNoMetrics      = errors.New("no metrics available")
 )
@@ -62,6 +62,9 @@ type limiter interface {
 }
 
 type checker interface {
+	// It returns errCheckOutsideSchedule when the check should be skipped
+	// from winner selection for this cycle. Any other error, including
+	// context errors, aborts the evaluation.
 	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }
@@ -148,7 +151,7 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 
 	currentStatus, err := h.runTargetStatus()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get target status: %v", err)
+		return nil, fmt.Errorf("failed to get target status: %w", err)
 	}
 
 	// A nil status indicates the target doesn't exist or is not ready, log and
@@ -331,6 +334,12 @@ func (h *Handler) Run(ctx context.Context) {
 			currentCount := currentStatus.Count
 			action, err := h.calculateNewCount(ctx, currentCount)
 			if err != nil {
+				// Returning here avoids re-entering the ticker case on a canceled/expired context;
+				//  ctx.Done() would win on the next iteration anyway but Go's select is non-deterministic.
+				if ctx.Err() != nil {
+					h.log.Debug("stopping policy handler, context done during evaluation")
+					return
+				}
 				h.errChn <- fmt.Errorf("handler: unable to execute policy ID: %s, %w",
 					h.policy.ID, err)
 				continue
@@ -488,8 +497,11 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 	for _, ch := range h.checkRunners {
 		action, err := ch.runCheckAndCapCount(ctx, currentCount, queryCache)
 		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
-
+			if errors.Is(err, errCheckOutsideSchedule) {
+				h.log.Debug("skipping check, outside schedule window")
+				continue
+			}
+			return sdk.ScalingAction{}, fmt.Errorf("failed to run check and cap count: %w", err)
 		}
 
 		g := ch.group()

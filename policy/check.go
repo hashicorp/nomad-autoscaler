@@ -123,6 +123,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			// the remaining checks in the policy.
 			return sdk.ScalingAction{}, nil
 		}
+	} else {
+		ch.log.Debug("check returned count", "strategy", ch.check.Strategy.Name, "check", ch.check.Name, "count", a.Count, "reason", a.Reason)
 	}
 
 	return a, nil

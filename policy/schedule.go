@@ -31,8 +31,8 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	// Validate at runtime compile boundary as defense-in-depth.
 	// Source validation is the primary gate, but compileSchedule may be called
 	// from non-standard paths and should never compile invalid schedules.
-	if err := sdk.ValidateScalingPolicySchedule(s, "schedule"); err != nil {
-		return nil, err
+	if err := sdk.ValidateScalingPolicySchedule(s); err != nil {
+		return nil, fmt.Errorf("schedule: %w", err)
 	}
 
 	startExpr, err := cronexpr.Parse(s.Start)

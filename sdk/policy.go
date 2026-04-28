@@ -112,8 +112,8 @@ func (p *ScalingPolicy) Validate() error {
 		result = multierror.Append(result, fmt.Errorf("empty checks, this policy won't execute any verification or scaling and should have enabled set to false"))
 	}
 
-	if err := ValidateScalingPolicySchedule(p.Schedule, "policy.schedule"); err != nil {
-		result = multierror.Append(result, err)
+	if err := ValidateScalingPolicySchedule(p.Schedule); err != nil {
+		result = multierror.Append(result, fmt.Errorf("policy.schedule: %w", err))
 	}
 
 	for _, c := range p.Checks {
@@ -122,8 +122,8 @@ func (p *ScalingPolicy) Validate() error {
 			continue
 		}
 
-		if err := ValidateScalingPolicySchedule(c.Schedule, fmt.Sprintf("check %s.schedule", c.Name)); err != nil {
-			result = multierror.Append(result, err)
+		if err := ValidateScalingPolicySchedule(c.Schedule); err != nil {
+			result = multierror.Append(result, fmt.Errorf("check %s.schedule: %w", c.Name, err))
 		}
 
 		if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {

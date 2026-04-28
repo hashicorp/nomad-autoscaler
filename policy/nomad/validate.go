@@ -272,7 +272,10 @@ func validateSchedule(in map[string]interface{}, path string) error {
 		schedule.Duration = duration
 	}
 
-	return sdk.ValidateScalingPolicySchedule(schedule, path)
+	if err := sdk.ValidateScalingPolicySchedule(schedule); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	return nil
 }
 
 func validateInstantThresholdTrigger(c map[string]interface{}, path string) error {

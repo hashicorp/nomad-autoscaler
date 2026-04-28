@@ -30,13 +30,13 @@ func ValidateScalingPolicySchedule(s *ScalingPolicySchedule, path string) error 
 		return fmt.Errorf("%s must define exactly one of end or duration", path)
 	}
 
-	if err := validateCron5Field(s.Start, path+".start"); err != nil {
-		return err
+	if err := validateCron5Field(s.Start); err != nil {
+		return fmt.Errorf("%s.start: %w", path, err)
 	}
 
 	if hasEnd {
-		if err := validateCron5Field(s.End, path+".end"); err != nil {
-			return err
+		if err := validateCron5Field(s.End); err != nil {
+			return fmt.Errorf("%s.end: %w", path, err)
 		}
 	}
 
@@ -53,12 +53,12 @@ func ValidateScalingPolicySchedule(s *ScalingPolicySchedule, path string) error 
 	return nil
 }
 
-func validateCron5Field(expr string, path string) error {
+func validateCron5Field(expr string) error {
 	if len(strings.Fields(expr)) != 5 {
-		return fmt.Errorf("%s must use strict 5-field cron format", path)
+		return fmt.Errorf("must use strict 5-field cron format")
 	}
 	if _, err := cronexpr.Parse(expr); err != nil {
-		return fmt.Errorf("%s contains invalid cron expression: %w", path, err)
+		return fmt.Errorf("invalid cron expression: %w", err)
 	}
 	return nil
 }

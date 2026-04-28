@@ -338,7 +338,7 @@ func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *te
 			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
 		},
 		{
-			name: "sentinel_skipped_evaluation_canceled",
+			name: "evaluation_canceled_aborts_loop",
 			runners: []*stubChecker{
 				{
 					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
@@ -348,8 +348,8 @@ func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *te
 					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
 				},
 			},
-			expectedCalls:  []int{1, 1},
-			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
 		},
 		{
 			name: "unknown_error_fails",
@@ -365,13 +365,22 @@ func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *te
 			expectedErrText: "failed to run check and cap count",
 		},
 		{
-			name: "all_sentinels_returns_no_action",
+			name: "all_outside_schedule_returns_no_action",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: errCheckOutsideSchedule},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{},
+		},
+		{
+			name: "outside_schedule_then_canceled_aborts",
 			runners: []*stubChecker{
 				{err: errCheckOutsideSchedule},
 				{err: context.Canceled},
 			},
-			expectedCalls:  []int{1, 1},
-			expectedAction: sdk.ScalingAction{},
+			expectedCalls:   []int{1, 1},
+			expectedErrText: "failed to run check and cap count",
 		},
 	}
 

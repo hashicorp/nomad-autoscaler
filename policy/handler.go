@@ -62,8 +62,9 @@ type limiter interface {
 }
 
 type checker interface {
-	// It returns errCheckOutsideSchedule, context.Canceled.
-	// when the check should be skipped from winner selection for this cycle.
+	// It returns errCheckOutsideSchedule when the check should be skipped
+	// from winner selection for this cycle. Any other error, including
+	// context errors, aborts the evaluation.
 	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }
@@ -333,6 +334,12 @@ func (h *Handler) Run(ctx context.Context) {
 			currentCount := currentStatus.Count
 			action, err := h.calculateNewCount(ctx, currentCount)
 			if err != nil {
+				// Returning here avoids re-entering the ticker case on a canceled/expired context;
+				//  ctx.Done() would win on the next iteration anyway but Go's select is non-deterministic.
+				if ctx.Err() != nil {
+					h.log.Debug("stopping policy handler, context done during evaluation")
+					return
+				}
 				h.errChn <- fmt.Errorf("handler: unable to execute policy ID: %s, %w",
 					h.policy.ID, err)
 				continue
@@ -492,10 +499,6 @@ func (h *Handler) calculateNewCount(ctx context.Context, currentCount int64) (sd
 		if err != nil {
 			if errors.Is(err, errCheckOutsideSchedule) {
 				h.log.Debug("skipping check, outside schedule window")
-				continue
-			}
-			if errors.Is(err, context.Canceled) {
-				h.log.Debug("skipping check participation, context canceled")
 				continue
 			}
 			return sdk.ScalingAction{}, fmt.Errorf("failed to run check and cap count: %w", err)

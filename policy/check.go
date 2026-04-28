@@ -162,7 +162,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 
 	select {
 	case <-ctx.Done():
-		return sdk.ScalingAction{}, nil
+		return sdk.ScalingAction{}, ctx.Err()
 	case <-strategyRunDoneCh:
 	}
 
@@ -225,7 +225,7 @@ func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCach
 
 	select {
 	case <-ctx.Done():
-		return nil, nil
+		return nil, ctx.Err()
 	case <-apmQueryDoneCh:
 	}
 
@@ -262,9 +262,9 @@ var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
 
 // runCheckAndCapCount evaluates the check and caps the returned action.
 //
-// The method signals non-participation with sentinel errors:
-//   - errCheckOutsideSchedule when the check is outside its schedule window.
-//   - ctx.Err() when evaluation is canceled mid-run.
+// The method returns errCheckOutsideSchedule when the check is outside its
+// schedule window; the caller should skip this check and continue. Any other
+// error, including context errors, should abort the evaluation.
 func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
@@ -285,16 +285,10 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %w", err)
 		}
 	}
-	if ctx.Err() != nil {
-		return sdk.ScalingAction{}, ctx.Err()
-	}
 
 	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
 		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
-	}
-	if ctx.Err() != nil {
-		return sdk.ScalingAction{}, ctx.Err()
 	}
 
 	action.CapCount(ch.policy.Min, ch.policy.Max)

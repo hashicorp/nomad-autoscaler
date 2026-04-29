@@ -13,7 +13,7 @@ IMPROVEMENTS:
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
 
 BUG FIXES:
-* plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-910](https://github.com/hashicorp/nomad-autoscaler/issues/910)]
+* plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-1286](https://github.com/hashicorp/nomad-autoscaler/pull/1286)]
 * policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]
 * policy: Fixed-value strategy checks no longer require APM source or query configuration. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
 

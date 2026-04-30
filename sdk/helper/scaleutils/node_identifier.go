@@ -86,10 +86,15 @@ func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) 
 		// Assuming a cluster has most, if not all nodes in a correct state for
 		// scheduling then this is the fastest route. Only append in the event
 		// we have not encountered any error to save some cycles.
-		if !node.Drain && node.Status == api.NodeStatusReady &&
-			node.SchedulingEligibility == api.NodeSchedulingEligible {
-			if err == nil {
-				out = append(out, node)
+		//
+		// Ineligible nodes are excluded from pool capacity by default. When
+		// IgnoreIneligible is set (e.g., scale-in), include them so they
+		// remain termination candidates.
+		if !node.Drain && node.Status == api.NodeStatusReady {
+			if node.SchedulingEligibility == api.NodeSchedulingEligible || opts.IgnoreIneligible() {
+				if err == nil {
+					out = append(out, node)
+				}
 			}
 			continue
 		}
@@ -143,13 +148,15 @@ func filterOutNodeID(n []*api.NodeListStub, id string) []*api.NodeListStub {
 // Enabling ignore options can reduce blocked evaluations in environments with
 // long drain/init windows, but may reduce strict readiness guarantees.
 const (
-	XNodeFilterOptionIgnoreInit  = "node_filter_ignore_init"
-	XNodeFilterOptionIgnoreDrain = "node_filter_ignore_drain"
+	XNodeFilterOptionIgnoreInit       = "node_filter_ignore_init"
+	XNodeFilterOptionIgnoreDrain      = "node_filter_ignore_drain"
+	XNodeFilterOptionIgnoreIneligible = "node_filter_ignore_ineligible"
 )
 
 type NodeFilterOptions struct {
-	ignoreInit  bool
-	ignoreDrain bool
+	ignoreInit       bool
+	ignoreDrain      bool
+	ignoreIneligible bool
 }
 
 func NewNodeFilterOptions(cfg map[string]string) (*NodeFilterOptions, error) {
@@ -179,6 +186,18 @@ func NewNodeFilterOptions(cfg map[string]string) (*NodeFilterOptions, error) {
 		opts.ignoreDrain = ignoreDrain
 	}
 
+	if str, ok := cfg[XNodeFilterOptionIgnoreIneligible]; ok {
+		ignoreIneligible, err := strconv.ParseBool(str)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to parse value %s for %s configuration: %v",
+				str, XNodeFilterOptionIgnoreIneligible, err,
+			)
+		}
+
+		opts.ignoreIneligible = ignoreIneligible
+	}
+
 	return opts, nil
 }
 
@@ -194,4 +213,11 @@ func (n *NodeFilterOptions) IgnoreDrain() bool {
 		return false
 	}
 	return n.ignoreDrain
+}
+
+func (n *NodeFilterOptions) IgnoreIneligible() bool {
+	if n == nil {
+		return false
+	}
+	return n.ignoreIneligible
 }

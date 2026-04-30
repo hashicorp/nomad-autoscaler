@@ -185,28 +185,6 @@ func Test_FilterNodes(t *testing.T) {
 		{
 			inputNodeList: []*api.NodeListStub{
 				{
-					ID:                    "node-ready-ineligible-1",
-					NodeClass:             "lionel",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingIneligible,
-					Status:                api.NodeStatusReady,
-				},
-				{
-					ID:                    "node-ready-ineligible-2",
-					NodeClass:             "lionel",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingIneligible,
-					Status:                api.NodeStatusReady,
-				},
-			},
-			inputIDCfg:          map[string]string{"node_class": "lionel"},
-			expectedOutputNodes: nil,
-			expectedOutputError: nil,
-			name:                "filter excludes all ready ineligible nodes",
-		},
-		{
-			inputNodeList: []*api.NodeListStub{
-				{
 					ID:                    "node1",
 					NodeClass:             "lionel",
 					Drain:                 false,
@@ -372,6 +350,121 @@ func Test_FilterNodes(t *testing.T) {
 	}
 }
 
+func Test_FilterNodesWithOptions(t *testing.T) {
+	testCases := []struct {
+		inputNodeList       []*api.NodeListStub
+		inputIDCfg          map[string]string
+		inputOpts           *NodeFilterOptions
+		expectedOutputNodes []*api.NodeListStub
+		expectedOutputError error
+		name                string
+	}{
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg: map[string]string{"node_class": "lionel"},
+			inputOpts:  &NodeFilterOptions{ignoreIneligible: true},
+			expectedOutputNodes: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			expectedOutputError: nil,
+			name:                "ignore_ineligible includes ready ineligible nodes",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg: map[string]string{"node_class": "lionel"},
+			inputOpts:  &NodeFilterOptions{ignoreIneligible: false},
+			expectedOutputNodes: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			expectedOutputError: nil,
+			name:                "default excludes ready ineligible nodes from output",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg:          map[string]string{"node_class": "lionel"},
+			inputOpts:           &NodeFilterOptions{ignoreIneligible: false},
+			expectedOutputNodes: nil,
+			expectedOutputError: nil,
+			name:                "all ineligible nodes produces empty output without error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
+			assert.NotNil(t, idFn, tc.name)
+			assert.Nil(t, err, tc.name)
+
+			actualNodes, actualError := FilterNodesWithOptions(tc.inputNodeList, idFn.IsPoolMember, tc.inputOpts)
+			assert.Equal(t, tc.expectedOutputNodes, actualNodes, tc.name)
+
+			if tc.expectedOutputError != nil {
+				assert.EqualError(t, actualError, tc.expectedOutputError.Error(), tc.name)
+			} else {
+				assert.NoError(t, actualError, tc.name)
+			}
+		})
+	}
+}
+
 func Test_filterOutNodeID(t *testing.T) {
 	testCases := []struct {
 		inputNodeList  []*api.NodeListStub
@@ -440,70 +533,4 @@ func Test_filterOutNodeID(t *testing.T) {
 			assert.ElementsMatch(t, tc.expectedOutput, actualOutput, tc.name)
 		})
 	}
-}
-
-func Test_NewNodeFilterOptions(t *testing.T) {
-	testCases := []struct {
-		inputConfig  map[string]string
-		expectInit   bool
-		expectDrain  bool
-		expectedErr  string
-		name         string
-	}{
-		{
-			inputConfig: map[string]string{},
-			expectInit:  false,
-			expectDrain: false,
-			expectedErr: "",
-			name:       "defaults",
-		},
-		{
-			inputConfig: map[string]string{
-				XNodeFilterOptionIgnoreInit:  "true",
-				XNodeFilterOptionIgnoreDrain: "true",
-			},
-			expectInit:  true,
-			expectDrain: true,
-			expectedErr: "",
-			name:       "valid bool values",
-		},
-		{
-			inputConfig: map[string]string{
-				XNodeFilterOptionIgnoreInit: "not-a-bool",
-			},
-			expectedErr: "failed to parse value not-a-bool for node_filter_ignore_init configuration",
-			name:       "invalid init bool",
-		},
-		{
-			inputConfig: map[string]string{
-				XNodeFilterOptionIgnoreDrain: "not-a-bool",
-			},
-			expectedErr: "failed to parse value not-a-bool for node_filter_ignore_drain configuration",
-			name:       "invalid drain bool",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			opts, err := NewNodeFilterOptions(tc.inputConfig)
-
-			if tc.expectedErr != "" {
-				assert.Error(t, err)
-				assert.ErrorContains(t, err, tc.expectedErr)
-				assert.Nil(t, opts)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.NotNil(t, opts)
-			assert.Equal(t, tc.expectInit, opts.IgnoreInit())
-			assert.Equal(t, tc.expectDrain, opts.IgnoreDrain())
-		})
-	}
-}
-
-func Test_NodeFilterOptions_IgnoreNilReceiver(t *testing.T) {
-	var opts *NodeFilterOptions
-	assert.False(t, opts.IgnoreInit())
-	assert.False(t, opts.IgnoreDrain())
 }

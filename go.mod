@@ -18,7 +18,7 @@ require (
 	github.com/hashicorp/go-metrics v0.5.4
 	github.com/hashicorp/go-msgpack v1.1.5
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/go-plugin v1.7.0
+	github.com/hashicorp/go-plugin v1.8.0
 	github.com/hashicorp/hcl/v2 v2.24.0
 	github.com/hashicorp/nomad/api v0.0.0-20251112085157-4f01f1455f20
 	github.com/mitchellh/cli v1.1.5

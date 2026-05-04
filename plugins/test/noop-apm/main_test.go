@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package main
@@ -110,9 +110,9 @@ func TestQuery(t *testing.T) {
 			case "fixed":
 				assert.Equal(c.expected, got)
 			case "random":
-				start, err := strconv.ParseFloat(parts[1], 10)
+				start, err := strconv.ParseFloat(parts[1], 64)
 				assert.NoError(err)
-				end, err := strconv.ParseFloat(parts[2], 10)
+				end, err := strconv.ParseFloat(parts[2], 64)
 				assert.NoError(err)
 
 				min := start

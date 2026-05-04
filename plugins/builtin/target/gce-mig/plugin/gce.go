@@ -36,6 +36,11 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 			return fmt.Errorf("failed to read credentials: %v", err)
 		}
 
+		// option.WithCredentialsJSON and all google.CredentialsFromJSON* variants are
+		// deprecated due to a potential security risk when accepting credential configs
+		// from untrusted sources. In this case, credentials come from the Nomad
+		// operator's own config and are trusted, so the deprecation does not apply.
+		//lint:ignore SA1019 no non-deprecated API exists for loading explicit JSON credentials
 		t.service, err = compute.NewService(context.Background(), option.WithCredentialsJSON([]byte(contents)))
 		if err != nil {
 			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)

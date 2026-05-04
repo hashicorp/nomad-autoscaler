@@ -7,6 +7,7 @@ FEATURES:
 
 IMPROVEMENTS:
 * agent: The `nomad.namespace` config field and `-nomad-namespace` CLI flag now accept multiple values, allowing the autoscaler to monitor scaling policies across several Nomad namespaces. Use `*` to monitor all namespaces. When a single namespace is provided the existing behaviour is preserved. [[GH-1251](https://github.com/hashicorp/nomad-autoscaler/pull/1251)]
+* build: Updated protobuf generation tooling to use `protoc-gen-go` and `protoc-gen-go-grpc`, replacing the deprecated `github.com/golang/protobuf` generator. This removes use of the deprecated `Exporter` field from all generated protobuf files and re-enables full `staticcheck` linting. [[GH-1289](https://github.com/hashicorp/nomad-autoscaler/pull/1289)]
 * build: Updated the Alpine container image used to `alpine:3.23` [[GH-1272](https://github.com/hashicorp/nomad-autoscaler/pull/1272)]
 * policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)]
 * plugin/apm/nomad: Support continued scaling during node drain (node_filter_ignore_drain) with safety and test hardening. [[GH-1271](https://github.com/hashicorp/nomad-autoscaler/pull/1271)]

@@ -6,10 +6,20 @@ version: v1beta1
 plugins:
   - name: go
     out: .
-    opt: "plugins=grpc\
-      ,Mplugins/base/proto/v1/base.proto=github.com/hashicorp/nomad-autoscaler/plugins/base/proto/v1\
-      ,Mplugins/apm/proto/v1/apm.proto=github.com/hashicorp/nomad-autoscaler/plugins/apm/proto/v1\
-      ,Mplugins/shared/proto/v1/shared.proto=github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1\
-      ,Mplugins/strategy/proto/v1/strategy.proto=github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1\
-      ,Mplugins/target/proto/v1/target.proto=github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1\
-      "
+    opt:
+      - paths=source_relative
+      - Mplugins/base/proto/v1/base.proto=github.com/hashicorp/nomad-autoscaler/plugins/base/proto/v1
+      - Mplugins/apm/proto/v1/apm.proto=github.com/hashicorp/nomad-autoscaler/plugins/apm/proto/v1
+      - Mplugins/shared/proto/v1/shared.proto=github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1
+      - Mplugins/strategy/proto/v1/strategy.proto=github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1
+      - Mplugins/target/proto/v1/target.proto=github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1
+  - name: go-grpc
+    out: .
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=false
+      - Mplugins/base/proto/v1/base.proto=github.com/hashicorp/nomad-autoscaler/plugins/base/proto/v1
+      - Mplugins/apm/proto/v1/apm.proto=github.com/hashicorp/nomad-autoscaler/plugins/apm/proto/v1
+      - Mplugins/shared/proto/v1/shared.proto=github.com/hashicorp/nomad-autoscaler/plugins/shared/proto/v1
+      - Mplugins/strategy/proto/v1/strategy.proto=github.com/hashicorp/nomad-autoscaler/plugins/strategy/proto/v1
+      - Mplugins/target/proto/v1/target.proto=github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1

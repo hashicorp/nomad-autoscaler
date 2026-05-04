@@ -10,7 +10,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.26.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.16.12
 	github.com/aws/aws-sdk-go-v2/service/autoscaling v1.36.5
-	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/cronexpr v1.1.3
 	github.com/hashicorp/go-cleanhttp v0.5.2
@@ -36,7 +35,10 @@ require (
 	google.golang.org/protobuf v1.36.11
 )
 
-require github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+require (
+	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
+)
 
 require (
 	cloud.google.com/go/auth v0.20.0 // indirect

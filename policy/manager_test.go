@@ -18,7 +18,7 @@ import (
 	"github.com/shoenig/test/must"
 )
 
-var testErrUnrecoverable = errors.New("connection refused")
+var errUnrecoverable = errors.New("connection refused")
 
 // MockDependencyGetter is a mock implementation of dependencyGetter for testing.
 type MockDependencyGetter struct {
@@ -465,8 +465,8 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			sourceError:       testErrUnrecoverable,
-			expectedError:     testErrUnrecoverable,
+			sourceError:       errUnrecoverable,
+			expectedError:     errUnrecoverable,
 			expectedCallCount: 1,
 		},
 	}
@@ -528,8 +528,8 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				},
 				Source: "mock-source"},
 			targetReporterError: nil,
-			sourceError:         testErrUnrecoverable,
-			expectedError:       testErrUnrecoverable,
+			sourceError:         errUnrecoverable,
+			expectedError:       errUnrecoverable,
 			expectedCallCount:   1,
 		},
 		{
@@ -554,8 +554,8 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			targetReporterError: testErrUnrecoverable,
-			expectedError:       testErrUnrecoverable,
+			targetReporterError: errUnrecoverable,
+			expectedError:       errUnrecoverable,
 			expectedCallCount:   1,
 		},
 	}

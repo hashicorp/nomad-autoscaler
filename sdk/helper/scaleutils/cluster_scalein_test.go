@@ -21,21 +21,21 @@ func TestClusterScaleUtils_IdentifyScaleInNodes(t *testing.T) {
 		inputNum            int
 		expectedNodeCount   int
 		expectedFirstNodeID string
-		expectedError       string
+		expectedError       error
 		name                string
 	}{
 		{
 			inputNum:            1,
 			expectedNodeCount:   1,
 			expectedFirstNodeID: "node-a",
-			expectedError:       "",
+			expectedError:       nil,
 			name:                "honors requested num",
 		},
 		{
 			inputNum:            0,
 			expectedNodeCount:   0,
 			expectedFirstNodeID: "",
-			expectedError:       "number of nodes requested for removal must be greater than zero",
+			expectedError:       errInvalidScaleInNum,
 			name:                "rejects non positive num",
 		},
 	}
@@ -45,15 +45,15 @@ func TestClusterScaleUtils_IdentifyScaleInNodes(t *testing.T) {
 			cu := newTestClusterScaleUtils(t)
 			nodes, err := cu.IdentifyScaleInNodes(testScaleInCfg(), tc.inputNum)
 
-			if tc.expectedError != "" {
+			if tc.expectedError != nil {
 				must.Error(t, err)
 				must.Nil(t, nodes)
-				must.ErrorContains(t, err, tc.expectedError)
+				must.ErrorIs(t, err, tc.expectedError)
 				return
 			}
 
 			must.NoError(t, err)
-			must.Eq(t, tc.expectedNodeCount, len(nodes))
+			must.Len(t, tc.expectedNodeCount, nodes)
 			must.Eq(t, tc.expectedFirstNodeID, nodes[0].ID)
 		})
 	}
@@ -65,7 +65,7 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
 		inputRemoteIDs        []string
 		expectedResourceID    NodeResourceID
 		expectedResourceCount int
-		expectedError         string
+		expectedError         error
 		name                  string
 	}{
 		{
@@ -73,7 +73,7 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
 			inputRemoteIDs:        []string{"node-b"},
 			expectedResourceID:    NodeResourceID{NomadNodeID: "node-b", RemoteResourceID: "node-b"},
 			expectedResourceCount: 1,
-			expectedError:         "",
+			expectedError:         nil,
 			name:                  "uses all eligible nodes before remote filtering",
 		},
 		{
@@ -81,7 +81,7 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
 			inputRemoteIDs:        []string{"node-a"},
 			expectedResourceID:    NodeResourceID{},
 			expectedResourceCount: 0,
-			expectedError:         "number of nodes requested for removal must be greater than zero",
+			expectedError:         errInvalidScaleInNum,
 			name:                  "rejects non positive num",
 		},
 	}
@@ -91,15 +91,15 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
 			cu := newTestClusterScaleUtilsWithRemoteCheck(t)
 			ids, err := cu.RunPreScaleInTasksWithRemoteCheck(t.Context(), testScaleInCfg(), tc.inputRemoteIDs, tc.inputNum)
 
-			if tc.expectedError != "" {
+			if tc.expectedError != nil {
 				must.Error(t, err)
 				must.Nil(t, ids)
-				must.ErrorContains(t, err, tc.expectedError)
+				must.ErrorIs(t, err, tc.expectedError)
 				return
 			}
 
 			must.NoError(t, err)
-			must.Eq(t, tc.expectedResourceCount, len(ids))
+			must.Len(t, tc.expectedResourceCount, ids)
 			must.Eq(t, tc.expectedResourceID, ids[0])
 		})
 	}
@@ -182,8 +182,9 @@ func testNomadScaleInServer(t *testing.T) *httptest.Server {
 		case "/v1/nodes":
 			must.NoError(t, json.NewEncoder(w).Encode(nodes))
 		case "/v1/node/node-a", "/v1/node/node-b":
-			n, ok := nodeInfo[r.URL.Path[len("/v1/node/"):]]
-			must.True(t, ok)
+			nID := r.URL.Path[len("/v1/node/"):]
+			n, ok := nodeInfo[nID]
+			must.True(t, ok, must.Sprintf("unknown node: %q", nID))
 			must.NoError(t, json.NewEncoder(w).Encode(n))
 		default:
 			w.WriteHeader(http.StatusNotFound)

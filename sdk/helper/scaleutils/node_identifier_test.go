@@ -11,6 +11,7 @@ import (
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -448,18 +449,17 @@ func Test_FilterNodesWithOptions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
-			assert.NotNil(t, idFn, tc.name)
-			assert.Nil(t, err, tc.name)
+			must.NoError(t, err)
+			must.NotNil(t, idFn)
 
 			actualNodes, actualError := FilterNodesWithOptions(tc.inputNodeList, idFn.IsPoolMember, tc.inputOpts)
-			assert.Equal(t, tc.expectedOutputNodes, actualNodes, tc.name)
+			must.Eq(t, tc.expectedOutputNodes, actualNodes)
 
 			if tc.expectedOutputError != nil {
-				assert.EqualError(t, actualError, tc.expectedOutputError.Error(), tc.name)
+				must.ErrorContains(t, actualError, tc.expectedOutputError.Error())
 			} else {
-				assert.NoError(t, actualError, tc.name)
+				must.NoError(t, actualError)
 			}
 		})
 	}

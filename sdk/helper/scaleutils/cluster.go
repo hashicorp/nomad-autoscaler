@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
@@ -209,6 +209,13 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 				"status", n.Status, "eligibility", n.SchedulingEligibility, "draining", n.Drain,
 			)
 		}
+	}
+
+	// For scale-in, ineligible nodes are valid termination candidates and
+	// should not be excluded from the pool. Default to including them unless
+	// the caller has explicitly configured otherwise.
+	if _, ok := cfg[XNodeFilterOptionIgnoreIneligible]; !ok {
+		cfg[XNodeFilterOptionIgnoreIneligible] = "true"
 	}
 
 	// Filter our nodes to select only those within our identified pool.

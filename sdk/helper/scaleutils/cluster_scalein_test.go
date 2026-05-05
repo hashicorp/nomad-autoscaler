@@ -13,8 +13,7 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/shoenig/test/must"
 )
 
 func TestClusterScaleUtils_IdentifyScaleInNodes(t *testing.T) {
@@ -47,15 +46,15 @@ func TestClusterScaleUtils_IdentifyScaleInNodes(t *testing.T) {
 			nodes, err := cu.IdentifyScaleInNodes(testScaleInCfg(), tc.inputNum)
 
 			if tc.expectedError != "" {
-				require.Error(t, err)
-				require.Nil(t, nodes)
-				assert.EqualError(t, err, tc.expectedError)
+				must.Error(t, err)
+				must.Nil(t, nodes)
+				must.ErrorContains(t, err, tc.expectedError)
 				return
 			}
 
-			require.NoError(t, err)
-			require.Len(t, nodes, tc.expectedNodeCount)
-			assert.Equal(t, tc.expectedFirstNodeID, nodes[0].ID)
+			must.NoError(t, err)
+			must.Eq(t, tc.expectedNodeCount, len(nodes))
+			must.Eq(t, tc.expectedFirstNodeID, nodes[0].ID)
 		})
 	}
 }
@@ -90,18 +89,18 @@ func TestClusterScaleUtils_RunPreScaleInTasksWithRemoteCheck(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cu := newTestClusterScaleUtilsWithRemoteCheck(t)
-			ids, err := cu.RunPreScaleInTasksWithRemoteCheck(context.Background(), testScaleInCfg(), tc.inputRemoteIDs, tc.inputNum)
+			ids, err := cu.RunPreScaleInTasksWithRemoteCheck(t.Context(), testScaleInCfg(), tc.inputRemoteIDs, tc.inputNum)
 
 			if tc.expectedError != "" {
-				require.Error(t, err)
-				require.Nil(t, ids)
-				assert.EqualError(t, err, tc.expectedError)
+				must.Error(t, err)
+				must.Nil(t, ids)
+				must.ErrorContains(t, err, tc.expectedError)
 				return
 			}
 
-			require.NoError(t, err)
-			require.Len(t, ids, tc.expectedResourceCount)
-			assert.Equal(t, tc.expectedResourceID, ids[0])
+			must.NoError(t, err)
+			must.Eq(t, tc.expectedResourceCount, len(ids))
+			must.Eq(t, tc.expectedResourceID, ids[0])
 		})
 	}
 }
@@ -181,11 +180,11 @@ func testNomadScaleInServer(t *testing.T) *httptest.Server {
 
 		switch r.URL.Path {
 		case "/v1/nodes":
-			require.NoError(t, json.NewEncoder(w).Encode(nodes))
+			must.NoError(t, json.NewEncoder(w).Encode(nodes))
 		case "/v1/node/node-a", "/v1/node/node-b":
 			n, ok := nodeInfo[r.URL.Path[len("/v1/node/"):]]
-			require.True(t, ok)
-			require.NoError(t, json.NewEncoder(w).Encode(n))
+			must.True(t, ok)
+			must.NoError(t, json.NewEncoder(w).Encode(n))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}
@@ -199,6 +198,6 @@ func testNomadClient(t *testing.T, address string) *api.Client {
 	cfg.Address = address
 
 	client, err := api.NewClient(cfg)
-	require.NoError(t, err)
+	must.NoError(t, err)
 	return client
 }

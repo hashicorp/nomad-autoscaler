@@ -167,6 +167,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 	if num > len(filteredNodes) {
 		c.log.Warn("can only identify portion of requested nodes for removal",
 			"requested", num, "available", len(filteredNodes))
+		num = len(filteredNodes)
 	}
 
 	// Select which nodes to drain and terminate based on the policy's
@@ -195,13 +196,13 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 
 func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
+	if num < 1 {
+		return nil, errInvalidScaleInNum
+	}
+
 	filteredNodes, err := c.identifyEligibleScaleInNodes(cfg)
 	if err != nil {
 		return nil, err
-	}
-
-	if num < 1 {
-		return nil, errInvalidScaleInNum
 	}
 
 	// If the caller has requested more nodes than we have available once

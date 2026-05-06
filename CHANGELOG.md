@@ -11,6 +11,7 @@ IMPROVEMENTS:
 * policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)]
 * plugin/apm/nomad: Support continued scaling during node drain (node_filter_ignore_drain) with safety and test hardening. [[GH-1271](https://github.com/hashicorp/nomad-autoscaler/pull/1271)]
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
+* scaleutils: Fix scale-in node identification to honor requested num and avoid selecting all eligible nodes. [[GH-1282](https://github.com/hashicorp/nomad-autoscaler/pull/1282)]
 
 BUG FIXES:
 * policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]

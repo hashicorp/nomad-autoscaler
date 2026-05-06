@@ -23,6 +23,10 @@ type compiledSchedule struct {
 // last cron occurrence because cronexpr exposes Next() but not Last().
 const lastOccurrenceSearchHorizonYears = 32
 
+// compileSchedule parses an already-validated schedule into its runtime
+// representation. Schedules are validated at the policy source boundary via
+// sdk.ValidateScalingPolicySchedule; this function only surfaces parse
+// failures and should not be used as a validation gate.
 func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	if s == nil {
 		return nil, nil
@@ -30,7 +34,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 
 	startExpr, err := cronexpr.Parse(s.Start)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schedule.start: %w", err)
+		return nil, fmt.Errorf("start: %w", err)
 	}
 
 	compiled := &compiledSchedule{startExpr: startExpr}
@@ -38,7 +42,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	if s.End != "" {
 		endExpr, err := cronexpr.Parse(s.End)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse schedule.end: %w", err)
+			return nil, fmt.Errorf("end: %w", err)
 		}
 		compiled.usesEnd = true
 		compiled.endExpr = endExpr
@@ -47,7 +51,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 
 	d, err := time.ParseDuration(s.Duration)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schedule.duration: %w", err)
+		return nil, fmt.Errorf("duration: %w", err)
 	}
 	compiled.duration = d
 

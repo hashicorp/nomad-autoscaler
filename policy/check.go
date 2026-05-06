@@ -21,6 +21,12 @@ import (
 
 var nowFunc = time.Now
 
+// errCheckOutsideSchedule signals that a check fell outside its configured
+// schedule window and should be skipped from winner selection. The caller in
+// the handler treats it as a non-fatal skip; any other error aborts the
+// evaluation.
+var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
+
 type CheckRunnerConfig struct {
 	// Log is the logger to use for logging.
 	Log hclog.Logger
@@ -76,7 +82,7 @@ func cloneMetrics(ms sdk.TimestampedMetrics) sdk.TimestampedMetrics {
 	return cloned
 }
 
-// NewCheckHandler returns a new checkHandler instance.
+// NewCheckRunner returns a new checkRunner instance.
 func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
 		log:            config.Log,
@@ -257,8 +263,6 @@ func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCach
 func (ch *checkRunner) group() string {
 	return ch.check.Group
 }
-
-var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
 
 // runCheckAndCapCount evaluates the check and caps the returned action.
 //

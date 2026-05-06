@@ -62,9 +62,6 @@ type limiter interface {
 }
 
 type checker interface {
-	// It returns errCheckOutsideSchedule when the check should be skipped
-	// from winner selection for this cycle. Any other error, including
-	// context errors, aborts the evaluation.
 	runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error)
 	group() string
 }

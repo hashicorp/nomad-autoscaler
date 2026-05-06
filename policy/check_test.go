@@ -16,7 +16,7 @@ import (
 	"github.com/shoenig/test/must"
 )
 
-var testErr = errors.New("error!")
+var errTest = errors.New("error")
 
 type mockStrategyRunner struct {
 	t         *testing.T
@@ -91,7 +91,7 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 		{
 			name:           "ignore_on_check_error",
 			checkOnError:   sdk.ScalingPolicyOnErrorIgnore,
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicy,
 			metrics:        sdk.TimestampedMetrics{},
 			expError:       nil,
@@ -100,7 +100,7 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 		{
 			name:           "ignore_on_check_error_from_check",
 			checkOnError:   "",
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicyOnErrorIgnore,
 			metrics:        sdk.TimestampedMetrics{},
 			expError:       nil,
@@ -109,7 +109,7 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 		{
 			name:           "default_on_check_error_from_policy",
 			checkOnError:   "",
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicy,
 			metrics:        sdk.TimestampedMetrics{},
 			expError:       nil,
@@ -118,16 +118,16 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 		{
 			name:           "unexpected_check_on_error_falls_back_to_policy_fail",
 			checkOnError:   "unexpected",
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicyOnErrorFail,
 			metrics:        sdk.TimestampedMetrics{},
-			expError:       testErr,
+			expError:       errTest,
 			expectedAction: sdk.ScalingAction{},
 		},
 		{
 			name:           "unexpected_check_on_error_falls_back_to_policy_ignore",
 			checkOnError:   "unexpected",
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicy,
 			metrics:        sdk.TimestampedMetrics{},
 			expError:       nil,
@@ -136,19 +136,19 @@ func TestCheckHandler_getNewCountFromMetrics(t *testing.T) {
 		{
 			name:           "fail_on_check_error_from_policy",
 			checkOnError:   "",
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicyOnErrorFail,
 			metrics:        sdk.TimestampedMetrics{},
-			expError:       testErr,
+			expError:       errTest,
 			expectedAction: sdk.ScalingAction{},
 		},
 		{
 			name:           "fail_on_check_error_from_check",
 			checkOnError:   sdk.ScalingPolicyOnErrorFail,
-			runErr:         testErr,
+			runErr:         errTest,
 			policy:         testPolicy,
 			metrics:        sdk.TimestampedMetrics{},
-			expError:       testErr,
+			expError:       errTest,
 			expectedAction: sdk.ScalingAction{},
 		},
 		{
@@ -235,9 +235,9 @@ func TestCheckHandler_runAPMQuery(t *testing.T) {
 		},
 		{
 			name:       "query_error",
-			queryError: testErr,
+			queryError: errTest,
 			expResult:  sdk.TimestampedMetrics{},
-			expErr:     testErr,
+			expErr:     errTest,
 		},
 		{
 			name:      "empty metrics",
@@ -386,7 +386,7 @@ func TestCheckHandler_runCheckAndCapCount_IgnoredStrategyErrorsContinueEvaluatio
 		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
 
-	sr := &mockStrategyRunner{t: t, err: testErr}
+	sr := &mockStrategyRunner{t: t, err: errTest}
 	ml := &mockAPMLooker{
 		t:       t,
 		query:   "query",
@@ -429,7 +429,7 @@ func TestCheckHandler_runCheckAndCapCount_IgnoredStrategyErrorsContinueEvaluatio
 
 func TestCheckHandler_runCheckAndCapCount_FixedValueSkipsAPMQuery(t *testing.T) {
 	sr := &mockStrategyRunner{t: t, count: 7, direction: sdk.ScaleDirectionUp}
-	ml := &mockAPMLooker{t: t, query: "query", err: testErr}
+	ml := &mockAPMLooker{t: t, query: "query", err: errTest}
 
 	runner := newCheckRunner(&CheckRunnerConfig{
 		Log:            hclog.NewNullLogger(),

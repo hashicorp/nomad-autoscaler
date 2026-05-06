@@ -112,15 +112,15 @@ func TestHandler_WaitAndScale(t *testing.T) {
 		},
 		{
 			name:          "slot_error",
-			getSlotErr:    testErr,
+			getSlotErr:    errTest,
 			expectedState: StateWaitingTurn,
-			expectedErr:   testErr,
+			expectedErr:   errTest,
 		},
 		{
 			name:          "scale_error",
-			scaleErr:      testErr,
+			scaleErr:      errTest,
 			expectedState: StateScaling,
-			expectedErr:   testErr,
+			expectedErr:   errTest,
 		},
 	}
 
@@ -316,7 +316,7 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 		policy:           policy,
 		updatesCh:        updatesCh,
 		errChn:           errCh,
-		targetController: &mockTargetController{statusErr: testErr},
+		targetController: &mockTargetController{statusErr: errTest},
 		state:            StateIdle,
 	}
 
@@ -326,7 +326,7 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		must.True(t, errors.Is(err, testErr))
+		must.True(t, errors.Is(err, errTest))
 	default:
 		t.Fatal("expected error getting target status")
 	}
@@ -430,7 +430,7 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		policy:           policy,
 		updatesCh:        updatesCh,
 		errChn:           errCh,
-		targetController: &mockTargetController{statusErr: testErr},
+		targetController: &mockTargetController{statusErr: errTest},
 		state:            StateIdle,
 	}
 
@@ -485,7 +485,7 @@ func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
 	h := &Handler{
 		log: hclog.NewNullLogger(),
 		pm: &MockDependencyGetter{
-			APMLookerErr: testErr,
+			APMLookerErr: errTest,
 			StrategyRunner: &mockStrategyRunner{
 				t: t,
 			},
@@ -678,7 +678,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 			name:                "initial_state_idle_with_scaling_error",
 			initialHandlerState: StateIdle,
 			expectedState:       StateIdle,
-			scalingErr:          testErr,
+			scalingErr:          errTest,
 			initialCooldownEnd:  time.Time{},
 			scaleExpected:       true,
 			expectedCooldownEnd: time.Time{},

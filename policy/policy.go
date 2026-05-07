@@ -14,6 +14,7 @@ import (
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 )
 
 const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
@@ -167,12 +168,27 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	}
 
 	// If the target is a Nomad client node pool, format the query in the
-	// expected manner. Once the autoscaler supports more than just class
-	// identification of pools this func and logic will need to be updated. For
-	// now keep it simple.
+	// expected manner. Use the node pool identifier helper to determine the
+	// correct pool key and value from the target config.
 	if t.IsNodePoolTarget() {
-		c.Query = fmt.Sprintf("%s_%s/%s/class",
-			nomadAPM.QueryTypeNode, c.Query, t.Config[sdk.TargetConfigKeyClass])
+		poolID, err := nodepool.NewClusterNodePoolIdentifier(t.Config)
+		if err != nil {
+			// Cannot determine pool identifier; leave query as-is.
+			return
+		}
+
+		// Check if this is a combined identifier (multiple pool keys set).
+		// Use the new combined format: node_<op>_<metric>/key1=val1+key2=val2
+		if combined, ok := poolID.(nodepool.CombinedPoolIdentifier); ok {
+			encoded := nodepool.EncodeCombinedQueryIdentifiers(combined.Identifiers())
+			c.Query = fmt.Sprintf("%s_%s/%s",
+				nomadAPM.QueryTypeNode, c.Query, encoded)
+			return
+		}
+
+		// Single identifier: node_<op>_<metric>/<value>/<key>
+		c.Query = fmt.Sprintf("%s_%s/%s/%s",
+			nomadAPM.QueryTypeNode, c.Query, poolID.Value(), poolID.Key())
 	}
 }
 

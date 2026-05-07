@@ -251,7 +251,8 @@ func (t *ScalingPolicyTarget) IsNodePoolTarget() bool {
 	}
 	_, classOK := t.Config[TargetConfigKeyClass]
 	_, dcOK := t.Config[TargetConfigKeyDatacenter]
-	return classOK || dcOK
+	_, poolOK := t.Config[TargetConfigKeyNodePool]
+	return classOK || dcOK || poolOK
 }
 
 type FileDecodeScalingPolicies struct {

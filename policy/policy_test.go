@@ -311,9 +311,43 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/hashistack/node_class",
 			},
-			name: "correctly formatted node target short query",
+			name: "correctly formatted node target short query with node_class",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "dc1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/dc1/datacenter",
+			},
+			name: "correctly formatted node target short query with datacenter",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_pool": "gpu"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/gpu/node_pool",
+			},
+			name: "correctly formatted node target short query with node_pool",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{
@@ -348,6 +382,46 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 				Query:  "percentage-allocated_memory",
 			},
 			name: "incorrectly formatted node target short query",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{
+					"node_class": "hashistack",
+					"datacenter": "dc1",
+				},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			name: "correctly formatted combined node_class and datacenter short query",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{
+					"datacenter": "us-east-1a",
+					"node_pool":  "gpu",
+				},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us-east-1a+node_pool=gpu",
+			},
+			name: "correctly formatted combined datacenter and node_pool short query",
 		},
 	}
 

@@ -11,6 +11,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	proto "github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // pluginClient is the gRPC client implementation of the Target interface.
@@ -32,7 +34,13 @@ func (p *pluginClient) Scale(action sdk.ScalingAction, config map[string]string)
 		return err
 	}
 	_, err = p.client.Scale(p.doneCTX, &proto.ScaleRequest{Action: req, Config: config})
-	return err
+	if err != nil {
+		if s, ok := status.FromError(err); ok && s.Code() == codes.Aborted {
+			return sdk.NewTargetScalingNoOpError("%s", s.Message())
+		}
+		return err
+	}
+	return nil
 }
 
 // Status is the gRPC client implementation of the Target.Status interface

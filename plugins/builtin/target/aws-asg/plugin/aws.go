@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 )
@@ -138,7 +139,7 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 		if p.ProcessName != nil && *p.ProcessName == "Terminate" {
 			log.Warn("skipping scale-in: Terminate process is suspended on ASG",
 				"suspension_reason", aws.ToString(p.SuspensionReason))
-			return nil
+			return sdk.NewTargetScalingNoOpError("Terminate process is suspended on ASG %s", *asg.AutoScalingGroupName)
 		}
 	}
 
@@ -153,7 +154,8 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 		if headroom <= 0 {
 			log.Warn("skipping scale-in: ASG is already at or below MinSize",
 				"desired_capacity", desired, "min_size", minSize)
-			return nil
+			return sdk.NewTargetScalingNoOpError("ASG %s is already at or below MinSize (desired=%d, min=%d)",
+				*asg.AutoScalingGroupName, desired, minSize)
 		}
 		if num > headroom {
 			log.Warn("capping scale-in to respect ASG MinSize",

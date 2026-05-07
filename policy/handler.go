@@ -417,6 +417,12 @@ func (h *Handler) waitAndScale(ctx context.Context) error {
 
 	err = h.runTargetScale(action)
 	if err != nil {
+		var noOpErr *sdk.TargetScalingNoOpError
+		if errors.As(err, &noOpErr) {
+			h.log.Debug("scaling action was a no-op, skipping cooldown", "reason", noOpErr.Error())
+			h.updateState(StateIdle)
+			return nil
+		}
 		return fmt.Errorf("failed to get scale target: %w", err)
 	}
 

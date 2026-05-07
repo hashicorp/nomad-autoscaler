@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -103,7 +104,9 @@ func TestTargetPlugin_scaleIn_TerminateSuspended(t *testing.T) {
 			asg.SuspendedProcesses = tc.suspendedProcesses
 
 			err := tp.scaleIn(t.Context(), asg, 1, map[string]string{})
-			require.NoError(t, err, "scaleIn must return nil when Terminate is suspended")
+			require.Error(t, err, "scaleIn must return a no-op error when Terminate is suspended")
+			var noOpErr *sdk.TargetScalingNoOpError
+			require.ErrorAs(t, err, &noOpErr)
 		})
 	}
 }
@@ -120,7 +123,10 @@ func TestTargetPlugin_scaleIn_NonTerminateProcessesSuspended(t *testing.T) {
 	asg.MinSize = aws.Int32(3)
 
 	err := tp.scaleIn(t.Context(), asg, 1, map[string]string{})
-	require.NoError(t, err, "non-Terminate suspensions must not block scale-in logic")
+	// Non-Terminate suspensions don't block, but the MinSize guard fires (desired==minSize).
+	require.Error(t, err)
+	var noOpErr *sdk.TargetScalingNoOpError
+	require.ErrorAs(t, err, &noOpErr)
 }
 
 func TestTargetPlugin_scaleIn_MinSizeGuard(t *testing.T) {
@@ -169,9 +175,11 @@ func TestTargetPlugin_scaleIn_MinSizeGuard(t *testing.T) {
 			asg.MinSize = aws.Int32(tc.minSize)
 
 			if tc.expectNil {
-				// desired <= minSize: scaleIn returns nil without proceeding.
+				// desired <= minSize: scaleIn returns a no-op error without proceeding.
 				err := tp.scaleIn(t.Context(), asg, tc.num, map[string]string{})
-				require.NoError(t, err, "scaleIn must return nil when ASG is at or below MinSize")
+				require.Error(t, err, "scaleIn must return a no-op error when ASG is at or below MinSize")
+				var noOpErr *sdk.TargetScalingNoOpError
+				require.ErrorAs(t, err, &noOpErr)
 			} else {
 				// desired > minSize: scaleIn proceeds past the MinSize guard.
 				// Without a real clusterUtils this panics, which proves the

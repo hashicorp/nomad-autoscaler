@@ -51,6 +51,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 		return nil, err
 	}
 	a.logger.Debug("collected node pool resource data",
+		"query", q,
 		"allocated_cpu", resources.allocated.cpu, "allocated_memory", resources.allocated.mem,
 		"allocatable_cpu", resources.allocatable.cpu, "allocatable_memory", resources.allocatable.mem)
 

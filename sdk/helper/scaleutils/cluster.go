@@ -246,6 +246,13 @@ func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) 
 		}
 	}
 
+	// For scale-in, ineligible nodes are valid termination candidates and
+	// should not be excluded from the pool. Default to including them unless
+	// the caller has explicitly configured otherwise.
+	if _, ok := cfg[XNodeFilterOptionIgnoreIneligible]; !ok {
+		cfg[XNodeFilterOptionIgnoreIneligible] = "true"
+	}
+
 	// Filter our nodes to select only those within our identified pool.
 	filterOpts, err := NewNodeFilterOptions(cfg)
 	if err != nil {

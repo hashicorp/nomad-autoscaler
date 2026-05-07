@@ -222,7 +222,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 				case "/v1/nodes":
 					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
 						{ID: "node-draining", NodeClass: "1", Drain: true, Status: api.NodeStatusReady},
-						{ID: "node-ready", NodeClass: "1", Drain: false, Status: api.NodeStatusReady},
+						{ID: "node-ready", NodeClass: "1", Drain: false, SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
 					})
 				default:
 					http.NotFound(w, r)
@@ -243,7 +243,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 				case "/v1/nodes":
 					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
 						{ID: "node-draining", NodeClass: "1", Drain: true, Status: api.NodeStatusReady},
-						{ID: "node-ready", NodeClass: "1", Drain: false, Status: api.NodeStatusReady},
+						{ID: "node-ready", NodeClass: "1", Drain: false, SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
 					})
 				case "/v1/node/node-ready":
 					_ = json.NewEncoder(w).Encode(&api.Node{
@@ -274,6 +274,73 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 			}),
 		},
 		{
+			name:        "ready ineligible node excluded from pool totals",
+			config:      map[string]string{},
+			expectError: false,
+			expectedCPU: 20,
+			expectedMemMB: 15,
+			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/v1/nodes":
+					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
+						{ID: "node-ready-eligible", NodeClass: "1", Drain: false, SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
+						{ID: "node-ready-ineligible", NodeClass: "1", Drain: false, SchedulingEligibility: api.NodeSchedulingIneligible, Status: api.NodeStatusReady},
+					})
+				case "/v1/node/node-ready-eligible":
+					_ = json.NewEncoder(w).Encode(&api.Node{
+						ID: "node-ready-eligible",
+						NodeResources: &api.NodeResources{
+							Cpu:    api.NodeCpuResources{CpuShares: 300},
+							Memory: api.NodeMemoryResources{MemoryMB: 256},
+						},
+						ReservedResources: &api.NodeReservedResources{
+							Cpu:    api.NodeReservedCpuResources{CpuShares: 100},
+							Memory: api.NodeReservedMemoryResources{MemoryMB: 64},
+						},
+					})
+				case "/v1/node/node-ready-eligible/allocations":
+					_ = json.NewEncoder(w).Encode([]*api.Allocation{
+						{
+							DesiredStatus: api.AllocDesiredStatusRun,
+							ClientStatus:  api.AllocClientStatusRunning,
+							Resources: &api.Resources{
+								CPU:      &cpu,
+								MemoryMB: &mem,
+							},
+						},
+					})
+				case "/v1/node/node-ready-ineligible":
+					_ = json.NewEncoder(w).Encode(&api.Node{
+						ID: "node-ready-ineligible",
+						NodeResources: &api.NodeResources{
+							Cpu:    api.NodeCpuResources{CpuShares: 1000},
+							Memory: api.NodeMemoryResources{MemoryMB: 1000},
+						},
+						ReservedResources: &api.NodeReservedResources{
+							Cpu:    api.NodeReservedCpuResources{CpuShares: 0},
+							Memory: api.NodeReservedMemoryResources{MemoryMB: 0},
+						},
+					})
+				case "/v1/node/node-ready-ineligible/allocations":
+					ineligibleCPU := 500
+					ineligibleMem := 500
+					_ = json.NewEncoder(w).Encode([]*api.Allocation{
+						{
+							DesiredStatus: api.AllocDesiredStatusRun,
+							ClientStatus:  api.AllocClientStatusRunning,
+							Resources: &api.Resources{
+								CPU:      &ineligibleCPU,
+								MemoryMB: &ineligibleMem,
+							},
+						},
+					})
+				default:
+					http.NotFound(w, r)
+				}
+			}),
+		},
+		{
 			name: "invalid node filter option",
 			config: map[string]string{
 				"node_filter_ignore_drain": "not-a-bool",
@@ -285,7 +352,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 				switch r.URL.Path {
 				case "/v1/nodes":
 					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
-						{ID: "node-ready", NodeClass: "1", Status: api.NodeStatusReady},
+						{ID: "node-ready", NodeClass: "1", SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
 					})
 				default:
 					http.NotFound(w, r)
@@ -302,7 +369,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 				switch r.URL.Path {
 				case "/v1/nodes":
 					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
-						{ID: "node-missing-res", NodeClass: "1", Status: api.NodeStatusReady},
+						{ID: "node-missing-res", NodeClass: "1", SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
 					})
 				case "/v1/node/node-missing-res":
 					_ = json.NewEncoder(w).Encode(&api.Node{ID: "node-missing-res"})
@@ -321,7 +388,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 				switch r.URL.Path {
 				case "/v1/nodes":
 					_ = json.NewEncoder(w).Encode([]*api.NodeListStub{
-						{ID: "node-missing-alloc-res", NodeClass: "1", Status: api.NodeStatusReady},
+						{ID: "node-missing-alloc-res", NodeClass: "1", SchedulingEligibility: api.NodeSchedulingEligible, Status: api.NodeStatusReady},
 					})
 				case "/v1/node/node-missing-alloc-res":
 					_ = json.NewEncoder(w).Encode(&api.Node{

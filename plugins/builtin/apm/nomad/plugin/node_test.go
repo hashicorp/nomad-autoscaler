@@ -186,6 +186,12 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			expectError:         errors.New("failed to parse combined pool identifiers: invalid identifier pair \"node_class=\", expected key=value format"),
 			name:                "combined format with empty value",
 		},
+		{
+			inputQuery:          "node_percentage-allocated_cpu/node_class=x/datacenter",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("ambiguous query: value \"node_class=x\" looks like combined format but key \"datacenter\" was specified; use combined format instead: <query>/key1=val1+key2=val2"),
+			name:                "ambiguous old format with key=value in value position",
+		},
 	}
 
 	for _, tc := range testCases {

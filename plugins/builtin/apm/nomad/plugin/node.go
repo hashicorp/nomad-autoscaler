@@ -203,6 +203,12 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 	// Old format: node_<op>_<metric>/<value>/<key>
 	// Detected by: 3 parts where the third part is a recognized pool key.
 	case len(mainParts) == 3 && isValidPoolKey(mainParts[2]):
+		// Guard against ambiguous queries where the value looks like a
+		// combined key=value pair (e.g., "node_class=x" as a value with
+		// "datacenter" as the key). This is almost certainly a user mistake.
+		if strings.Contains(mainParts[1], "=") {
+			return nil, fmt.Errorf("ambiguous query: value %q looks like combined format but key %q was specified; use combined format instead: <query>/key1=val1+key2=val2", mainParts[1], mainParts[2])
+		}
 		switch mainParts[2] {
 		case sdk.TargetConfigKeyClass, "class":
 			query.poolIdentifier = nodepool.NewNodeClassPoolIdentifier(mainParts[1])

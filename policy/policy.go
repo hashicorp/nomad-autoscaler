@@ -168,8 +168,9 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	}
 
 	// If the target is a Nomad client node pool, format the query in the
-	// expected manner. Use the node pool identifier helper to determine the
-	// correct pool key and value from the target config.
+	// combined format: node_<op>_<metric>/key1=val1[+key2=val2...]
+	// The parser still accepts the old 3-part format for backward
+	// compatibility with hand-written queries.
 	if t.IsNodePoolTarget() {
 		poolID, err := nodepool.NewClusterNodePoolIdentifier(t.Config)
 		if err != nil {
@@ -177,18 +178,17 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 			return
 		}
 
-		// Check if this is a combined identifier (multiple pool keys set).
-		// Use the new combined format: node_<op>_<metric>/key1=val1+key2=val2
+		// Extract identifiers: combined has multiple, single has one.
+		var ids []nodepool.ClusterNodePoolIdentifier
 		if combined, ok := poolID.(nodepool.CombinedPoolIdentifier); ok {
-			encoded := nodepool.EncodeCombinedQueryIdentifiers(combined.Identifiers())
-			c.Query = fmt.Sprintf("%s_%s/%s",
-				nomadAPM.QueryTypeNode, c.Query, encoded)
-			return
+			ids = combined.Identifiers()
+		} else {
+			ids = []nodepool.ClusterNodePoolIdentifier{poolID}
 		}
 
-		// Single identifier: node_<op>_<metric>/<value>/<key>
-		c.Query = fmt.Sprintf("%s_%s/%s/%s",
-			nomadAPM.QueryTypeNode, c.Query, poolID.Value(), poolID.Key())
+		encoded := nodepool.EncodeCombinedQueryIdentifiers(ids)
+		c.Query = fmt.Sprintf("%s_%s/%s",
+			nomadAPM.QueryTypeNode, c.Query, encoded)
 	}
 }
 

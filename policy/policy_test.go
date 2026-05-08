@@ -311,7 +311,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/node_class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
 			name: "correctly formatted node target short query with node_class",
 		},
@@ -328,7 +328,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_cpu/dc1/datacenter",
+				Query:  "node_percentage-allocated_cpu/datacenter=dc1",
 			},
 			name: "correctly formatted node target short query with datacenter",
 		},
@@ -345,7 +345,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/gpu/node_pool",
+				Query:  "node_percentage-allocated_memory/node_pool=gpu",
 			},
 			name: "correctly formatted node target short query with node_pool",
 		},

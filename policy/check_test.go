@@ -375,7 +375,7 @@ func TestCheckHandler_runCheckAndCapCount_OutsideSchedule(t *testing.T) {
 
 	action, err := runner.runCheckAndCapCount(context.Background(), 5, newQueryMetricsCache())
 	errMsg := must.Sprint("policy check should not run outside a schedule window")
-	must.NoError(t, err, errMsg)
+	must.True(t, errors.Is(err, errCheckOutsideSchedule), errMsg)
 	must.Eq(t, sdk.ScalingAction{}, action, errMsg)
 	must.Eq(t, 0, ml.queryCalls, errMsg)
 	must.Eq(t, 0, sr.runCalls, errMsg)

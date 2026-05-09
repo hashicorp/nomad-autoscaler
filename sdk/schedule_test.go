@@ -71,7 +71,7 @@ func Test_validateSchedule(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateSchedule(tc.schedule, "policy.schedule")
+			err := ValidateScalingPolicySchedule(tc.schedule)
 			if tc.errorText == "" {
 				must.NoError(t, err)
 				return

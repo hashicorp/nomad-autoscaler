@@ -5,7 +5,6 @@ package policy
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/hashicorp/cronexpr"
@@ -24,18 +23,18 @@ type compiledSchedule struct {
 // last cron occurrence because cronexpr exposes Next() but not Last().
 const lastOccurrenceSearchHorizonYears = 32
 
+// compileSchedule parses an already-validated schedule into its runtime
+// representation. Schedules are validated at the policy source boundary via
+// sdk.ValidateScalingPolicySchedule; this function only surfaces parse
+// failures and should not be used as a validation gate.
 func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	if s == nil {
 		return nil, nil
 	}
 
-	if err := validateScheduleDefinition(s); err != nil {
-		return nil, err
-	}
-
 	startExpr, err := cronexpr.Parse(s.Start)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schedule.start: %w", err)
+		return nil, fmt.Errorf("start: %w", err)
 	}
 
 	compiled := &compiledSchedule{startExpr: startExpr}
@@ -43,7 +42,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 	if s.End != "" {
 		endExpr, err := cronexpr.Parse(s.End)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse schedule.end: %w", err)
+			return nil, fmt.Errorf("end: %w", err)
 		}
 		compiled.usesEnd = true
 		compiled.endExpr = endExpr
@@ -52,7 +51,7 @@ func compileSchedule(s *sdk.ScalingPolicySchedule) (*compiledSchedule, error) {
 
 	d, err := time.ParseDuration(s.Duration)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse schedule.duration: %w", err)
+		return nil, fmt.Errorf("duration: %w", err)
 	}
 	compiled.duration = d
 
@@ -111,36 +110,4 @@ func lastOccurrenceAtOrBefore(expr *cronexpr.Expression, now time.Time) (time.Ti
 	}
 
 	return last, true
-}
-
-func validateScheduleDefinition(s *sdk.ScalingPolicySchedule) error {
-	if s.Start == "" {
-		return fmt.Errorf("schedule.start is required")
-	}
-
-	hasEnd := s.End != ""
-	hasDuration := s.Duration != ""
-	if hasEnd == hasDuration {
-		return fmt.Errorf("schedule must define exactly one of end or duration")
-	}
-
-	if len(strings.Fields(s.Start)) != 5 {
-		return fmt.Errorf("schedule.start must use strict 5-field cron format")
-	}
-
-	if hasEnd && len(strings.Fields(s.End)) != 5 {
-		return fmt.Errorf("schedule.end must use strict 5-field cron format")
-	}
-
-	if hasDuration {
-		d, err := time.ParseDuration(s.Duration)
-		if err != nil {
-			return fmt.Errorf("schedule.duration must have time.Duration format")
-		}
-		if d <= 0 {
-			return fmt.Errorf("schedule.duration must be greater than zero")
-		}
-	}
-
-	return nil
 }

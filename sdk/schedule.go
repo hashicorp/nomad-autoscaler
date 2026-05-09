@@ -11,52 +11,54 @@ import (
 	"github.com/hashicorp/cronexpr"
 )
 
-// validateSchedule validates a policy/check schedule definition.
-func validateSchedule(s *ScalingPolicySchedule, path string) error {
+// ValidateScalingPolicySchedule validates a policy/check schedule definition.
+// Errors are field-relative (e.g. "start is required"); callers should wrap
+// with their own path context (e.g. fmt.Errorf("policy.schedule: %w", err)).
+func ValidateScalingPolicySchedule(s *ScalingPolicySchedule) error {
 	if s == nil {
 		return nil
 	}
 
 	if s.Start == "" {
-		return fmt.Errorf("%s.start is required", path)
+		return fmt.Errorf("start is required")
 	}
 
 	hasEnd := s.End != ""
 	hasDuration := s.Duration != ""
 
 	if hasEnd == hasDuration {
-		return fmt.Errorf("%s must define exactly one of end or duration", path)
+		return fmt.Errorf("must define exactly one of end or duration")
 	}
 
-	if err := validateCron5Field(s.Start, path+".start"); err != nil {
-		return err
+	if err := validateCron5Field(s.Start); err != nil {
+		return fmt.Errorf("start: %w", err)
 	}
 
 	if hasEnd {
-		if err := validateCron5Field(s.End, path+".end"); err != nil {
-			return err
+		if err := validateCron5Field(s.End); err != nil {
+			return fmt.Errorf("end: %w", err)
 		}
 	}
 
 	if hasDuration {
 		d, err := time.ParseDuration(s.Duration)
 		if err != nil {
-			return fmt.Errorf("%s.duration must have time.Duration format, found %q", path, s.Duration)
+			return fmt.Errorf("duration must have time.Duration format, found %q", s.Duration)
 		}
 		if d <= 0 {
-			return fmt.Errorf("%s.duration must be greater than zero", path)
+			return fmt.Errorf("duration must be greater than zero")
 		}
 	}
 
 	return nil
 }
 
-func validateCron5Field(expr string, path string) error {
+func validateCron5Field(expr string) error {
 	if len(strings.Fields(expr)) != 5 {
-		return fmt.Errorf("%s must use strict 5-field cron format", path)
+		return fmt.Errorf("must use strict 5-field cron format")
 	}
 	if _, err := cronexpr.Parse(expr); err != nil {
-		return fmt.Errorf("%s contains invalid cron expression: %v", path, err)
+		return fmt.Errorf("invalid cron expression: %w", err)
 	}
 	return nil
 }

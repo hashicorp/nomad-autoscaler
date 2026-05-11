@@ -16,6 +16,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
 * plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-1286](https://github.com/hashicorp/nomad-autoscaler/pull/1286)]
+* plugin/target/aws-asg: Fixed a bug where nodes were drained before validating ASG constraints (Terminate suspended, DesiredCapacity at MinSize), causing unnecessary capacity loss. [[GH-1290](https://github.com/hashicorp/nomad-autoscaler/pull/1290)]
 * policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]
 * policy: Fixed-value strategy checks no longer require APM source or query configuration. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
 

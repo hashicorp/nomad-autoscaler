@@ -198,7 +198,7 @@ func (t *TargetPlugin) Scale(action sdk.ScalingAction, config map[string]string)
 	// If we received an error while scaling, format this with an outer message
 	// so its nice for the operators and then return any error to the caller.
 	if err != nil {
-		err = fmt.Errorf("failed to perform scaling action: %v", err)
+		err = fmt.Errorf("failed to perform scaling action: %w", err)
 	}
 	return err
 }

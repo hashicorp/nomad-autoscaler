@@ -12,8 +12,7 @@ import (
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/shoenig/test/must"
 )
 
 func Test_awsNodeIDMap(t *testing.T) {
@@ -52,8 +51,8 @@ func Test_awsNodeIDMap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualID, actualErr := awsNodeIDMap(tc.inputNode)
-			assert.Equal(t, tc.expectedOutputID, actualID, tc.name)
-			assert.Equal(t, tc.expectedOutputError, actualErr, tc.name)
+			must.Eq(t, tc.expectedOutputID, actualID, must.Sprint(tc.name))
+			must.Eq(t, tc.expectedOutputError, actualErr, must.Sprint(tc.name))
 		})
 	}
 }
@@ -104,9 +103,10 @@ func TestTargetPlugin_scaleIn_TerminateSuspended(t *testing.T) {
 			asg.SuspendedProcesses = tc.suspendedProcesses
 
 			err := tp.scaleIn(t.Context(), asg, 1, map[string]string{})
-			require.Error(t, err, "scaleIn must return a no-op error when Terminate is suspended")
+			must.Error(t, err, must.Sprint("scaleIn must return a no-op error when Terminate is suspended"))
 			var noOpErr *sdk.TargetScalingNoOpError
-			require.ErrorAs(t, err, &noOpErr)
+			must.ErrorAs[*sdk.TargetScalingNoOpError](t, err, &noOpErr)
+			must.ErrorContains(t, err, "Terminate process is suspended on ASG test-asg")
 		})
 	}
 }
@@ -124,46 +124,47 @@ func TestTargetPlugin_scaleIn_NonTerminateProcessesSuspended(t *testing.T) {
 
 	err := tp.scaleIn(t.Context(), asg, 1, map[string]string{})
 	// Non-Terminate suspensions don't block, but the MinSize guard fires (desired==minSize).
-	require.Error(t, err)
+	must.Error(t, err)
 	var noOpErr *sdk.TargetScalingNoOpError
-	require.ErrorAs(t, err, &noOpErr)
+	must.ErrorAs[*sdk.TargetScalingNoOpError](t, err, &noOpErr)
+	must.ErrorContains(t, err, "ASG test-asg is already at or below MinSize (desired=3, min=3)")
 }
 
 func TestTargetPlugin_scaleIn_MinSizeGuard(t *testing.T) {
 	testCases := []struct {
-		name      string
-		desired   int32
-		minSize   int32
-		num       int64
-		expectNil bool
+		name       string
+		desired    int32
+		minSize    int32
+		num        int64
+		expectNoOp bool
 	}{
 		{
-			name:      "desired_equals_minSize",
-			desired:   3,
-			minSize:   3,
-			num:       1,
-			expectNil: true,
+			name:       "desired_equals_minSize",
+			desired:    3,
+			minSize:    3,
+			num:        1,
+			expectNoOp: true,
 		},
 		{
-			name:      "desired_below_minSize",
-			desired:   2,
-			minSize:   3,
-			num:       1,
-			expectNil: true,
+			name:       "desired_below_minSize",
+			desired:    2,
+			minSize:    3,
+			num:        1,
+			expectNoOp: true,
 		},
 		{
-			name:      "desired_above_minSize_num_within_headroom",
-			desired:   5,
-			minSize:   3,
-			num:       1,
-			expectNil: false,
+			name:       "desired_above_minSize_num_within_headroom",
+			desired:    5,
+			minSize:    3,
+			num:        1,
+			expectNoOp: false,
 		},
 		{
-			name:      "desired_above_minSize_num_exceeds_headroom",
-			desired:   5,
-			minSize:   3,
-			num:       4,
-			expectNil: false,
+			name:       "desired_above_minSize_num_exceeds_headroom",
+			desired:    5,
+			minSize:    3,
+			num:        4,
+			expectNoOp: false,
 		},
 	}
 
@@ -174,19 +175,20 @@ func TestTargetPlugin_scaleIn_MinSizeGuard(t *testing.T) {
 			asg.DesiredCapacity = aws.Int32(tc.desired)
 			asg.MinSize = aws.Int32(tc.minSize)
 
-			if tc.expectNil {
+			if tc.expectNoOp {
 				// desired <= minSize: scaleIn returns a no-op error without proceeding.
 				err := tp.scaleIn(t.Context(), asg, tc.num, map[string]string{})
-				require.Error(t, err, "scaleIn must return a no-op error when ASG is at or below MinSize")
+				must.Error(t, err, must.Sprint("scaleIn must return a no-op error when ASG is at or below MinSize"))
 				var noOpErr *sdk.TargetScalingNoOpError
-				require.ErrorAs(t, err, &noOpErr)
+				must.ErrorAs[*sdk.TargetScalingNoOpError](t, err, &noOpErr)
+				must.ErrorContains(t, err, "ASG test-asg is already at or below MinSize")
 			} else {
 				// desired > minSize: scaleIn proceeds past the MinSize guard.
 				// Without a real clusterUtils this panics, which proves the
 				// guard did NOT block execution — i.e. scale-in was attempted.
-				require.Panics(t, func() {
+				must.Panic(t, func() {
 					_ = tp.scaleIn(t.Context(), asg, tc.num, map[string]string{})
-				}, "scaleIn must proceed past MinSize guard when desired > minSize")
+				}, must.Sprint("scaleIn must proceed past MinSize guard when desired > minSize"))
 			}
 		})
 	}

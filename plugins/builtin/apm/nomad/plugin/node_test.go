@@ -23,99 +23,35 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		name                string
 	}{
 		{
-			inputQuery: "node_percentage-allocated_memory/high-memory/class",
+			inputQuery: "node_percentage-allocated_memory/node_class=high-memory",
 			expectedOutputQuery: &nodePoolQuery{
 				metric:         "memory",
 				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory"),
 				operation:      "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "node percentage-allocated memory",
+			name:        "single node_class identifier",
 		},
 		{
-			inputQuery: "node_percentage-allocated_cpu/high-compute/class",
+			inputQuery: "node_percentage-allocated_cpu/datacenter=dc1",
 			expectedOutputQuery: &nodePoolQuery{
 				metric:         "cpu",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-compute"),
-				operation:      "percentage-allocated",
-			},
-			expectError: nil,
-			name:        "node percentage-allocated cpu with class key",
-		},
-		{
-			inputQuery: "node_percentage-allocated_cpu/high-compute/node_class",
-			expectedOutputQuery: &nodePoolQuery{
-				metric:         "cpu",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-compute"),
-				operation:      "percentage-allocated",
-			},
-			expectError: nil,
-			name:        "node percentage-allocated cpu with node_class key",
-		},
-		{
-			inputQuery: "node_percentage-allocated_memory/dc1/datacenter",
-			expectedOutputQuery: &nodePoolQuery{
-				metric:         "memory",
 				poolIdentifier: nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
 				operation:      "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "node percentage-allocated memory with datacenter",
+			name:        "single datacenter identifier",
 		},
 		{
-			inputQuery: "node_percentage-allocated_cpu/gpu/node_pool",
+			inputQuery: "node_percentage-allocated_cpu/node_pool=gpu",
 			expectedOutputQuery: &nodePoolQuery{
 				metric:         "cpu",
 				poolIdentifier: nodepool.NewNodePoolClusterPoolIdentifier("gpu"),
 				operation:      "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "node percentage-allocated cpu with node_pool",
+			name:        "single node_pool identifier",
 		},
-
-		{
-			inputQuery:          "",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<pool_identifier_value>/<pool_identifier_key> or <query>/<key>=<value>[+<key>=<value>...], received "),
-			name:                "empty input query",
-		},
-		{
-			inputQuery:          "invalid",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<pool_identifier_value>/<pool_identifier_key> or <query>/<key>=<value>[+<key>=<value>...], received invalid"),
-			name:                "invalid input query format",
-		},
-		{
-			inputQuery:          "node_percentage-allocated_cpu/class",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<pool_identifier_value>/<pool_identifier_key> or <query>/<key>=<value>[+<key>=<value>...], received node_percentage-allocated_cpu/class"),
-			name:                "missing node pool identifier value",
-		},
-		{
-			inputQuery:          "node_percentage-allocated_invalid/high-compute/class",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("invalid metric \"invalid\", allowed values are: cpu, memory"),
-			name:                "invalid metric",
-		},
-		{
-			inputQuery:          "node_percentage-allocated_cpu-allocated/high-compute/class",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("invalid metric \"cpu-allocated\", allowed values are: cpu, memory"),
-			name:                "metric for task group queries only",
-		},
-		{
-			inputQuery:          "node_invalid_cpu/high-compute/class",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("invalid operation \"invalid\", allowed value is percentage-allocated"),
-			name:                "invalid operation",
-		},
-		{
-			inputQuery:          "node_percentage-allocated_cpu/high-compute/invalid_key",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<pool_identifier_value>/<pool_identifier_key> or <query>/<key>=<value>[+<key>=<value>...], received node_percentage-allocated_cpu/high-compute/invalid_key"),
-			name:                "invalid pool identifier key",
-		},
-		// Combined format tests
 		{
 			inputQuery: "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
 			expectedOutputQuery: &nodePoolQuery{
@@ -130,7 +66,7 @@ func Test_parseNodePoolQuery(t *testing.T) {
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "combined format with node_class and datacenter",
+			name:        "combined node_class and datacenter",
 		},
 		{
 			inputQuery: "node_percentage-allocated_cpu/datacenter=us-east-1a+node_pool=gpu",
@@ -146,17 +82,7 @@ func Test_parseNodePoolQuery(t *testing.T) {
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "combined format with datacenter and node_pool",
-		},
-		{
-			inputQuery: "node_percentage-allocated_memory/node_class=high-memory",
-			expectedOutputQuery: &nodePoolQuery{
-				metric:         "memory",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory"),
-				operation:      "percentage-allocated",
-			},
-			expectError: nil,
-			name:        "combined format with single key-value pair",
+			name:        "combined datacenter and node_pool",
 		},
 		{
 			inputQuery: "node_percentage-allocated_cpu/node_class=special%2Bclass+datacenter=dc1",
@@ -172,25 +98,49 @@ func Test_parseNodePoolQuery(t *testing.T) {
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
-			name:        "combined format with URL-encoded value containing +",
+			name:        "URL-encoded value containing +",
+		},
+		{
+			inputQuery:          "",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received "),
+			name:                "empty input query",
+		},
+		{
+			inputQuery:          "invalid",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received invalid"),
+			name:                "invalid input query format",
+		},
+		{
+			inputQuery:          "node_percentage-allocated_invalid/node_class=high-compute",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("invalid metric \"invalid\", allowed values are: cpu, memory"),
+			name:                "invalid metric",
+		},
+		{
+			inputQuery:          "node_percentage-allocated_cpu-allocated/node_class=high-compute",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("invalid metric \"cpu-allocated\", allowed values are: cpu, memory"),
+			name:                "metric for task group queries only",
+		},
+		{
+			inputQuery:          "node_invalid_cpu/node_class=high-compute",
+			expectedOutputQuery: nil,
+			expectError:         errors.New("invalid operation \"invalid\", allowed value is percentage-allocated"),
+			name:                "invalid operation",
 		},
 		{
 			inputQuery:          "node_percentage-allocated_cpu/invalid_key=value+datacenter=dc1",
 			expectedOutputQuery: nil,
-			expectError:         errors.New("failed to parse combined pool identifiers: invalid pool identifier key \"invalid_key\" in combined query, allowed values are: node_class, datacenter, node_pool"),
-			name:                "combined format with invalid key",
+			expectError:         errors.New("unknown pool key \"invalid_key\": must be node_class, datacenter, or node_pool"),
+			name:                "invalid pool key",
 		},
 		{
 			inputQuery:          "node_percentage-allocated_cpu/node_class=+datacenter=dc1",
 			expectedOutputQuery: nil,
-			expectError:         errors.New("failed to parse combined pool identifiers: invalid identifier pair \"node_class=\", expected key=value format"),
-			name:                "combined format with empty value",
-		},
-		{
-			inputQuery:          "node_percentage-allocated_cpu/node_class=x/datacenter",
-			expectedOutputQuery: nil,
-			expectError:         errors.New("ambiguous query: value \"node_class=x\" looks like combined format but key \"datacenter\" was specified; use combined format instead: <query>/key1=val1+key2=val2"),
-			name:                "ambiguous old format with key=value in value position",
+			expectError:         errors.New("invalid pool identifier \"node_class=\": expected key=value"),
+			name:                "empty value",
 		},
 	}
 

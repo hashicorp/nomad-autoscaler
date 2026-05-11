@@ -254,19 +254,19 @@ func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 			name:        "invalid key",
 			input:       "invalid_key=value",
 			expectError: true,
-			errorMsg:    "invalid pool identifier key \"invalid_key\" in combined query",
+			errorMsg:    "unknown pool key \"invalid_key\"",
 		},
 		{
 			name:        "empty value",
 			input:       "node_class=",
 			expectError: true,
-			errorMsg:    "invalid identifier pair",
+			errorMsg:    "invalid pool identifier",
 		},
 		{
 			name:        "missing equals",
 			input:       "node_class",
 			expectError: true,
-			errorMsg:    "invalid identifier pair",
+			errorMsg:    "invalid pool identifier",
 		},
 	}
 

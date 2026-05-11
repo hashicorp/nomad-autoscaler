@@ -181,46 +181,23 @@ func (a *APMPlugin) getNodeAllocatedResources(client *api.Client, nodeID string,
 
 func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 
-	// Try splitting into 3 parts first (old format: query/value/key).
-	// Then check for 2-part combined format (query/key1=val1+key2=val2).
-	mainParts := strings.SplitN(q, "/", 3)
+	// Split into query prefix and pool identifier part.
+	mainParts := strings.SplitN(q, "/", 2)
+	if len(mainParts) != 2 || mainParts[1] == "" {
+		return nil, fmt.Errorf("expected <query>/<key>=<value>[+<key>=<value>...], received %s", q)
+	}
 
 	var query nodePoolQuery
 
-	switch {
-	// New combined format: node_<op>_<metric>/key1=val1+key2=val2
-	// Detected by: exactly 2 parts, and the second part contains "="
-	case len(mainParts) >= 2 && strings.Contains(mainParts[1], "=") && (len(mainParts) == 2 || (len(mainParts) == 3 && mainParts[2] == "")):
-		ids, err := nodepool.DecodeCombinedQueryIdentifiers(mainParts[1])
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse combined pool identifiers: %v", err)
-		}
-		if len(ids) == 1 {
-			query.poolIdentifier = ids[0]
-		} else {
-			query.poolIdentifier = nodepool.NewCombinedClusterPoolIdentifier(ids, nodepool.CombinedClusterPoolIdentifierAnd)
-		}
-
-	// Old format: node_<op>_<metric>/<value>/<key>
-	// Detected by: 3 parts where the third part is a recognized pool key.
-	case len(mainParts) == 3 && isValidPoolKey(mainParts[2]):
-		// Guard against ambiguous queries where the value looks like a
-		// combined key=value pair (e.g., "node_class=x" as a value with
-		// "datacenter" as the key). This is almost certainly a user mistake.
-		if strings.Contains(mainParts[1], "=") {
-			return nil, fmt.Errorf("ambiguous query: value %q looks like combined format but key %q was specified; use combined format instead: <query>/key1=val1+key2=val2", mainParts[1], mainParts[2])
-		}
-		switch mainParts[2] {
-		case sdk.TargetConfigKeyClass, "class":
-			query.poolIdentifier = nodepool.NewNodeClassPoolIdentifier(mainParts[1])
-		case sdk.TargetConfigKeyDatacenter:
-			query.poolIdentifier = nodepool.NewNodeDatacenterPoolIdentifier(mainParts[1])
-		case sdk.TargetConfigKeyNodePool:
-			query.poolIdentifier = nodepool.NewNodePoolClusterPoolIdentifier(mainParts[1])
-		}
-
-	default:
-		return nil, fmt.Errorf("expected <query>/<pool_identifier_value>/<pool_identifier_key> or <query>/<key>=<value>[+<key>=<value>...], received %s", q)
+	// Parse the combined format: key1=val1[+key2=val2...]
+	ids, err := nodepool.DecodeCombinedQueryIdentifiers(mainParts[1])
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 1 {
+		query.poolIdentifier = ids[0]
+	} else {
+		query.poolIdentifier = nodepool.NewCombinedClusterPoolIdentifier(ids, nodepool.CombinedClusterPoolIdentifierAnd)
 	}
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)
@@ -241,17 +218,6 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 			opMetricParts[1], queryOpPercentageAllocated)
 	}
 	return &query, nil
-}
-
-// isValidPoolKey returns true if key is a recognized pool identifier key
-// in the old 3-part query format.
-func isValidPoolKey(key string) bool {
-	switch key {
-	case sdk.TargetConfigKeyClass, "class", sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool:
-		return true
-	default:
-		return false
-	}
 }
 
 func validateMetricNodeQuery(metric string) error {

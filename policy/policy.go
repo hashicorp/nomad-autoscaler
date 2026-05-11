@@ -6,6 +6,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -136,7 +137,7 @@ func (pr *Processor) CanonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.Scaling
 func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 
 	// Catch nils so this function is safe to call without any prior checks.
-	if c == nil || t == nil {
+	if c == nil {
 		return
 	}
 
@@ -146,10 +147,17 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 		return
 	}
 
-	// If the query is not formatted in the short manner we do not have any
-	// work to do. Operators can add this if they want/know the autoscaler
-	// internal model.
+	// If the query is already in long form, normalize any old-format
+	// node pool queries to the new combined format and return.
+	// Operators can write long queries directly if they know the
+	// autoscaler internal model.
 	if !isShortQuery(c.Query) {
+		c.Query = normalizeNodePoolQuery(c.Query)
+		return
+	}
+
+	// Short-query expansion requires a target to determine the query type.
+	if t == nil {
 		return
 	}
 
@@ -169,8 +177,6 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 
 	// If the target is a Nomad client node pool, format the query in the
 	// combined format: node_<op>_<metric>/key1=val1[+key2=val2...]
-	// The parser still accepts the old 3-part format for backward
-	// compatibility with hand-written queries.
 	if t.IsNodePoolTarget() {
 		poolID, err := nodepool.NewClusterNodePoolIdentifier(t.Config)
 		if err != nil {
@@ -189,6 +195,55 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 		encoded := nodepool.EncodeCombinedQueryIdentifiers(ids)
 		c.Query = fmt.Sprintf("%s_%s/%s",
 			nomadAPM.QueryTypeNode, c.Query, encoded)
+	}
+}
+
+// normalizeNodePoolQuery converts old-format node pool queries
+// (node_<op>_<metric>/<value>/<key>) into the new combined format
+// (node_<op>_<metric>/key=value). Queries already in the new format
+// or non-node-pool queries are returned unchanged.
+func normalizeNodePoolQuery(q string) string {
+	parts := strings.SplitN(q, "/", 3)
+
+	// Only the old 3-part format needs conversion.
+	if len(parts) != 3 || parts[2] == "" {
+		return q
+	}
+
+	// Only node pool queries (starting with "node_") need normalization.
+	// This prevents taskgroup queries from being incorrectly rewritten.
+	if !strings.HasPrefix(parts[0], "node_") {
+		return q
+	}
+
+	// If the second part already contains "=", it's the new format
+	// (or at least not old format). Leave it alone.
+	if strings.Contains(parts[1], "=") {
+		return q
+	}
+
+	// Map the old key to the canonical key name.
+	key := normalizePoolKey(parts[2])
+	if key == "" {
+		// Unrecognized key — return as-is; the parser will error.
+		return q
+	}
+
+	// URL-encode the value for consistency with the combined format
+	// used by EncodeCombinedQueryIdentifiers.
+	return fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
+}
+
+// normalizePoolKey maps old-format pool key names to canonical key names.
+// Returns empty string for unrecognized keys.
+func normalizePoolKey(key string) string {
+	switch key {
+	case "class":
+		return sdk.TargetConfigKeyClass
+	case sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool:
+		return key
+	default:
+		return ""
 	}
 }
 

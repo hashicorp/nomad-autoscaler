@@ -258,9 +258,54 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
-			name: "fully populated non-short node query",
+			name: "old format long query with class normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/dc1/datacenter",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=dc1",
+			},
+			name: "old format long query with datacenter normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/gpu/node_pool",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/node_pool=gpu",
+			},
+			name: "old format long query with node_pool normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			name: "new combined format long query left unchanged",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{

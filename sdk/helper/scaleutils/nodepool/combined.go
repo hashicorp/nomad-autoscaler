@@ -117,7 +117,7 @@ func DecodeCombinedQueryIdentifiers(encoded string) ([]ClusterNodePoolIdentifier
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)
 		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
-			return nil, fmt.Errorf("invalid identifier pair %q, expected key=value format", pair)
+			return nil, fmt.Errorf("invalid pool identifier %q: expected key=value", pair)
 		}
 
 		value, err := url.QueryUnescape(kv[1])
@@ -133,7 +133,7 @@ func DecodeCombinedQueryIdentifiers(encoded string) ([]ClusterNodePoolIdentifier
 		case "node_pool":
 			ids = append(ids, NewNodePoolClusterPoolIdentifier(value))
 		default:
-			return nil, fmt.Errorf("invalid pool identifier key %q in combined query, allowed values are: node_class, datacenter, node_pool", kv[0])
+			return nil, fmt.Errorf("unknown pool key %q: must be node_class, datacenter, or node_pool", kv[0])
 		}
 	}
 

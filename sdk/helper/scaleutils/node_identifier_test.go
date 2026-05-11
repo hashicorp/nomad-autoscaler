@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
@@ -11,6 +11,7 @@ import (
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 	"github.com/hashicorp/nomad/api"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -178,16 +179,9 @@ func Test_FilterNodes(t *testing.T) {
 					SchedulingEligibility: api.NodeSchedulingEligible,
 					Status:                api.NodeStatusReady,
 				},
-				{
-					ID:                    "node-ready-ineligible",
-					NodeClass:             "lionel",
-					Drain:                 false,
-					SchedulingEligibility: api.NodeSchedulingIneligible,
-					Status:                api.NodeStatusReady,
-				},
 			},
 			expectedOutputError: nil,
-			name:                "filter of nodes that are ready",
+			name:                "filter of ready and eligible nodes",
 		},
 		{
 			inputNodeList: []*api.NodeListStub{
@@ -352,6 +346,120 @@ func Test_FilterNodes(t *testing.T) {
 
 			if tc.expectedOutputError != nil {
 				assert.EqualError(t, actualError, tc.expectedOutputError.Error(), tc.name)
+			}
+		})
+	}
+}
+
+func Test_FilterNodesWithOptions(t *testing.T) {
+	testCases := []struct {
+		inputNodeList       []*api.NodeListStub
+		inputIDCfg          map[string]string
+		inputOpts           *NodeFilterOptions
+		expectedOutputNodes []*api.NodeListStub
+		expectedOutputError error
+		name                string
+	}{
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg: map[string]string{"node_class": "lionel"},
+			inputOpts:  &NodeFilterOptions{ignoreIneligible: true},
+			expectedOutputNodes: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			expectedOutputError: nil,
+			name:                "ignore_ineligible includes ready ineligible nodes",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg: map[string]string{"node_class": "lionel"},
+			inputOpts:  &NodeFilterOptions{ignoreIneligible: false},
+			expectedOutputNodes: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-eligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingEligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			expectedOutputError: nil,
+			name:                "default excludes ready ineligible nodes from output",
+		},
+		{
+			inputNodeList: []*api.NodeListStub{
+				{
+					ID:                    "node-ready-ineligible",
+					NodeClass:             "lionel",
+					Drain:                 false,
+					SchedulingEligibility: api.NodeSchedulingIneligible,
+					Status:                api.NodeStatusReady,
+				},
+			},
+			inputIDCfg:          map[string]string{"node_class": "lionel"},
+			inputOpts:           &NodeFilterOptions{ignoreIneligible: false},
+			expectedOutputNodes: nil,
+			expectedOutputError: nil,
+			name:                "all ineligible nodes produces empty output without error",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
+			must.NoError(t, err)
+			must.NotNil(t, idFn)
+
+			actualNodes, actualError := FilterNodesWithOptions(tc.inputNodeList, idFn.IsPoolMember, tc.inputOpts)
+			must.Eq(t, tc.expectedOutputNodes, actualNodes)
+
+			if tc.expectedOutputError != nil {
+				must.ErrorContains(t, actualError, tc.expectedOutputError.Error())
+			} else {
+				must.NoError(t, actualError)
 			}
 		})
 	}

@@ -16,6 +16,7 @@ IMPROVEMENTS:
 * scaleutils: Fix scale-in node identification to honor requested num and avoid selecting all eligible nodes. [[GH-1282](https://github.com/hashicorp/nomad-autoscaler/pull/1282)]
 
 BUG FIXES:
+* plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-1286](https://github.com/hashicorp/nomad-autoscaler/pull/1286)]
 * policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]
 * policy: Fixed-value strategy checks no longer require APM source or query configuration. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
 

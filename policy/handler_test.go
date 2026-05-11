@@ -28,6 +28,22 @@ type MockLimiter struct {
 	releaseCalled bool
 }
 
+type stubChecker struct {
+	action    sdk.ScalingAction
+	err       error
+	groupName string
+	calls     int
+}
+
+func (s *stubChecker) runCheckAndCapCount(_ context.Context, _ int64, _ *queryMetricsCache) (sdk.ScalingAction, error) {
+	s.calls++
+	return s.action, s.err
+}
+
+func (s *stubChecker) group() string {
+	return s.groupName
+}
+
 func (m *MockLimiter) getReleaseCalled() bool {
 	m.callslock.Lock()
 	defer m.callslock.Unlock()
@@ -294,6 +310,113 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 				must.Eq(t, tt.wantAction.Direction, result.action.Direction)
 				must.Eq(t, tt.wantAction.Count, result.action.Count)
 				must.NotNil(t, result.handler)
+			}
+		})
+	}
+}
+
+func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *testing.T) {
+	testCases := []struct {
+		name            string
+		runners         []*stubChecker
+		expectedCalls   []int
+		expectedAction  sdk.ScalingAction
+		expectedErrText string
+	}{
+		{
+			name: "sentinel_skipped_outside_schedule",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    errCheckOutsideSchedule,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
+				},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
+		},
+		{
+			name: "evaluation_canceled_aborts_loop",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    context.Canceled,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
+			},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
+		},
+		{
+			name: "unknown_error_fails",
+			runners: []*stubChecker{
+				{
+					err: errors.New("boom"),
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
+			},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
+		},
+		{
+			name: "all_outside_schedule_returns_no_action",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: errCheckOutsideSchedule},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{},
+		},
+		{
+			name: "outside_schedule_then_canceled_aborts",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: context.Canceled},
+			},
+			expectedCalls:   []int{1, 1},
+			expectedErrText: "failed to run check and cap count",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			checkRunners := make([]checker, len(tc.runners))
+			for i, runner := range tc.runners {
+				checkRunners[i] = runner
+			}
+
+			handler := &Handler{
+				log: hclog.NewNullLogger(),
+				policy: &sdk.ScalingPolicy{
+					ID: "test-policy",
+					Target: &sdk.ScalingPolicyTarget{
+						Name:   "mock-target",
+						Config: map[string]string{},
+					},
+				},
+				checkRunners: checkRunners,
+			}
+
+			action, err := handler.calculateNewCount(context.Background(), 2)
+			if tc.expectedErrText != "" {
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectedErrText)
+				for i, runner := range tc.runners {
+					must.Eq(t, tc.expectedCalls[i], runner.calls)
+				}
+				return
+			}
+
+			must.NoError(t, err)
+			must.Eq(t, tc.expectedAction, action)
+			for i, runner := range tc.runners {
+				must.Eq(t, tc.expectedCalls[i], runner.calls)
 			}
 		})
 	}

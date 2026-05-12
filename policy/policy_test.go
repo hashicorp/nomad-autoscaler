@@ -479,6 +479,87 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 	}
 }
 
+func Test_normalizeNodePoolQuery(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "old format class is normalized",
+			input:    "node_percentage-allocated_cpu/hashistack/class",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+		},
+		{
+			name:     "old format node_class is normalized",
+			input:    "node_percentage-allocated_memory/high-memory/node_class",
+			expected: "node_percentage-allocated_memory/node_class=high-memory",
+		},
+		{
+			name:     "old format datacenter is normalized",
+			input:    "node_percentage-allocated_cpu/dc1/datacenter",
+			expected: "node_percentage-allocated_cpu/datacenter=dc1",
+		},
+		{
+			name:     "old format node_pool is normalized",
+			input:    "node_percentage-allocated_memory/gpu/node_pool",
+			expected: "node_percentage-allocated_memory/node_pool=gpu",
+		},
+		{
+			name:     "old format unknown key is returned as-is",
+			input:    "node_percentage-allocated_cpu/us-east/zone",
+			expected: "node_percentage-allocated_cpu/us-east/zone",
+		},
+		{
+			name:     "new combined format is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+		},
+		{
+			name:     "new combined multi-key format is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+		},
+		{
+			name:     "short query is unchanged",
+			input:    "percentage-allocated_cpu",
+			expected: "percentage-allocated_cpu",
+		},
+		{
+			name:     "taskgroup query is unchanged",
+			input:    "taskgroup_percentage-allocated_cpu/my-job/my-group",
+			expected: "taskgroup_percentage-allocated_cpu/my-job/my-group",
+		},
+		{
+			name:     "two-part query is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=compute",
+			expected: "node_percentage-allocated_cpu/node_class=compute",
+		},
+		{
+			name:     "trailing slash empty key is unchanged",
+			input:    "node_percentage-allocated_memory/",
+			expected: "node_percentage-allocated_memory/",
+		},
+		{
+			name:     "old format value with special chars is URL-encoded",
+			input:    "node_percentage-allocated_cpu/us-east-1a/datacenter",
+			expected: "node_percentage-allocated_cpu/datacenter=us-east-1a",
+		},
+		{
+			name:     "old format empty third part is unchanged",
+			input:    "node_percentage-allocated_cpu/hashistack/",
+			expected: "node_percentage-allocated_cpu/hashistack/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := normalizeNodePoolQuery(tc.input)
+			assert.Equal(t, tc.expected, result)
+		})
+	}
+}
+
 func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 	testCases := []struct {
 		inputPolicy          *sdk.ScalingPolicy

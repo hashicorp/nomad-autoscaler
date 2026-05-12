@@ -119,12 +119,7 @@ func DecodeCombinedQueryIdentifiers(encoded string) ([]ClusterNodePoolIdentifier
 		}
 
 		switch kv[0] {
-		// "class" is accepted as a legacy alias for sdk.TargetConfigKeyClass
-		// ("node_class"). While normalizeNodePoolQuery rewrites old 3-part
-		// queries, a user can still write "class=value" directly in a
-		// long-form query (e.g. node_percentage-allocated_cpu/class=compute),
-		// which bypasses normalization because it already contains "=".
-		case sdk.TargetConfigKeyClass, "class":
+		case sdk.TargetConfigKeyClass:
 			ids = append(ids, NewNodeClassPoolIdentifier(value))
 		case sdk.TargetConfigKeyDatacenter:
 			ids = append(ids, NewNodeDatacenterPoolIdentifier(value))

@@ -24,7 +24,7 @@ const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
 type Processor struct {
-	logger    hclog.Logger
+	log       hclog.Logger
 	defaults  *ConfigDefaults
 	nomadAPMs []string
 }
@@ -32,7 +32,7 @@ type Processor struct {
 // NewProcessor returns a pointer to a new Processor for use.
 func NewProcessor(log hclog.Logger, defaults *ConfigDefaults, apms []string) *Processor {
 	return &Processor{
-		logger:    log,
+		log:       log.ResetNamed("policy_processor"),
 		defaults:  defaults,
 		nomadAPMs: apms,
 	}
@@ -157,7 +157,7 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	if !isShortQuery(c.Query) {
 		normalized, err := pr.normalizeNodePoolQuery(c.Query)
 		if err != nil {
-			pr.logger.Warn("failed to normalize node pool query, will fail at evaluation",
+			pr.log.Warn("failed to normalize node pool query, will fail at evaluation",
 				"query", c.Query, "error", err)
 			return
 		}
@@ -215,20 +215,29 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
 	parts := strings.SplitN(q, "/", 3)
 
-	// Only the old 3-part format needs conversion.
-	if len(parts) != 3 || parts[2] == "" {
-		return q, nil
-	}
-
 	// Only node pool queries (starting with "node_") need normalization.
 	// This prevents taskgroup queries from being incorrectly rewritten.
-	if !strings.HasPrefix(parts[0], "node_") {
+	if len(parts) < 2 || !strings.HasPrefix(parts[0], "node_") {
 		return q, nil
 	}
 
-	// If the second part already contains "=", it's the new format
-	// (or at least not old format). Leave it alone.
+	// If the second part contains "=", it's the new combined format
+	// (2-part or 3-part doesn't matter). Normalize any legacy "class"
+	// key alias to "node_class" so the decoder only ever sees canonical
+	// key names.
 	if strings.Contains(parts[1], "=") {
+		normalized := normalizeClassAliasInCombined(parts[1])
+		if normalized != parts[1] {
+			result := fmt.Sprintf("%s/%s", parts[0], normalized)
+			pr.log.Debug("normalized legacy class key in combined query",
+				"original", q, "normalized", result)
+			return result, nil
+		}
+		return q, nil
+	}
+
+	// Only the old 3-part format needs conversion below.
+	if len(parts) != 3 || parts[2] == "" {
 		return q, nil
 	}
 
@@ -243,9 +252,29 @@ func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
 	// URL-encode the value for consistency with the combined format
 	// used by EncodeCombinedQueryIdentifiers.
 	normalized := fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
-	pr.logger.Debug("normalized legacy node pool query",
+	pr.log.Debug("normalized legacy node pool query",
 		"original", q, "normalized", normalized)
 	return normalized, nil
+}
+
+// normalizeClassAliasInCombined replaces the legacy "class" key with
+// "node_class" in a combined-format identifier string (key1=val1+key2=val2).
+// It splits on "+", checks each pair's key, and only rewrites bare "class".
+// This avoids a naive ReplaceAll that would corrupt "node_class" → "node_node_class".
+func normalizeClassAliasInCombined(s string) string {
+	pairs := strings.Split(s, "+")
+	changed := false
+	for i, pair := range pairs {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 && kv[0] == "class" {
+			pairs[i] = sdk.TargetConfigKeyClass + "=" + kv[1]
+			changed = true
+		}
+	}
+	if !changed {
+		return s
+	}
+	return strings.Join(pairs, "+")
 }
 
 // normalizePoolKey maps old-format pool key names to canonical key names.

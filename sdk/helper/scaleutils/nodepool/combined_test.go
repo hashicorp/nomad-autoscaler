@@ -243,12 +243,10 @@ func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 			},
 		},
 		{
-			name:  "legacy class key",
-			input: "class=hashistack+datacenter=dc1",
-			expectedIDs: []ClusterNodePoolIdentifier{
-				NewNodeClassPoolIdentifier("hashistack"),
-				NewNodeDatacenterPoolIdentifier("dc1"),
-			},
+			name:        "legacy class key is now rejected",
+			input:       "class=hashistack+datacenter=dc1",
+			expectError: true,
+			errorMsg:    "unknown pool key \"class\"",
 		},
 		{
 			name:        "invalid key",

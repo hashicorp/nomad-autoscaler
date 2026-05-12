@@ -216,7 +216,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 		},
 	}
 
-	pr := Processor{logger: hclog.NewNullLogger()}
+	pr := Processor{log: hclog.NewNullLogger()}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -474,7 +474,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{logger: hclog.NewNullLogger(), nomadAPMs: tc.inputAPMNames}
+			pr := Processor{log: hclog.NewNullLogger(), nomadAPMs: tc.inputAPMNames}
 			pr.CanonicalizeAPMQuery(tc.inputCheck, tc.inputTarget)
 			assert.Equal(t, tc.expectedOutputCheck, tc.inputCheck, tc.name)
 		})
@@ -524,6 +524,21 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
 		},
 		{
+			name:     "legacy class key in new format is normalized",
+			input:    "node_percentage-allocated_cpu/class=hashistack",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+		},
+		{
+			name:     "legacy class key in combined format is normalized",
+			input:    "node_percentage-allocated_cpu/class=compute+datacenter=dc1",
+			expected: "node_percentage-allocated_cpu/node_class=compute+datacenter=dc1",
+		},
+		{
+			name:     "node_class in combined format is not double-rewritten",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+		},
+		{
 			name:     "short query is unchanged",
 			input:    "percentage-allocated_cpu",
 			expected: "percentage-allocated_cpu",
@@ -557,7 +572,7 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{logger: hclog.NewNullLogger()}
+			pr := Processor{log: hclog.NewNullLogger()}
 			result, err := pr.normalizeNodePoolQuery(tc.input)
 			if tc.expectError {
 				must.Error(t, err)
@@ -673,7 +688,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{logger: hclog.NewNullLogger(), defaults: tc.inputDefaults}
+			pr := Processor{log: hclog.NewNullLogger(), defaults: tc.inputDefaults}
 			pr.ApplyPolicyDefaults(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
 		})
@@ -689,7 +704,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 	}{
 		{
 			inputProcessor: &Processor{
-				logger:    hclog.NewNullLogger(),
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: nil,
 			},
 			inputSource:    "nagios",
@@ -698,7 +713,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
-				logger:    hclog.NewNullLogger(),
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nagios",
@@ -707,7 +722,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
-				logger:    hclog.NewNullLogger(),
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nomad-apm",
@@ -716,7 +731,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
-				logger:    hclog.NewNullLogger(),
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-platform-apm"},
 			},
 			inputSource:    "nomad-platform-apm",
@@ -725,7 +740,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
-				logger:    hclog.NewNullLogger(),
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-qa-apm", "nomad-platform-apm", "nomad-support-apm"},
 			},
 			inputSource:    "nomad-platform-apm",

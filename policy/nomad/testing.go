@@ -38,7 +38,7 @@ func TestNomadSource(t *testing.T, cb func(*api.Config, *policy.ConfigDefaults))
 		Level: hclog.Trace,
 	})
 
-	pr := policy.NewProcessor(sourceConfig, []string{"nomad-apm"})
+	pr := policy.NewProcessor(log, sourceConfig, []string{"nomad-apm"})
 
 	return NewNomadSource(log, nomad, pr, nil)
 }

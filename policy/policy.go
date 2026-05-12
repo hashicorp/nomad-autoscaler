@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
@@ -23,13 +24,15 @@ const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
 type Processor struct {
+	logger    hclog.Logger
 	defaults  *ConfigDefaults
 	nomadAPMs []string
 }
 
 // NewProcessor returns a pointer to a new Processor for use.
-func NewProcessor(defaults *ConfigDefaults, apms []string) *Processor {
+func NewProcessor(log hclog.Logger, defaults *ConfigDefaults, apms []string) *Processor {
 	return &Processor{
+		logger:    log,
 		defaults:  defaults,
 		nomadAPMs: apms,
 	}
@@ -152,10 +155,10 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	// Operators can write long queries directly if they know the
 	// autoscaler internal model.
 	if !isShortQuery(c.Query) {
-		normalized, err := normalizeNodePoolQuery(c.Query)
+		normalized, err := pr.normalizeNodePoolQuery(c.Query)
 		if err != nil {
-			// Unrecognized key in old-format query; leave as-is so
-			// the parser surfaces a clear error at evaluation time.
+			pr.logger.Warn("failed to normalize node pool query, will fail at evaluation",
+				"query", c.Query, "error", err)
 			return
 		}
 		c.Query = normalized
@@ -209,7 +212,7 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 // (node_<op>_<metric>/key=value). Queries already in the new format
 // or non-node-pool queries are returned unchanged.
 // Returns an error if the old-format key is not recognized.
-func normalizeNodePoolQuery(q string) (string, error) {
+func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
 	parts := strings.SplitN(q, "/", 3)
 
 	// Only the old 3-part format needs conversion.
@@ -239,7 +242,10 @@ func normalizeNodePoolQuery(q string) (string, error) {
 
 	// URL-encode the value for consistency with the combined format
 	// used by EncodeCombinedQueryIdentifiers.
-	return fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1])), nil
+	normalized := fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
+	pr.logger.Debug("normalized legacy node pool query",
+		"original", q, "normalized", normalized)
+	return normalized, nil
 }
 
 // normalizePoolKey maps old-format pool key names to canonical key names.

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test/must"
@@ -215,7 +216,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 		},
 	}
 
-	pr := Processor{}
+	pr := Processor{logger: hclog.NewNullLogger()}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -473,7 +474,7 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{nomadAPMs: tc.inputAPMNames}
+			pr := Processor{logger: hclog.NewNullLogger(), nomadAPMs: tc.inputAPMNames}
 			pr.CanonicalizeAPMQuery(tc.inputCheck, tc.inputTarget)
 			assert.Equal(t, tc.expectedOutputCheck, tc.inputCheck, tc.name)
 		})
@@ -556,7 +557,8 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result, err := normalizeNodePoolQuery(tc.input)
+			pr := Processor{logger: hclog.NewNullLogger()}
+			result, err := pr.normalizeNodePoolQuery(tc.input)
 			if tc.expectError {
 				must.Error(t, err)
 				must.ErrorContains(t, err, "unrecognized pool identifier key")
@@ -671,7 +673,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{defaults: tc.inputDefaults}
+			pr := Processor{logger: hclog.NewNullLogger(), defaults: tc.inputDefaults}
 			pr.ApplyPolicyDefaults(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
 		})
@@ -687,6 +689,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 	}{
 		{
 			inputProcessor: &Processor{
+				logger:    hclog.NewNullLogger(),
 				nomadAPMs: nil,
 			},
 			inputSource:    "nagios",
@@ -695,6 +698,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				logger:    hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nagios",
@@ -703,6 +707,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				logger:    hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nomad-apm",
@@ -711,6 +716,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				logger:    hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-platform-apm"},
 			},
 			inputSource:    "nomad-platform-apm",
@@ -719,6 +725,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				logger:    hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-qa-apm", "nomad-platform-apm", "nomad-support-apm"},
 			},
 			inputSource:    "nomad-platform-apm",

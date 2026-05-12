@@ -378,6 +378,7 @@ func (mpg *mockPolicyGetter) GetPolicy(id string, q *api.QueryOptions) (*api.Sca
 func TestMonitoringIDs(t *testing.T) {
 
 	pr := policy.NewProcessor(
+		hclog.NewNullLogger(),
 		&policy.ConfigDefaults{
 			DefaultEvaluationInterval: time.Second,
 			DefaultCooldown:           time.Second},
@@ -584,6 +585,7 @@ func TestMonitoringIDs_NoUpdates(t *testing.T) {
 		log:            hclog.NewNullLogger(),
 		policiesGetter: mpg,
 		policyProcessor: policy.NewProcessor(
+			hclog.NewNullLogger(),
 			&policy.ConfigDefaults{},
 			[]string{},
 		),

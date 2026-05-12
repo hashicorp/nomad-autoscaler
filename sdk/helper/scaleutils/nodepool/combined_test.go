@@ -296,5 +296,4 @@ func TestCombinedPoolIdentifier_Interface(t *testing.T) {
 	cpi, ok := combined.(CombinedPoolIdentifier)
 	must.True(t, ok)
 	must.Eq(t, ids, cpi.Identifiers())
-	must.Eq(t, CombinedClusterPoolIdentifierAnd, cpi.Mode())
 }

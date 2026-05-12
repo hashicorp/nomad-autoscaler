@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad/api"
 )
 
@@ -32,9 +33,6 @@ type CombinedPoolIdentifier interface {
 	// Identifiers returns the list of sub-identifiers that compose this
 	// combined identifier.
 	Identifiers() []ClusterNodePoolIdentifier
-
-	// Mode returns the combination mode (and/or).
-	Mode() CombinedClusterPoolIdentifierMode
 }
 
 // combinedClusterPoolIdentifier is an implementation of the
@@ -91,11 +89,6 @@ func (c *combinedClusterPoolIdentifier) Identifiers() []ClusterNodePoolIdentifie
 	return c.poolIdentifiers
 }
 
-// Mode returns the combination mode (and/or).
-func (c *combinedClusterPoolIdentifier) Mode() CombinedClusterPoolIdentifierMode {
-	return c.mode
-}
-
 // EncodeCombinedQueryIdentifiers serializes a list of ClusterNodePoolIdentifiers
 // into the combined query format: key1=value1+key2=value2
 // Values are URL-encoded to handle special characters (+, =, /).
@@ -126,14 +119,20 @@ func DecodeCombinedQueryIdentifiers(encoded string) ([]ClusterNodePoolIdentifier
 		}
 
 		switch kv[0] {
-		case "node_class", "class":
+		// "class" is accepted as a legacy alias for sdk.TargetConfigKeyClass
+		// ("node_class"). While normalizeNodePoolQuery rewrites old 3-part
+		// queries, a user can still write "class=value" directly in a
+		// long-form query (e.g. node_percentage-allocated_cpu/class=compute),
+		// which bypasses normalization because it already contains "=".
+		case sdk.TargetConfigKeyClass, "class":
 			ids = append(ids, NewNodeClassPoolIdentifier(value))
-		case "datacenter":
+		case sdk.TargetConfigKeyDatacenter:
 			ids = append(ids, NewNodeDatacenterPoolIdentifier(value))
-		case "node_pool":
+		case sdk.TargetConfigKeyNodePool:
 			ids = append(ids, NewNodePoolClusterPoolIdentifier(value))
 		default:
-			return nil, fmt.Errorf("unknown pool key %q: must be node_class, datacenter, or node_pool", kv[0])
+			return nil, fmt.Errorf("unknown pool key %q: must be %s, %s, or %s",
+				kv[0], sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool)
 		}
 	}
 

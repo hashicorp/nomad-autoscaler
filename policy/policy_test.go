@@ -10,6 +10,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -481,9 +482,10 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 
 func Test_normalizeNodePoolQuery(t *testing.T) {
 	testCases := []struct {
-		name     string
-		input    string
-		expected string
+		name        string
+		input       string
+		expected    string
+		expectError bool
 	}{
 		{
 			name:     "old format class is normalized",
@@ -506,9 +508,9 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 			expected: "node_percentage-allocated_memory/node_pool=gpu",
 		},
 		{
-			name:     "old format unknown key is returned as-is",
-			input:    "node_percentage-allocated_cpu/us-east/zone",
-			expected: "node_percentage-allocated_cpu/us-east/zone",
+			name:        "old format unknown key returns error",
+			input:       "node_percentage-allocated_cpu/us-east/zone",
+			expectError: true,
 		},
 		{
 			name:     "new combined format is unchanged",
@@ -554,8 +556,14 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := normalizeNodePoolQuery(tc.input)
-			assert.Equal(t, tc.expected, result)
+			result, err := normalizeNodePoolQuery(tc.input)
+			if tc.expectError {
+				must.Error(t, err)
+				must.ErrorContains(t, err, "unrecognized pool identifier key")
+			} else {
+				must.NoError(t, err)
+				must.Eq(t, tc.expected, result)
+			}
 		})
 	}
 }

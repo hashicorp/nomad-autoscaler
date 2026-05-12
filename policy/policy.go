@@ -152,7 +152,13 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	// Operators can write long queries directly if they know the
 	// autoscaler internal model.
 	if !isShortQuery(c.Query) {
-		c.Query = normalizeNodePoolQuery(c.Query)
+		normalized, err := normalizeNodePoolQuery(c.Query)
+		if err != nil {
+			// Unrecognized key in old-format query; leave as-is so
+			// the parser surfaces a clear error at evaluation time.
+			return
+		}
+		c.Query = normalized
 		return
 	}
 
@@ -202,36 +208,38 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 // (node_<op>_<metric>/<value>/<key>) into the new combined format
 // (node_<op>_<metric>/key=value). Queries already in the new format
 // or non-node-pool queries are returned unchanged.
-func normalizeNodePoolQuery(q string) string {
+// Returns an error if the old-format key is not recognized.
+func normalizeNodePoolQuery(q string) (string, error) {
 	parts := strings.SplitN(q, "/", 3)
 
 	// Only the old 3-part format needs conversion.
 	if len(parts) != 3 || parts[2] == "" {
-		return q
+		return q, nil
 	}
 
 	// Only node pool queries (starting with "node_") need normalization.
 	// This prevents taskgroup queries from being incorrectly rewritten.
 	if !strings.HasPrefix(parts[0], "node_") {
-		return q
+		return q, nil
 	}
 
 	// If the second part already contains "=", it's the new format
 	// (or at least not old format). Leave it alone.
 	if strings.Contains(parts[1], "=") {
-		return q
+		return q, nil
 	}
 
 	// Map the old key to the canonical key name.
 	key := normalizePoolKey(parts[2])
 	if key == "" {
-		// Unrecognized key — return as-is; the parser will error.
-		return q
+		return "", fmt.Errorf("unrecognized pool identifier key %q in query %q, "+
+			"allowed values are: %s, %s, %s",
+			parts[2], q, sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool)
 	}
 
 	// URL-encode the value for consistency with the combined format
 	// used by EncodeCombinedQueryIdentifiers.
-	return fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
+	return fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1])), nil
 }
 
 // normalizePoolKey maps old-format pool key names to canonical key names.

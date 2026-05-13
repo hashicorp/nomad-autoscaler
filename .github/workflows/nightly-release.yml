@@ -14,9 +14,13 @@ on:
 jobs:
   # Build a fresh set of artifacts
   build-artifacts:
+    permissions:
+      contents: read
     uses: ./.github/workflows/build.yml
   github-release:
     needs: build-artifacts
+    permissions:
+      contents: write  # delete/create tags/nightly and create the prerelease
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -79,6 +83,7 @@ jobs:
       - build-artifacts
       - github-release
     if: always() && (needs.build-artifacts.result == 'failure' || needs.github-release.result == 'failure')
+    permissions: {}  # only posts to an external Slack webhook
     runs-on: ubuntu-24.04
     steps:
       - name: Send slack notification on failure

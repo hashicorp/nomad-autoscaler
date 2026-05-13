@@ -10,6 +10,12 @@ on:
 
 name: Jira Issue Sync
 
+# Jira mirror only reads issue/comment metadata; writes go to Jira via
+# JIRA_API_TOKEN.
+permissions:
+  contents: read
+  issues: read
+
 jobs:
   sync:
     runs-on: ubuntu-24.04

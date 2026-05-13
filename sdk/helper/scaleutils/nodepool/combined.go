@@ -38,16 +38,6 @@ func (l ClusterNodePoolIdentifierList) Encode() string {
 	return strings.Join(parts, "+")
 }
 
-// String returns a human-readable representation of the identifier list,
-// suitable for logging.
-func (l ClusterNodePoolIdentifierList) String() string {
-	parts := make([]string, 0, len(l))
-	for _, id := range l {
-		parts = append(parts, fmt.Sprintf("%s:%s", id.Key(), id.Value()))
-	}
-	return strings.Join(parts, " and ")
-}
-
 // DecodeCombinedQueryIdentifiers parses a combined query identifier string
 // (key1=value1+key2=value2) and returns the corresponding identifier list.
 // Values are URL-decoded to handle special characters.

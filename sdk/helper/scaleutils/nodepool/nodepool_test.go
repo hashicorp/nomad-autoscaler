@@ -33,31 +33,30 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 		{
 			inputCfg:    map[string]string{"datacenter": "dc1"},
 			expectedLen: 1,
-			expectedStr: "datacenter:dc1",
+			expectedStr: "datacenter=dc1",
 			name:        "datacenter configured in config",
 		},
 		{
 			inputCfg:    map[string]string{"node_class": "high-memory"},
 			expectedLen: 1,
-			expectedStr: "node_class:high-memory",
-			name:        "node_class configured in config",
+			expectedStr: "node_class=high-memory",
 		},
 		{
 			inputCfg:    map[string]string{"node_pool": "gpu"},
 			expectedLen: 1,
-			expectedStr: "node_pool:gpu",
+			expectedStr: "node_pool=gpu",
 			name:        "node_pool configured in config",
 		},
 		{
 			inputCfg:    map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
 			expectedLen: 2,
-			expectedStr: "node_class:high-memory and datacenter:dc1",
+			expectedStr: "node_class=high-memory+datacenter=dc1",
 			name:        "node_class and datacenter are configured in config",
 		},
 		{
 			inputCfg:    map[string]string{"node_pool": "gpu", "datacenter": "dc1"},
 			expectedLen: 2,
-			expectedStr: "datacenter:dc1 and node_pool:gpu",
+			expectedStr: "datacenter=dc1+node_pool=gpu",
 			name:        "node_pool and datacenter are configured in config",
 		},
 		{
@@ -67,7 +66,7 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 				"datacenter": "dc1",
 			},
 			expectedLen: 3,
-			expectedStr: "node_class:high-memory and datacenter:dc1 and node_pool:gpu",
+			expectedStr: "node_class=high-memory+datacenter=dc1+node_pool=gpu",
 			name:        "node_class, node_pool, and datacenter are configured in config",
 		},
 	}
@@ -80,7 +79,7 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 			} else {
 				must.NoError(t, err)
 				must.Len(t, tc.expectedLen, ids)
-				must.Eq(t, tc.expectedStr, ids.String())
+				must.Eq(t, tc.expectedStr, ids.Encode())
 			}
 		})
 	}

@@ -137,14 +137,6 @@ func TestClusterNodePoolIdentifierList_Encode(t *testing.T) {
 	}
 }
 
-func TestClusterNodePoolIdentifierList_String(t *testing.T) {
-	ids := ClusterNodePoolIdentifierList{
-		NewNodeClassPoolIdentifier("gpu"),
-		NewNodeDatacenterPoolIdentifier("dc1"),
-	}
-	must.Eq(t, "node_class:gpu and datacenter:dc1", ids.String())
-}
-
 func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 	testCases := []struct {
 		name        string

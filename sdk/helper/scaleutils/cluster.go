@@ -228,7 +228,7 @@ func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) 
 	if err != nil {
 		return nil, err
 	}
-	c.log.Debug("performing node pool filtering", "identifiers", ids.String())
+	c.log.Debug("performing node pool filtering", "identifiers", ids.Encode())
 
 	// Pull a current list of Nomad nodes from the API including populated
 	// resource fields.
@@ -275,7 +275,7 @@ func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) 
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
-		return nil, fmt.Errorf("no nodes unfiltered for identifiers: %s", ids.String())
+		return nil, fmt.Errorf("no nodes unfiltered for identifiers: %s", ids.Encode())
 	}
 
 	return filteredNodes, nil

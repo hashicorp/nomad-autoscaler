@@ -8,82 +8,21 @@ import (
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/shoenig/test/must"
-	"github.com/stretchr/testify/assert"
 )
 
-type mockClusterPoolIdentifier struct{}
-
-func NewMockPoolIdentifier() ClusterNodePoolIdentifier                     { return &mockClusterPoolIdentifier{} }
-func (m *mockClusterPoolIdentifier) IsPoolMember(n *api.NodeListStub) bool { return true }
-func (m *mockClusterPoolIdentifier) Key() string                           { return "mock_identifier" }
-func (c *mockClusterPoolIdentifier) Value() string                         { return "mock_value" }
-
-func TestNewCombinedPoolIdentifier(t *testing.T) {
+func TestClusterNodePoolIdentifierList_IsPoolMember(t *testing.T) {
 	testCases := []struct {
-		name          string
-		identifier    ClusterNodePoolIdentifier
-		expectedValue string
-	}{
-		{
-			name: "single identifier",
-			identifier: NewCombinedClusterPoolIdentifier(
-				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-				},
-				CombinedClusterPoolIdentifierAnd,
-			),
-			expectedValue: "node_class:test-class",
-		},
-		{
-			name: "multiple identifiers with and",
-			identifier: NewCombinedClusterPoolIdentifier(
-				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
-					NewMockPoolIdentifier(),
-				},
-				CombinedClusterPoolIdentifierAnd,
-			),
-			expectedValue: "node_class:test-class and datacenter:test-dc and mock_identifier:mock_value",
-		},
-		{
-			name: "multiple identifiers with or",
-			identifier: NewCombinedClusterPoolIdentifier(
-				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
-					NewMockPoolIdentifier(),
-				},
-				CombinedClusterPoolIdentifierOr,
-			),
-			expectedValue: "node_class:test-class or datacenter:test-dc or mock_identifier:mock_value",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, "combined_identifier", tc.identifier.Key())
-			assert.Equal(t, tc.expectedValue, tc.identifier.Value())
-		})
-	}
-}
-
-func TestNewCombinedPoolIdentifier_NodeIsPoolMember(t *testing.T) {
-	testCases := []struct {
-		name       string
-		identifier ClusterNodePoolIdentifier
-		nodes      []*api.NodeListStub
-		expected   []bool
+		name     string
+		ids      ClusterNodePoolIdentifierList
+		nodes    []*api.NodeListStub
+		expected []bool
 	}{
 		{
 			name: "find node by class and datacenter",
-			identifier: NewCombinedClusterPoolIdentifier(
-				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
-				},
-				CombinedClusterPoolIdentifierAnd,
-			),
+			ids: ClusterNodePoolIdentifierList{
+				NewNodeClassPoolIdentifier("test-class"),
+				NewNodeDatacenterPoolIdentifier("test-dc"),
+			},
 			nodes: []*api.NodeListStub{
 				{
 					NodeClass:  "test-class",
@@ -107,64 +46,58 @@ func TestNewCombinedPoolIdentifier_NodeIsPoolMember(t *testing.T) {
 			expected: []bool{true, false, false, false, false},
 		},
 		{
-			name: "find node by class or datacenter",
-			identifier: NewCombinedClusterPoolIdentifier(
-				[]ClusterNodePoolIdentifier{
-					NewNodeClassPoolIdentifier("test-class"),
-					NewNodeDatacenterPoolIdentifier("test-dc"),
-				},
-				CombinedClusterPoolIdentifierOr,
-			),
-			nodes: []*api.NodeListStub{
-				{
-					NodeClass:  "test-class",
-					Datacenter: "test-dc",
-				},
-				{
-					NodeClass: "test-class",
-				},
-				{
-					Datacenter: "test-dc",
-				},
-				{
-					NodeClass:  "test-wrong-class",
-					Datacenter: "test-dc",
-				},
-				{
-					NodeClass:  "test-wrong-class",
-					Datacenter: "test-wrong-dc",
-				},
+			name: "single identifier",
+			ids: ClusterNodePoolIdentifierList{
+				NewNodeClassPoolIdentifier("gpu"),
 			},
-			expected: []bool{true, true, true, true, false},
+			nodes: []*api.NodeListStub{
+				{NodeClass: "gpu"},
+				{NodeClass: "cpu"},
+			},
+			expected: []bool{true, false},
+		},
+		{
+			name: "all three identifiers",
+			ids: ClusterNodePoolIdentifierList{
+				NewNodeClassPoolIdentifier("gpu"),
+				NewNodeDatacenterPoolIdentifier("dc1"),
+				NewNodePoolClusterPoolIdentifier("prod"),
+			},
+			nodes: []*api.NodeListStub{
+				{NodeClass: "gpu", Datacenter: "dc1", NodePool: "prod"},
+				{NodeClass: "gpu", Datacenter: "dc1", NodePool: "dev"},
+				{NodeClass: "gpu", Datacenter: "dc2", NodePool: "prod"},
+			},
+			expected: []bool{true, false, false},
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			for i, node := range tc.nodes {
-				got := tc.identifier.IsPoolMember(node)
-				assert.Equal(t, tc.expected[i], got, tc.name)
+				got := tc.ids.IsPoolMember(node)
+				must.Eq(t, tc.expected[i], got)
 			}
 		})
 	}
 }
 
-func TestEncodeCombinedQueryIdentifiers(t *testing.T) {
+func TestClusterNodePoolIdentifierList_Encode(t *testing.T) {
 	testCases := []struct {
 		name     string
-		ids      []ClusterNodePoolIdentifier
+		ids      ClusterNodePoolIdentifierList
 		expected string
 	}{
 		{
 			name: "single identifier",
-			ids: []ClusterNodePoolIdentifier{
+			ids: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("gpu"),
 			},
 			expected: "node_class=gpu",
 		},
 		{
 			name: "two identifiers",
-			ids: []ClusterNodePoolIdentifier{
+			ids: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("hashistack"),
 				NewNodeDatacenterPoolIdentifier("dc1"),
 			},
@@ -172,7 +105,7 @@ func TestEncodeCombinedQueryIdentifiers(t *testing.T) {
 		},
 		{
 			name: "three identifiers",
-			ids: []ClusterNodePoolIdentifier{
+			ids: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("gpu"),
 				NewNodeDatacenterPoolIdentifier("us-east-1a"),
 				NewNodePoolClusterPoolIdentifier("default"),
@@ -181,7 +114,7 @@ func TestEncodeCombinedQueryIdentifiers(t *testing.T) {
 		},
 		{
 			name: "value with special characters",
-			ids: []ClusterNodePoolIdentifier{
+			ids: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("special+class"),
 				NewNodeDatacenterPoolIdentifier("dc1"),
 			},
@@ -189,7 +122,7 @@ func TestEncodeCombinedQueryIdentifiers(t *testing.T) {
 		},
 		{
 			name: "value with equals sign",
-			ids: []ClusterNodePoolIdentifier{
+			ids: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("key=value"),
 			},
 			expected: "node_class=key%3Dvalue",
@@ -198,31 +131,39 @@ func TestEncodeCombinedQueryIdentifiers(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := EncodeCombinedQueryIdentifiers(tc.ids)
+			result := tc.ids.Encode()
 			must.Eq(t, tc.expected, result)
 		})
 	}
+}
+
+func TestClusterNodePoolIdentifierList_String(t *testing.T) {
+	ids := ClusterNodePoolIdentifierList{
+		NewNodeClassPoolIdentifier("gpu"),
+		NewNodeDatacenterPoolIdentifier("dc1"),
+	}
+	must.Eq(t, "node_class:gpu and datacenter:dc1", ids.String())
 }
 
 func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 	testCases := []struct {
 		name        string
 		input       string
-		expectedIDs []ClusterNodePoolIdentifier
+		expectedIDs ClusterNodePoolIdentifierList
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name:  "single node_class",
 			input: "node_class=gpu",
-			expectedIDs: []ClusterNodePoolIdentifier{
+			expectedIDs: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("gpu"),
 			},
 		},
 		{
 			name:  "node_class and datacenter",
 			input: "node_class=hashistack+datacenter=dc1",
-			expectedIDs: []ClusterNodePoolIdentifier{
+			expectedIDs: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("hashistack"),
 				NewNodeDatacenterPoolIdentifier("dc1"),
 			},
@@ -230,7 +171,7 @@ func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 		{
 			name:  "URL-encoded value with plus",
 			input: "node_class=special%2Bclass+datacenter=dc1",
-			expectedIDs: []ClusterNodePoolIdentifier{
+			expectedIDs: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("special+class"),
 				NewNodeDatacenterPoolIdentifier("dc1"),
 			},
@@ -238,7 +179,7 @@ func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 		{
 			name:  "URL-encoded value with equals",
 			input: "node_class=key%3Dvalue",
-			expectedIDs: []ClusterNodePoolIdentifier{
+			expectedIDs: ClusterNodePoolIdentifierList{
 				NewNodeClassPoolIdentifier("key=value"),
 			},
 		},
@@ -281,17 +222,4 @@ func TestDecodeCombinedQueryIdentifiers(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestCombinedPoolIdentifier_Interface(t *testing.T) {
-	ids := []ClusterNodePoolIdentifier{
-		NewNodeClassPoolIdentifier("gpu"),
-		NewNodeDatacenterPoolIdentifier("dc1"),
-	}
-	combined := NewCombinedClusterPoolIdentifier(ids, CombinedClusterPoolIdentifierAnd)
-
-	// Verify it satisfies CombinedPoolIdentifier interface
-	cpi, ok := combined.(CombinedPoolIdentifier)
-	must.True(t, ok)
-	must.Eq(t, ids, cpi.Identifiers())
 }

@@ -25,9 +25,11 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery: "node_percentage-allocated_memory/node_class=high-memory",
 			expectedOutputQuery: &nodePoolQuery{
-				metric:         "memory",
-				poolIdentifier: nodepool.NewNodeClassPoolIdentifier("high-memory"),
-				operation:      "percentage-allocated",
+				metric: "memory",
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodeClassPoolIdentifier("high-memory"),
+				},
+				operation: "percentage-allocated",
 			},
 			expectError: nil,
 			name:        "single node_class identifier",
@@ -35,9 +37,11 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery: "node_percentage-allocated_cpu/datacenter=dc1",
 			expectedOutputQuery: &nodePoolQuery{
-				metric:         "cpu",
-				poolIdentifier: nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
-				operation:      "percentage-allocated",
+				metric: "cpu",
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
+				},
+				operation: "percentage-allocated",
 			},
 			expectError: nil,
 			name:        "single datacenter identifier",
@@ -45,9 +49,11 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery: "node_percentage-allocated_cpu/node_pool=gpu",
 			expectedOutputQuery: &nodePoolQuery{
-				metric:         "cpu",
-				poolIdentifier: nodepool.NewNodePoolClusterPoolIdentifier("gpu"),
-				operation:      "percentage-allocated",
+				metric: "cpu",
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodePoolClusterPoolIdentifier("gpu"),
+				},
+				operation: "percentage-allocated",
 			},
 			expectError: nil,
 			name:        "single node_pool identifier",
@@ -56,13 +62,10 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			inputQuery: "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
 			expectedOutputQuery: &nodePoolQuery{
 				metric: "memory",
-				poolIdentifier: nodepool.NewCombinedClusterPoolIdentifier(
-					[]nodepool.ClusterNodePoolIdentifier{
-						nodepool.NewNodeClassPoolIdentifier("hashistack"),
-						nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
-					},
-					nodepool.CombinedClusterPoolIdentifierAnd,
-				),
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodeClassPoolIdentifier("hashistack"),
+					nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
+				},
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
@@ -72,13 +75,10 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			inputQuery: "node_percentage-allocated_cpu/datacenter=us-east-1a+node_pool=gpu",
 			expectedOutputQuery: &nodePoolQuery{
 				metric: "cpu",
-				poolIdentifier: nodepool.NewCombinedClusterPoolIdentifier(
-					[]nodepool.ClusterNodePoolIdentifier{
-						nodepool.NewNodeDatacenterPoolIdentifier("us-east-1a"),
-						nodepool.NewNodePoolClusterPoolIdentifier("gpu"),
-					},
-					nodepool.CombinedClusterPoolIdentifierAnd,
-				),
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodeDatacenterPoolIdentifier("us-east-1a"),
+					nodepool.NewNodePoolClusterPoolIdentifier("gpu"),
+				},
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
@@ -88,13 +88,10 @@ func Test_parseNodePoolQuery(t *testing.T) {
 			inputQuery: "node_percentage-allocated_cpu/node_class=special%2Bclass+datacenter=dc1",
 			expectedOutputQuery: &nodePoolQuery{
 				metric: "cpu",
-				poolIdentifier: nodepool.NewCombinedClusterPoolIdentifier(
-					[]nodepool.ClusterNodePoolIdentifier{
-						nodepool.NewNodeClassPoolIdentifier("special+class"),
-						nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
-					},
-					nodepool.CombinedClusterPoolIdentifierAnd,
-				),
+				poolFilter: nodepool.ClusterNodePoolIdentifierList{
+					nodepool.NewNodeClassPoolIdentifier("special+class"),
+					nodepool.NewNodeDatacenterPoolIdentifier("dc1"),
+				},
 				operation: "percentage-allocated",
 			},
 			expectError: nil,
@@ -337,10 +334,10 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 			}),
 		},
 		{
-			name:        "ready ineligible node excluded from pool totals",
-			config:      map[string]string{},
-			expectError: false,
-			expectedCPU: 20,
+			name:          "ready ineligible node excluded from pool totals",
+			config:        map[string]string{},
+			expectError:   false,
+			expectedCPU:   20,
 			expectedMemMB: 15,
 			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")

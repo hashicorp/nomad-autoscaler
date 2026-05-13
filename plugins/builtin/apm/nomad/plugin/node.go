@@ -15,12 +15,18 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// nodePoolFilter is a narrow interface for filtering Nomad nodes into pools.
+// Only IsPoolMember is needed at query time.
+type nodePoolFilter interface {
+	IsPoolMember(*api.NodeListStub) bool
+}
+
 // nodePoolQuery is the plugins internal representation of a query and contains
 // all the information needed to perform a Nomad APM query for a node pool.
 type nodePoolQuery struct {
-	metric         string
-	poolIdentifier nodepool.ClusterNodePoolIdentifier
-	operation      string
+	metric     string
+	poolFilter nodePoolFilter
+	operation  string
 }
 
 type nodePoolResources struct {
@@ -46,7 +52,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 	a.logger.Debug("performing node pool APM query", "query", q)
 
 	// Identify the resource available and consumed within the target pool.
-	resources, err := a.getPoolResources(query.poolIdentifier)
+	resources, err := a.getPoolResources(query.poolFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +89,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 // specified node pool. Any error in calling the Nomad API for details will
 // result in an error. This is because with missing data, we cannot reliably
 // make calculations.
-func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*nodePoolResources, error) {
+func (a *APMPlugin) getPoolResources(id nodePoolFilter) (*nodePoolResources, error) {
 
 	client, config := a.getClientAndConfigSnapshot()
 	if client == nil {
@@ -194,11 +200,7 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(ids) == 1 {
-		query.poolIdentifier = ids[0]
-	} else {
-		query.poolIdentifier = nodepool.NewCombinedClusterPoolIdentifier(ids, nodepool.CombinedClusterPoolIdentifierAnd)
-	}
+	query.poolFilter = ids
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)
 	if len(opMetricParts) != 3 {

@@ -524,17 +524,12 @@ func Test_normalizeNodePoolQuery(t *testing.T) {
 			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
 		},
 		{
-			name:     "legacy class key in new format is normalized",
+			name:     "combined format with class alias is passed through (rejected at decode time)",
 			input:    "node_percentage-allocated_cpu/class=hashistack",
-			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+			expected: "node_percentage-allocated_cpu/class=hashistack",
 		},
 		{
-			name:     "legacy class key in combined format is normalized",
-			input:    "node_percentage-allocated_cpu/class=compute+datacenter=dc1",
-			expected: "node_percentage-allocated_cpu/node_class=compute+datacenter=dc1",
-		},
-		{
-			name:     "node_class in combined format is not double-rewritten",
+			name:     "combined format is unchanged",
 			input:    "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
 			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
 		},

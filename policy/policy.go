@@ -187,23 +187,14 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	// If the target is a Nomad client node pool, format the query in the
 	// combined format: node_<op>_<metric>/key1=val1[+key2=val2...]
 	if t.IsNodePoolTarget() {
-		poolID, err := nodepool.NewClusterNodePoolIdentifier(t.Config)
+		ids, err := nodepool.NewClusterNodePoolIdentifierList(t.Config)
 		if err != nil {
 			// Cannot determine pool identifier; leave query as-is.
 			return
 		}
 
-		// Extract identifiers: combined has multiple, single has one.
-		var ids []nodepool.ClusterNodePoolIdentifier
-		if combined, ok := poolID.(nodepool.CombinedPoolIdentifier); ok {
-			ids = combined.Identifiers()
-		} else {
-			ids = []nodepool.ClusterNodePoolIdentifier{poolID}
-		}
-
-		encoded := nodepool.EncodeCombinedQueryIdentifiers(ids)
 		c.Query = fmt.Sprintf("%s_%s/%s",
-			nomadAPM.QueryTypeNode, c.Query, encoded)
+			nomadAPM.QueryTypeNode, c.Query, ids.Encode())
 	}
 }
 
@@ -221,18 +212,10 @@ func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
 		return q, nil
 	}
 
-	// If the second part contains "=", it's the new combined format
-	// (2-part or 3-part doesn't matter). Normalize any legacy "class"
-	// key alias to "node_class" so the decoder only ever sees canonical
-	// key names.
+	// If the second part contains "=", it's already in the new combined
+	// format (key=val or key=val+key=val). No normalization needed;
+	// DecodeCombinedQueryIdentifiers will validate keys at query time.
 	if strings.Contains(parts[1], "=") {
-		normalized := normalizeClassAliasInCombined(parts[1])
-		if normalized != parts[1] {
-			result := fmt.Sprintf("%s/%s", parts[0], normalized)
-			pr.log.Debug("normalized legacy class key in combined query",
-				"original", q, "normalized", result)
-			return result, nil
-		}
 		return q, nil
 	}
 
@@ -250,31 +233,11 @@ func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
 	}
 
 	// URL-encode the value for consistency with the combined format
-	// used by EncodeCombinedQueryIdentifiers.
+	// used by ClusterNodePoolIdentifierList.Encode().
 	normalized := fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
 	pr.log.Debug("normalized legacy node pool query",
 		"original", q, "normalized", normalized)
 	return normalized, nil
-}
-
-// normalizeClassAliasInCombined replaces the legacy "class" key with
-// "node_class" in a combined-format identifier string (key1=val1+key2=val2).
-// It splits on "+", checks each pair's key, and only rewrites bare "class".
-// This avoids a naive ReplaceAll that would corrupt "node_class" → "node_node_class".
-func normalizeClassAliasInCombined(s string) string {
-	pairs := strings.Split(s, "+")
-	changed := false
-	for i, pair := range pairs {
-		kv := strings.SplitN(pair, "=", 2)
-		if len(kv) == 2 && kv[0] == "class" {
-			pairs[i] = sdk.TargetConfigKeyClass + "=" + kv[1]
-			changed = true
-		}
-	}
-	if !changed {
-		return s
-	}
-	return strings.Join(pairs, "+")
 }
 
 // normalizePoolKey maps old-format pool key names to canonical key names.

@@ -12,100 +12,48 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
-const (
-	// CombinedClusterPoolIdentifierAnd requires all identifiers to return true.
-	CombinedClusterPoolIdentifierAnd CombinedClusterPoolIdentifierMode = "and"
+// ClusterNodePoolIdentifierList is a list of ClusterNodePoolIdentifier
+// values that filters nodes using AND logic. A node must match every
+// identifier in the list to be considered a pool member.
+type ClusterNodePoolIdentifierList []ClusterNodePoolIdentifier
 
-	// CombinedClusterPoolIdentifierOr requires at least one identifier to
-	// return true.
-	CombinedClusterPoolIdentifierOr CombinedClusterPoolIdentifierMode = "or"
-)
-
-// CombinedClusterPoolIdentifierMode defines how different
-// ClusterNodePoolIdentifiers are combined.
-type CombinedClusterPoolIdentifierMode string
-
-// CombinedPoolIdentifier is an extension of ClusterNodePoolIdentifier that
-// exposes the sub-identifiers and mode for serialization purposes.
-type CombinedPoolIdentifier interface {
-	ClusterNodePoolIdentifier
-
-	// Identifiers returns the list of sub-identifiers that compose this
-	// combined identifier.
-	Identifiers() []ClusterNodePoolIdentifier
-}
-
-// combinedClusterPoolIdentifier is an implementation of the
-// ClusterNodePoolIdentifier interface that filters Nomad nodes by combining
-// multiple filters.
-type combinedClusterPoolIdentifier struct {
-	poolIdentifiers []ClusterNodePoolIdentifier
-	mode            CombinedClusterPoolIdentifierMode
-}
-
-// NewCombinedClusterPoolIdentifier returns a new combinedClusterPoolIdentifier.
-func NewCombinedClusterPoolIdentifier(poolIdentifiers []ClusterNodePoolIdentifier, mode CombinedClusterPoolIdentifierMode) ClusterNodePoolIdentifier {
-	return &combinedClusterPoolIdentifier{
-		poolIdentifiers: poolIdentifiers,
-		mode:            mode,
-	}
-}
-
-// IsPoolMember satisfies the IsPoolMember function on the
-// ClusterNodePoolIdentifier interface.
-func (c *combinedClusterPoolIdentifier) IsPoolMember(n *api.NodeListStub) bool {
-	// If mode is 'and' we assume the node is a member unless told otherwise.
-	isMember := c.mode == CombinedClusterPoolIdentifierAnd
-
-	for _, identifier := range c.poolIdentifiers {
-		switch c.mode {
-		case CombinedClusterPoolIdentifierAnd:
-			isMember = isMember && identifier.IsPoolMember(n)
-		case CombinedClusterPoolIdentifierOr:
-			isMember = isMember || identifier.IsPoolMember(n)
+// IsPoolMember returns true if the node matches all identifiers in the list.
+func (l ClusterNodePoolIdentifierList) IsPoolMember(n *api.NodeListStub) bool {
+	for _, id := range l {
+		if !id.IsPoolMember(n) {
+			return false
 		}
 	}
-	return isMember
+	return true
 }
 
-// Key satisfies the Key function on the ClusterNodePoolIdentifier interface.
-func (c *combinedClusterPoolIdentifier) Key() string {
-	return "combined_identifier"
-}
-
-// Value satisfies the Value function on the ClusterNodePoolIdentifier
-// interface.
-func (c *combinedClusterPoolIdentifier) Value() string {
-	values := make([]string, 0, len(c.poolIdentifiers))
-	for _, identifier := range c.poolIdentifiers {
-		values = append(values, fmt.Sprintf("%s:%s", identifier.Key(), identifier.Value()))
-	}
-	return strings.Join(values, fmt.Sprintf(" %s ", c.mode))
-}
-
-// Identifiers returns the list of sub-identifiers that compose this combined
-// identifier.
-func (c *combinedClusterPoolIdentifier) Identifiers() []ClusterNodePoolIdentifier {
-	return c.poolIdentifiers
-}
-
-// EncodeCombinedQueryIdentifiers serializes a list of ClusterNodePoolIdentifiers
-// into the combined query format: key1=value1+key2=value2
-// Values are URL-encoded to handle special characters (+, =, /).
-func EncodeCombinedQueryIdentifiers(ids []ClusterNodePoolIdentifier) string {
-	parts := make([]string, 0, len(ids))
-	for _, id := range ids {
+// Encode serializes the identifier list into the combined query format:
+// key1=value1+key2=value2. Values are URL-encoded to handle special
+// characters (+, =, /).
+func (l ClusterNodePoolIdentifierList) Encode() string {
+	parts := make([]string, 0, len(l))
+	for _, id := range l {
 		parts = append(parts, fmt.Sprintf("%s=%s", id.Key(), url.QueryEscape(id.Value())))
 	}
 	return strings.Join(parts, "+")
 }
 
+// String returns a human-readable representation of the identifier list,
+// suitable for logging.
+func (l ClusterNodePoolIdentifierList) String() string {
+	parts := make([]string, 0, len(l))
+	for _, id := range l {
+		parts = append(parts, fmt.Sprintf("%s:%s", id.Key(), id.Value()))
+	}
+	return strings.Join(parts, " and ")
+}
+
 // DecodeCombinedQueryIdentifiers parses a combined query identifier string
-// (key1=value1+key2=value2) and returns the corresponding ClusterNodePoolIdentifiers.
+// (key1=value1+key2=value2) and returns the corresponding identifier list.
 // Values are URL-decoded to handle special characters.
-func DecodeCombinedQueryIdentifiers(encoded string) ([]ClusterNodePoolIdentifier, error) {
+func DecodeCombinedQueryIdentifiers(encoded string) (ClusterNodePoolIdentifierList, error) {
 	pairs := strings.Split(encoded, "+")
-	ids := make([]ClusterNodePoolIdentifier, 0, len(pairs))
+	ids := make(ClusterNodePoolIdentifierList, 0, len(pairs))
 
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)

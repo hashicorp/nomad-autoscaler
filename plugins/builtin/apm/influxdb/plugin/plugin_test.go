@@ -223,9 +223,9 @@ func TestAPMPlugin_Query(t *testing.T) {
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
 				require.Equal(t, "/query", r.URL.Path)
-				// Verify token is in Authorization header
+				// Verify token is in Authorization header as Bearer scheme
 				authHeader := r.Header.Get("Authorization")
-				require.Equal(t, "Token my-secret-token", authHeader)
+				require.Equal(t, "Bearer my-secret-token", authHeader)
 				// Verify no credentials in query params
 				qp := r.URL.Query()
 				require.Empty(t, qp.Get("u"))

@@ -40,9 +40,11 @@ const (
 	// configKeyPassword is the optional authentication password.
 	configKeyPassword = "password"
 
-	// configKeyToken is the optional authentication token. When set, it
+	// configKeyToken is the optional JWT authentication token. When set, it
 	// takes precedence over username/password and cannot be used together
-	// with them. Supports InfluxDB 1.x Enterprise token-based auth.
+	// with them. The token is sent as "Authorization: Bearer <token>" and
+	// supports InfluxDB 1.x JWT auth (requires shared-secret configured on
+	// the InfluxDB server via INFLUXDB_HTTP_SHARED_SECRET or [http] shared-secret).
 	configKeyToken = "token"
 
 	// configKeyVersion selects the InfluxDB API version. Only "1" is
@@ -259,11 +261,11 @@ func (a *APMPlugin) database() string {
 }
 
 // setAuthHeader applies the appropriate authentication method to the HTTP
-// request. It supports both token-based auth (for InfluxDB 1.x Enterprise)
-// and username/password basic auth (for InfluxDB 1.x OSS).
+// request. It supports JWT Bearer token auth (for InfluxDB 1.x shared-secret
+// JWT auth) and username/password basic auth (for InfluxDB 1.x OSS/Enterprise).
 func (a *APMPlugin) setAuthHeader(req *http.Request) {
 	if token := strings.TrimSpace(a.config[configKeyToken]); token != "" {
-		req.Header.Set("Authorization", "Token "+token)
+		req.Header.Set("Authorization", "Bearer "+token)
 		return
 	}
 

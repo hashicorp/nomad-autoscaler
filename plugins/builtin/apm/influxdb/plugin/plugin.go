@@ -93,8 +93,7 @@ type pluginConfig struct {
 	Username     string
 	Password     string
 	SharedSecret string
-	Version      string
-	TokenTTL     time.Duration // parsed from configKeyTokenTTL; defaults to defaultTokenTTL
+	TokenTTL     time.Duration // parsed JWT lifetime; defaults to 1h
 }
 
 // APMPlugin is the InfluxDB implementation of the APM interface.
@@ -159,14 +158,14 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		cfg.TokenTTL = parsed
 	}
 
-	cfg.Version = strings.TrimSpace(config[configKeyVersion])
-	switch cfg.Version {
+	version := strings.TrimSpace(config[configKeyVersion])
+	switch version {
 	case "", configVersion1:
 		// ok — v1 is the default
 	case "2", "3":
-		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", cfg.Version, configVersion1)
+		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
 	default:
-		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", cfg.Version, configVersion1)
+		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
 	}
 
 	parsedURL, err := url.Parse(cfg.Address)

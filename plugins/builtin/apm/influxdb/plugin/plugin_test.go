@@ -31,12 +31,12 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 		{
 			name:         "no required config parameters set",
 			inputConfig:  map[string]string{},
-			expectOutput: errors.New(`"address" config value cannot be empty`),
+			expectOutput: errors.New(`address config value cannot be empty`),
 		},
 		{
 			name:         "missing database",
 			inputConfig:  map[string]string{configKeyAddress: "http://localhost:8086"},
-			expectOutput: errors.New(`"database" config value cannot be empty`),
+			expectOutput: errors.New(`database config value cannot be empty`),
 		},
 		{
 			name: "unsupported version 2",
@@ -87,7 +87,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyAddress:  "not-a-valid-url",
 				configKeyDatabase: "telegraf",
 			},
-			expectOutput: errors.New(`"address" must be a valid absolute URL`),
+			expectOutput: errors.New(`address must be a valid absolute URL`),
 		},
 		{
 			name: "shared_secret with username is valid",
@@ -106,7 +106,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyDatabase:     "telegraf",
 				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`auth configuration error: "shared_secret" requires "username" (used as the JWT username claim)`),
+			expectOutput: errors.New(`auth configuration error: shared_secret requires username (used as the JWT username claim)`),
 		},
 		{
 			name: "shared_secret conflicts with password",
@@ -117,7 +117,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyPassword:     "hunter2",
 				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "shared_secret" cannot be used together with "password"`),
+			expectOutput: errors.New(`conflicting auth configuration: shared_secret cannot be used together with password`),
 		},
 		{
 			name: "username without password is invalid",
@@ -126,7 +126,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyDatabase: "telegraf",
 				configKeyUsername: "autoscaler",
 			},
-			expectOutput: errors.New(`auth configuration error: "username" requires "password" for Basic authentication`),
+			expectOutput: errors.New(`auth configuration error: username requires password for Basic authentication`),
 		},
 		{
 			name: "password without username is invalid",
@@ -135,7 +135,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyDatabase: "telegraf",
 				configKeyPassword: "hunter2",
 			},
-			expectOutput: errors.New(`auth configuration error: "password" requires "username" for Basic authentication`),
+			expectOutput: errors.New(`auth configuration error: password requires username for Basic authentication`),
 		},
 		{
 			name: "custom token_ttl valid",
@@ -157,7 +157,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeySharedSecret: "my-secret",
 				configKeyTokenTTL:     "30s",
 			},
-			expectOutput: errors.New(`invalid "token_ttl" value "30s": must be between 1m0s and 24h0m0s`),
+			expectOutput: errors.New(`invalid token_ttl value "30s": must be between 1m0s and 24h0m0s`),
 		},
 		{
 			name: "token_ttl above maximum",
@@ -168,7 +168,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeySharedSecret: "my-secret",
 				configKeyTokenTTL:     "25h",
 			},
-			expectOutput: errors.New(`invalid "token_ttl" value "25h": must be between 1m0s and 24h0m0s`),
+			expectOutput: errors.New(`invalid token_ttl value "25h": must be between 1m0s and 24h0m0s`),
 		},
 		{
 			name: "token_ttl invalid string",
@@ -179,7 +179,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeySharedSecret: "my-secret",
 				configKeyTokenTTL:     "forever",
 			},
-			expectOutput: errors.New(`invalid "token_ttl" value "forever"`),
+			expectOutput: errors.New(`invalid token_ttl value "forever"`),
 		},
 	}
 

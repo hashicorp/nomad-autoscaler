@@ -138,7 +138,7 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 
 	address := strings.TrimSpace(config[configKeyAddress])
 	if address == "" {
-		return cfg, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
+		return cfg, fmt.Errorf("%s config value cannot be empty", configKeyAddress)
 	}
 
 	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
@@ -146,7 +146,7 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 		cfg.Database = strings.TrimSpace(config[configKeyDB])
 	}
 	if cfg.Database == "" {
-		return cfg, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
+		return cfg, fmt.Errorf("%s config value cannot be empty", configKeyDatabase)
 	}
 
 	cfg.Username = strings.TrimSpace(config[configKeyUsername])
@@ -155,25 +155,25 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 
 	if cfg.SharedSecret != "" {
 		if cfg.Username == "" {
-			return cfg, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
+			return cfg, fmt.Errorf("auth configuration error: %s requires %s (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
 		}
 		if cfg.Password != "" {
-			return cfg, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
+			return cfg, fmt.Errorf("conflicting auth configuration: %s cannot be used together with %s", configKeySharedSecret, configKeyPassword)
 		}
 	} else if cfg.Username != "" && cfg.Password == "" {
-		return cfg, fmt.Errorf("auth configuration error: %q requires %q for Basic authentication", configKeyUsername, configKeyPassword)
+		return cfg, fmt.Errorf("auth configuration error: %s requires %s for Basic authentication", configKeyUsername, configKeyPassword)
 	} else if cfg.Password != "" && cfg.Username == "" {
-		return cfg, fmt.Errorf("auth configuration error: %q requires %q for Basic authentication", configKeyPassword, configKeyUsername)
+		return cfg, fmt.Errorf("auth configuration error: %s requires %s for Basic authentication", configKeyPassword, configKeyUsername)
 	}
 
 	cfg.TokenTTL = defaultTokenTTL
 	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
 		parsed, err := time.ParseDuration(raw)
 		if err != nil {
-			return cfg, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
+			return cfg, fmt.Errorf("invalid %s value %q: %w", configKeyTokenTTL, raw, err)
 		}
 		if parsed < minTokenTTL || parsed > maxTokenTTL {
-			return cfg, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+			return cfg, fmt.Errorf("invalid %s value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
 		}
 		cfg.TokenTTL = parsed
 	}
@@ -190,10 +190,10 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 
 	parsedURL, err := url.Parse(address)
 	if err != nil {
-		return cfg, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
+		return cfg, fmt.Errorf("failed to parse %s: %w", configKeyAddress, err)
 	}
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return cfg, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
+		return cfg, fmt.Errorf("%s must be a valid absolute URL", configKeyAddress)
 	}
 
 	cfg.BaseURL = parsedURL

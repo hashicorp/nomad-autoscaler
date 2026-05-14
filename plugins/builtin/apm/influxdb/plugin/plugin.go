@@ -28,39 +28,30 @@ const (
 	pluginName = "influxdb"
 
 	// configKeyAddress is the InfluxDB server address.
-	// Falls back to INFLUXDB_ADDRESS if not set in the config map.
 	configKeyAddress = "address"
 
 	// configKeyDatabase is the primary config key for the database name.
-	// Falls back to INFLUXDB_DATABASE if neither "database" nor "db" is set.
 	configKeyDatabase = "database"
 
-	// configKeyDB is the shorthand alias accepted for database name.
-	// Lower priority than "database"; takes precedence over INFLUXDB_DATABASE.
+	// configKeyDB is the shorthand alias for database name; lower priority than "database".
 	configKeyDB = "db"
 
-	// configKeyUsername is the optional authentication username.
+	// configKeyUsername is the authentication username.
 	// Required when shared_secret is set (used as the JWT "username" claim).
-	// Falls back to INFLUXDB_USERNAME if not set in the config map.
 	configKeyUsername = "username"
 
-	// configKeyPassword is the optional authentication password.
-	// Used together with username for HTTP Basic auth.
+	// configKeyPassword is the authentication password for HTTP Basic auth.
 	// Cannot be used together with shared_secret.
-	// Falls back to INFLUXDB_PASSWORD if not set in the config map.
 	configKeyPassword = "password"
 
-	// configKeySharedSecret is the InfluxDB shared secret used to sign
-	// auto-generated HS256 JWTs. When set, the plugin generates and refreshes
-	// Bearer JWTs internally — no manual token management required.
+	// configKeySharedSecret is the InfluxDB shared secret used to sign HS256 JWTs.
 	// Requires: username. Conflicts with: password.
 	// Corresponds to INFLUXDB_HTTP_SHARED_SECRET on the InfluxDB server.
-	// Falls back to INFLUXDB_SHARED_SECRET if not set in the config map.
 	configKeySharedSecret = "shared_secret"
 
 	// configKeyTokenTTL is the optional lifetime for auto-generated JWTs.
 	// Accepts Go duration strings (e.g. "30m", "2h"). Default: 1h.
-	// Range: 1m – 24h. Only meaningful when shared_secret is set.
+	// Range: 1m – 24h. Only used when shared_secret is set.
 	configKeyTokenTTL = "token_ttl"
 
 	// configKeyVersion selects the InfluxDB API version. Only "1" is
@@ -80,9 +71,7 @@ const (
 	// queryTimeout is the per-request deadline for InfluxDB HTTP queries.
 	queryTimeout = 10 * time.Second
 
-	// Environment variable names for credential fallback.
-	// The config map always takes precedence; these are checked only when the
-	// corresponding config key is absent or empty.
+	// env var fallback for credentials; config map values take precedence.
 	envVarAddress      = "INFLUXDB_ADDRESS"
 	envVarDatabase     = "INFLUXDB_DATABASE"
 	envVarUsername     = "INFLUXDB_USERNAME"
@@ -148,13 +137,10 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 	}
 }
 
-// SetConfig parses and validates the plugin configuration. All required fields
-// are checked before any state is mutated, so a failed re-configuration leaves
-// the plugin in its previous working state.
+// SetConfig parses and validates the plugin configuration. A failed
+// reconfigure leaves the previous state untouched.
 func (a *APMPlugin) SetConfig(config map[string]string) error {
-	// Copy the config map so we can write resolved values back without
-	// mutating the caller's map. All validation runs on this copy, and it
-	// becomes a.config only after all checks pass.
+	// don't mutate the caller's map; cfg becomes a.config only after all checks pass
 	cfg := make(map[string]string, len(config))
 	for k, v := range config {
 		cfg[k] = v
@@ -179,7 +165,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
-	// Validate auth configuration mutual exclusivity.
+	// password and shared_secret are mutually exclusive
 	username := configOrEnv(cfg, configKeyUsername, envVarUsername)
 	password := configOrEnv(cfg, configKeyPassword, envVarPassword)
 	sharedSecret := configOrEnv(cfg, configKeySharedSecret, envVarSharedSecret)
@@ -223,22 +209,20 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
 	}
 
-	// Write resolved values back so downstream methods (setAuthHeader,
-	// generateJWT) can read them from a.config without needing env var awareness.
+	// write resolved values back so setAuthHeader/generateJWT don't need env var awareness
 	cfg[configKeyAddress] = address
 	cfg[configKeyDatabase] = database
 	cfg[configKeyUsername] = username
 	cfg[configKeyPassword] = password
 	cfg[configKeySharedSecret] = sharedSecret
 
-	// All validation passed — atomically update plugin state.
+	// all checks passed, commit new state
 	a.config = cfg
 	a.baseURL = parsedURL
 	a.client = &http.Client{}
 	a.tokenTTL = ttl
 
-	// Reset cached JWT so any previously generated token is not reused after
-	// a config change.
+	// invalidate cached JWT on reconfigure
 	a.jwtMu.Lock()
 	a.cachedToken = ""
 	a.tokenExpiry = time.Time{}
@@ -420,7 +404,7 @@ func (a *APMPlugin) generateJWT() (string, time.Time, error) {
 
 // parseSeries converts an InfluxDB result series into sdk.TimestampedMetrics.
 // It locates the "time" column and picks the first non-time column as the
-// metric value (preferring one literally named "value").
+// metric value (prefers a column named "value").
 func parseSeries(series influxQuerySeries) (sdk.TimestampedMetrics, error) {
 	timeIdx := indexOfColumn(series.Columns, "time")
 	if timeIdx == -1 {
@@ -514,8 +498,7 @@ func indexOfColumn(columns []string, key string) int {
 }
 
 // configOrEnv returns the trimmed value of config[key] if non-empty, otherwise
-// the trimmed value of the environment variable envVar. Returns "" if neither
-// is set. The config map always takes precedence over the environment variable.
+// the trimmed value of the environment variable envVar.
 func configOrEnv(config map[string]string, key, envVar string) string {
 	if v := strings.TrimSpace(config[key]); v != "" {
 		return v

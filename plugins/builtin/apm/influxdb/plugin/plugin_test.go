@@ -20,8 +20,7 @@ import (
 )
 
 func TestAPMPlugin_SetConfig(t *testing.T) {
-	// Clear credential env vars so test outcomes are not affected by whatever
-	// the developer's (or CI) environment happens to have set.
+	// avoid picking up stale values from the local or CI environment
 	for _, ev := range []string{envVarAddress, envVarDatabase, envVarUsername, envVarPassword, envVarSharedSecret} {
 		t.Setenv(ev, "")
 	}
@@ -192,11 +191,8 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 	}
 }
 
-// TestAPMPlugin_SetConfig_EnvFallback verifies that SetConfig resolves
-// credentials from environment variables when the corresponding HCL config
-// keys are absent or empty. It also confirms that config map values always
-// take priority over env vars, and that empty env vars still trigger the
-// required-field validation error.
+// TestAPMPlugin_SetConfig_EnvFallback tests env var credential fallback:
+// config map wins when both are set, empty env var still fails validation.
 func TestAPMPlugin_SetConfig_EnvFallback(t *testing.T) {
 	t.Run("address from env var", func(t *testing.T) {
 		t.Setenv(envVarAddress, "http://influxdb-env:8086")
@@ -300,9 +296,7 @@ func TestAPMPlugin_SetConfig_EnvFallback(t *testing.T) {
 	})
 }
 
-// TestAPMPlugin_Query exercises the full HTTP query path against a test server,
-// covering credential transmission (Basic auth, JWT Bearer), null value handling,
-// multi-stream error, and non-time column selection.
+// TestAPMPlugin_Query tests the HTTP query path against a local test server.
 func TestAPMPlugin_Query(t *testing.T) {
 	testCases := []struct {
 		name            string
@@ -332,7 +326,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				must.Eq(t, "telegraf", qp.Get("db"))
 				must.Eq(t, "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m", qp.Get("q"))
 				must.Eq(t, "s", qp.Get("epoch"))
-				// Verify credentials are NOT in query params (security fix)
+				// credentials must not leak into query params
 				must.Eq(t, "", qp.Get("u"))
 				must.Eq(t, "", qp.Get("p"))
 				// Verify Basic auth header is set
@@ -386,7 +380,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				must.NotEq(t, "", authHeader)
 				must.True(t, strings.HasPrefix(authHeader, "Bearer "), must.Sprintf("expected Bearer scheme, got: %s", authHeader))
 
-				// Parse and verify the JWT structure and claims.
+				// check the JWT and its claims
 				rawToken := strings.TrimPrefix(authHeader, "Bearer ")
 				tok, err := jwtlib.Parse(rawToken, func(jwtTok *jwtlib.Token) (any, error) {
 					_, ok := jwtTok.Method.(*jwtlib.SigningMethodHMAC)
@@ -480,9 +474,8 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}
 }
 
-// TestAPMPlugin_JWT_Caching verifies that getOrRefreshJWT returns a cached
-// token on repeated calls within the TTL, and generates a new token once
-// the cached token enters the refresh window.
+// TestAPMPlugin_JWT_Caching tests that tokens are reused within the TTL
+// and refreshed once they enter the expiry window.
 func TestAPMPlugin_JWT_Caching(t *testing.T) {
 	p := &APMPlugin{
 		logger: hclog.NewNullLogger(),
@@ -516,11 +509,9 @@ func TestAPMPlugin_JWT_Caching(t *testing.T) {
 	tok3, err := p.getOrRefreshJWT()
 	must.NoError(t, err)
 	must.NotEq(t, "", tok3)
-	// A genuinely new token always produces a different string because exp = now+ttl
-	// is re-computed at generation time. Without this assertion the refresh path
-	// would pass even if getOrRefreshJWT returned the stale cached token.
+	// exp is recomputed on each generation, so a fresh token is always a different string
 	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
-	// Verify the refreshed token is cryptographically valid.
+	// make sure the new token is actually valid
 	parsed, err := jwtlib.Parse(tok3, func(jwtTok *jwtlib.Token) (any, error) {
 		return []byte("cache-test-secret"), nil
 	})
@@ -542,8 +533,7 @@ func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
 	must.StrContains(t, err.Error(), `query_window = "instant" is not supported by influxdb`)
 }
 
-// TestAPMPlugin_Query_Errors covers HTTP-level errors, InfluxDB-level query
-// errors, and empty result sets returned from the /query endpoint.
+// TestAPMPlugin_Query_Errors tests HTTP errors, InfluxDB query errors, and empty results.
 func TestAPMPlugin_Query_Errors(t *testing.T) {
 	testCases := []struct {
 		name         string

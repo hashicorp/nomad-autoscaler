@@ -30,6 +30,12 @@ const (
 	maxTokenTTL = 24 * time.Hour
 )
 
+// influxClaims are the JWT claims expected by InfluxDB 1.x shared-secret auth.
+type influxClaims struct {
+	Username string `json:"username"`
+	jwt.RegisteredClaims
+}
+
 // setAuthHeader applies the appropriate authentication method to the HTTP
 // request based on the plugin configuration:
 //   - shared_secret + username → auto-generated HS256 JWT Bearer token
@@ -85,9 +91,11 @@ func (a *APMPlugin) getOrRefreshJWT() (string, error) {
 // matching the format expected by InfluxDB's shared-secret JWT authentication.
 func (a *APMPlugin) generateJWT() (string, time.Time, error) {
 	expiry := time.Now().Add(a.cfg.TokenTTL)
-	claims := jwt.MapClaims{
-		"username": a.cfg.Username,
-		"exp":      expiry.Unix(),
+	claims := influxClaims{
+		Username: a.cfg.Username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(expiry),
+		},
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := tok.SignedString([]byte(a.cfg.SharedSecret))

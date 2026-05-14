@@ -138,7 +138,7 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 
 	address := strings.TrimSpace(config[configKeyAddress])
 	if address == "" {
-		return pluginConfig{}, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
+		return cfg, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
 	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
@@ -146,7 +146,7 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 		cfg.Database = strings.TrimSpace(config[configKeyDB])
 	}
 	if cfg.Database == "" {
-		return pluginConfig{}, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
+		return cfg, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
 	cfg.Username = strings.TrimSpace(config[configKeyUsername])
@@ -155,10 +155,10 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 
 	if cfg.SharedSecret != "" {
 		if cfg.Username == "" {
-			return pluginConfig{}, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
+			return cfg, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
 		}
 		if cfg.Password != "" {
-			return pluginConfig{}, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
+			return cfg, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
 		}
 	}
 
@@ -166,10 +166,10 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
 		parsed, err := time.ParseDuration(raw)
 		if err != nil {
-			return pluginConfig{}, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
+			return cfg, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
 		}
 		if parsed < minTokenTTL || parsed > maxTokenTTL {
-			return pluginConfig{}, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+			return cfg, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
 		}
 		cfg.TokenTTL = parsed
 	}
@@ -179,17 +179,17 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 	case "", configVersion1:
 		// ok — v1 is the default
 	case "2", "3":
-		return pluginConfig{}, fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
+		return cfg, fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
 	default:
-		return pluginConfig{}, fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
+		return cfg, fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
 	}
 
 	parsedURL, err := url.Parse(address)
 	if err != nil {
-		return pluginConfig{}, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
+		return cfg, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
 	}
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return pluginConfig{}, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
+		return cfg, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
 	}
 
 	cfg.BaseURL = parsedURL

@@ -85,7 +85,7 @@ type influxQuerySeries struct {
 // pluginConfig holds the validated, normalised plugin configuration.
 // All values are trimmed and parsed once in parseConfig.
 type pluginConfig struct {
-	BaseURL      *url.URL      // parsed from the "address" config key
+	BaseURL      *url.URL // parsed from the "address" config key
 	Database     string
 	Username     string
 	Password     string
@@ -160,6 +160,10 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 		if cfg.Password != "" {
 			return cfg, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
 		}
+	} else if cfg.Username != "" && cfg.Password == "" {
+		return cfg, fmt.Errorf("auth configuration error: %q requires %q for Basic authentication", configKeyUsername, configKeyPassword)
+	} else if cfg.Password != "" && cfg.Username == "" {
+		return cfg, fmt.Errorf("auth configuration error: %q requires %q for Basic authentication", configKeyPassword, configKeyUsername)
 	}
 
 	cfg.TokenTTL = defaultTokenTTL

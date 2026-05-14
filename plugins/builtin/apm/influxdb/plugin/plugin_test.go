@@ -120,6 +120,24 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			expectOutput: errors.New(`conflicting auth configuration: "shared_secret" cannot be used together with "password"`),
 		},
 		{
+			name: "username without password is invalid",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyUsername: "autoscaler",
+			},
+			expectOutput: errors.New(`auth configuration error: "username" requires "password" for Basic authentication`),
+		},
+		{
+			name: "password without username is invalid",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyPassword: "hunter2",
+			},
+			expectOutput: errors.New(`auth configuration error: "password" requires "username" for Basic authentication`),
+		},
+		{
 			name: "custom token_ttl valid",
 			inputConfig: map[string]string{
 				configKeyAddress:      "http://localhost:8086",

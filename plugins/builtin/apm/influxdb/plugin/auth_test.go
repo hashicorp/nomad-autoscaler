@@ -110,30 +110,26 @@ func TestAPMPlugin_JWT_Caching(t *testing.T) {
 		},
 	}
 
+	now := time.Now()
+
 	// First call — token is generated.
-	tok1, err := p.getOrRefreshJWT()
+	tok1, err := p.getOrRefreshJWT(now)
 	must.NoError(t, err)
 	must.NotEq(t, "", tok1)
 
-	// Second call within TTL — same token returned (cached).
-	tok2, err := p.getOrRefreshJWT()
+	// Second call at the same time — same token returned (cached).
+	tok2, err := p.getOrRefreshJWT(now)
 	must.NoError(t, err)
 	must.Eq(t, tok1, tok2, must.Sprint("expected cached token to be reused"))
 
-	// Sleep 1s so the next token gets a different exp. JWT timestamps are
-	// whole seconds, so same-second regeneration produces an identical string.
-	time.Sleep(time.Second)
-
-	// Simulate expiry by rewinding tokenExpiry into the refresh window.
-	p.jwtMu.Lock()
-	p.tokenExpiry = time.Now().Add(10 * time.Second) // inside 30s refresh window
-	p.jwtMu.Unlock()
+	// Advance time into the refresh window: tokenExpiry - jwtRefreshBuffer + 1s.
+	insideWindow := now.Add(p.cfg.TokenTTL - jwtRefreshBuffer + time.Second)
 
 	// Third call — token must be refreshed with a new exp.
-	tok3, err := p.getOrRefreshJWT()
+	tok3, err := p.getOrRefreshJWT(insideWindow)
 	must.NoError(t, err)
 	must.NotEq(t, "", tok3)
-	// A fresh token always produces a different string because exp is derived from time.Now().
+	// A fresh token always produces a different string because exp is derived from now.
 	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
 	// Verify the freshly generated token is properly signed and valid.
 	parsed, err := jwt.Parse(tok3, func(jwtTok *jwt.Token) (interface{}, error) {

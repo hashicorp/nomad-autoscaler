@@ -49,7 +49,7 @@ type influxClaims struct {
 //   - neither                  → unauthenticated (local/dev scenarios)
 func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 	if a.cfg.SharedSecret != "" {
-		token, err := a.getOrRefreshJWT()
+		token, err := a.getOrRefreshJWT(time.Now())
 		if err != nil {
 			return fmt.Errorf("generating JWT: %w", err)
 		}
@@ -66,15 +66,15 @@ func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 // getOrRefreshJWT returns the cached JWT if it is still fresh, or generates
 // and caches a new one. The token is refreshed jwtRefreshBuffer before expiry,
 // ensuring it remains valid for at least one full evaluation cycle.
-func (a *APMPlugin) getOrRefreshJWT() (string, error) {
+func (a *APMPlugin) getOrRefreshJWT(now time.Time) (string, error) {
 	a.jwtMu.Lock()
 	defer a.jwtMu.Unlock()
 
-	if a.cachedToken != "" && time.Until(a.tokenExpiry) > jwtRefreshBuffer {
+	if a.cachedToken != "" && a.tokenExpiry.Sub(now) > jwtRefreshBuffer {
 		return a.cachedToken, nil
 	}
 
-	token, expiry, err := a.generateJWT()
+	token, expiry, err := a.generateJWT(now)
 	if err != nil {
 		return "", err
 	}
@@ -87,8 +87,8 @@ func (a *APMPlugin) getOrRefreshJWT() (string, error) {
 
 // generateJWT creates a new HS256-signed JWT for InfluxDB 1.x Bearer auth.
 // The payload contains the configured username and an expiry of now+TokenTTL.
-func (a *APMPlugin) generateJWT() (string, time.Time, error) {
-	expiry := time.Now().Add(a.cfg.TokenTTL)
+func (a *APMPlugin) generateJWT(now time.Time) (string, time.Time, error) {
+	expiry := now.Add(a.cfg.TokenTTL)
 	claims := influxClaims{
 		Username: a.cfg.Username,
 		RegisteredClaims: jwt.RegisteredClaims{

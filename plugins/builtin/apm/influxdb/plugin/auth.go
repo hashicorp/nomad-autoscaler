@@ -87,8 +87,7 @@ func (a *APMPlugin) getOrRefreshJWT() (string, error) {
 }
 
 // generateJWT creates a new HS256-signed JWT for InfluxDB 1.x Bearer auth.
-// The JWT payload contains the configured username and an expiry of now+TokenTTL,
-// matching the format expected by InfluxDB's shared-secret JWT authentication.
+// The payload contains the configured username and an expiry of now+TokenTTL.
 func (a *APMPlugin) generateJWT() (string, time.Time, error) {
 	expiry := time.Now().Add(a.cfg.TokenTTL)
 	claims := influxClaims{

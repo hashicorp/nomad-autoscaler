@@ -15,6 +15,9 @@ import (
 	"github.com/shoenig/test/must"
 )
 
+// TestAPMPlugin_SetAuthHeader verifies that setAuthHeader sets the correct
+// Authorization header for each auth mode: unauthenticated, Basic (username
+// only and username+password), and JWT Bearer via shared_secret.
 func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -94,6 +97,9 @@ func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 	}
 }
 
+// TestAPMPlugin_JWT_Caching verifies the three JWT cache paths: cache hit
+// (token reused within TTL), proactive refresh (token regenerated when inside
+// the refresh window), and that the refreshed token is valid.
 func TestAPMPlugin_JWT_Caching(t *testing.T) {
 	p := &APMPlugin{
 		logger: hclog.NewNullLogger(),
@@ -127,9 +133,9 @@ func TestAPMPlugin_JWT_Caching(t *testing.T) {
 	tok3, err := p.getOrRefreshJWT()
 	must.NoError(t, err)
 	must.NotEq(t, "", tok3)
-	// exp is recomputed on each generation, so a fresh token is always a different string
+	// A fresh token always produces a different string because exp is derived from time.Now().
 	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
-	// make sure the new token is actually valid
+	// Verify the freshly generated token is properly signed and valid.
 	parsed, err := jwt.Parse(tok3, func(jwtTok *jwt.Token) (interface{}, error) {
 		return []byte("cache-test-secret"), nil
 	})

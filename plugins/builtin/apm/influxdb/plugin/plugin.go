@@ -23,22 +23,20 @@ import (
 )
 
 const (
-	// pluginName is the name of the plugin.
 	pluginName = "influxdb"
 
-	// configKeyAddress is the InfluxDB server address.
-	configKeyAddress = "address"
+	configKeyAddress  = "address"
 
-	// configKeyDatabase is the primary config key for the database name.
+	// Name of the InfluxDB database to query.
 	configKeyDatabase = "database"
 
-	// configKeyDB is the shorthand alias accepted for database name.
+	// "db" is accepted as a shorthand for "database".
 	configKeyDB = "db"
 
-	// configKeyUsername is the optional authentication username.
+	// configKeyUsername is the username for Basic or JWT authentication.
 	configKeyUsername = "username"
 
-	// configKeyPassword is the optional authentication password.
+	// configKeyPassword is the password for Basic authentication. Mutually exclusive with shared_secret.
 	configKeyPassword = "password"
 
 	// configKeyVersion selects the InfluxDB API version. Only "1" is
@@ -85,8 +83,7 @@ type influxQuerySeries struct {
 }
 
 // pluginConfig holds the validated, normalised plugin configuration.
-// All string values are trimmed of surrounding whitespace at parse time in
-// SetConfig, so downstream code can use them directly without re-trimming.
+// All values are trimmed and parsed once in SetConfig.
 type pluginConfig struct {
 	Address      string
 	Database     string
@@ -304,8 +301,8 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 }
 
 // parseSeries converts an InfluxDB result series into sdk.TimestampedMetrics.
-// It locates the "time" column and picks the first non-time column as the
-// metric value (preferring one literally named "value").
+// It looks for the "time" column and picks the first non-time column as the
+// metric value, preferring a column named "value" if one exists.
 func parseSeries(series influxQuerySeries) (sdk.TimestampedMetrics, error) {
 	timeIdx := indexOfColumn(series.Columns, "time")
 	if timeIdx == -1 {

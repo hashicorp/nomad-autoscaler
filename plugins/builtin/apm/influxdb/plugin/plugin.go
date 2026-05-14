@@ -83,9 +83,9 @@ type influxQuerySeries struct {
 }
 
 // pluginConfig holds the validated, normalised plugin configuration.
-// All values are trimmed and parsed once in SetConfig.
+// All values are trimmed and parsed once in parseConfig.
 type pluginConfig struct {
-	Address      string
+	BaseURL      *url.URL      // parsed from the "address" config key
 	Database     string
 	Username     string
 	Password     string
@@ -97,7 +97,6 @@ type pluginConfig struct {
 type APMPlugin struct {
 	cfg         pluginConfig
 	client      *http.Client
-	baseURL     *url.URL
 	logger      hclog.Logger
 	jwtMu       sync.Mutex // protects cachedToken and tokenExpiry
 	cachedToken string     // most recently generated JWT; empty until first use
@@ -112,16 +111,14 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 }
 
 // SetConfig parses and validates the plugin configuration. All required fields
-// are checked before any state is mutated, so a failed re-configuration leaves
-// the plugin in its previous working state.
+// are checked before any state is mutated
 func (a *APMPlugin) SetConfig(config map[string]string) error {
-	cfg, baseURL, err := parseConfig(config)
+	cfg, err := parseConfig(config)
 	if err != nil {
 		return err
 	}
 
 	a.cfg = cfg
-	a.baseURL = baseURL
 	a.client = &http.Client{}
 
 	// Invalidate cached JWT on reconfigure.
@@ -133,15 +130,15 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	return nil
 }
 
-// parseConfig validates the raw config map and returns the normalised
-// pluginConfig and its parsed base URL. Returns an error if any required
-// field is missing, a field value is invalid, or auth options conflict.
-func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
+// parseConfig validates the raw config map and returns a normalised
+// pluginConfig. Returns an error if any required field is missing, a field
+// value is invalid, or auth options conflict.
+func parseConfig(config map[string]string) (pluginConfig, error) {
 	var cfg pluginConfig
 
-	cfg.Address = strings.TrimSpace(config[configKeyAddress])
-	if cfg.Address == "" {
-		return pluginConfig{}, nil, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
+	address := strings.TrimSpace(config[configKeyAddress])
+	if address == "" {
+		return pluginConfig{}, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
 	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
@@ -149,7 +146,7 @@ func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
 		cfg.Database = strings.TrimSpace(config[configKeyDB])
 	}
 	if cfg.Database == "" {
-		return pluginConfig{}, nil, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
+		return pluginConfig{}, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
 	cfg.Username = strings.TrimSpace(config[configKeyUsername])
@@ -158,10 +155,10 @@ func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
 
 	if cfg.SharedSecret != "" {
 		if cfg.Username == "" {
-			return pluginConfig{}, nil, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
+			return pluginConfig{}, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
 		}
 		if cfg.Password != "" {
-			return pluginConfig{}, nil, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
+			return pluginConfig{}, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
 		}
 	}
 
@@ -169,10 +166,10 @@ func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
 	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
 		parsed, err := time.ParseDuration(raw)
 		if err != nil {
-			return pluginConfig{}, nil, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
+			return pluginConfig{}, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
 		}
 		if parsed < minTokenTTL || parsed > maxTokenTTL {
-			return pluginConfig{}, nil, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+			return pluginConfig{}, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
 		}
 		cfg.TokenTTL = parsed
 	}
@@ -182,20 +179,21 @@ func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
 	case "", configVersion1:
 		// ok — v1 is the default
 	case "2", "3":
-		return pluginConfig{}, nil, fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
+		return pluginConfig{}, fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
 	default:
-		return pluginConfig{}, nil, fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
+		return pluginConfig{}, fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
 	}
 
-	parsedURL, err := url.Parse(cfg.Address)
+	parsedURL, err := url.Parse(address)
 	if err != nil {
-		return pluginConfig{}, nil, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
+		return pluginConfig{}, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
 	}
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return pluginConfig{}, nil, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
+		return pluginConfig{}, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
 	}
 
-	return cfg, parsedURL, nil
+	cfg.BaseURL = parsedURL
+	return cfg, nil
 }
 
 // PluginInfo returns metadata about the plugin.
@@ -238,7 +236,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	queryURL := *a.baseURL
+	queryURL := *a.cfg.BaseURL
 	queryURL.Path = strings.TrimSuffix(queryURL.Path, "/") + "/query"
 
 	queryValues := queryURL.Query()

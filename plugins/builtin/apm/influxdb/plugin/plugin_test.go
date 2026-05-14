@@ -179,10 +179,10 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 
 			if tc.expectOutput == nil {
 				assert.NotNil(t, apmPlugin.client)
-				assert.NotNil(t, apmPlugin.baseURL)
+				assert.NotNil(t, apmPlugin.cfg.BaseURL)
 			} else {
 				assert.Nil(t, apmPlugin.client)
-				assert.Nil(t, apmPlugin.baseURL)
+				assert.Nil(t, apmPlugin.cfg.BaseURL)
 			}
 		})
 	}

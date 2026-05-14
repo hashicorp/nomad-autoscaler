@@ -190,15 +190,11 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			actualOutput := apmPlugin.SetConfig(tc.inputConfig)
 			if tc.expectOutput == nil {
 				assert.NoError(t, actualOutput)
-			} else {
-				require.Error(t, actualOutput)
-				assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
-			}
-
-			if tc.expectOutput == nil {
 				assert.NotNil(t, apmPlugin.client)
 				assert.NotNil(t, apmPlugin.cfg.BaseURL)
 			} else {
+				require.Error(t, actualOutput)
+				assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
 				assert.Nil(t, apmPlugin.client)
 				assert.Nil(t, apmPlugin.cfg.BaseURL)
 			}

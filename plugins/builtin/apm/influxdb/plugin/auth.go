@@ -35,6 +35,8 @@ const (
 )
 
 // influxClaims are the JWT claims expected by InfluxDB 1.x shared-secret auth.
+// InfluxDB only validates exp and username; the remaining fields from
+// jwt.RegisteredClaims are omitted from the token payload via omitempty.
 type influxClaims struct {
 	Username string `json:"username"`
 	jwt.RegisteredClaims

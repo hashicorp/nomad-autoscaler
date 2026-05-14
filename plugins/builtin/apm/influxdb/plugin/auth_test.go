@@ -12,22 +12,19 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	hclog "github.com/hashicorp/go-hclog"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/shoenig/test/must"
 )
 
 func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 	testCases := []struct {
 		name         string
 		cfg          pluginConfig
-		expectAuth   string // expected Authorization header value; "" means no header
-		expectBasic  bool   // true if basic auth is expected (checked via header prefix)
-		expectBearer bool   // true if bearer JWT is expected
+		expectBasic  bool
+		expectBearer bool
 	}{
 		{
-			name:       "unauthenticated — no credentials set",
-			cfg:        pluginConfig{},
-			expectAuth: "",
+			name: "unauthenticated — no credentials set",
+			cfg:  pluginConfig{},
 		},
 		{
 			name: "basic auth — username and password",
@@ -64,34 +61,34 @@ func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "http://localhost:8086/query", nil)
 			err := p.setAuthHeader(req)
-			require.NoError(t, err)
+			must.NoError(t, err)
 
 			authHeader := req.Header.Get("Authorization")
 
 			switch {
-			case tc.expectAuth == "" && !tc.expectBasic && !tc.expectBearer:
-				assert.Empty(t, authHeader, "expected no Authorization header")
-
 			case tc.expectBasic:
-				require.NotEmpty(t, authHeader)
-				assert.True(t, strings.HasPrefix(authHeader, "Basic "), "expected Basic auth scheme, got: %s", authHeader)
+				must.NotEq(t, "", authHeader)
+				must.True(t, strings.HasPrefix(authHeader, "Basic "), must.Sprintf("expected Basic auth scheme, got: %s", authHeader))
 
 			case tc.expectBearer:
-				require.NotEmpty(t, authHeader)
-				require.True(t, strings.HasPrefix(authHeader, "Bearer "), "expected Bearer scheme, got: %s", authHeader)
+				must.NotEq(t, "", authHeader)
+				must.True(t, strings.HasPrefix(authHeader, "Bearer "), must.Sprintf("expected Bearer scheme, got: %s", authHeader))
 
 				rawToken := strings.TrimPrefix(authHeader, "Bearer ")
 				tok, err := jwt.Parse(rawToken, func(jwtTok *jwt.Token) (interface{}, error) {
 					_, ok := jwtTok.Method.(*jwt.SigningMethodHMAC)
-					require.True(t, ok, "expected HS256 signing method")
+					must.True(t, ok, must.Sprint("expected HS256 signing method"))
 					return []byte(tc.cfg.SharedSecret), nil
 				})
-				require.NoError(t, err)
-				require.True(t, tok.Valid)
+				must.NoError(t, err)
+				must.True(t, tok.Valid)
 
 				claims, ok := tok.Claims.(jwt.MapClaims)
-				require.True(t, ok)
-				assert.Equal(t, tc.cfg.Username, claims["username"])
+				must.True(t, ok)
+				must.Eq(t, tc.cfg.Username, claims["username"].(string))
+
+			default:
+				must.Eq(t, "", authHeader, must.Sprint("expected no Authorization header"))
 			}
 		})
 	}
@@ -109,13 +106,13 @@ func TestAPMPlugin_JWT_Caching(t *testing.T) {
 
 	// First call — token is generated.
 	tok1, err := p.getOrRefreshJWT()
-	require.NoError(t, err)
-	require.NotEmpty(t, tok1)
+	must.NoError(t, err)
+	must.NotEq(t, "", tok1)
 
 	// Second call within TTL — same token returned (cached).
 	tok2, err := p.getOrRefreshJWT()
-	require.NoError(t, err)
-	require.Equal(t, tok1, tok2, "expected cached token to be reused")
+	must.NoError(t, err)
+	must.Eq(t, tok1, tok2, must.Sprint("expected cached token to be reused"))
 
 	// Sleep 1s so the next token gets a different exp. JWT timestamps are
 	// whole seconds, so same-second regeneration produces an identical string.
@@ -128,14 +125,14 @@ func TestAPMPlugin_JWT_Caching(t *testing.T) {
 
 	// Third call — token must be refreshed with a new exp.
 	tok3, err := p.getOrRefreshJWT()
-	require.NoError(t, err)
-	require.NotEmpty(t, tok3)
+	must.NoError(t, err)
+	must.NotEq(t, "", tok3)
 	// exp is recomputed on each generation, so a fresh token is always a different string
-	require.NotEqual(t, tok1, tok3, "expected a newly generated token after entering refresh window")
+	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
 	// make sure the new token is actually valid
 	parsed, err := jwt.Parse(tok3, func(jwtTok *jwt.Token) (interface{}, error) {
 		return []byte("cache-test-secret"), nil
 	})
-	require.NoError(t, err)
-	require.True(t, parsed.Valid)
+	must.NoError(t, err)
+	must.True(t, parsed.Valid)
 }

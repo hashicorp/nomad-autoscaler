@@ -100,13 +100,13 @@ func Test_parseNodePoolQuery(t *testing.T) {
 		{
 			inputQuery:          "",
 			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received "),
+			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received \"\""),
 			name:                "empty input query",
 		},
 		{
 			inputQuery:          "invalid",
 			expectedOutputQuery: nil,
-			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received invalid"),
+			expectError:         errors.New("expected <query>/<key>=<value>[+<key>=<value>...], received \"invalid\""),
 			name:                "invalid input query format",
 		},
 		{
@@ -334,10 +334,10 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 			}),
 		},
 		{
-			name:          "ready ineligible node excluded from pool totals",
-			config:        map[string]string{},
-			expectError:   false,
-			expectedCPU:   20,
+			name:        "ready ineligible node excluded from pool totals",
+			config:      map[string]string{},
+			expectError: false,
+			expectedCPU: 20,
 			expectedMemMB: 15,
 			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -484,7 +484,7 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 			if tc.expectError {
 				assert.Error(t, err)
 				if tc.expectedErr != "" {
-					assert.Contains(t, err.Error(), tc.expectedErr)
+					assert.ErrorContains(t, err, tc.expectedErr)
 				}
 				return
 			}

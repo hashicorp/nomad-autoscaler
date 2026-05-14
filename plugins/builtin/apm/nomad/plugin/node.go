@@ -190,7 +190,7 @@ func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 	// Split into query prefix and pool identifier part.
 	mainParts := strings.SplitN(q, "/", 2)
 	if len(mainParts) != 2 || mainParts[1] == "" {
-		return nil, fmt.Errorf("expected <query>/<key>=<value>[+<key>=<value>...], received %s", q)
+		return nil, fmt.Errorf("expected <query>/<key>=<value>[+<key>=<value>...], received %q", q)
 	}
 
 	var query nodePoolQuery

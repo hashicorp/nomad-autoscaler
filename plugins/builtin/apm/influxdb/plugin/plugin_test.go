@@ -8,16 +8,24 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	jwtlib "github.com/golang-jwt/jwt/v5"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/shoenig/test"
+	"github.com/shoenig/test/must"
 )
 
 func TestAPMPlugin_SetConfig(t *testing.T) {
+	// Clear credential env vars so test outcomes are not affected by whatever
+	// the developer's (or CI) environment happens to have set.
+	for _, ev := range []string{envVarAddress, envVarDatabase, envVarUsername, envVarPassword, envVarSharedSecret} {
+		t.Setenv(ev, "")
+	}
+
 	testCases := []struct {
 		name         string
 		inputConfig  map[string]string
@@ -85,44 +93,78 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			expectOutput: errors.New(`"address" must be a valid absolute URL`),
 		},
 		{
-			name: "token auth only",
+			name: "shared_secret with username is valid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token-123",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
 			},
 			expectOutput: nil,
 		},
 		{
-			name: "token conflicts with username",
+			name: "shared_secret without username is invalid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`auth configuration error: "shared_secret" requires "username" (used as the JWT username claim)`),
 		},
 		{
-			name: "token conflicts with password",
+			name: "shared_secret conflicts with password",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyPassword: "pass",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeyPassword:     "hunter2",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`conflicting auth configuration: "shared_secret" cannot be used together with "password"`),
 		},
 		{
-			name: "token conflicts with both username and password",
+			name: "custom token_ttl valid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
-				configKeyPassword: "pass",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "30m",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: nil,
+		},
+		{
+			name: "token_ttl below minimum",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "30s",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "30s": must be between 1m0s and 24h0m0s`),
+		},
+		{
+			name: "token_ttl above maximum",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "25h",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "25h": must be between 1m0s and 24h0m0s`),
+		},
+		{
+			name: "token_ttl invalid string",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "forever",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "forever"`),
 		},
 	}
 
@@ -131,19 +173,136 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			apmPlugin := APMPlugin{logger: hclog.NewNullLogger()}
 
 			actualOutput := apmPlugin.SetConfig(tc.inputConfig)
-			assert.Equal(t, tc.expectOutput, actualOutput)
 
 			if tc.expectOutput == nil {
-				assert.NotNil(t, apmPlugin.client)
-				assert.NotNil(t, apmPlugin.baseURL)
+				test.NoError(t, actualOutput)
 			} else {
-				assert.Nil(t, apmPlugin.client)
-				assert.Nil(t, apmPlugin.baseURL)
+				must.Error(t, actualOutput)
+				test.StrContains(t, actualOutput.Error(), tc.expectOutput.Error())
+			}
+
+			if tc.expectOutput == nil {
+				test.NotNil(t, apmPlugin.client)
+				test.NotNil(t, apmPlugin.baseURL)
+			} else {
+				test.Nil(t, apmPlugin.client)
+				test.Nil(t, apmPlugin.baseURL)
 			}
 		})
 	}
 }
 
+// TestAPMPlugin_SetConfig_EnvFallback verifies that SetConfig resolves
+// credentials from environment variables when the corresponding HCL config
+// keys are absent or empty. It also confirms that config map values always
+// take priority over env vars, and that empty env vars still trigger the
+// required-field validation error.
+func TestAPMPlugin_SetConfig_EnvFallback(t *testing.T) {
+	t.Run("address from env var", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://influxdb-env:8086")
+		t.Setenv(envVarDatabase, "telegraf-env")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{}))
+		must.Eq(t, "http://influxdb-env:8086", p.baseURL.String())
+	})
+
+	t.Run("database from env var", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "telegraf-env")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{}))
+		must.Eq(t, "telegraf-env", p.config[configKeyDatabase])
+	})
+
+	t.Run("config map overrides address env var", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://env-host:8086")
+		t.Setenv(envVarDatabase, "telegraf")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{
+			configKeyAddress:  "http://config-host:8086",
+			configKeyDatabase: "telegraf",
+		}))
+		must.Eq(t, "http://config-host:8086", p.baseURL.String())
+	})
+
+	t.Run("config map overrides database env var", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "env-db")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{
+			configKeyAddress:  "http://localhost:8086",
+			configKeyDatabase: "config-db",
+		}))
+		must.Eq(t, "config-db", p.config[configKeyDatabase])
+	})
+
+	t.Run("db alias takes priority over database env var", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "env-db")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{
+			configKeyAddress: "http://localhost:8086",
+			configKeyDB:      "alias-db",
+		}))
+		// db alias should win over the env var; resolved into configKeyDatabase
+		must.Eq(t, "alias-db", p.config[configKeyDatabase])
+	})
+
+	t.Run("username and password from env vars", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "telegraf")
+		t.Setenv(envVarUsername, "env-user")
+		t.Setenv(envVarPassword, "env-pass")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{}))
+		must.Eq(t, "env-user", p.config[configKeyUsername])
+		must.Eq(t, "env-pass", p.config[configKeyPassword])
+	})
+
+	t.Run("shared_secret and username from env vars", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "telegraf")
+		t.Setenv(envVarUsername, "env-user")
+		t.Setenv(envVarSharedSecret, "env-secret")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		must.NoError(t, p.SetConfig(map[string]string{}))
+		must.Eq(t, "env-user", p.config[configKeyUsername])
+		must.Eq(t, "env-secret", p.config[configKeySharedSecret])
+	})
+
+	t.Run("shared_secret from env requires username", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "telegraf")
+		t.Setenv(envVarSharedSecret, "env-secret")
+		// no username in config or env
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		err := p.SetConfig(map[string]string{})
+		must.Error(t, err)
+		test.StrContains(t, err.Error(), `"shared_secret" requires "username"`)
+	})
+
+	t.Run("empty address env var still fails required check", func(t *testing.T) {
+		t.Setenv(envVarAddress, "")
+		t.Setenv(envVarDatabase, "telegraf")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		err := p.SetConfig(map[string]string{})
+		must.Error(t, err)
+		test.StrContains(t, err.Error(), `"address" config value cannot be empty`)
+	})
+
+	t.Run("empty database env var still fails required check", func(t *testing.T) {
+		t.Setenv(envVarAddress, "http://localhost:8086")
+		t.Setenv(envVarDatabase, "")
+		p := APMPlugin{logger: hclog.NewNullLogger()}
+		err := p.SetConfig(map[string]string{})
+		must.Error(t, err)
+		test.StrContains(t, err.Error(), `"database" config value cannot be empty`)
+	})
+}
+
+// TestAPMPlugin_Query exercises the full HTTP query path against a test server,
+// covering credential transmission (Basic auth, JWT Bearer), null value handling,
+// multi-stream error, and non-time column selection.
 func TestAPMPlugin_Query(t *testing.T) {
 	testCases := []struct {
 		name            string
@@ -168,22 +327,22 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1610000000, 0),
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
-				require.Equal(t, "/query", r.URL.Path)
+				must.Eq(t, "/query", r.URL.Path)
 				qp := r.URL.Query()
-				require.Equal(t, "telegraf", qp.Get("db"))
-				require.Equal(t, "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m", qp.Get("q"))
-				require.Equal(t, "s", qp.Get("epoch"))
+				must.Eq(t, "telegraf", qp.Get("db"))
+				must.Eq(t, "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m", qp.Get("q"))
+				must.Eq(t, "s", qp.Get("epoch"))
 				// Verify credentials are NOT in query params (security fix)
-				require.Empty(t, qp.Get("u"))
-				require.Empty(t, qp.Get("p"))
+				must.Eq(t, "", qp.Get("u"))
+				must.Eq(t, "", qp.Get("p"))
 				// Verify Basic auth header is set
 				authHeader := r.Header.Get("Authorization")
-				require.NotEmpty(t, authHeader)
-				require.Equal(t, "Basic dXNlcjpwYXNz", authHeader) // base64(user:pass)
+				must.NotEq(t, "", authHeader)
+				must.Eq(t, "Basic dXNlcjpwYXNz", authHeader) // base64(user:pass)
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
-				require.NoError(t, err)
-				require.Len(t, m, 3)
+				must.NoError(t, err)
+				must.Len(t, 3, m)
 			},
 		},
 		{
@@ -199,22 +358,23 @@ func TestAPMPlugin_Query(t *testing.T) {
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
 				// Verify no auth header when credentials not provided
-				require.Empty(t, r.Header.Get("Authorization"))
+				must.Eq(t, "", r.Header.Get("Authorization"))
 				// Verify no credentials in query params
-				require.Empty(t, r.URL.Query().Get("u"))
-				require.Empty(t, r.URL.Query().Get("p"))
+				must.Eq(t, "", r.URL.Query().Get("u"))
+				must.Eq(t, "", r.URL.Query().Get("p"))
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
-				require.NoError(t, err)
-				require.Len(t, m, 2)
+				must.NoError(t, err)
+				must.Len(t, 2, m)
 			},
 		},
 		{
-			name:    "token auth",
+			name:    "shared_secret JWT auth",
 			fixture: "query_200.json",
 			pluginConfig: map[string]string{
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-secret-token",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "test-shared-secret",
 			},
 			query: "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m",
 			timeRange: sdk.TimeRange{
@@ -222,18 +382,37 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1610000000, 0),
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
-				require.Equal(t, "/query", r.URL.Path)
-				// Verify token is in Authorization header as Bearer scheme
 				authHeader := r.Header.Get("Authorization")
-				require.Equal(t, "Bearer my-secret-token", authHeader)
-				// Verify no credentials in query params
+				must.NotEq(t, "", authHeader)
+				must.True(t, strings.HasPrefix(authHeader, "Bearer "), must.Sprintf("expected Bearer scheme, got: %s", authHeader))
+
+				// Parse and verify the JWT structure and claims.
+				rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+				tok, err := jwtlib.Parse(rawToken, func(jwtTok *jwtlib.Token) (any, error) {
+					_, ok := jwtTok.Method.(*jwtlib.SigningMethodHMAC)
+					must.True(t, ok, must.Sprint("expected HS256 signing method"))
+					return []byte("test-shared-secret"), nil
+				})
+				must.NoError(t, err)
+				must.True(t, tok.Valid)
+
+				claims, ok := tok.Claims.(jwtlib.MapClaims)
+				must.True(t, ok)
+				must.Eq(t, "autoscaler", claims["username"])
+
+				// exp must be in the future.
+				exp, err := claims.GetExpirationTime()
+				must.NoError(t, err)
+				must.True(t, exp.After(time.Now()), must.Sprint("JWT exp should be in the future"))
+
+				// No credentials in query params.
 				qp := r.URL.Query()
-				require.Empty(t, qp.Get("u"))
-				require.Empty(t, qp.Get("p"))
+				must.Eq(t, "", qp.Get("u"))
+				must.Eq(t, "", qp.Get("p"))
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
-				require.NoError(t, err)
-				require.Len(t, m, 3)
+				must.NoError(t, err)
+				must.Len(t, 3, m)
 			},
 		},
 		{
@@ -248,8 +427,8 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1670000000, 0),
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), "only 1 is expected")
+				must.Error(t, err)
+				must.StrContains(t, err.Error(), "only 1 is expected")
 			},
 		},
 		{
@@ -264,11 +443,11 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1600000200, 0),
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
-				require.NoError(t, err)
-				require.Len(t, m, 4)
+				must.NoError(t, err)
+				must.Len(t, 4, m)
 				// Verify values are parsed correctly from "mean" column
-				require.Equal(t, 75.5, m[0].Value)
-				require.Equal(t, 78.2, m[1].Value)
+				must.Eq(t, 75.5, m[0].Value)
+				must.Eq(t, 78.2, m[1].Value)
 			},
 		},
 	}
@@ -285,13 +464,13 @@ func TestAPMPlugin_Query(t *testing.T) {
 
 			plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
 			err := plugin.SetConfig(map[string]string{
-				configKeyAddress:  srv.URL,
-				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
-				configKeyUsername: tc.pluginConfig[configKeyUsername],
-				configKeyPassword: tc.pluginConfig[configKeyPassword],
-				configKeyToken:    tc.pluginConfig[configKeyToken],
+				configKeyAddress:      srv.URL,
+				configKeyDatabase:     tc.pluginConfig[configKeyDatabase],
+				configKeyUsername:     tc.pluginConfig[configKeyUsername],
+				configKeyPassword:     tc.pluginConfig[configKeyPassword],
+				configKeySharedSecret: tc.pluginConfig[configKeySharedSecret],
 			})
-			require.NoError(t, err)
+			must.NoError(t, err)
 
 			metrics, err := plugin.Query(tc.query, tc.timeRange)
 			if tc.validateMetrics != nil {
@@ -301,20 +480,70 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}
 }
 
+// TestAPMPlugin_JWT_Caching verifies that getOrRefreshJWT returns a cached
+// token on repeated calls within the TTL, and generates a new token once
+// the cached token enters the refresh window.
+func TestAPMPlugin_JWT_Caching(t *testing.T) {
+	p := &APMPlugin{
+		logger: hclog.NewNullLogger(),
+		config: map[string]string{
+			configKeyUsername:     "autoscaler",
+			configKeySharedSecret: "cache-test-secret",
+		},
+		tokenTTL: time.Hour,
+	}
+
+	// First call — token is generated.
+	tok1, err := p.getOrRefreshJWT()
+	must.NoError(t, err)
+	must.NotEq(t, "", tok1)
+
+	// Second call within TTL — same token returned (cached).
+	tok2, err := p.getOrRefreshJWT()
+	must.NoError(t, err)
+	must.Eq(t, tok1, tok2, must.Sprint("expected cached token to be reused"))
+
+	// Sleep 1s so the next token gets a different exp. JWT timestamps are
+	// whole seconds, so same-second regeneration produces an identical string.
+	time.Sleep(time.Second)
+
+	// Simulate expiry by rewinding tokenExpiry into the refresh window.
+	p.jwtMu.Lock()
+	p.tokenExpiry = time.Now().Add(10 * time.Second) // inside 30s refresh window
+	p.jwtMu.Unlock()
+
+	// Third call — token must be refreshed with a new exp.
+	tok3, err := p.getOrRefreshJWT()
+	must.NoError(t, err)
+	must.NotEq(t, "", tok3)
+	// A genuinely new token always produces a different string because exp = now+ttl
+	// is re-computed at generation time. Without this assertion the refresh path
+	// would pass even if getOrRefreshJWT returned the stale cached token.
+	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
+	// Verify the refreshed token is cryptographically valid.
+	parsed, err := jwtlib.Parse(tok3, func(jwtTok *jwtlib.Token) (any, error) {
+		return []byte("cache-test-secret"), nil
+	})
+	must.NoError(t, err)
+	must.True(t, parsed.Valid)
+}
+
 func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
 	plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
 	err := plugin.SetConfig(map[string]string{
 		configKeyAddress:  "http://localhost:8086",
 		configKeyDatabase: "telegraf",
 	})
-	require.NoError(t, err)
+	must.NoError(t, err)
 
 	now := time.Now().UTC()
 	_, err = plugin.Query("SELECT mean(usage_idle) FROM cpu", sdk.TimeRange{From: now, To: now})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), `query_window = "instant" is not supported by influxdb`)
+	must.Error(t, err)
+	must.StrContains(t, err.Error(), `query_window = "instant" is not supported by influxdb`)
 }
 
+// TestAPMPlugin_Query_Errors covers HTTP-level errors, InfluxDB-level query
+// errors, and empty result sets returned from the /query endpoint.
 func TestAPMPlugin_Query_Errors(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -373,7 +602,7 @@ func TestAPMPlugin_Query_Errors(t *testing.T) {
 				configKeyAddress:  srv.URL,
 				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
 			})
-			require.NoError(t, err)
+			must.NoError(t, err)
 
 			metrics, err := plugin.Query(tc.query, sdk.TimeRange{
 				From: time.Unix(1600000000, 0),
@@ -381,11 +610,11 @@ func TestAPMPlugin_Query_Errors(t *testing.T) {
 			})
 
 			if tc.expectError != "" {
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.expectError)
+				must.Error(t, err)
+				must.StrContains(t, err.Error(), tc.expectError)
 			} else {
-				require.NoError(t, err)
-				require.Empty(t, metrics)
+				must.NoError(t, err)
+				must.Len(t, 0, metrics)
 			}
 		})
 	}

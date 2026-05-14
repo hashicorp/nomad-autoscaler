@@ -33,9 +33,6 @@ const (
 	// configKeyDatabase is the primary config key for the database name.
 	configKeyDatabase = "database"
 
-	// configKeyDB is the shorthand alias for database name; lower priority than "database".
-	configKeyDB = "db"
-
 	// configKeyUsername is the authentication username.
 	// Required when shared_secret is set (used as the JWT "username" claim).
 	configKeyUsername = "username"
@@ -53,13 +50,6 @@ const (
 	// Accepts Go duration strings (e.g. "30m", "2h"). Default: 1h.
 	// Range: 1m – 24h. Only used when shared_secret is set.
 	configKeyTokenTTL = "token_ttl"
-
-	// configKeyVersion selects the InfluxDB API version. Only "1" is
-	// currently supported; "2" and "3" are reserved for future implementation.
-	configKeyVersion = "version"
-
-	// configVersion1 is the default and only supported version today.
-	configVersion1 = "1"
 
 	// defaultTokenTTL is the JWT lifetime when token_ttl is not configured.
 	defaultTokenTTL = time.Hour
@@ -151,11 +141,8 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
-	// Resolve database: "database" key → "db" alias → INFLUXDB_DATABASE env var.
+	// Resolve database: "database" key → INFLUXDB_DATABASE env var.
 	database := strings.TrimSpace(cfg[configKeyDatabase])
-	if database == "" {
-		database = strings.TrimSpace(cfg[configKeyDB])
-	}
 	if database == "" {
 		if v := strings.TrimSpace(os.Getenv(envVarDatabase)); v != "" {
 			database = v
@@ -190,15 +177,6 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 			return fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
 		}
 		ttl = parsed
-	}
-
-	switch version := strings.TrimSpace(cfg[configKeyVersion]); version {
-	case "", configVersion1:
-		// ok — v1 is the default
-	case "2", "3":
-		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
-	default:
-		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
 	}
 
 	parsedURL, err := url.Parse(address)

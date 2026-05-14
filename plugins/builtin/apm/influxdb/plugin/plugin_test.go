@@ -41,45 +41,10 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			expectOutput: errors.New(`"database" config value cannot be empty`),
 		},
 		{
-			name: "unsupported version 2",
-			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyVersion:  "2",
-			},
-			expectOutput: errors.New(`influxdb version "2" is not yet supported: only version "1" is currently implemented`),
-		},
-		{
-			name: "unsupported version 3",
-			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyVersion:  "3",
-			},
-			expectOutput: errors.New(`influxdb version "3" is not yet supported: only version "1" is currently implemented`),
-		},
-		{
-			name: "invalid version",
-			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyVersion:  "invalid",
-			},
-			expectOutput: errors.New(`invalid influxdb version "invalid": only version "1" is supported`),
-		},
-		{
 			name: "all required config parameters set by database",
 			inputConfig: map[string]string{
 				configKeyAddress:  "http://localhost:8086",
 				configKeyDatabase: "telegraf",
-			},
-			expectOutput: nil,
-		},
-		{
-			name: "all required config parameters set by db",
-			inputConfig: map[string]string{
-				configKeyAddress: "http://localhost:8086",
-				configKeyDB:      "telegraf",
 			},
 			expectOutput: nil,
 		},
@@ -230,18 +195,6 @@ func TestAPMPlugin_SetConfig_EnvFallback(t *testing.T) {
 			configKeyDatabase: "config-db",
 		}))
 		must.Eq(t, "config-db", p.config[configKeyDatabase])
-	})
-
-	t.Run("db alias takes priority over database env var", func(t *testing.T) {
-		t.Setenv(envVarAddress, "http://localhost:8086")
-		t.Setenv(envVarDatabase, "env-db")
-		p := APMPlugin{logger: hclog.NewNullLogger()}
-		must.NoError(t, p.SetConfig(map[string]string{
-			configKeyAddress: "http://localhost:8086",
-			configKeyDB:      "alias-db",
-		}))
-		// db alias should win over the env var; resolved into configKeyDatabase
-		must.Eq(t, "alias-db", p.config[configKeyDatabase])
 	})
 
 	t.Run("username and password from env vars", func(t *testing.T) {

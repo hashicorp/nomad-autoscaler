@@ -26,8 +26,12 @@ const (
 	defaultTokenTTL = time.Hour
 
 	// minTokenTTL / maxTokenTTL are the allowed bounds for token_ttl.
-	minTokenTTL = time.Minute
+	minTokenTTL = 10 * time.Minute
 	maxTokenTTL = 24 * time.Hour
+
+	// jwtRefreshBuffer is how long before expiry a new JWT is generated.
+	// Must be less than minTokenTTL to ensure the token is always cached.
+	jwtRefreshBuffer = 2 * time.Minute
 )
 
 // influxClaims are the JWT claims expected by InfluxDB 1.x shared-secret auth.
@@ -58,20 +62,13 @@ func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 }
 
 // getOrRefreshJWT returns the cached JWT if it is still fresh, or generates
-// and caches a new one. The refresh window is max(30s, 10% of token_ttl),
-// so a token is regenerated slightly before it would expire.
+// and caches a new one. The token is refreshed jwtRefreshBuffer before expiry,
+// ensuring it remains valid for at least one full evaluation cycle.
 func (a *APMPlugin) getOrRefreshJWT() (string, error) {
-	var refreshWindow time.Duration
-	if w := a.cfg.TokenTTL / 10; w > 30*time.Second {
-		refreshWindow = w
-	} else {
-		refreshWindow = 30 * time.Second
-	}
-
 	a.jwtMu.Lock()
 	defer a.jwtMu.Unlock()
 
-	if a.cachedToken != "" && time.Until(a.tokenExpiry) > refreshWindow {
+	if a.cachedToken != "" && time.Until(a.tokenExpiry) > jwtRefreshBuffer {
 		return a.cachedToken, nil
 	}
 

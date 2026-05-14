@@ -25,7 +25,7 @@ import (
 const (
 	pluginName = "influxdb"
 
-	configKeyAddress  = "address"
+	configKeyAddress = "address"
 
 	// Name of the InfluxDB database to query.
 	configKeyDatabase = "database"

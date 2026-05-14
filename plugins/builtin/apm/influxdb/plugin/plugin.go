@@ -151,7 +151,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
 		parsed, err := time.ParseDuration(raw)
 		if err != nil {
-			return fmt.Errorf("invalid %q value %q: %v", configKeyTokenTTL, raw, err)
+			return fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
 		}
 		if parsed < minTokenTTL || parsed > maxTokenTTL {
 			return fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
@@ -171,7 +171,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 
 	parsedURL, err := url.Parse(cfg.Address)
 	if err != nil {
-		return fmt.Errorf("failed to parse %q: %v", configKeyAddress, err)
+		return fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
 	}
 	if parsedURL.Scheme == "" || parsedURL.Host == "" {
 		return fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
@@ -242,16 +242,16 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, queryURL.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build influxdb query request: %v", err)
+		return nil, fmt.Errorf("failed to build influxdb query request: %w", err)
 	}
 
 	if err := a.setAuthHeader(req); err != nil {
-		return nil, fmt.Errorf("failed to set auth header: %v", err)
+		return nil, fmt.Errorf("failed to set auth header: %w", err)
 	}
 
 	resp, err := a.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error querying metrics from influxdb: %v", err)
+		return nil, fmt.Errorf("error querying metrics from influxdb: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -262,7 +262,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 
 	var queryResp influxQueryResponse
 	if err := json.NewDecoder(resp.Body).Decode(&queryResp); err != nil {
-		return nil, fmt.Errorf("failed to decode influxdb query response: %v", err)
+		return nil, fmt.Errorf("failed to decode influxdb query response: %w", err)
 	}
 
 	if queryResp.Error != "" {

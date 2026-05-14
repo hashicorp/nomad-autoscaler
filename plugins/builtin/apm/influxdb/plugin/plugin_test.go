@@ -167,12 +167,12 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			apmPlugin := APMPlugin{logger: hclog.NewNullLogger()}
 
 			actualOutput := apmPlugin.SetConfig(tc.inputConfig)
-		if tc.expectOutput == nil {
-			assert.NoError(t, actualOutput)
-		} else {
-			require.Error(t, actualOutput)
-			assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
-		}
+			if tc.expectOutput == nil {
+				assert.NoError(t, actualOutput)
+			} else {
+				require.Error(t, actualOutput)
+				assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
+			}
 
 			if tc.expectOutput == nil {
 				assert.NotNil(t, apmPlugin.client)

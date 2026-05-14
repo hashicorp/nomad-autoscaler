@@ -39,7 +39,7 @@ func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 	if a.cfg.SharedSecret != "" {
 		token, err := a.getOrRefreshJWT()
 		if err != nil {
-			return fmt.Errorf("failed to generate JWT: %v", err)
+			return fmt.Errorf("generating JWT: %w", err)
 		}
 		req.Header.Set("Authorization", "Bearer "+token)
 		return nil

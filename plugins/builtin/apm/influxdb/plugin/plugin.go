@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -39,11 +40,6 @@ const (
 
 	// configKeyPassword is the optional authentication password.
 	configKeyPassword = "password"
-
-	// configKeyToken is the optional authentication token. When set, it
-	// takes precedence over username/password and cannot be used together
-	// with them. Supports InfluxDB 1.x Enterprise token-based auth.
-	configKeyToken = "token"
 
 	// configKeyVersion selects the InfluxDB API version. Only "1" is
 	// currently supported; "3" is reserved for future implementation.
@@ -88,12 +84,28 @@ type influxQuerySeries struct {
 	Values  [][]interface{} `json:"values"`
 }
 
+// pluginConfig holds the validated, normalised plugin configuration.
+// All string values are trimmed of surrounding whitespace at parse time in
+// SetConfig, so downstream code can use them directly without re-trimming.
+type pluginConfig struct {
+	Address      string
+	Database     string
+	Username     string
+	Password     string
+	SharedSecret string
+	Version      string
+	TokenTTL     time.Duration // parsed from configKeyTokenTTL; defaults to defaultTokenTTL
+}
+
 // APMPlugin is the InfluxDB implementation of the APM interface.
 type APMPlugin struct {
-	client  *http.Client
-	baseURL *url.URL
-	config  map[string]string
-	logger  hclog.Logger
+	cfg         pluginConfig
+	client      *http.Client
+	baseURL     *url.URL
+	logger      hclog.Logger
+	jwtMu       sync.Mutex // protects cachedToken and tokenExpiry
+	cachedToken string     // most recently generated JWT; empty until first use
+	tokenExpiry time.Time  // when cachedToken expires
 }
 
 // NewInfluxDBPlugin returns a new InfluxDB APM plugin instance.
@@ -104,38 +116,60 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 }
 
 // SetConfig parses and validates the plugin configuration. All required fields
-// are checked before any client is stored.
+// are checked before any state is mutated, so a failed re-configuration leaves
+// the plugin in its previous working state.
 func (a *APMPlugin) SetConfig(config map[string]string) error {
-	a.config = config
+	var cfg pluginConfig
 
-	address := strings.TrimSpace(a.config[configKeyAddress])
-	if address == "" {
+	cfg.Address = strings.TrimSpace(config[configKeyAddress])
+	if cfg.Address == "" {
 		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
 	}
 
-	database := a.database()
-	if database == "" {
+	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
+	if cfg.Database == "" {
+		cfg.Database = strings.TrimSpace(config[configKeyDB])
+	}
+	if cfg.Database == "" {
 		return fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
 	}
 
-	// Validate mutual exclusivity: token cannot be used with username/password.
-	token := strings.TrimSpace(a.config[configKeyToken])
-	username := strings.TrimSpace(a.config[configKeyUsername])
-	password := strings.TrimSpace(a.config[configKeyPassword])
-	if token != "" && (username != "" || password != "") {
-		return fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q or %q", configKeyToken, configKeyUsername, configKeyPassword)
+	cfg.Username = strings.TrimSpace(config[configKeyUsername])
+	cfg.Password = strings.TrimSpace(config[configKeyPassword])
+	cfg.SharedSecret = strings.TrimSpace(config[configKeySharedSecret])
+
+	if cfg.SharedSecret != "" {
+		if cfg.Username == "" {
+			return fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
+		}
+		if cfg.Password != "" {
+			return fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
+		}
 	}
 
-	switch version := strings.TrimSpace(a.config[configKeyVersion]); version {
+	cfg.TokenTTL = defaultTokenTTL
+	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil {
+			return fmt.Errorf("invalid %q value %q: %v", configKeyTokenTTL, raw, err)
+		}
+		if parsed < minTokenTTL || parsed > maxTokenTTL {
+			return fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+		}
+		cfg.TokenTTL = parsed
+	}
+
+	cfg.Version = strings.TrimSpace(config[configKeyVersion])
+	switch cfg.Version {
 	case "", configVersion1:
 		// ok — v1 is the default
 	case "2", "3":
-		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
+		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", cfg.Version, configVersion1)
 	default:
-		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
+		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", cfg.Version, configVersion1)
 	}
 
-	parsedURL, err := url.Parse(address)
+	parsedURL, err := url.Parse(cfg.Address)
 	if err != nil {
 		return fmt.Errorf("failed to parse %q: %v", configKeyAddress, err)
 	}
@@ -143,8 +177,16 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
 	}
 
+	// All checks passed — commit new state.
+	a.cfg = cfg
 	a.baseURL = parsedURL
 	a.client = &http.Client{}
+
+	// Invalidate cached JWT on reconfigure.
+	a.jwtMu.Lock()
+	a.cachedToken = ""
+	a.tokenExpiry = time.Time{}
+	a.jwtMu.Unlock()
 
 	return nil
 }
@@ -193,7 +235,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	queryURL.Path = strings.TrimSuffix(queryURL.Path, "/") + "/query"
 
 	queryValues := queryURL.Query()
-	queryValues.Set("db", a.database())
+	queryValues.Set("db", a.cfg.Database)
 	queryValues.Set("q", q)
 	queryValues.Set("epoch", "s")
 	queryURL.RawQuery = queryValues.Encode()
@@ -203,7 +245,9 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 		return nil, fmt.Errorf("failed to build influxdb query request: %v", err)
 	}
 
-	a.setAuthHeader(req)
+	if err := a.setAuthHeader(req); err != nil {
+		return nil, fmt.Errorf("failed to set auth header: %v", err)
+	}
 
 	resp, err := a.client.Do(req)
 	if err != nil {
@@ -247,33 +291,6 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	}
 
 	return results, nil
-}
-
-// database returns the configured database name, checking the primary key
-// first and falling back to the shorthand alias.
-func (a *APMPlugin) database() string {
-	if db := strings.TrimSpace(a.config[configKeyDatabase]); db != "" {
-		return db
-	}
-	return strings.TrimSpace(a.config[configKeyDB])
-}
-
-// setAuthHeader applies the appropriate authentication method to the HTTP
-// request. It supports both token-based auth (for InfluxDB 1.x Enterprise)
-// and username/password basic auth (for InfluxDB 1.x OSS).
-func (a *APMPlugin) setAuthHeader(req *http.Request) {
-	if token := strings.TrimSpace(a.config[configKeyToken]); token != "" {
-		req.Header.Set("Authorization", "Token "+token)
-		return
-	}
-
-	username := strings.TrimSpace(a.config[configKeyUsername])
-	password := strings.TrimSpace(a.config[configKeyPassword])
-	if username != "" || password != "" {
-		req.SetBasicAuth(username, password)
-	}
-	// If neither token nor username/password is set, the request remains
-	// unauthenticated (for local/testing scenarios).
 }
 
 // parseSeries converts an InfluxDB result series into sdk.TimestampedMetrics.

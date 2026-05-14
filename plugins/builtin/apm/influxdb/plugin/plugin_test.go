@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
@@ -85,44 +87,78 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			expectOutput: errors.New(`"address" must be a valid absolute URL`),
 		},
 		{
-			name: "token auth only",
+			name: "shared_secret with username is valid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token-123",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
 			},
 			expectOutput: nil,
 		},
 		{
-			name: "token conflicts with username",
+			name: "shared_secret without username is invalid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`auth configuration error: "shared_secret" requires "username" (used as the JWT username claim)`),
 		},
 		{
-			name: "token conflicts with password",
+			name: "shared_secret conflicts with password",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyPassword: "pass",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeyPassword:     "hunter2",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`conflicting auth configuration: "shared_secret" cannot be used together with "password"`),
 		},
 		{
-			name: "token conflicts with both username and password",
+			name: "custom token_ttl valid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
-				configKeyPassword: "pass",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "30m",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: nil,
+		},
+		{
+			name: "token_ttl below minimum",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "30s",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "30s": must be between 1m0s and 24h0m0s`),
+		},
+		{
+			name: "token_ttl above maximum",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "25h",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "25h": must be between 1m0s and 24h0m0s`),
+		},
+		{
+			name: "token_ttl invalid string",
+			inputConfig: map[string]string{
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
+				configKeyTokenTTL:     "forever",
+			},
+			expectOutput: errors.New(`invalid "token_ttl" value "forever"`),
 		},
 	}
 
@@ -131,7 +167,12 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			apmPlugin := APMPlugin{logger: hclog.NewNullLogger()}
 
 			actualOutput := apmPlugin.SetConfig(tc.inputConfig)
-			assert.Equal(t, tc.expectOutput, actualOutput)
+		if tc.expectOutput == nil {
+			assert.NoError(t, actualOutput)
+		} else {
+			require.Error(t, actualOutput)
+			assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
+		}
 
 			if tc.expectOutput == nil {
 				assert.NotNil(t, apmPlugin.client)
@@ -210,11 +251,12 @@ func TestAPMPlugin_Query(t *testing.T) {
 			},
 		},
 		{
-			name:    "token auth",
+			name:    "shared_secret JWT auth",
 			fixture: "query_200.json",
 			pluginConfig: map[string]string{
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-secret-token",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "test-shared-secret",
 			},
 			query: "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m",
 			timeRange: sdk.TimeRange{
@@ -222,11 +264,29 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1610000000, 0),
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
-				require.Equal(t, "/query", r.URL.Path)
-				// Verify token is in Authorization header
 				authHeader := r.Header.Get("Authorization")
-				require.Equal(t, "Token my-secret-token", authHeader)
-				// Verify no credentials in query params
+				require.NotEmpty(t, authHeader)
+				require.True(t, strings.HasPrefix(authHeader, "Bearer "), "expected Bearer scheme, got: %s", authHeader)
+
+				// check the JWT and its claims
+				rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+				tok, err := jwt.Parse(rawToken, func(jwtTok *jwt.Token) (interface{}, error) {
+					_, ok := jwtTok.Method.(*jwt.SigningMethodHMAC)
+					require.True(t, ok, "expected HS256 signing method")
+					return []byte("test-shared-secret"), nil
+				})
+				require.NoError(t, err)
+				require.True(t, tok.Valid)
+
+				claims, ok := tok.Claims.(jwt.MapClaims)
+				require.True(t, ok)
+				require.Equal(t, "autoscaler", claims["username"])
+
+				exp, err := claims.GetExpirationTime()
+				require.NoError(t, err)
+				require.True(t, exp.After(time.Now()), "JWT exp should be in the future")
+
+				// no credentials in query params
 				qp := r.URL.Query()
 				require.Empty(t, qp.Get("u"))
 				require.Empty(t, qp.Get("p"))
@@ -285,11 +345,11 @@ func TestAPMPlugin_Query(t *testing.T) {
 
 			plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
 			err := plugin.SetConfig(map[string]string{
-				configKeyAddress:  srv.URL,
-				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
-				configKeyUsername: tc.pluginConfig[configKeyUsername],
-				configKeyPassword: tc.pluginConfig[configKeyPassword],
-				configKeyToken:    tc.pluginConfig[configKeyToken],
+				configKeyAddress:      srv.URL,
+				configKeyDatabase:     tc.pluginConfig[configKeyDatabase],
+				configKeyUsername:     tc.pluginConfig[configKeyUsername],
+				configKeyPassword:     tc.pluginConfig[configKeyPassword],
+				configKeySharedSecret: tc.pluginConfig[configKeySharedSecret],
 			})
 			require.NoError(t, err)
 

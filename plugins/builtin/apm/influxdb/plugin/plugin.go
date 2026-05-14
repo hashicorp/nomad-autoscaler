@@ -118,67 +118,13 @@ func NewInfluxDBPlugin(log hclog.Logger) apm.APM {
 // are checked before any state is mutated, so a failed re-configuration leaves
 // the plugin in its previous working state.
 func (a *APMPlugin) SetConfig(config map[string]string) error {
-	var cfg pluginConfig
-
-	cfg.Address = strings.TrimSpace(config[configKeyAddress])
-	if cfg.Address == "" {
-		return fmt.Errorf("%q config value cannot be empty", configKeyAddress)
-	}
-
-	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
-	if cfg.Database == "" {
-		cfg.Database = strings.TrimSpace(config[configKeyDB])
-	}
-	if cfg.Database == "" {
-		return fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
-	}
-
-	cfg.Username = strings.TrimSpace(config[configKeyUsername])
-	cfg.Password = strings.TrimSpace(config[configKeyPassword])
-	cfg.SharedSecret = strings.TrimSpace(config[configKeySharedSecret])
-
-	if cfg.SharedSecret != "" {
-		if cfg.Username == "" {
-			return fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
-		}
-		if cfg.Password != "" {
-			return fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
-		}
-	}
-
-	cfg.TokenTTL = defaultTokenTTL
-	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
-		parsed, err := time.ParseDuration(raw)
-		if err != nil {
-			return fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
-		}
-		if parsed < minTokenTTL || parsed > maxTokenTTL {
-			return fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
-		}
-		cfg.TokenTTL = parsed
-	}
-
-	version := strings.TrimSpace(config[configKeyVersion])
-	switch version {
-	case "", configVersion1:
-		// ok — v1 is the default
-	case "2", "3":
-		return fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
-	default:
-		return fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
-	}
-
-	parsedURL, err := url.Parse(cfg.Address)
+	cfg, baseURL, err := parseConfig(config)
 	if err != nil {
-		return fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
-	}
-	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
+		return err
 	}
 
-	// All checks passed — commit new state.
 	a.cfg = cfg
-	a.baseURL = parsedURL
+	a.baseURL = baseURL
 	a.client = &http.Client{}
 
 	// Invalidate cached JWT on reconfigure.
@@ -188,6 +134,71 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	a.jwtMu.Unlock()
 
 	return nil
+}
+
+// parseConfig validates the raw config map and returns the normalised
+// pluginConfig and its parsed base URL. Returns an error if any required
+// field is missing, a field value is invalid, or auth options conflict.
+func parseConfig(config map[string]string) (pluginConfig, *url.URL, error) {
+	var cfg pluginConfig
+
+	cfg.Address = strings.TrimSpace(config[configKeyAddress])
+	if cfg.Address == "" {
+		return pluginConfig{}, nil, fmt.Errorf("%q config value cannot be empty", configKeyAddress)
+	}
+
+	cfg.Database = strings.TrimSpace(config[configKeyDatabase])
+	if cfg.Database == "" {
+		cfg.Database = strings.TrimSpace(config[configKeyDB])
+	}
+	if cfg.Database == "" {
+		return pluginConfig{}, nil, fmt.Errorf("%q config value cannot be empty", configKeyDatabase)
+	}
+
+	cfg.Username = strings.TrimSpace(config[configKeyUsername])
+	cfg.Password = strings.TrimSpace(config[configKeyPassword])
+	cfg.SharedSecret = strings.TrimSpace(config[configKeySharedSecret])
+
+	if cfg.SharedSecret != "" {
+		if cfg.Username == "" {
+			return pluginConfig{}, nil, fmt.Errorf("auth configuration error: %q requires %q (used as the JWT username claim)", configKeySharedSecret, configKeyUsername)
+		}
+		if cfg.Password != "" {
+			return pluginConfig{}, nil, fmt.Errorf("conflicting auth configuration: %q cannot be used together with %q", configKeySharedSecret, configKeyPassword)
+		}
+	}
+
+	cfg.TokenTTL = defaultTokenTTL
+	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
+		parsed, err := time.ParseDuration(raw)
+		if err != nil {
+			return pluginConfig{}, nil, fmt.Errorf("invalid %q value %q: %w", configKeyTokenTTL, raw, err)
+		}
+		if parsed < minTokenTTL || parsed > maxTokenTTL {
+			return pluginConfig{}, nil, fmt.Errorf("invalid %q value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+		}
+		cfg.TokenTTL = parsed
+	}
+
+	version := strings.TrimSpace(config[configKeyVersion])
+	switch version {
+	case "", configVersion1:
+		// ok — v1 is the default
+	case "2", "3":
+		return pluginConfig{}, nil, fmt.Errorf("influxdb version %q is not yet supported: only version %q is currently implemented", version, configVersion1)
+	default:
+		return pluginConfig{}, nil, fmt.Errorf("invalid influxdb version %q: only version %q is supported", version, configVersion1)
+	}
+
+	parsedURL, err := url.Parse(cfg.Address)
+	if err != nil {
+		return pluginConfig{}, nil, fmt.Errorf("failed to parse %q: %w", configKeyAddress, err)
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return pluginConfig{}, nil, fmt.Errorf("%q must be a valid absolute URL", configKeyAddress)
+	}
+
+	return cfg, parsedURL, nil
 }
 
 // PluginInfo returns metadata about the plugin.

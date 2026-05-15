@@ -89,7 +89,6 @@ type pluginConfig struct {
 	Username     string
 	Password     string
 	SharedSecret string
-	TokenTTL     time.Duration // parsed JWT lifetime; defaults to 1h
 }
 
 // APMPlugin is the InfluxDB implementation of the APM interface.
@@ -154,18 +153,6 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 		return cfg, fmt.Errorf("auth configuration error: %s requires %s for Basic authentication", configKeyUsername, configKeyPassword)
 	} else if cfg.Password != "" && cfg.Username == "" {
 		return cfg, fmt.Errorf("auth configuration error: %s requires %s for Basic authentication", configKeyPassword, configKeyUsername)
-	}
-
-	cfg.TokenTTL = defaultTokenTTL
-	if raw := strings.TrimSpace(config[configKeyTokenTTL]); raw != "" {
-		parsed, err := time.ParseDuration(raw)
-		if err != nil {
-			return cfg, fmt.Errorf("invalid %s value %q: %w", configKeyTokenTTL, raw, err)
-		}
-		if parsed <= 0 || parsed > maxTokenTTL {
-			return cfg, fmt.Errorf("invalid %s value %q: must be a positive duration up to %s", configKeyTokenTTL, raw, maxTokenTTL)
-		}
-		cfg.TokenTTL = parsed
 	}
 
 	version := strings.TrimSpace(config[configKeyVersion])

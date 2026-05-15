@@ -17,17 +17,10 @@ const (
 	// Corresponds to INFLUXDB_HTTP_SHARED_SECRET on the InfluxDB server.
 	configKeySharedSecret = "shared_secret"
 
-	// configKeyTokenTTL is the optional lifetime for auto-generated JWTs.
-	// Accepts Go duration strings (e.g. "30m", "2h"). Default: 1h.
-	// Controls the exp claim — shorter values limit the replay window if a
-	// token is intercepted. Only used when shared_secret is set.
-	configKeyTokenTTL = "token_ttl"
-
-	// defaultTokenTTL is the JWT lifetime when token_ttl is not configured.
-	defaultTokenTTL = time.Hour
-
-	// maxTokenTTL is the upper bound for token_ttl.
-	maxTokenTTL = 24 * time.Hour
+	// jwtExpiry is the lifetime of each generated JWT. Tokens are created
+	// per-request so this only needs to outlive the HTTP round-trip plus any
+	// clock skew between the autoscaler and the InfluxDB server.
+	jwtExpiry = 2 * time.Minute
 )
 
 // influxClaims are the JWT claims expected by InfluxDB 1.x shared-secret auth.
@@ -60,7 +53,7 @@ func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 }
 
 // generateJWT creates a new HS256-signed JWT for InfluxDB 1.x Bearer auth.
-// The payload contains the configured username and an expiry of now+TokenTTL.
+// The payload contains the configured username and an expiry of now+jwtExpiry.
 //
 // A new token is generated on every call with no caching. This is intentional:
 // unlike OAuth2/OIDC or cloud-provider token flows (which require a network
@@ -68,7 +61,7 @@ func (a *APMPlugin) setAuthHeader(req *http.Request) error {
 // signed locally using HMAC-SHA256 — a pure CPU operation that completes in
 // under a microsecond. Caching would add mutex complexity with no benefit.
 func (a *APMPlugin) generateJWT() (string, error) {
-	expiry := time.Now().Add(a.cfg.TokenTTL)
+	expiry := time.Now().Add(jwtExpiry)
 	claims := influxClaims{
 		Username: a.cfg.Username,
 		RegisteredClaims: jwt.RegisteredClaims{

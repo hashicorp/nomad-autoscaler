@@ -48,7 +48,6 @@ func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 			cfg: pluginConfig{
 				Username:     "autoscaler",
 				SharedSecret: "my-secret",
-				TokenTTL:     defaultTokenTTL,
 			},
 			expectBearer: true,
 		},

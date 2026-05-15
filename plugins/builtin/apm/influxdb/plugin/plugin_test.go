@@ -137,39 +137,6 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			},
 			expectOutput: errors.New(`auth configuration error: password requires username for Basic authentication`),
 		},
-		{
-			name: "custom token_ttl valid",
-			inputConfig: map[string]string{
-				configKeyAddress:      "http://localhost:8086",
-				configKeyDatabase:     "telegraf",
-				configKeyUsername:     "autoscaler",
-				configKeySharedSecret: "my-secret",
-				configKeyTokenTTL:     "30m",
-			},
-			expectOutput: nil,
-		},
-		{
-			name: "token_ttl above maximum",
-			inputConfig: map[string]string{
-				configKeyAddress:      "http://localhost:8086",
-				configKeyDatabase:     "telegraf",
-				configKeyUsername:     "autoscaler",
-				configKeySharedSecret: "my-secret",
-				configKeyTokenTTL:     "25h",
-			},
-			expectOutput: errors.New(`invalid token_ttl value "25h": must be a positive duration up to 24h0m0s`),
-		},
-		{
-			name: "token_ttl invalid string",
-			inputConfig: map[string]string{
-				configKeyAddress:      "http://localhost:8086",
-				configKeyDatabase:     "telegraf",
-				configKeyUsername:     "autoscaler",
-				configKeySharedSecret: "my-secret",
-				configKeyTokenTTL:     "forever",
-			},
-			expectOutput: errors.New(`invalid token_ttl value "forever"`),
-		},
 	}
 
 	for _, tc := range testCases {

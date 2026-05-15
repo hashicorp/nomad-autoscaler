@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	hclog "github.com/hashicorp/go-hclog"
@@ -49,7 +48,7 @@ func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 			cfg: pluginConfig{
 				Username:     "autoscaler",
 				SharedSecret: "my-secret",
-				TokenTTL:     time.Hour,
+				TokenTTL:     defaultTokenTTL,
 			},
 			expectBearer: true,
 		},
@@ -95,46 +94,4 @@ func TestAPMPlugin_SetAuthHeader(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestAPMPlugin_JWT_Caching verifies the three JWT cache paths: cache hit
-// (token reused within TTL), proactive refresh (token regenerated when inside
-// the refresh window), and that the refreshed token is valid.
-func TestAPMPlugin_JWT_Caching(t *testing.T) {
-	p := &APMPlugin{
-		logger: hclog.NewNullLogger(),
-		cfg: pluginConfig{
-			Username:     "autoscaler",
-			SharedSecret: "cache-test-secret",
-			TokenTTL:     time.Hour,
-		},
-	}
-
-	now := time.Now()
-
-	// First call — token is generated.
-	tok1, err := p.getOrRefreshJWT(now)
-	must.NoError(t, err)
-	must.NotEq(t, "", tok1)
-
-	// Second call at the same time — same token returned (cached).
-	tok2, err := p.getOrRefreshJWT(now)
-	must.NoError(t, err)
-	must.Eq(t, tok1, tok2, must.Sprint("expected cached token to be reused"))
-
-	// Advance time into the refresh window: tokenExpiry - jwtRefreshBuffer + 1s.
-	insideWindow := now.Add(p.cfg.TokenTTL - jwtRefreshBuffer + time.Second)
-
-	// Third call — token must be refreshed with a new exp.
-	tok3, err := p.getOrRefreshJWT(insideWindow)
-	must.NoError(t, err)
-	must.NotEq(t, "", tok3)
-	// A fresh token always produces a different string because exp is derived from now.
-	must.NotEq(t, tok1, tok3, must.Sprint("expected a newly generated token after entering refresh window"))
-	// Verify the freshly generated token is properly signed and valid.
-	parsed, err := jwt.Parse(tok3, func(jwtTok *jwt.Token) (interface{}, error) {
-		return []byte("cache-test-secret"), nil
-	})
-	must.NoError(t, err)
-	must.True(t, parsed.Valid)
 }

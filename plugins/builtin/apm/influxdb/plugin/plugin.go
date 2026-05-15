@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
@@ -95,12 +94,9 @@ type pluginConfig struct {
 
 // APMPlugin is the InfluxDB implementation of the APM interface.
 type APMPlugin struct {
-	cfg         pluginConfig
-	client      *http.Client
-	logger      hclog.Logger
-	jwtMu       sync.Mutex // protects cachedToken and tokenExpiry
-	cachedToken string     // most recently generated JWT; empty until first use
-	tokenExpiry time.Time  // when cachedToken expires
+	cfg    pluginConfig
+	client *http.Client
+	logger hclog.Logger
 }
 
 // NewInfluxDBPlugin returns a new InfluxDB APM plugin instance.
@@ -120,12 +116,6 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 
 	a.cfg = cfg
 	a.client = &http.Client{}
-
-	// Invalidate cached JWT on reconfigure.
-	a.jwtMu.Lock()
-	a.cachedToken = ""
-	a.tokenExpiry = time.Time{}
-	a.jwtMu.Unlock()
 
 	return nil
 }
@@ -172,8 +162,8 @@ func parseConfig(config map[string]string) (pluginConfig, error) {
 		if err != nil {
 			return cfg, fmt.Errorf("invalid %s value %q: %w", configKeyTokenTTL, raw, err)
 		}
-		if parsed < minTokenTTL || parsed > maxTokenTTL {
-			return cfg, fmt.Errorf("invalid %s value %q: must be between %s and %s", configKeyTokenTTL, raw, minTokenTTL, maxTokenTTL)
+		if parsed <= 0 || parsed > maxTokenTTL {
+			return cfg, fmt.Errorf("invalid %s value %q: must be a positive duration up to %s", configKeyTokenTTL, raw, maxTokenTTL)
 		}
 		cfg.TokenTTL = parsed
 	}

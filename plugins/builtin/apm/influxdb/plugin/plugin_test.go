@@ -149,17 +149,6 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			expectOutput: nil,
 		},
 		{
-			name: "token_ttl below minimum",
-			inputConfig: map[string]string{
-				configKeyAddress:      "http://localhost:8086",
-				configKeyDatabase:     "telegraf",
-				configKeyUsername:     "autoscaler",
-				configKeySharedSecret: "my-secret",
-				configKeyTokenTTL:     "5m",
-			},
-			expectOutput: errors.New(`invalid token_ttl value "5m": must be between 10m0s and 24h0m0s`),
-		},
-		{
 			name: "token_ttl above maximum",
 			inputConfig: map[string]string{
 				configKeyAddress:      "http://localhost:8086",
@@ -168,7 +157,7 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeySharedSecret: "my-secret",
 				configKeyTokenTTL:     "25h",
 			},
-			expectOutput: errors.New(`invalid token_ttl value "25h": must be between 10m0s and 24h0m0s`),
+			expectOutput: errors.New(`invalid token_ttl value "25h": must be a positive duration up to 24h0m0s`),
 		},
 		{
 			name: "token_ttl invalid string",

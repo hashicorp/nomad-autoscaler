@@ -8,15 +8,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// TestAPMPlugin_SetConfig verifies that SetConfig accepts valid configurations
+// and rejects invalid ones, covering required fields, URL validation, version
+// checks, and shared_secret auth constraints.
 func TestAPMPlugin_SetConfig(t *testing.T) {
 	testCases := []struct {
 		name         string
@@ -26,12 +31,12 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 		{
 			name:         "no required config parameters set",
 			inputConfig:  map[string]string{},
-			expectOutput: errors.New(`"address" config value cannot be empty`),
+			expectOutput: errors.New(`address config value cannot be empty`),
 		},
 		{
 			name:         "missing database",
 			inputConfig:  map[string]string{configKeyAddress: "http://localhost:8086"},
-			expectOutput: errors.New(`"database" config value cannot be empty`),
+			expectOutput: errors.New(`database config value cannot be empty`),
 		},
 		{
 			name: "unsupported version 2",
@@ -82,47 +87,55 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				configKeyAddress:  "not-a-valid-url",
 				configKeyDatabase: "telegraf",
 			},
-			expectOutput: errors.New(`"address" must be a valid absolute URL`),
+			expectOutput: errors.New(`address must be a valid absolute URL`),
 		},
 		{
-			name: "token auth only",
+			name: "shared_secret with username is valid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token-123",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "my-secret",
 			},
 			expectOutput: nil,
 		},
 		{
-			name: "token conflicts with username",
+			name: "shared_secret without username is invalid",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`auth configuration error: shared_secret requires username (used as the JWT username claim)`),
 		},
 		{
-			name: "token conflicts with password",
+			name: "shared_secret conflicts with password",
 			inputConfig: map[string]string{
-				configKeyAddress:  "http://localhost:8086",
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyPassword: "pass",
+				configKeyAddress:      "http://localhost:8086",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeyPassword:     "hunter2",
+				configKeySharedSecret: "my-secret",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`conflicting auth configuration: shared_secret cannot be used together with password`),
 		},
 		{
-			name: "token conflicts with both username and password",
+			name: "username without password is invalid",
 			inputConfig: map[string]string{
 				configKeyAddress:  "http://localhost:8086",
 				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-token",
-				configKeyUsername: "user",
-				configKeyPassword: "pass",
+				configKeyUsername: "autoscaler",
 			},
-			expectOutput: errors.New(`conflicting auth configuration: "token" cannot be used together with "username" or "password"`),
+			expectOutput: errors.New(`auth configuration error: username requires password for Basic authentication`),
+		},
+		{
+			name: "password without username is invalid",
+			inputConfig: map[string]string{
+				configKeyAddress:  "http://localhost:8086",
+				configKeyDatabase: "telegraf",
+				configKeyPassword: "hunter2",
+			},
+			expectOutput: errors.New(`auth configuration error: password requires username for Basic authentication`),
 		},
 	}
 
@@ -131,19 +144,24 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			apmPlugin := APMPlugin{logger: hclog.NewNullLogger()}
 
 			actualOutput := apmPlugin.SetConfig(tc.inputConfig)
-			assert.Equal(t, tc.expectOutput, actualOutput)
-
 			if tc.expectOutput == nil {
+				assert.NoError(t, actualOutput)
 				assert.NotNil(t, apmPlugin.client)
-				assert.NotNil(t, apmPlugin.baseURL)
+				assert.NotNil(t, apmPlugin.cfg.BaseURL)
 			} else {
+				require.Error(t, actualOutput)
+				assert.Contains(t, actualOutput.Error(), tc.expectOutput.Error())
 				assert.Nil(t, apmPlugin.client)
-				assert.Nil(t, apmPlugin.baseURL)
+				assert.Nil(t, apmPlugin.cfg.BaseURL)
 			}
 		})
 	}
 }
 
+// TestAPMPlugin_Query exercises the full query path against a local test
+// server, verifying that credentials are sent via Authorization header (not
+// query params), that JWT Bearer auth works end-to-end, and that result
+// parsing handles null values and non-default column names correctly.
 func TestAPMPlugin_Query(t *testing.T) {
 	testCases := []struct {
 		name            string
@@ -173,7 +191,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.Equal(t, "telegraf", qp.Get("db"))
 				require.Equal(t, "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m", qp.Get("q"))
 				require.Equal(t, "s", qp.Get("epoch"))
-				// Verify credentials are NOT in query params (security fix)
+				// Verify credentials are sent in the Authorization header, not as query params.
 				require.Empty(t, qp.Get("u"))
 				require.Empty(t, qp.Get("p"))
 				// Verify Basic auth header is set
@@ -210,11 +228,12 @@ func TestAPMPlugin_Query(t *testing.T) {
 			},
 		},
 		{
-			name:    "token auth",
+			name:    "shared_secret JWT auth",
 			fixture: "query_200.json",
 			pluginConfig: map[string]string{
-				configKeyDatabase: "telegraf",
-				configKeyToken:    "my-secret-token",
+				configKeyDatabase:     "telegraf",
+				configKeyUsername:     "autoscaler",
+				configKeySharedSecret: "test-shared-secret",
 			},
 			query: "SELECT mean(usage_idle) FROM cpu WHERE time > now() - 10m",
 			timeRange: sdk.TimeRange{
@@ -222,11 +241,29 @@ func TestAPMPlugin_Query(t *testing.T) {
 				To:   time.Unix(1610000000, 0),
 			},
 			validateRequest: func(t *testing.T, r *http.Request) {
-				require.Equal(t, "/query", r.URL.Path)
-				// Verify token is in Authorization header
 				authHeader := r.Header.Get("Authorization")
-				require.Equal(t, "Token my-secret-token", authHeader)
-				// Verify no credentials in query params
+				require.NotEmpty(t, authHeader)
+				require.True(t, strings.HasPrefix(authHeader, "Bearer "), "expected Bearer scheme, got: %s", authHeader)
+
+				// Verify the JWT signature and claims.
+				rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+				tok, err := jwt.Parse(rawToken, func(jwtTok *jwt.Token) (interface{}, error) {
+					_, ok := jwtTok.Method.(*jwt.SigningMethodHMAC)
+					require.True(t, ok, "expected HS256 signing method")
+					return []byte("test-shared-secret"), nil
+				})
+				require.NoError(t, err)
+				require.True(t, tok.Valid)
+
+				claims, ok := tok.Claims.(jwt.MapClaims)
+				require.True(t, ok)
+				require.Equal(t, "autoscaler", claims["username"])
+
+				exp, err := claims.GetExpirationTime()
+				require.NoError(t, err)
+				require.True(t, exp.After(time.Now()), "JWT exp should be in the future")
+
+				// Credentials must not appear in query params.
 				qp := r.URL.Query()
 				require.Empty(t, qp.Get("u"))
 				require.Empty(t, qp.Get("p"))
@@ -285,11 +322,11 @@ func TestAPMPlugin_Query(t *testing.T) {
 
 			plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
 			err := plugin.SetConfig(map[string]string{
-				configKeyAddress:  srv.URL,
-				configKeyDatabase: tc.pluginConfig[configKeyDatabase],
-				configKeyUsername: tc.pluginConfig[configKeyUsername],
-				configKeyPassword: tc.pluginConfig[configKeyPassword],
-				configKeyToken:    tc.pluginConfig[configKeyToken],
+				configKeyAddress:      srv.URL,
+				configKeyDatabase:     tc.pluginConfig[configKeyDatabase],
+				configKeyUsername:     tc.pluginConfig[configKeyUsername],
+				configKeyPassword:     tc.pluginConfig[configKeyPassword],
+				configKeySharedSecret: tc.pluginConfig[configKeySharedSecret],
 			})
 			require.NoError(t, err)
 
@@ -301,6 +338,8 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}
 }
 
+// TestAPMPlugin_Query_InstantNotSupported checks that a query with an instant
+// time range (From == To) returns an appropriate unsupported error.
 func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
 	plugin := NewInfluxDBPlugin(hclog.NewNullLogger())
 	err := plugin.SetConfig(map[string]string{
@@ -315,6 +354,8 @@ func TestAPMPlugin_Query_InstantNotSupported(t *testing.T) {
 	require.Contains(t, err.Error(), `query_window = "instant" is not supported by influxdb`)
 }
 
+// TestAPMPlugin_Query_Errors covers HTTP-level and InfluxDB-level error
+// responses, as well as empty result sets that should return no error.
 func TestAPMPlugin_Query_Errors(t *testing.T) {
 	testCases := []struct {
 		name         string

@@ -274,10 +274,10 @@ func TestAPMPlugin_getPoolResources(t *testing.T) {
 			}),
 		},
 		{
-			name:        "ready ineligible node excluded from pool totals",
-			config:      map[string]string{},
-			expectError: false,
-			expectedCPU: 20,
+			name:          "ready ineligible node excluded from pool totals",
+			config:        map[string]string{},
+			expectError:   false,
+			expectedCPU:   20,
 			expectedMemMB: 15,
 			httpHandler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")

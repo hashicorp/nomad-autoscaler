@@ -156,7 +156,7 @@ func (a *Agent) setupPolicyManager(limiter *policy.Limiter) error {
 		DefaultEvaluationInterval: a.config.Policy.DefaultEvaluationInterval,
 		DefaultCooldown:           a.config.Policy.DefaultCooldown,
 	}
-	policyProcessor := policy.NewProcessor(&cfgDefaults, a.getNomadAPMNames())
+	policyProcessor := policy.NewProcessor(a.logger, &cfgDefaults, a.getNomadAPMNames())
 
 	// Setup our initial default policy source which is Nomad.
 	sources := map[policy.SourceName]policy.Source{}

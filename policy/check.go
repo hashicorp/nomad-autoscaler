@@ -286,7 +286,7 @@ func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int
 		var err error
 		metrics, err = ch.queryMetrics(ctx, cache)
 		if err != nil {
-			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %w", err)
+			return sdk.ScalingAction{}, err
 		}
 	}
 

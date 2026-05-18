@@ -15,12 +15,18 @@ import (
 	"github.com/hashicorp/nomad/api"
 )
 
+// nodePoolFilter is a narrow interface for filtering Nomad nodes into pools.
+// Only IsPoolMember is needed at query time.
+type nodePoolFilter interface {
+	IsPoolMember(*api.NodeListStub) bool
+}
+
 // nodePoolQuery is the plugins internal representation of a query and contains
 // all the information needed to perform a Nomad APM query for a node pool.
 type nodePoolQuery struct {
-	metric         string
-	poolIdentifier nodepool.ClusterNodePoolIdentifier
-	operation      string
+	metric     string
+	poolFilter nodePoolFilter
+	operation  string
 }
 
 type nodePoolResources struct {
@@ -46,11 +52,12 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 	a.logger.Debug("performing node pool APM query", "query", q)
 
 	// Identify the resource available and consumed within the target pool.
-	resources, err := a.getPoolResources(query.poolIdentifier)
+	resources, err := a.getPoolResources(query.poolFilter)
 	if err != nil {
 		return nil, err
 	}
 	a.logger.Debug("collected node pool resource data",
+		"query", q,
 		"allocated_cpu", resources.allocated.cpu, "allocated_memory", resources.allocated.mem,
 		"allocatable_cpu", resources.allocatable.cpu, "allocatable_memory", resources.allocatable.mem)
 
@@ -82,7 +89,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 // specified node pool. Any error in calling the Nomad API for details will
 // result in an error. This is because with missing data, we cannot reliably
 // make calculations.
-func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*nodePoolResources, error) {
+func (a *APMPlugin) getPoolResources(id nodePoolFilter) (*nodePoolResources, error) {
 
 	client, config := a.getClientAndConfigSnapshot()
 	if client == nil {
@@ -180,14 +187,20 @@ func (a *APMPlugin) getNodeAllocatedResources(client *api.Client, nodeID string,
 
 func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 
-	mainParts := strings.SplitN(q, "/", 3)
-	if len(mainParts) != 3 {
-		return nil, fmt.Errorf("expected <query>/<pool_identifier_value>/<pool_identifier_key>, received %s", q)
+	// Split into query prefix and pool identifier part.
+	mainParts := strings.SplitN(q, "/", 2)
+	if len(mainParts) != 2 || mainParts[1] == "" {
+		return nil, fmt.Errorf("expected <query>/<key>=<value>[+<key>=<value>...], received %q", q)
 	}
 
-	query := nodePoolQuery{
-		poolIdentifier: nodepool.NewNodeClassPoolIdentifier(mainParts[1]),
+	var query nodePoolQuery
+
+	// Parse the combined format: key1=val1[+key2=val2...]
+	ids, err := nodepool.DecodeCombinedQueryIdentifiers(mainParts[1])
+	if err != nil {
+		return nil, err
 	}
+	query.poolFilter = ids
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)
 	if len(opMetricParts) != 3 {

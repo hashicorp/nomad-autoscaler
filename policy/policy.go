@@ -6,14 +6,17 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
+	"github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils/nodepool"
 )
 
 const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
@@ -21,13 +24,15 @@ const thresholdWithinBoundsTriggerConfigKey = "within_bounds_trigger"
 // Processor helps process policies and perform common actions on them when
 // they are discovered from their source.
 type Processor struct {
+	log       hclog.Logger
 	defaults  *ConfigDefaults
 	nomadAPMs []string
 }
 
 // NewProcessor returns a pointer to a new Processor for use.
-func NewProcessor(defaults *ConfigDefaults, apms []string) *Processor {
+func NewProcessor(log hclog.Logger, defaults *ConfigDefaults, apms []string) *Processor {
 	return &Processor{
+		log:       log.ResetNamed("policy_processor"),
 		defaults:  defaults,
 		nomadAPMs: apms,
 	}
@@ -135,7 +140,7 @@ func (pr *Processor) CanonicalizeCheck(c *sdk.ScalingPolicyCheck, t *sdk.Scaling
 func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.ScalingPolicyTarget) {
 
 	// Catch nils so this function is safe to call without any prior checks.
-	if c == nil || t == nil {
+	if c == nil {
 		return
 	}
 
@@ -145,10 +150,23 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 		return
 	}
 
-	// If the query is not formatted in the short manner we do not have any
-	// work to do. Operators can add this if they want/know the autoscaler
-	// internal model.
+	// If the query is already in long form, normalize any old-format
+	// node pool queries to the new combined format and return.
+	// Operators can write long queries directly if they know the
+	// autoscaler internal model.
 	if !isShortQuery(c.Query) {
+		normalized, err := pr.normalizeNodePoolQuery(c.Query)
+		if err != nil {
+			pr.log.Warn("failed to normalize node pool query, will fail at evaluation",
+				"query", c.Query, "error", err)
+			return
+		}
+		c.Query = normalized
+		return
+	}
+
+	// Short-query expansion requires a target to determine the query type.
+	if t == nil {
 		return
 	}
 
@@ -167,12 +185,71 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	}
 
 	// If the target is a Nomad client node pool, format the query in the
-	// expected manner. Once the autoscaler supports more than just class
-	// identification of pools this func and logic will need to be updated. For
-	// now keep it simple.
+	// combined format: node_<op>_<metric>/key1=val1[+key2=val2...]
 	if t.IsNodePoolTarget() {
-		c.Query = fmt.Sprintf("%s_%s/%s/class",
-			nomadAPM.QueryTypeNode, c.Query, t.Config[sdk.TargetConfigKeyClass])
+		ids, err := nodepool.NewClusterNodePoolIdentifierList(t.Config)
+		if err != nil {
+			// Cannot determine pool identifier; leave query as-is.
+			return
+		}
+
+		c.Query = fmt.Sprintf("%s_%s/%s",
+			nomadAPM.QueryTypeNode, c.Query, ids.Encode())
+	}
+}
+
+// normalizeNodePoolQuery converts old-format node pool queries
+// (node_<op>_<metric>/<value>/<key>) into the new combined format
+// (node_<op>_<metric>/key=value). Queries already in the new format
+// or non-node-pool queries are returned unchanged.
+// Returns an error if the old-format key is not recognized.
+func (pr *Processor) normalizeNodePoolQuery(q string) (string, error) {
+	parts := strings.SplitN(q, "/", 3)
+
+	// Only node pool queries (starting with "node_") need normalization.
+	// This prevents taskgroup queries from being incorrectly rewritten.
+	if len(parts) < 2 || !strings.HasPrefix(parts[0], "node_") {
+		return q, nil
+	}
+
+	// If the second part contains "=", it's already in the new combined
+	// format (key=val or key=val+key=val). No normalization needed;
+	// DecodeCombinedQueryIdentifiers will validate keys at query time.
+	if strings.Contains(parts[1], "=") {
+		return q, nil
+	}
+
+	// Only the old 3-part format needs conversion below.
+	if len(parts) != 3 || parts[2] == "" {
+		return q, nil
+	}
+
+	// Map the old key to the canonical key name.
+	key := normalizePoolKey(parts[2])
+	if key == "" {
+		return "", fmt.Errorf("unrecognized pool identifier key %q in query %q, "+
+			"allowed values are: %s, %s, %s",
+			parts[2], q, sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool)
+	}
+
+	// URL-encode the value for consistency with the combined format
+	// used by ClusterNodePoolIdentifierList.Encode().
+	normalized := fmt.Sprintf("%s/%s=%s", parts[0], key, url.QueryEscape(parts[1]))
+	pr.log.Debug("normalized legacy node pool query",
+		"original", q, "normalized", normalized)
+	return normalized, nil
+}
+
+// normalizePoolKey maps old-format pool key names to canonical key names.
+// Returns empty string for unrecognized keys.
+func normalizePoolKey(key string) string {
+	switch key {
+	case "class":
+		return sdk.TargetConfigKeyClass
+	case sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool:
+		return key
+	default:
+		return ""
 	}
 }
 

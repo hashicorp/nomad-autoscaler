@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -214,7 +216,7 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 		},
 	}
 
-	pr := Processor{}
+	pr := Processor{log: hclog.NewNullLogger()}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -258,9 +260,54 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
-			name: "fully populated non-short node query",
+			name: "old format long query with class normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/dc1/datacenter",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=dc1",
+			},
+			name: "old format long query with datacenter normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/gpu/node_pool",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/node_pool=gpu",
+			},
+			name: "old format long query with node_pool normalized to combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget:   nil,
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			name: "new combined format long query left unchanged",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{
@@ -311,9 +358,43 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
-			name: "correctly formatted node target short query",
+			name: "correctly formatted node target short query with node_class",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "dc1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=dc1",
+			},
+			name: "correctly formatted node target short query with datacenter",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_pool": "gpu"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_pool=gpu",
+			},
+			name: "correctly formatted node target short query with node_pool",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{
@@ -349,13 +430,152 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			},
 			name: "incorrectly formatted node target short query",
 		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{
+					"node_class": "hashistack",
+					"datacenter": "dc1",
+				},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack+datacenter=dc1",
+			},
+			name: "correctly formatted combined node_class and datacenter short query",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{
+					"datacenter": "us-east-1a",
+					"node_pool":  "gpu",
+				},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us-east-1a+node_pool=gpu",
+			},
+			name: "correctly formatted combined datacenter and node_pool short query",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{nomadAPMs: tc.inputAPMNames}
+			pr := Processor{log: hclog.NewNullLogger(), nomadAPMs: tc.inputAPMNames}
 			pr.CanonicalizeAPMQuery(tc.inputCheck, tc.inputTarget)
 			assert.Equal(t, tc.expectedOutputCheck, tc.inputCheck, tc.name)
+		})
+	}
+}
+
+func Test_normalizeNodePoolQuery(t *testing.T) {
+	testCases := []struct {
+		name        string
+		input       string
+		expected    string
+		expectError bool
+	}{
+		{
+			name:     "old format class is normalized",
+			input:    "node_percentage-allocated_cpu/hashistack/class",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+		},
+		{
+			name:     "old format node_class is normalized",
+			input:    "node_percentage-allocated_memory/high-memory/node_class",
+			expected: "node_percentage-allocated_memory/node_class=high-memory",
+		},
+		{
+			name:     "old format datacenter is normalized",
+			input:    "node_percentage-allocated_cpu/dc1/datacenter",
+			expected: "node_percentage-allocated_cpu/datacenter=dc1",
+		},
+		{
+			name:     "old format node_pool is normalized",
+			input:    "node_percentage-allocated_memory/gpu/node_pool",
+			expected: "node_percentage-allocated_memory/node_pool=gpu",
+		},
+		{
+			name:        "old format unknown key returns error",
+			input:       "node_percentage-allocated_cpu/us-east/zone",
+			expectError: true,
+		},
+		{
+			name:     "new combined format is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack",
+		},
+		{
+			name:     "new combined multi-key format is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+		},
+		{
+			name:     "combined format with class alias is passed through (rejected at decode time)",
+			input:    "node_percentage-allocated_cpu/class=hashistack",
+			expected: "node_percentage-allocated_cpu/class=hashistack",
+		},
+		{
+			name:     "combined format is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+			expected: "node_percentage-allocated_cpu/node_class=hashistack+datacenter=dc1",
+		},
+		{
+			name:     "short query is unchanged",
+			input:    "percentage-allocated_cpu",
+			expected: "percentage-allocated_cpu",
+		},
+		{
+			name:     "taskgroup query is unchanged",
+			input:    "taskgroup_percentage-allocated_cpu/my-job/my-group",
+			expected: "taskgroup_percentage-allocated_cpu/my-job/my-group",
+		},
+		{
+			name:     "two-part query is unchanged",
+			input:    "node_percentage-allocated_cpu/node_class=compute",
+			expected: "node_percentage-allocated_cpu/node_class=compute",
+		},
+		{
+			name:     "trailing slash empty key is unchanged",
+			input:    "node_percentage-allocated_memory/",
+			expected: "node_percentage-allocated_memory/",
+		},
+		{
+			name:     "old format value with special chars is URL-encoded",
+			input:    "node_percentage-allocated_cpu/us-east-1a/datacenter",
+			expected: "node_percentage-allocated_cpu/datacenter=us-east-1a",
+		},
+		{
+			name:     "old format empty third part is unchanged",
+			input:    "node_percentage-allocated_cpu/hashistack/",
+			expected: "node_percentage-allocated_cpu/hashistack/",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			pr := Processor{log: hclog.NewNullLogger()}
+			result, err := pr.normalizeNodePoolQuery(tc.input)
+			if tc.expectError {
+				must.Error(t, err)
+				must.ErrorContains(t, err, "unrecognized pool identifier key")
+			} else {
+				must.NoError(t, err)
+				must.Eq(t, tc.expected, result)
+			}
 		})
 	}
 }
@@ -463,7 +683,7 @@ func TestProcessor_ApplyPolicyDefaults(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			pr := Processor{defaults: tc.inputDefaults}
+			pr := Processor{log: hclog.NewNullLogger(), defaults: tc.inputDefaults}
 			pr.ApplyPolicyDefaults(tc.inputPolicy)
 			assert.Equal(t, tc.expectedOutputPolicy, tc.inputPolicy, tc.name)
 		})
@@ -479,6 +699,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 	}{
 		{
 			inputProcessor: &Processor{
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: nil,
 			},
 			inputSource:    "nagios",
@@ -487,6 +708,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nagios",
@@ -495,6 +717,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-apm"},
 			},
 			inputSource:    "nomad-apm",
@@ -503,6 +726,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-platform-apm"},
 			},
 			inputSource:    "nomad-platform-apm",
@@ -511,6 +735,7 @@ func TestProcessor_isNomadAPMQuery(t *testing.T) {
 		},
 		{
 			inputProcessor: &Processor{
+				log:       hclog.NewNullLogger(),
 				nomadAPMs: []string{"nomad-qa-apm", "nomad-platform-apm", "nomad-support-apm"},
 			},
 			inputSource:    "nomad-platform-apm",

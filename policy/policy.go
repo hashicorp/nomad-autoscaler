@@ -6,6 +6,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -167,12 +168,16 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	}
 
 	// If the target is a Nomad client node pool, format the query in the
-	// expected manner. Once the autoscaler supports more than just class
-	// identification of pools this func and logic will need to be updated. For
-	// now keep it simple.
+	// combined format: node_<op>_<metric>/key1=val1,key2=val2
 	if t.IsNodePoolTarget() {
-		c.Query = fmt.Sprintf("%s_%s/%s/class",
-			nomadAPM.QueryTypeNode, c.Query, t.Config[sdk.TargetConfigKeyClass])
+		var parts []string
+		for _, k := range []string{sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool} {
+			if v, ok := t.Config[k]; ok {
+				parts = append(parts, k+"="+url.QueryEscape(v))
+			}
+		}
+		c.Query = fmt.Sprintf("%s_%s/%s",
+			nomadAPM.QueryTypeNode, c.Query, strings.Join(parts, ","))
 	}
 }
 

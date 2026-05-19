@@ -6,6 +6,7 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -18,9 +19,9 @@ import (
 // nodePoolQuery is the plugins internal representation of a query and contains
 // all the information needed to perform a Nomad APM query for a node pool.
 type nodePoolQuery struct {
-	metric         string
-	poolIdentifier nodepool.ClusterNodePoolIdentifier
-	operation      string
+	metric    string
+	poolIDs   nodepool.ClusterNodePoolIdentifierList
+	operation string
 }
 
 type nodePoolResources struct {
@@ -46,11 +47,12 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 	a.logger.Debug("performing node pool APM query", "query", q)
 
 	// Identify the resource available and consumed within the target pool.
-	resources, err := a.getPoolResources(query.poolIdentifier)
+	resources, err := a.getPoolResources(query.poolIDs)
 	if err != nil {
 		return nil, err
 	}
 	a.logger.Debug("collected node pool resource data",
+		"query", q,
 		"allocated_cpu", resources.allocated.cpu, "allocated_memory", resources.allocated.mem,
 		"allocatable_cpu", resources.allocatable.cpu, "allocatable_memory", resources.allocatable.mem)
 
@@ -82,7 +84,7 @@ func (a *APMPlugin) queryNodePool(q string) (sdk.TimestampedMetrics, error) {
 // specified node pool. Any error in calling the Nomad API for details will
 // result in an error. This is because with missing data, we cannot reliably
 // make calculations.
-func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*nodePoolResources, error) {
+func (a *APMPlugin) getPoolResources(ids nodepool.ClusterNodePoolIdentifierList) (*nodePoolResources, error) {
 
 	client, config := a.getClientAndConfigSnapshot()
 	if client == nil {
@@ -101,7 +103,7 @@ func (a *APMPlugin) getPoolResources(id nodepool.ClusterNodePoolIdentifier) (*no
 
 	// Perform our node filtering so we are left with a list of nodes that form
 	// our pool and that are in the correct state.
-	nodePoolList, err := scaleutils.FilterNodesWithOptions(nodes, id.IsPoolMember, filterOpts)
+	nodePoolList, err := scaleutils.FilterNodesWithOptions(nodes, ids.IsPoolMember, filterOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to identify nodes within pool: %v", err)
 	}
@@ -180,13 +182,36 @@ func (a *APMPlugin) getNodeAllocatedResources(client *api.Client, nodeID string,
 
 func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 
-	mainParts := strings.SplitN(q, "/", 3)
-	if len(mainParts) != 3 {
-		return nil, fmt.Errorf("expected <query>/<pool_identifier_value>/<pool_identifier_key>, received %s", q)
+	// Split into query prefix and pool identifier part.
+	mainParts := strings.SplitN(q, "/", 2)
+	if len(mainParts) != 2 || mainParts[1] == "" {
+		return nil, fmt.Errorf("expected <query>/<key>=<value>[,<key>=<value>...], received %q", q)
 	}
 
-	query := nodePoolQuery{
-		poolIdentifier: nodepool.NewNodeClassPoolIdentifier(mainParts[1]),
+	var query nodePoolQuery
+
+	// Parse the combined format: key1=val1[,key2=val2...]
+	for _, pair := range strings.Split(mainParts[1], ",") {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) != 2 || kv[0] == "" || kv[1] == "" {
+			return nil, fmt.Errorf("invalid pool identifier %q: expected key=value", pair)
+		}
+
+		value, err := url.QueryUnescape(kv[1])
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode value in %q: %v", pair, err)
+		}
+
+		switch kv[0] {
+		case sdk.TargetConfigKeyClass:
+			query.poolIDs = append(query.poolIDs, nodepool.NewNodeClassPoolIdentifier(value))
+		case sdk.TargetConfigKeyDatacenter:
+			query.poolIDs = append(query.poolIDs, nodepool.NewNodeDatacenterPoolIdentifier(value))
+		case sdk.TargetConfigKeyNodePool:
+			query.poolIDs = append(query.poolIDs, nodepool.NewNodePoolClusterPoolIdentifier(value))
+		default:
+			return nil, fmt.Errorf("unknown pool key %q: must be node_class, datacenter, or node_pool", kv[0])
+		}
 	}
 
 	opMetricParts := strings.SplitN(mainParts[0], "_", 3)

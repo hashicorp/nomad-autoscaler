@@ -311,9 +311,77 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
-			name: "correctly formatted node target short query",
+			name: "node target short query with node_class",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "us-east-1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us-east-1",
+			},
+			name: "node target short query with datacenter",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_pool": "gpu"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/node_pool=gpu",
+			},
+			name: "node target short query with node_pool",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_class": "hashistack", "datacenter": "dc1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack,datacenter=dc1",
+			},
+			name: "node target short query with node_class and datacenter combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "us east 1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us+east+1",
+			},
+			name: "node target short query with space in value",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{

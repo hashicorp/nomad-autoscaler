@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+* plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
+
 ## 0.5.0 (May 18, 2026)
 
 FEATURES:

@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+IMPROVEMENTS:
+* plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
+
 ## 0.5.0 (May 18, 2026)
 
 FEATURES:
@@ -17,7 +20,6 @@ IMPROVEMENTS:
 * plugin/apm/nomad: Support continued scaling during node drain (node_filter_ignore_drain) with safety and test hardening. [[GH-1271](https://github.com/hashicorp/nomad-autoscaler/pull/1271)]
 * plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
 * scaleutils: Fix scale-in node identification to honor requested num and avoid selecting all eligible nodes. [[GH-1282](https://github.com/hashicorp/nomad-autoscaler/pull/1282)]
-* plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
 
 BUG FIXES:
 * plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-1286](https://github.com/hashicorp/nomad-autoscaler/pull/1286)]

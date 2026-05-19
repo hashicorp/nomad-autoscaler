@@ -224,11 +224,11 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 
 func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) ([]*api.NodeListStub, error) {
 
-	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
+	ids, err := nodepool.NewClusterNodePoolIdentifierList(cfg)
 	if err != nil {
 		return nil, err
 	}
-	c.log.Debug("performing node pool filtering", poolID.Key(), poolID.Value())
+	c.log.Debug("performing node pool filtering", "identifiers", fmt.Sprintf("%v", ids))
 
 	// Pull a current list of Nomad nodes from the API including populated
 	// resource fields.
@@ -259,7 +259,7 @@ func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) 
 		return nil, err
 	}
 
-	filteredNodes, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts)
+	filteredNodes, err := FilterNodesWithOptions(nodes, ids.IsPoolMember, filterOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) 
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
-		return nil, fmt.Errorf("no nodes unfiltered for %s with value %s", poolID.Key(), poolID.Value())
+		return nil, fmt.Errorf("no nodes unfiltered for pool identifiers %v", ids)
 	}
 
 	return filteredNodes, nil
@@ -398,7 +398,7 @@ func (c *ClusterScaleUtils) RunPostScaleInTasks(_ context.Context, cfg map[strin
 // there was a problem performing the check.
 func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 
-	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
+	ids, err := nodepool.NewClusterNodePoolIdentifierList(cfg)
 	if err != nil {
 		return false, err
 	}
@@ -412,7 +412,7 @@ func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if _, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts); err != nil {
+	if _, err := FilterNodesWithOptions(nodes, ids.IsPoolMember, filterOpts); err != nil {
 		c.log.Warn("node pool status readiness check failed", "error", err)
 		return false, nil
 	}

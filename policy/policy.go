@@ -83,6 +83,25 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
 	}
 
+	// Validate that Nomad APM queries for node pool targets use the short format.
+	// Long-form queries are internal only and must not be written by operators.
+	if p.Target != nil && p.Target.IsNodePoolTarget() {
+		for _, c := range p.Checks {
+			if c == nil {
+				continue
+			}
+			source := c.Source
+			if source == "" {
+				source = plugins.InternalAPMNomad
+			}
+			if pr.isNomadAPMQuery(source) && !isShortQuery(c.Query) {
+				mErr = multierror.Append(mErr, fmt.Errorf(
+					"check %q: query must be in short format (<operation>_<metric>) for Nomad APM node pool targets",
+					c.Name))
+			}
+		}
+	}
+
 	for _, c := range p.Checks {
 		if c == nil || !c.QueryInstant || c.Strategy == nil {
 			continue
@@ -146,9 +165,8 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 		return
 	}
 
-	// If the query is not formatted in the short manner we do not have any
-	// work to do. Operators can add this if they want/know the autoscaler
-	// internal model.
+	// If the query already contains a slash it is in full internal form and
+	// does not need further processing.
 	if !isShortQuery(c.Query) {
 		return
 	}

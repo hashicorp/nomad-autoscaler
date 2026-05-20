@@ -224,6 +224,153 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 	}
 }
 
+func TestProcessor_ValidatePolicy_QueryFormat(t *testing.T) {
+	testCases := []struct {
+		inputPolicy    *sdk.ScalingPolicy
+		expectedOutput error
+		name           string
+	}{
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "percentage-allocated_memory",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid short query for node pool target passes",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "legacy long-form query rejected for node pool target",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/node_class=hashistack",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "full internal-form query rejected for node pool target",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:  "mem",
+						Query: "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "empty source defaults to nomad-apm and rejects long-form",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "prometheus",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "non-nomad-apm source skips query format validation",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{
+						"Job":       "example",
+						"Group":     "cache",
+						"Namespace": "default",
+					},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "non-node-pool target skips query format validation",
+		},
+	}
+
+	pr := Processor{nomadAPMs: []string{"nomad-apm"}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualOutput := pr.ValidatePolicy(tc.inputPolicy)
+			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+		})
+	}
+}
+
 func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 	testCases := []struct {
 		inputCheck          *sdk.ScalingPolicyCheck

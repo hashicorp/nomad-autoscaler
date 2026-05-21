@@ -7,6 +7,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -80,6 +81,66 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 			} else {
 				assert.NoError(t, err, tc.name)
 				assert.Len(t, ids, tc.expectedOutputLen, tc.name)
+			}
+		})
+	}
+}
+
+func Test_NewClusterNodePoolIdentifier(t *testing.T) {
+	testCases := []struct {
+		inputCfg       map[string]string
+		expectedKey    string
+		expectedValue  string
+		expectedErrMsg string
+		name           string
+	}{
+		{
+			inputCfg:       map[string]string{},
+			expectedErrMsg: "node pool identification method required",
+			name:           "empty config returns error",
+		},
+		{
+			inputCfg:      map[string]string{"node_class": "high-memory"},
+			expectedKey:   "node_class",
+			expectedValue: "high-memory",
+			name:          "single node_class returns class identifier",
+		},
+		{
+			inputCfg:      map[string]string{"datacenter": "dc1"},
+			expectedKey:   "datacenter",
+			expectedValue: "dc1",
+			name:          "single datacenter returns dc identifier",
+		},
+		{
+			inputCfg:      map[string]string{"node_pool": "gpu"},
+			expectedKey:   "node_pool",
+			expectedValue: "gpu",
+			name:          "single node_pool returns pool identifier",
+		},
+		{
+			inputCfg:      map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
+			expectedKey:   "node_class",
+			expectedValue: "high-memory",
+			name:          "multiple keys returns first (node_class takes priority)",
+		},
+		{
+			inputCfg:      map[string]string{"datacenter": "dc1", "node_pool": "gpu"},
+			expectedKey:   "datacenter",
+			expectedValue: "dc1",
+			name:          "datacenter and node_pool returns datacenter (priority order)",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, err := NewClusterNodePoolIdentifier(tc.inputCfg)
+			if tc.expectedErrMsg != "" {
+				must.EqError(t, err, tc.expectedErrMsg)
+				must.Nil(t, id)
+			} else {
+				must.NoError(t, err)
+				must.Eq(t, tc.expectedKey, id.Key())
+				must.Eq(t, tc.expectedValue, id.Value())
 			}
 		})
 	}

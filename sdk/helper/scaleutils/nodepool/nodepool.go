@@ -52,3 +52,15 @@ func NewClusterNodePoolIdentifierList(cfg map[string]string) (ClusterNodePoolIde
 	}
 	return ids, nil
 }
+
+// Deprecated: Use NewClusterNodePoolIdentifierList for multi-key AND filtering.
+// NewClusterNodePoolIdentifier returns a single ClusterNodePoolIdentifier from
+// the provided configuration. For backward compatibility, if multiple keys are
+// present only the first recognized identifier is returned.
+func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentifier, error) {
+	ids, err := NewClusterNodePoolIdentifierList(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return ids[0], nil
+}

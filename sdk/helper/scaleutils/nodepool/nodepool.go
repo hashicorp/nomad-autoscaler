@@ -57,6 +57,7 @@ func NewClusterNodePoolIdentifierList(cfg map[string]string) (ClusterNodePoolIde
 // NewClusterNodePoolIdentifier returns a single ClusterNodePoolIdentifier from
 // the provided configuration. For backward compatibility, if multiple keys are
 // present only the first recognized identifier is returned.
+// TODO: Remove this function in next Release.
 func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentifier, error) {
 	ids, err := NewClusterNodePoolIdentifierList(cfg)
 	if err != nil {

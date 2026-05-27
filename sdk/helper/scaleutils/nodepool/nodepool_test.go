@@ -76,11 +76,11 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ids, err := NewClusterNodePoolIdentifierList(tc.inputCfg)
 			if tc.expectedOutputErr != nil {
-				assert.Equal(t, tc.expectedOutputErr, err, tc.name)
-				assert.Nil(t, ids, tc.name)
+				must.EqError(t, err, tc.expectedOutputErr.Error())
+				must.Nil(t, ids)
 			} else {
-				assert.NoError(t, err, tc.name)
-				assert.Len(t, ids, tc.expectedOutputLen, tc.name)
+				must.NoError(t, err)
+				must.Len(t, tc.expectedOutputLen, ids)
 			}
 		})
 	}
@@ -88,59 +88,83 @@ func Test_NewClusterNodePoolIdentifierList(t *testing.T) {
 
 func Test_NewClusterNodePoolIdentifier(t *testing.T) {
 	testCases := []struct {
-		inputCfg       map[string]string
-		expectedKey    string
-		expectedValue  string
-		expectedErrMsg string
-		name           string
+		inputCfg            map[string]string
+		expectedOutputKey   string
+		expectedOutputValue string
+		expectedOutputErr   error
+		name                string
 	}{
 		{
-			inputCfg:       map[string]string{},
-			expectedErrMsg: "node pool identification method required",
-			name:           "empty config returns error",
+			inputCfg:            map[string]string{},
+			expectedOutputKey:   "",
+			expectedOutputValue: "",
+			expectedOutputErr:   errors.New("node pool identification method required"),
+			name:                "empty input config",
 		},
 		{
-			inputCfg:      map[string]string{"node_class": "high-memory"},
-			expectedKey:   "node_class",
-			expectedValue: "high-memory",
-			name:          "single node_class returns class identifier",
+			inputCfg:            map[string]string{"datacentre": "dc1"},
+			expectedOutputKey:   "",
+			expectedOutputValue: "",
+			expectedOutputErr:   errors.New("node pool identification method required"),
+			name:                "input config with incorrect key",
 		},
 		{
-			inputCfg:      map[string]string{"datacenter": "dc1"},
-			expectedKey:   "datacenter",
-			expectedValue: "dc1",
-			name:          "single datacenter returns dc identifier",
+			inputCfg:            map[string]string{"datacenter": "dc1"},
+			expectedOutputKey:   "datacenter",
+			expectedOutputValue: "dc1",
+			expectedOutputErr:   nil,
+			name:                "datacenter configured in config",
 		},
 		{
-			inputCfg:      map[string]string{"node_pool": "gpu"},
-			expectedKey:   "node_pool",
-			expectedValue: "gpu",
-			name:          "single node_pool returns pool identifier",
+			inputCfg:            map[string]string{"node_class": "high-memory"},
+			expectedOutputKey:   "node_class",
+			expectedOutputValue: "high-memory",
+			expectedOutputErr:   nil,
+			name:                "node_class configured in config",
 		},
 		{
-			inputCfg:      map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
-			expectedKey:   "node_class",
-			expectedValue: "high-memory",
-			name:          "multiple keys returns first (node_class takes priority)",
+			inputCfg:            map[string]string{"node_pool": "gpu"},
+			expectedOutputKey:   "node_pool",
+			expectedOutputValue: "gpu",
+			expectedOutputErr:   nil,
+			name:                "node_pool configured in config",
 		},
 		{
-			inputCfg:      map[string]string{"datacenter": "dc1", "node_pool": "gpu"},
-			expectedKey:   "datacenter",
-			expectedValue: "dc1",
-			name:          "datacenter and node_pool returns datacenter (priority order)",
+			inputCfg:            map[string]string{"node_class": "high-memory", "datacenter": "dc1"},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "node_class:high-memory and datacenter:dc1",
+			expectedOutputErr:   nil,
+			name:                "node_class and datacenter are configured in config",
+		},
+		{
+			inputCfg:            map[string]string{"node_pool": "gpu", "datacenter": "dc1"},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "datacenter:dc1 and node_pool:gpu",
+			expectedOutputErr:   nil,
+			name:                "node_pool and datacenter are configured in config",
+		},
+		{
+			inputCfg: map[string]string{
+				"node_class": "high-memory",
+				"node_pool":  "gpu",
+				"datacenter": "dc1",
+			},
+			expectedOutputKey:   "combined_identifier",
+			expectedOutputValue: "node_class:high-memory and datacenter:dc1 and node_pool:gpu",
+			expectedOutputErr:   nil,
+			name:                "node_class, node_pool, and datacenter are configured in config",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			id, err := NewClusterNodePoolIdentifier(tc.inputCfg)
-			if tc.expectedErrMsg != "" {
-				must.EqError(t, err, tc.expectedErrMsg)
-				must.Nil(t, id)
+			impl, err := NewClusterNodePoolIdentifier(tc.inputCfg)
+			if tc.expectedOutputErr != nil {
+				assert.Equal(t, tc.expectedOutputErr, err, tc.name)
 			} else {
-				must.NoError(t, err)
-				must.Eq(t, tc.expectedKey, id.Key())
-				must.Eq(t, tc.expectedValue, id.Value())
+				assert.NotNil(t, impl, tc.name)
+				assert.Equal(t, tc.expectedOutputKey, impl.Key(), tc.name)
+				assert.Equal(t, tc.expectedOutputValue, impl.Value(), tc.name)
 			}
 		})
 	}

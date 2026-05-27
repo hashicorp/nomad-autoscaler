@@ -54,14 +54,32 @@ func NewClusterNodePoolIdentifierList(cfg map[string]string) (ClusterNodePoolIde
 }
 
 // Deprecated: Use NewClusterNodePoolIdentifierList for multi-key AND filtering.
-// NewClusterNodePoolIdentifier returns a single ClusterNodePoolIdentifier from
-// the provided configuration. For backward compatibility, if multiple keys are
-// present only the first recognized identifier is returned.
+// NewClusterNodePoolIdentifier generates a new ClusterNodePoolIdentifier based
+// on the provided configuration. If a valid option is not found, an error will
+// be returned.
 // TODO: Remove this function in next Release.
 func NewClusterNodePoolIdentifier(cfg map[string]string) (ClusterNodePoolIdentifier, error) {
-	ids, err := NewClusterNodePoolIdentifierList(cfg)
-	if err != nil {
-		return nil, err
+	class, hasClass := cfg[sdk.TargetConfigKeyClass]
+	dc, hasDC := cfg[sdk.TargetConfigKeyDatacenter]
+	pool, hasPool := cfg[sdk.TargetConfigKeyNodePool]
+
+	ids := make([]ClusterNodePoolIdentifier, 0, 1)
+	if hasClass {
+		ids = append(ids, NewNodeClassPoolIdentifier(class))
 	}
-	return ids[0], nil
+	if hasDC {
+		ids = append(ids, NewNodeDatacenterPoolIdentifier(dc))
+	}
+	if hasPool {
+		ids = append(ids, NewNodePoolClusterPoolIdentifier(pool))
+	}
+
+	switch len(ids) {
+	case 0:
+		return nil, fmt.Errorf("node pool identification method required")
+	case 1:
+		return ids[0], nil
+	default:
+		return NewCombinedClusterPoolIdentifier(ids, CombinedClusterPoolIdentifierAnd), nil
+	}
 }

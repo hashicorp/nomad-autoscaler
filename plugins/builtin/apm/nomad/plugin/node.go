@@ -180,6 +180,10 @@ func (a *APMPlugin) getNodeAllocatedResources(client *api.Client, nodeID string,
 	return nil
 }
 
+// parseNodePoolQuery decodes a node pool query in the internal wire format:
+// node_<op>_<metric>/key1=val1[,key2=val2...]
+//
+// The inverse operation is formatNodePoolQuery in policy/policy.go.
 func parseNodePoolQuery(q string) (*nodePoolQuery, error) {
 
 	// Split into query prefix and pool identifier part.

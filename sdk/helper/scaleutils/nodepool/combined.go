@@ -3,7 +3,11 @@
 
 package nodepool
 
-import "github.com/hashicorp/nomad/api"
+import (
+	"strings"
+
+	"github.com/hashicorp/nomad/api"
+)
 
 // ClusterNodePoolIdentifierList is a list of ClusterNodePoolIdentifier
 // values that filters nodes using AND logic. A node must match every
@@ -18,4 +22,14 @@ func (l ClusterNodePoolIdentifierList) IsPoolMember(n *api.NodeListStub) bool {
 		}
 	}
 	return true
+}
+
+// String implements fmt.Stringer so that formatted printing produces a
+// human-readable representation instead of pointer addresses.
+func (l ClusterNodePoolIdentifierList) String() string {
+	parts := make([]string, len(l))
+	for i, id := range l {
+		parts[i] = id.Key() + "=" + id.Value()
+	}
+	return strings.Join(parts, ", ")
 }

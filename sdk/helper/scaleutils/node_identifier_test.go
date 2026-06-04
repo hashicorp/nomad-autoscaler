@@ -337,7 +337,7 @@ func Test_FilterNodes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
+			idFn, err := nodepool.NewClusterNodePoolIdentifierList(tc.inputIDCfg)
 			assert.NotNil(t, idFn, tc.name)
 			assert.Nil(t, err, tc.name)
 
@@ -449,7 +449,7 @@ func Test_FilterNodesWithOptions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			idFn, err := nodepool.NewClusterNodePoolIdentifier(tc.inputIDCfg)
+			idFn, err := nodepool.NewClusterNodePoolIdentifierList(tc.inputIDCfg)
 			must.NoError(t, err)
 			must.NotNil(t, idFn)
 

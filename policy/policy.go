@@ -6,6 +6,7 @@ package policy
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -82,35 +83,51 @@ func (pr *Processor) ValidatePolicy(p *sdk.ScalingPolicy) error {
 		mErr = multierror.Append(mErr, errors.New("policy Min must not be greater Max"))
 	}
 
+	// Validate that Nomad APM queries for node pool targets use the short format.
+	// Long-form queries are internal only and must not be written by operators.
+	isNodePool := p.Target != nil && p.Target.IsNodePoolTarget()
+
 	for _, c := range p.Checks {
-		if c == nil || !c.QueryInstant || c.Strategy == nil {
+		if c == nil {
 			continue
 		}
 
-		if c.Strategy.Name != plugins.InternalStrategyThreshold {
-			continue
+		// Node pool APM query format validation.
+		if isNodePool {
+			source := c.Source
+			if source == "" {
+				source = plugins.InternalAPMNomad
+			}
+			if pr.isNomadAPMQuery(source) && !isShortQuery(c.Query) {
+				mErr = multierror.Append(mErr, fmt.Errorf(
+					"check %q: query must be in short format (<operation>_<metric>) for Nomad APM node pool targets",
+					c.Name))
+			}
 		}
 
-		triggerRaw, ok := c.Strategy.Config[thresholdWithinBoundsTriggerConfigKey]
-		if !ok {
-			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
-					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
-			continue
-		}
+		// Threshold strategy with instant queries validation.
+		if c.QueryInstant && c.Strategy != nil && c.Strategy.Name == plugins.InternalStrategyThreshold {
+			triggerRaw, ok := c.Strategy.Config[thresholdWithinBoundsTriggerConfigKey]
+			if !ok {
+				mErr = multierror.Append(mErr,
+					fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+						c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+				continue
+			}
 
-		triggerValue, err := strconv.Atoi(triggerRaw)
-		if err != nil {
-			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
-					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
-			continue
-		}
+			triggerValue, err := strconv.Atoi(triggerRaw)
+			if err != nil {
+				mErr = multierror.Append(mErr,
+					fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+						c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+				continue
+			}
 
-		if triggerValue != 1 {
-			mErr = multierror.Append(mErr,
-				fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
-					c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+			if triggerValue != 1 {
+				mErr = multierror.Append(mErr,
+					fmt.Errorf("check %q: %q must be set to 1 when query_window = %q",
+						c.Name, thresholdWithinBoundsTriggerConfigKey, "instant"))
+			}
 		}
 	}
 
@@ -145,9 +162,8 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 		return
 	}
 
-	// If the query is not formatted in the short manner we do not have any
-	// work to do. Operators can add this if they want/know the autoscaler
-	// internal model.
+	// If the query already contains a slash it is in full internal form and
+	// does not need further processing.
 	if !isShortQuery(c.Query) {
 		return
 	}
@@ -167,13 +183,26 @@ func (pr *Processor) CanonicalizeAPMQuery(c *sdk.ScalingPolicyCheck, t *sdk.Scal
 	}
 
 	// If the target is a Nomad client node pool, format the query in the
-	// expected manner. Once the autoscaler supports more than just class
-	// identification of pools this func and logic will need to be updated. For
-	// now keep it simple.
+	// internal wire format.
 	if t.IsNodePoolTarget() {
-		c.Query = fmt.Sprintf("%s_%s/%s/class",
-			nomadAPM.QueryTypeNode, c.Query, t.Config[sdk.TargetConfigKeyClass])
+		c.Query = formatNodePoolQuery(c.Query, t.Config)
 	}
+}
+
+// formatNodePoolQuery encodes a short-form node pool query into the internal
+// wire format: node_<op>_<metric>/key1=url.QueryEscape(val1)[,key2=url.QueryEscape(val2)...]
+//
+// The inverse operation is parseNodePoolQuery in
+// plugins/builtin/apm/nomad/plugin/node.go.
+func formatNodePoolQuery(shortQuery string, cfg map[string]string) string {
+	var parts []string
+	for _, k := range []string{sdk.TargetConfigKeyClass, sdk.TargetConfigKeyDatacenter, sdk.TargetConfigKeyNodePool} {
+		if v, ok := cfg[k]; ok {
+			parts = append(parts, k+"="+url.QueryEscape(v))
+		}
+	}
+	return fmt.Sprintf("%s_%s/%s",
+		nomadAPM.QueryTypeNode, shortQuery, strings.Join(parts, ","))
 }
 
 // isNomadAPMQuery helps identify whether the policy query is aligned with a

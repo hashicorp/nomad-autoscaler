@@ -155,6 +155,13 @@ func TestScalingPolicyTarget_IsNodePoolTarget(t *testing.T) {
 			expectedOutput: true,
 			name:           "datacenter input target",
 		},
+		{
+			inputScalingPolicyTarget: &ScalingPolicyTarget{
+				Config: map[string]string{"node_pool": "gpu"},
+			},
+			expectedOutput: true,
+			name:           "node_pool input target",
+		},
 	}
 
 	for _, tc := range testCases {

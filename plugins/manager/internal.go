@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	datadog "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/datadog/plugin"
 	influxdb "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/influxdb/plugin"
+	instana "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/instana/plugin"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 	fixedValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/fixed-value/plugin"
@@ -67,6 +68,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalAPMInfluxDB:
 		info.factory = influxdb.PluginConfig.Factory
 		info.driver = "influxdb"
+	case plugins.InternalAPMInstana:
+		info.factory = instana.PluginConfig.Factory
+		info.driver = "instana"
 	case plugins.InternalTargetIBMIG:
 		info.factory = ibmcloudIG.PluginConfig.Factory
 		info.driver = "ibmcloud-ig"
@@ -118,7 +122,8 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetGCEMIG,
 		plugins.InternalTargetIBMIG,
 		plugins.InternalAPMDatadog,
-		plugins.InternalAPMInfluxDB:
+		plugins.InternalAPMInfluxDB,
+		plugins.InternalAPMInstana:
 		return true
 	default:
 		return false

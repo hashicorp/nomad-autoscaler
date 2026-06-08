@@ -143,3 +143,34 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 func (a *APMPlugin) QueryMultiple(_ string, _ sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
 	return nil, fmt.Errorf("not yet implemented")
 }
+
+// instanaQueryRequest is the JSON body POSTed to the Instana infrastructure
+// metrics endpoint: POST /api/infrastructure-monitoring/metrics
+type instanaQueryRequest struct {
+	TimeFrame   instanaTimeFrame `json:"timeFrame"`
+	Plugin      string           `json:"plugin"`
+	Query       string           `json:"query,omitempty"`
+	SnapshotIDs []string         `json:"snapshotIds,omitempty"`
+	Rollup      int32            `json:"rollup,omitempty"`
+	Metrics     []string         `json:"metrics"`
+}
+
+// instanaTimeFrame defines the query window sent to Instana.
+// Both fields are Unix millisecond epochs; WindowSize is To minus From.
+type instanaTimeFrame struct {
+	WindowSize int64 `json:"windowSize"`
+	To         int64 `json:"to"`
+}
+
+// instanaMetricsResponse is the top-level JSON response from Instana.
+type instanaMetricsResponse struct {
+	Items []instanaMetricItem `json:"items"`
+}
+
+// instanaMetricItem represents one entity snapshot returned in the response.
+// Metrics maps a metric ID to a slice of [timestamp_ms, value] pairs.
+type instanaMetricItem struct {
+	SnapshotID string                 `json:"snapshotId"`
+	Label      string                 `json:"label"`
+	Metrics    map[string][][2]float64 `json:"metrics"`
+}

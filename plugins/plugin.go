@@ -57,6 +57,9 @@ const (
 	// InternalAPMInfluxDB is the InfluxDB APM plugin name.
 	InternalAPMInfluxDB = "influxdb"
 
+	// InternalAPMInstana is the Instana APM plugin name.
+	InternalAPMInstana = "instana"
+
 	// InternalTargetIBMIG is the IBMCloud Instance Group target
 	// plugin.
 	InternalTargetIBMIG = "ibmcloud-ig"

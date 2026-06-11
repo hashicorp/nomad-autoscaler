@@ -250,3 +250,120 @@ func newTestPlugin(t *testing.T, baseURL, token string) *APMPlugin {
 		client: &http.Client{},
 	}
 }
+
+// TestAPMPlugin_parseItems verifies that parseItems correctly converts
+// Instana response items into sdk.TimestampedMetrics slices, including
+// zero-value points, multiple metrics per entity, and empty input.
+func TestAPMPlugin_parseItems(t *testing.T) {
+	testCases := []struct {
+		name      string
+		input     []instanaMetricItem
+		expectLen int   // number of TimestampedMetrics slices returned
+		expectPts []int // number of points in each slice (index-matched)
+	}{
+		{
+			name:      "nil input returns empty result",
+			input:     nil,
+			expectLen: 0,
+		},
+		{
+			name:      "empty items returns empty result",
+			input:     []instanaMetricItem{},
+			expectLen: 0,
+		},
+		{
+			name: "single entity single metric three points",
+			input: []instanaMetricItem{
+				{
+					SnapshotID: "abc123",
+					Metrics: map[string][][2]float64{
+						"cpu.used": {
+							{1717000000000, 42.5},
+							{1717000060000, 44.1},
+							{1717000120000, 43.7},
+						},
+					},
+				},
+			},
+			expectLen: 1,
+			expectPts: []int{3},
+		},
+		{
+			name: "zero value point is included not skipped",
+			input: []instanaMetricItem{
+				{
+					SnapshotID: "abc123",
+					Metrics: map[string][][2]float64{
+						"cpu.used": {
+							{1717000000000, 42.5},
+							{1717000060000, 0},
+							{1717000120000, 43.7},
+						},
+					},
+				},
+			},
+			expectLen: 1,
+			expectPts: []int{3},
+		},
+		{
+			name: "two entities one metric each returns two streams",
+			input: []instanaMetricItem{
+				{
+					SnapshotID: "abc123",
+					Metrics:    map[string][][2]float64{"cpu.used": {{1717000000000, 42.5}}},
+				},
+				{
+					SnapshotID: "def456",
+					Metrics:    map[string][][2]float64{"cpu.used": {{1717000000000, 71.2}}},
+				},
+			},
+			expectLen: 2,
+			expectPts: []int{1, 1},
+		},
+		{
+			name: "one entity two metrics returns two streams",
+			input: []instanaMetricItem{
+				{
+					SnapshotID: "abc123",
+					Metrics: map[string][][2]float64{
+						"cpu.used": {{1717000000000, 42.5}, {1717000060000, 44.1}},
+						"mem.used": {{1717000000000, 70.0}, {1717000060000, 72.3}},
+					},
+				},
+			},
+			expectLen: 2,
+			expectPts: []int{2, 2},
+		},
+		{
+			name: "timestamps converted from unix milliseconds correctly",
+			input: []instanaMetricItem{
+				{
+					SnapshotID: "abc123",
+					Metrics: map[string][][2]float64{
+						"cpu.used": {{1717000000000, 10.0}},
+					},
+				},
+			},
+			expectLen: 1,
+			expectPts: []int{1},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseItems(tc.input)
+
+			must.Len(t, tc.expectLen, got)
+
+			for i, wantPts := range tc.expectPts {
+				must.Len(t, wantPts, got[i])
+			}
+
+			// Verify the timestamp conversion for the millisecond case.
+			if tc.name == "timestamps converted from unix milliseconds correctly" {
+				must.Eq(t, int64(1717000000000), got[0][0].Timestamp.UnixMilli())
+				must.Eq(t, 10.0, got[0][0].Value)
+			}
+		})
+	}
+}

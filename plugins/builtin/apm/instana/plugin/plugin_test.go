@@ -18,6 +18,12 @@ import (
 	"github.com/shoenig/test/must"
 )
 
+var (
+	testFrom  = time.Date(2024, 5, 29, 12, 0, 0, 0, time.UTC)
+	testTo    = testFrom.Add(5 * time.Minute)
+	testQuery = `{"plugin":"host","metrics":["cpu.used"]}`
+)
+
 // TestAPMPlugin_SetConfig verifies that SetConfig accepts valid configurations
 // and rejects invalid ones, covering required fields, URL validation, and the
 // api_token environment variable fallback.
@@ -120,10 +126,6 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 // and correctly handles success responses, empty results, HTTP 429, and
 // generic HTTP errors.
 func TestAPMPlugin_QueryMultiple(t *testing.T) {
-	from := time.Date(2024, 5, 29, 12, 0, 0, 0, time.UTC)
-	to := from.Add(time.Hour)
-	validQuery := `{"plugin":"host","metrics":["cpu.used"]}`
-
 	testCases := []struct {
 		name        string
 		fixture     string            // response body loaded from test-fixtures/
@@ -138,14 +140,14 @@ func TestAPMPlugin_QueryMultiple(t *testing.T) {
 	}{
 		{
 			name:      "instant query returns error before HTTP",
-			query:     validQuery,
-			timeRange: sdk.TimeRange{From: from, To: from},
+			query:     testQuery,
+			timeRange: sdk.TimeRange{From: testFrom, To: testFrom},
 			expectErr: "instant",
 		},
 		{
 			name:      "invalid JSON query returns error before HTTP",
 			query:     "{bad-json",
-			timeRange: sdk.TimeRange{From: from, To: to},
+			timeRange: sdk.TimeRange{From: testFrom, To: testTo},
 			expectErr: "failed to unmarshal instana query",
 		},
 		{
@@ -153,38 +155,37 @@ func TestAPMPlugin_QueryMultiple(t *testing.T) {
 			fixture:    "query_200.json",
 			statusCode: http.StatusOK,
 			checkBody:  true,
-			query:      validQuery,
-			timeRange:  sdk.TimeRange{From: from, To: to},
+			query:      testQuery,
+			timeRange:  sdk.TimeRange{From: testFrom, To: testTo},
 			expectLen:  2,
 		},
 		{
 			name:       "empty items returns empty result",
 			fixture:    "query_empty.json",
 			statusCode: http.StatusOK,
-			query:      validQuery,
-			timeRange:  sdk.TimeRange{From: from, To: to},
+			query:      testQuery,
+			timeRange:  sdk.TimeRange{From: testFrom, To: testTo},
 			expectLen:  0,
 		},
 		{
 			name:       "HTTP 500 returns error with status code",
 			body:       "internal server error",
 			statusCode: http.StatusInternalServerError,
-			query:      validQuery,
-			timeRange:  sdk.TimeRange{From: from, To: to},
+			query:      testQuery,
+			timeRange:  sdk.TimeRange{From: testFrom, To: testTo},
 			expectErr:  "instana query failed with status 500",
 		},
 		{
 			name:        "HTTP 429 returns rate limit error",
 			statusCode:  http.StatusTooManyRequests,
 			respHeaders: map[string]string{rateLimitResetHdr: "1717000999000"},
-			query:       validQuery,
-			timeRange:   sdk.TimeRange{From: from, To: to},
+			query:       testQuery,
+			timeRange:   sdk.TimeRange{From: testFrom, To: testTo},
 			expectErr:   "ratelimited",
 		},
 	}
 
 	for _, tc := range testCases {
-
 		t.Run(tc.name, func(t *testing.T) {
 			// Cases with statusCode == 0 fail before making any HTTP request.
 			if tc.statusCode == 0 {
@@ -204,8 +205,8 @@ func TestAPMPlugin_QueryMultiple(t *testing.T) {
 				if tc.checkBody {
 					var req instanaQueryRequest
 					must.NoError(t, json.NewDecoder(r.Body).Decode(&req))
-					must.Eq(t, to.UnixMilli(), req.TimeFrame.To)
-					must.Eq(t, to.Sub(from).Milliseconds(), req.TimeFrame.WindowSize)
+					must.Eq(t, testTo.UnixMilli(), req.TimeFrame.To)
+					must.Eq(t, testTo.Sub(testFrom).Milliseconds(), req.TimeFrame.WindowSize)
 				}
 
 				for k, v := range tc.respHeaders {
@@ -371,10 +372,6 @@ func TestAPMPlugin_parseItems(t *testing.T) {
 // TestAPMPlugin_Query verifies the single-stream enforcement logic in Query:
 // 0 streams → empty result, 1 stream → unwrapped, n>1 streams → error.
 func TestAPMPlugin_Query(t *testing.T) {
-	from := time.Date(2024, 5, 29, 12, 0, 0, 0, time.UTC)
-	to := from.Add(time.Hour)
-	validQuery := `{"plugin":"host","metrics":["cpu.used"]}`
-
 	testCases := []struct {
 		name      string
 		fixture   string
@@ -386,29 +383,29 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}{
 		{
 			name:      "instant query propagates error from QueryMultiple",
-			query:     validQuery,
-			timeRange: sdk.TimeRange{From: from, To: from},
+			query:     testQuery,
+			timeRange: sdk.TimeRange{From: testFrom, To: testFrom},
 			expectErr: "instant",
 		},
 		{
 			name:      "zero streams returns empty result",
 			fixture:   "query_empty.json",
-			query:     validQuery,
-			timeRange: sdk.TimeRange{From: from, To: to},
+			query:     testQuery,
+			timeRange: sdk.TimeRange{From: testFrom, To: testTo},
 			expectNil: true,
 		},
 		{
 			name:      "one stream is unwrapped and returned",
 			fixture:   "query_null_values.json",
-			query:     validQuery,
-			timeRange: sdk.TimeRange{From: from, To: to},
+			query:     testQuery,
+			timeRange: sdk.TimeRange{From: testFrom, To: testTo},
 			expectLen: 3,
 		},
 		{
 			name:      "multiple streams returns error",
 			fixture:   "query_200.json",
-			query:     validQuery,
-			timeRange: sdk.TimeRange{From: from, To: to},
+			query:     testQuery,
+			timeRange: sdk.TimeRange{From: testFrom, To: testTo},
 			expectErr: "only 1 is expected",
 		},
 	}

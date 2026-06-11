@@ -378,7 +378,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 		query     string
 		timeRange sdk.TimeRange
 		expectErr string
-		expectNil bool // true when empty result is expected
+		expectEmpty bool // true when an empty (zero-length) result is expected
 		expectLen int  // expected number of points in the single returned stream
 	}{
 		{
@@ -392,7 +392,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 			fixture:   "query_empty.json",
 			query:     testQuery,
 			timeRange: sdk.TimeRange{From: testFrom, To: testTo},
-			expectNil: true,
+			expectEmpty: true,
 		},
 		{
 			name:      "one stream is unwrapped and returned",
@@ -439,7 +439,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 			}
 
 			must.NoError(t, err)
-			if tc.expectNil {
+			if tc.expectEmpty {
 				must.Len(t, 0, got)
 			} else {
 				must.Len(t, tc.expectLen, got)

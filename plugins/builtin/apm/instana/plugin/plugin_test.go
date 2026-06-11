@@ -367,3 +367,86 @@ func TestAPMPlugin_parseItems(t *testing.T) {
 		})
 	}
 }
+
+// TestAPMPlugin_Query verifies the single-stream enforcement logic in Query:
+// 0 streams → empty result, 1 stream → unwrapped, n>1 streams → error.
+func TestAPMPlugin_Query(t *testing.T) {
+	from := time.Date(2024, 5, 29, 12, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	validQuery := `{"plugin":"host","metrics":["cpu.used"]}`
+
+	testCases := []struct {
+		name      string
+		fixture   string
+		query     string
+		timeRange sdk.TimeRange
+		expectErr string
+		expectNil bool // true when empty result is expected
+		expectLen int  // expected number of points in the single returned stream
+	}{
+		{
+			name:      "instant query propagates error from QueryMultiple",
+			query:     validQuery,
+			timeRange: sdk.TimeRange{From: from, To: from},
+			expectErr: "instant",
+		},
+		{
+			name:      "zero streams returns empty result",
+			fixture:   "query_empty.json",
+			query:     validQuery,
+			timeRange: sdk.TimeRange{From: from, To: to},
+			expectNil: true,
+		},
+		{
+			name:      "one stream is unwrapped and returned",
+			fixture:   "query_null_values.json",
+			query:     validQuery,
+			timeRange: sdk.TimeRange{From: from, To: to},
+			expectLen: 3,
+		},
+		{
+			name:      "multiple streams returns error",
+			fixture:   "query_200.json",
+			query:     validQuery,
+			timeRange: sdk.TimeRange{From: from, To: to},
+			expectErr: "only 1 is expected",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Instant case fails before any HTTP call.
+			if tc.fixture == "" {
+				p := newTestPlugin(t, "https://fake.instana.io", "tok")
+				_, err := p.Query(tc.query, tc.timeRange)
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectErr)
+				return
+			}
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				data, err := os.ReadFile(filepath.Join("test-fixtures", tc.fixture))
+				must.NoError(t, err)
+				w.WriteHeader(http.StatusOK)
+				_, _ = w.Write(data)
+			}))
+			defer srv.Close()
+
+			p := newTestPlugin(t, srv.URL, "test-token")
+			got, err := p.Query(tc.query, tc.timeRange)
+
+			if tc.expectErr != "" {
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectErr)
+				return
+			}
+
+			must.NoError(t, err)
+			if tc.expectNil {
+				must.Len(t, 0, got)
+			} else {
+				must.Len(t, tc.expectLen, got)
+			}
+		})
+	}
+}

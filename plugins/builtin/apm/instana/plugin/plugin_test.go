@@ -4,9 +4,17 @@
 package plugin
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test/must"
 )
 
@@ -104,5 +112,141 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				must.NotNil(t, p.client)
 			}
 		})
+	}
+}
+
+// TestAPMPlugin_QueryMultiple verifies that QueryMultiple sends the correct
+// HTTP request (method, path, auth header, content-type, injected timeFrame)
+// and correctly handles success responses, empty results, HTTP 429, and
+// generic HTTP errors.
+func TestAPMPlugin_QueryMultiple(t *testing.T) {
+	from := time.Date(2024, 5, 29, 12, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	validQuery := `{"plugin":"host","metrics":["cpu.used"]}`
+
+	testCases := []struct {
+		name        string
+		fixture     string            // response body loaded from test-fixtures/
+		body        string            // raw response body (used when fixture is empty)
+		statusCode  int               // 0 means error before any HTTP call
+		respHeaders map[string]string // extra response headers
+		checkBody   bool              // when true, validate injected timeFrame in request
+		query       string
+		timeRange   sdk.TimeRange
+		expectErr   string
+		expectLen   int
+	}{
+		{
+			name:      "instant query returns error before HTTP",
+			query:     validQuery,
+			timeRange: sdk.TimeRange{From: from, To: from},
+			expectErr: "instant",
+		},
+		{
+			name:      "invalid JSON query returns error before HTTP",
+			query:     "{bad-json",
+			timeRange: sdk.TimeRange{From: from, To: to},
+			expectErr: "failed to unmarshal instana query",
+		},
+		{
+			name:       "two entities returned",
+			fixture:    "query_200.json",
+			statusCode: http.StatusOK,
+			checkBody:  true,
+			query:      validQuery,
+			timeRange:  sdk.TimeRange{From: from, To: to},
+			expectLen:  2,
+		},
+		{
+			name:       "empty items returns empty result",
+			fixture:    "query_empty.json",
+			statusCode: http.StatusOK,
+			query:      validQuery,
+			timeRange:  sdk.TimeRange{From: from, To: to},
+			expectLen:  0,
+		},
+		{
+			name:       "HTTP 500 returns error with status code",
+			body:       "internal server error",
+			statusCode: http.StatusInternalServerError,
+			query:      validQuery,
+			timeRange:  sdk.TimeRange{From: from, To: to},
+			expectErr:  "instana query failed with status 500",
+		},
+		{
+			name:        "HTTP 429 returns rate limit error",
+			statusCode:  http.StatusTooManyRequests,
+			respHeaders: map[string]string{rateLimitResetHdr: "1717000999000"},
+			query:       validQuery,
+			timeRange:   sdk.TimeRange{From: from, To: to},
+			expectErr:   "ratelimited",
+		},
+	}
+
+	for _, tc := range testCases {
+
+		t.Run(tc.name, func(t *testing.T) {
+			// Cases with statusCode == 0 fail before making any HTTP request.
+			if tc.statusCode == 0 {
+				p := newTestPlugin(t, "https://fake.instana.io", "tok")
+				_, err := p.QueryMultiple(tc.query, tc.timeRange)
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectErr)
+				return
+			}
+
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				must.Eq(t, http.MethodPost, r.Method)
+				must.Eq(t, metricsPath, r.URL.Path)
+				must.Eq(t, "apiToken test-token", r.Header.Get("Authorization"))
+				must.Eq(t, "application/json", r.Header.Get("Content-Type"))
+
+				if tc.checkBody {
+					var req instanaQueryRequest
+					must.NoError(t, json.NewDecoder(r.Body).Decode(&req))
+					must.Eq(t, to.UnixMilli(), req.TimeFrame.To)
+					must.Eq(t, to.Sub(from).Milliseconds(), req.TimeFrame.WindowSize)
+				}
+
+				for k, v := range tc.respHeaders {
+					w.Header().Set(k, v)
+				}
+				w.WriteHeader(tc.statusCode)
+
+				switch {
+				case tc.fixture != "":
+					data, err := os.ReadFile(filepath.Join("test-fixtures", tc.fixture))
+					must.NoError(t, err)
+					_, _ = w.Write(data)
+				case tc.body != "":
+					_, _ = w.Write([]byte(tc.body))
+				}
+			}))
+			defer srv.Close()
+
+			p := newTestPlugin(t, srv.URL, "test-token")
+			got, err := p.QueryMultiple(tc.query, tc.timeRange)
+
+			if tc.expectErr != "" {
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectErr)
+			} else {
+				must.NoError(t, err)
+				must.Len(t, tc.expectLen, got)
+			}
+		})
+	}
+}
+
+// newTestPlugin builds an APMPlugin wired to baseURL with the given token,
+// bypassing SetConfig so tests control the exact URL (e.g. an httptest server).
+func newTestPlugin(t *testing.T, baseURL, token string) *APMPlugin {
+	t.Helper()
+	u, err := url.Parse(baseURL)
+	must.NoError(t, err)
+	return &APMPlugin{
+		logger: hclog.NewNullLogger(),
+		cfg:    pluginConfig{BaseURL: u, APIToken: token},
+		client: &http.Client{},
 	}
 }

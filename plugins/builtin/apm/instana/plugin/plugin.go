@@ -4,11 +4,16 @@
 package plugin
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
@@ -29,6 +34,12 @@ const (
 
 	// envKeyAPIToken is the environment variable fallback for the API token.
 	envKeyAPIToken = "INSTANA_API_TOKEN"
+
+	// metricsPath is the Instana REST API path for infrastructure metrics.
+	metricsPath = "/api/infrastructure-monitoring/metrics"
+
+	// rateLimitResetHdr is the response header Instana sets when rate-limiting.
+	rateLimitResetHdr = "X-RateLimit-Reset"
 )
 
 var (
@@ -139,7 +150,128 @@ func (a *APMPlugin) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, er
 }
 
 // QueryMultiple executes an Instana infrastructure metrics query and returns
-// all result series as separate metric streams.
-func (a *APMPlugin) QueryMultiple(_ string, _ sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
-	return nil, fmt.Errorf("not yet implemented")
+// all result series as separate metric streams. The query string q must be a
+// JSON-encoded instanaQueryRequest (without the timeFrame field, which is
+// injected from r). One sdk.TimestampedMetrics is returned per
+// (entity snapshot × metric ID) pair in the response.
+func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedMetrics, error) {
+	if r.From.Equal(r.To) {
+		return nil, fmt.Errorf("query_window = %q is not supported by %s", "instant", pluginName)
+	}
+
+	a.logger.Debug("querying Instana", "query", q, "range", r)
+
+	var queryReq instanaQueryRequest
+	if err := json.Unmarshal([]byte(q), &queryReq); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal instana query: %w", err)
+	}
+
+	queryReq.TimeFrame = instanaTimeFrame{
+		WindowSize: r.To.Sub(r.From).Milliseconds(),
+		To:         r.To.UnixMilli(),
+	}
+
+	body, err := json.Marshal(queryReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal instana query request: %w", err)
+	}
+
+	metricsURL := *a.cfg.BaseURL
+	metricsURL.Path = strings.TrimSuffix(metricsURL.Path, "/") + metricsPath
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metricsURL.String(), bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("failed to build instana query request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "apiToken "+a.cfg.APIToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := a.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error querying metrics from instana: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return nil, fmt.Errorf("metric queries are ratelimited by instana, resets at %s",
+			resp.Header.Get(rateLimitResetHdr))
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("instana query failed with status %d: %s",
+			resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	var metricsResp instanaMetricsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&metricsResp); err != nil {
+		return nil, fmt.Errorf("failed to decode instana response: %w", err)
+	}
+
+	results := parseItems(metricsResp.Items)
+
+	if len(results) == 0 {
+		a.logger.Warn("empty time series response from instana, try a wider query window")
+	}
+
+	return results, nil
+}
+
+// parseItems converts the Instana response items into sdk.TimestampedMetrics
+// slices. One slice is returned per (entity snapshot × metric ID) pair.
+// Data points with zero timestamps are skipped.
+func parseItems(items []instanaMetricItem) []sdk.TimestampedMetrics {
+	var results []sdk.TimestampedMetrics
+
+	for _, item := range items {
+		for _, points := range item.Metrics {
+			var metrics sdk.TimestampedMetrics
+			for _, point := range points {
+				metrics = append(metrics, sdk.TimestampedMetric{
+					Timestamp: time.UnixMilli(int64(point[0])),
+					Value:     point[1],
+				})
+			}
+			if len(metrics) > 0 {
+				results = append(results, metrics)
+			}
+		}
+	}
+
+	return results
+}
+
+// instanaQueryRequest is the JSON body POSTed to the Instana infrastructure
+// metrics endpoint: POST /api/infrastructure-monitoring/metrics
+type instanaQueryRequest struct {
+	TimeFrame   instanaTimeFrame `json:"timeFrame"`
+	Plugin      string           `json:"plugin"`
+	Query       string           `json:"query,omitempty"`
+	SnapshotIDs []string         `json:"snapshotIds,omitempty"`
+	Rollup      int32            `json:"rollup,omitempty"`
+	Metrics     []string         `json:"metrics"`
+}
+
+// instanaTimeFrame defines the query window sent to Instana.
+// Both fields are Unix millisecond epochs; WindowSize is To minus From.
+type instanaTimeFrame struct {
+	WindowSize int64 `json:"windowSize"`
+	To         int64 `json:"to"`
+}
+
+// instanaMetricsResponse is the top-level JSON response from Instana.
+type instanaMetricsResponse struct {
+	Items []instanaMetricItem `json:"items"`
+}
+
+// instanaMetricItem represents one entity snapshot returned in the response.
+// Metrics maps a metric ID to a slice of [timestamp_ms, value] pairs.
+type instanaMetricItem struct {
+	SnapshotID string                 `json:"snapshotId"`
+	Label      string                 `json:"label"`
+	Metrics    map[string][][2]float64 `json:"metrics"`
 }

@@ -4,6 +4,10 @@
 package plugin
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -185,5 +189,88 @@ func Test_parseItems(t *testing.T) {
 			Timestamp: time.UnixMilli(1717000060000),
 			Value:     0,
 		}, result[0][1])
+	})
+}
+
+// TestAPMPlugin_QueryMultiple covers the logic owned exclusively by
+// QueryMultiple: the instant-query guard, JSON unmarshal of the query string,
+// and the end-to-end wiring of timeFrame injection + parseItems. HTTP-level
+// behaviour (non-2xx, rate limiting) is already covered in client_test.go.
+func TestAPMPlugin_QueryMultiple(t *testing.T) {
+	t.Run("instant query rejected before any HTTP call", func(t *testing.T) {
+		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		_, err := p.QueryMultiple(testQuery, sdk.TimeRange{From: testFrom, To: testFrom})
+		must.Error(t, err)
+		must.ErrorContains(t, err, "instant")
+	})
+
+	t.Run("invalid JSON query string returns unmarshal error", func(t *testing.T) {
+		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		_, err := p.QueryMultiple(`not-json`, sdk.TimeRange{From: testFrom, To: testTo})
+		must.Error(t, err)
+		must.ErrorContains(t, err, "failed to unmarshal instana query")
+	})
+
+	t.Run("valid query returns one series per item", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			data, err := os.ReadFile(filepath.Join("test-fixtures", "query_200.json"))
+			must.NoError(t, err)
+			_, _ = w.Write(data)
+		}))
+		defer srv.Close()
+
+		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		err := p.SetConfig(map[string]string{
+			configKeyEndpoint: srv.URL,
+			configKeyAPIToken: "test-token",
+		})
+		must.NoError(t, err)
+
+		result, err := p.QueryMultiple(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
+		must.NoError(t, err)
+		must.Eq(t, 2, len(result))
+		must.Eq(t, 3, len(result[0]))
+		must.Eq(t, 3, len(result[1]))
+	})
+}
+
+// TestAPMPlugin_Query covers only the fan-in switch that Query adds on top of
+// QueryMultiple: one series passes through, zero series returns empty without
+// error, and more than one series is rejected. QueryMultiple's own error paths
+// are not repeated here.
+func TestAPMPlugin_Query(t *testing.T) {
+	newPlugin := func(t *testing.T, fixture string) *APMPlugin {
+		t.Helper()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			data, err := os.ReadFile(filepath.Join("test-fixtures", fixture))
+			must.NoError(t, err)
+			_, _ = w.Write(data)
+		}))
+		t.Cleanup(srv.Close)
+
+		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		must.NoError(t, p.SetConfig(map[string]string{
+			configKeyEndpoint: srv.URL,
+			configKeyAPIToken: "test-token",
+		}))
+		return p
+	}
+
+	t.Run("single series is returned as-is", func(t *testing.T) {
+		result, err := newPlugin(t, "query_null_values.json").Query(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
+		must.NoError(t, err)
+		must.Eq(t, 3, len(result))
+	})
+
+	t.Run("zero series returns empty metrics without error", func(t *testing.T) {
+		result, err := newPlugin(t, "query_empty.json").Query(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
+		must.NoError(t, err)
+		must.Eq(t, 0, len(result))
+	})
+
+	t.Run("multiple series returns error", func(t *testing.T) {
+		_, err := newPlugin(t, "query_200.json").Query(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
+		must.Error(t, err)
+		must.ErrorContains(t, err, "query returned 2 metric streams")
 	})
 }

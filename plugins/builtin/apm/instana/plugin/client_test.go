@@ -39,6 +39,11 @@ func Test_getInfrastructureMetrics(t *testing.T) {
 			statusCode: http.StatusOK,
 		},
 		{
+			name:       "response with zero-value data points decodes without error",
+			fixture:    "query_null_values.json",
+			statusCode: http.StatusOK,
+		},
+		{
 			name:       "HTTP 500 returns error",
 			statusCode: http.StatusInternalServerError,
 			expectErr:  "instana query failed with status 500",

@@ -165,7 +165,7 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 
 // parseItems converts the Instana response items into sdk.TimestampedMetrics
 // slices. One slice is returned per (entity snapshot × metric ID) pair.
-// Data points with zero timestamps are skipped.
+// Series with no data points are omitted; individual points are never filtered.
 func parseItems(items []instanaMetricItem) []sdk.TimestampedMetrics {
 	var results []sdk.TimestampedMetrics
 

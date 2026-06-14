@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test/must"
 )
 
@@ -117,4 +118,72 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test_parseItems verifies the pure conversion logic: one sdk.TimestampedMetrics
+// slice is produced per (entity snapshot × metric ID) pair, and no data point
+// is silently dropped regardless of its value.
+func Test_parseItems(t *testing.T) {
+	t.Run("empty items returns nil", func(t *testing.T) {
+		result := parseItems(nil)
+		must.Nil(t, result)
+	})
+
+	t.Run("two items one metric key each produces two series", func(t *testing.T) {
+		items := []instanaMetricItem{
+			{
+				SnapshotID: "snap-a",
+				Metrics: map[string][][2]float64{
+					"cpu.used": {{1717000000000, 10.0}, {1717000060000, 20.0}},
+				},
+			},
+			{
+				SnapshotID: "snap-b",
+				Metrics: map[string][][2]float64{
+					"cpu.used": {{1717000000000, 30.0}, {1717000060000, 40.0}},
+				},
+			},
+		}
+		result := parseItems(items)
+		must.Eq(t, 2, len(result))
+		must.Eq(t, 2, len(result[0]))
+		must.Eq(t, 2, len(result[1]))
+	})
+
+	t.Run("single item with two metric keys produces two series", func(t *testing.T) {
+		items := []instanaMetricItem{
+			{
+				SnapshotID: "snap-a",
+				Metrics: map[string][][2]float64{
+					"cpu.used":    {{1717000000000, 10.0}},
+					"memory.used": {{1717000000000, 512.0}},
+				},
+			},
+		}
+		result := parseItems(items)
+		// Map iteration order is non-deterministic; only the count is asserted.
+		must.Eq(t, 2, len(result))
+	})
+
+	t.Run("zero-value metric point is included not filtered", func(t *testing.T) {
+		items := []instanaMetricItem{
+			{
+				SnapshotID: "snap-a",
+				Metrics: map[string][][2]float64{
+					"cpu.used": {
+						{1717000000000, 42.5},
+						{1717000060000, 0},
+						{1717000120000, 43.7},
+					},
+				},
+			},
+		}
+		result := parseItems(items)
+		must.Eq(t, 1, len(result))
+		must.Eq(t, 3, len(result[0]))
+		must.Eq(t, sdk.TimestampedMetric{
+			Timestamp: time.UnixMilli(1717000060000),
+			Value:     0,
+		}, result[0][1])
+	})
 }

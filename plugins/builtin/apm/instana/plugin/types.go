@@ -1,3 +1,5 @@
+// Copyright IBM Corp. 2020, 2026
+
 package plugin
 
 // instanaMetricsRequest is the JSON body POSTed to the Instana infrastructure

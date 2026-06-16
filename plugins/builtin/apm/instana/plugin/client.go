@@ -13,17 +13,39 @@ import (
 	"strings"
 )
 
+const (
+	// metricsPath is the Instana REST API path for infrastructure metrics.
+	metricsPath = "/api/infrastructure-monitoring/metrics"
+
+	// rateLimitResetHdr is the response header Instana sets when rate-limiting.
+	rateLimitResetHdr = "X-RateLimit-Reset"
+)
+
 // instanaClient handles HTTP communication with the Instana REST API.
 type instanaClient struct {
-	baseURL  *url.URL
-	apiToken string
-	http     *http.Client
+	metricsURL string
+	apiToken   string
+	http       *http.Client
 }
 
-func newInstanaClient() *instanaClient {
-	return &instanaClient{
-		http: &http.Client{},
+func newInstanaClient(endpoint, apiToken string) (*instanaClient, error) {
+	parsedURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", configKeyEndpoint, err)
 	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return nil, fmt.Errorf("%s must be a valid absolute URL", configKeyEndpoint)
+	}
+
+	if apiToken == "" {
+		return nil, fmt.Errorf("%s config value cannot be empty", configKeyAPIToken)
+	}
+
+	return &instanaClient{
+		metricsURL: parsedURL.JoinPath(metricsPath).String(),
+		apiToken:   apiToken,
+		http:       &http.Client{},
+	}, nil
 }
 
 // getInfrastructureMetrics sends a POST request to the Instana infrastructure metrics endpoint.
@@ -33,10 +55,7 @@ func (c *instanaClient) getInfrastructureMetrics(ctx context.Context, request in
 		return nil, fmt.Errorf("failed to marshal instana query request: %w", err)
 	}
 
-	metricsURL := *c.baseURL // take a copy
-	metricsURL.Path = strings.TrimSuffix(metricsURL.Path, "/") + metricsPath
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, metricsURL.String(), bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.metricsURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to build instana query request: %w", err)
 	}

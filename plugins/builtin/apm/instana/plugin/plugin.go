@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -31,12 +30,6 @@ const (
 
 	// envKeyAPIToken is the environment variable fallback for the API token.
 	envKeyAPIToken = "INSTANA_API_TOKEN"
-
-	// metricsPath is the Instana REST API path for infrastructure metrics.
-	metricsPath = "/api/infrastructure-monitoring/metrics"
-
-	// rateLimitResetHdr is the response header Instana sets when rate-limiting.
-	rateLimitResetHdr = "X-RateLimit-Reset"
 )
 
 var (
@@ -58,30 +51,21 @@ var (
 // APMPlugin is the Instana implementation of the APM interface.
 type APMPlugin struct {
 	logger hclog.Logger
-	client *instanaClient
+	client *instanaClient //  nil until SetConfig succeeds
 }
 
 func NewInstanaPlugin(log hclog.Logger) apm.APM {
 	return &APMPlugin{
 		logger: log,
-		client: newInstanaClient(),
 	}
 }
 
 // SetConfig parses and validates the plugin configuration. All required fields
 // are checked before any state is mutated.
-func (a *APMPlugin) SetConfig(config map[string]string) error {
+func (a *APMPlugin) SetConfig(config map[string]string) (err error) {
 	endpoint := strings.TrimSpace(config[configKeyEndpoint])
 	if endpoint == "" {
 		return fmt.Errorf("%s config value cannot be empty", configKeyEndpoint)
-	}
-
-	parsedURL, err := url.Parse(endpoint)
-	if err != nil {
-		return fmt.Errorf("failed to parse %s: %w", configKeyEndpoint, err)
-	}
-	if parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return fmt.Errorf("%s must be a valid absolute URL", configKeyEndpoint)
 	}
 
 	// config key takes precedence over the environment variable.
@@ -89,12 +73,12 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 	if token == "" {
 		token = strings.TrimSpace(os.Getenv(envKeyAPIToken))
 	}
-	if token == "" {
-		return fmt.Errorf("%s config value cannot be empty", configKeyAPIToken)
-	}
 
-	a.client.baseURL = parsedURL
-	a.client.apiToken = token
+	// initialize instana client
+	a.client, err = newInstanaClient(endpoint, token)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -51,7 +51,7 @@ var (
 // APMPlugin is the Instana implementation of the APM interface.
 type APMPlugin struct {
 	logger hclog.Logger
-	client *instanaClient //  nil until SetConfig succeeds
+	client *instanaClient // nil until SetConfig succeeds
 }
 
 func NewInstanaPlugin(log hclog.Logger) apm.APM {
@@ -62,7 +62,7 @@ func NewInstanaPlugin(log hclog.Logger) apm.APM {
 
 // SetConfig parses and validates the plugin configuration. All required fields
 // are checked before any state is mutated.
-func (a *APMPlugin) SetConfig(config map[string]string) (err error) {
+func (a *APMPlugin) SetConfig(config map[string]string) error {
 	endpoint := strings.TrimSpace(config[configKeyEndpoint])
 	if endpoint == "" {
 		return fmt.Errorf("%s config value cannot be empty", configKeyEndpoint)
@@ -74,12 +74,12 @@ func (a *APMPlugin) SetConfig(config map[string]string) (err error) {
 		token = strings.TrimSpace(os.Getenv(envKeyAPIToken))
 	}
 
-	// initialize instana client
-	a.client, err = newInstanaClient(endpoint, token)
+	client, err := newInstanaClient(endpoint, token)
 	if err != nil {
 		return err
 	}
 
+	a.client = client
 	return nil
 }
 

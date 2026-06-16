@@ -70,7 +70,7 @@ func (c *instanaClient) getInfrastructureMetrics(ctx context.Context, request in
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("metric queries are ratelimited by instana, resets at %s",
+		return nil, fmt.Errorf("metric queries are rate limited by instana, resets at %s",
 			resp.Header.Get(rateLimitResetHdr))
 	}
 

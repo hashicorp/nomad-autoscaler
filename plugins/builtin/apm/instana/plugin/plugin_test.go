@@ -4,6 +4,7 @@
 package plugin
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -105,7 +106,6 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 
 			p := &APMPlugin{
 				logger: hclog.NewNullLogger(),
-				client: newInstanaClient(),
 			}
 			err := p.SetConfig(tc.inputConfig)
 
@@ -113,11 +113,11 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 				must.Error(t, err)
 				must.ErrorContains(t, err, tc.expectErr)
 				// state must not be partially committed on error
-				must.Nil(t, p.client.baseURL)
-				must.Eq(t, "", p.client.apiToken)
+				must.Nil(t, p.client)
 			} else {
 				must.NoError(t, err)
-				must.NotNil(t, p.client.baseURL)
+				must.NotNil(t, p.client)
+				must.NotEq(t, "", p.client.metricsURL)
 				must.NotEq(t, "", p.client.apiToken)
 			}
 		})
@@ -198,14 +198,14 @@ func Test_parseItems(t *testing.T) {
 // behaviour (non-2xx, rate limiting) is already covered in client_test.go.
 func TestAPMPlugin_QueryMultiple(t *testing.T) {
 	t.Run("instant query rejected before any HTTP call", func(t *testing.T) {
-		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		p := &APMPlugin{logger: hclog.NewNullLogger()}
 		_, err := p.QueryMultiple(testQuery, sdk.TimeRange{From: testFrom, To: testFrom})
 		must.Error(t, err)
 		must.ErrorContains(t, err, "instant")
 	})
 
 	t.Run("invalid JSON query string returns unmarshal error", func(t *testing.T) {
-		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		p := &APMPlugin{logger: hclog.NewNullLogger()}
 		_, err := p.QueryMultiple(`not-json`, sdk.TimeRange{From: testFrom, To: testTo})
 		must.Error(t, err)
 		must.ErrorContains(t, err, "failed to unmarshal instana query")
@@ -213,13 +213,20 @@ func TestAPMPlugin_QueryMultiple(t *testing.T) {
 
 	t.Run("valid query returns one series per item", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var got instanaMetricsRequest
+			must.NoError(t, json.NewDecoder(r.Body).Decode(&got))
+			must.Eq(t, "host", got.Plugin)
+			must.Eq(t, []string{"cpu.used"}, got.Metrics)
+			must.Eq(t, testTo.Sub(testFrom).Milliseconds(), got.TimeFrame.WindowSize)
+			must.Eq(t, testTo.UnixMilli(), got.TimeFrame.To)
+
 			data, err := os.ReadFile(filepath.Join("test-fixtures", "query_200.json"))
 			must.NoError(t, err)
 			_, _ = w.Write(data)
 		}))
 		defer srv.Close()
 
-		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		p := &APMPlugin{logger: hclog.NewNullLogger()}
 		err := p.SetConfig(map[string]string{
 			configKeyEndpoint: srv.URL,
 			configKeyAPIToken: "test-token",
@@ -248,7 +255,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 		}))
 		t.Cleanup(srv.Close)
 
-		p := &APMPlugin{logger: hclog.NewNullLogger(), client: newInstanaClient()}
+		p := &APMPlugin{logger: hclog.NewNullLogger()}
 		must.NoError(t, p.SetConfig(map[string]string{
 			configKeyEndpoint: srv.URL,
 			configKeyAPIToken: "test-token",
@@ -257,7 +264,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 	}
 
 	t.Run("single series is returned as-is", func(t *testing.T) {
-		result, err := newPlugin(t, "query_null_values.json").Query(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
+		result, err := newPlugin(t, "query_zero_value.json").Query(testQuery, sdk.TimeRange{From: testFrom, To: testTo})
 		must.NoError(t, err)
 		must.Eq(t, 3, len(result))
 	})

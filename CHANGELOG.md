@@ -1,5 +1,8 @@
 ## UNRELEASED
 
+FEATURES:
+* **plugin/apm/instana**: Add Instana APM plugin with support for infrastructure metrics queries. Authenticate using the `api_token` config key or the `INSTANA_API_TOKEN` environment variable. [[GH-1311](https://github.com/hashicorp/nomad-autoscaler/pull/1311)]
+
 IMPROVEMENTS:
 * plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
 

@@ -5,6 +5,7 @@ FEATURES:
 
 IMPROVEMENTS:
 * plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
+* policy/file: File-based scaling policies now support `jsonencode(...)` (for example in `check.query`). This makes complex JSON queries easier to write and maintain, since you can use native HCL objects instead of escaped JSON strings. [GH-1320](https://github.com/hashicorp/nomad-autoscaler/pull/1320)]
 
 ## 0.5.0 (May 18, 2026)
 

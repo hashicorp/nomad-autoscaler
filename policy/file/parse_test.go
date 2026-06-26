@@ -4,11 +4,15 @@
 package file
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -191,4 +195,80 @@ func Test_decodePolicyDoc_QueryWindowInvalid(t *testing.T) {
 	err := decodePolicyDoc(decodePolicy)
 	assert.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), "not-a-duration"))
+}
+
+func Test_decodeFile_JSONEncodeQuery(t *testing.T) {
+	policyContent := `
+scaling "jsonencode-policy" {
+  enabled = true
+  max     = 10
+
+  policy {
+    check "instana_check" {
+      source = "instana"
+      query = jsonencode({
+        plugin  = "host"
+        metrics = ["cpu.used"]
+      })
+
+      strategy "target-value" {
+        target = "80"
+      }
+    }
+
+    target "nomad" {
+      Job   = "example"
+      Group = "cache"
+    }
+  }
+}
+`
+
+	policyPath := filepath.Join(t.TempDir(), "policy.hcl")
+	must.NoError(t, os.WriteFile(policyPath, []byte(policyContent), 0o600))
+
+	policies, err := decodeFile(policyPath)
+	must.NoError(t, err)
+
+	check := policies["jsonencode-policy"].Checks[0]
+	var query struct {
+		Plugin  string   `json:"plugin"`
+		Metrics []string `json:"metrics"`
+	}
+	must.NoError(t, json.Unmarshal([]byte(check.Query), &query))
+	must.Eq(t, "host", query.Plugin)
+	must.Eq(t, []string{"cpu.used"}, query.Metrics)
+}
+
+func Test_decodeFile_UnsupportedFunctionRejected(t *testing.T) {
+	policyContent := `
+scaling "unsupported-function-policy" {
+  enabled = true
+  max     = 10
+
+  policy {
+    check "instana_check" {
+      source = "instana"
+      query  = file("query.json")
+
+      strategy "target-value" {
+        target = "80"
+      }
+    }
+
+    target "nomad" {
+      Job   = "example"
+      Group = "cache"
+    }
+  }
+}
+`
+
+	policyPath := filepath.Join(t.TempDir(), "policy.hcl")
+	must.NoError(t, os.WriteFile(policyPath, []byte(policyContent), 0o600))
+
+	_, err := decodeFile(policyPath)
+	must.Error(t, err)
+	must.StrContains(t, strings.ToLower(err.Error()), "function")
+	must.StrContains(t, strings.ToLower(err.Error()), "file")
 }

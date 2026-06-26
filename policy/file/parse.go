@@ -7,15 +7,24 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/zclconf/go-cty/cty/function"
+	"github.com/zclconf/go-cty/cty/function/stdlib"
 )
+
+var filePolicyEvalContext = &hcl.EvalContext{
+	Functions: map[string]function.Function{
+		"jsonencode": stdlib.JSONEncodeFunc,
+	},
+}
 
 func decodeFile(file string) (map[string]*sdk.ScalingPolicy, error) {
 	policies := make(map[string]*sdk.ScalingPolicy)
 
 	filePolicies := sdk.FileDecodeScalingPolicies{}
-	if err := hclsimple.DecodeFile(file, nil, &filePolicies); err != nil {
+	if err := hclsimple.DecodeFile(file, filePolicyEvalContext, &filePolicies); err != nil {
 		return nil, err
 	}
 

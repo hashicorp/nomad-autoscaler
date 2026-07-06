@@ -4,7 +4,7 @@ go 1.25.10
 
 require (
 	github.com/DataDog/datadog-api-client-go v1.16.0
-	github.com/IBM/go-sdk-core/v5 v5.22.0
+	github.com/IBM/go-sdk-core/v5 v5.22.1
 	github.com/IBM/vpc-go-sdk v0.87.0
 	github.com/aws/aws-sdk-go-v2 v1.24.0
 	github.com/aws/aws-sdk-go-v2/config v1.26.1
@@ -122,7 +122,7 @@ require (
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926 // indirect
-	go.mongodb.org/mongo-driver v1.17.7 // indirect
+	go.mongodb.org/mongo-driver v1.17.9 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect

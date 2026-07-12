@@ -28,7 +28,7 @@ require (
 	github.com/prometheus/common v0.69.0
 	github.com/shoenig/test v1.13.2
 	github.com/stretchr/testify v1.11.1
-	github.com/zclconf/go-cty v1.18.1
+	github.com/zclconf/go-cty v1.19.0
 	golang.org/x/text v0.40.0
 	golang.org/x/time v0.15.0
 	google.golang.org/api v0.287.0
@@ -38,6 +38,7 @@ require (
 
 require (
 	github.com/Microsoft/go-winio v0.6.2 // indirect
+	github.com/apparentlymart/go-textseg/v17 v17.0.1 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 )

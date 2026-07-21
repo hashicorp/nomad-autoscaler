@@ -1,16 +1,19 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/shoenig/test"
 	"github.com/shoenig/test/must"
@@ -23,6 +26,22 @@ type MockLimiter struct {
 
 	callslock     sync.Mutex
 	releaseCalled bool
+}
+
+type stubChecker struct {
+	action    sdk.ScalingAction
+	err       error
+	groupName string
+	calls     int
+}
+
+func (s *stubChecker) runCheckAndCapCount(_ context.Context, _ int64, _ *queryMetricsCache) (sdk.ScalingAction, error) {
+	s.calls++
+	return s.action, s.err
+}
+
+func (s *stubChecker) group() string {
+	return s.groupName
 }
 
 func (m *MockLimiter) getReleaseCalled() bool {
@@ -109,15 +128,15 @@ func TestHandler_WaitAndScale(t *testing.T) {
 		},
 		{
 			name:          "slot_error",
-			getSlotErr:    testErr,
+			getSlotErr:    errTest,
 			expectedState: StateWaitingTurn,
-			expectedErr:   testErr,
+			expectedErr:   errTest,
 		},
 		{
 			name:          "scale_error",
-			scaleErr:      testErr,
+			scaleErr:      errTest,
 			expectedState: StateScaling,
-			expectedErr:   testErr,
+			expectedErr:   errTest,
 		},
 	}
 
@@ -296,6 +315,113 @@ func Test_pickWinnerActionFromGroups(t *testing.T) {
 	}
 }
 
+func TestHandler_calculateNewCount_SentinelErrorsSkipped_UnknownErrorFails(t *testing.T) {
+	testCases := []struct {
+		name            string
+		runners         []*stubChecker
+		expectedCalls   []int
+		expectedAction  sdk.ScalingAction
+		expectedErrText string
+	}{
+		{
+			name: "sentinel_skipped_outside_schedule",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    errCheckOutsideSchedule,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
+				},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{Direction: sdk.ScaleDirectionDown, Count: 0},
+		},
+		{
+			name: "evaluation_canceled_aborts_loop",
+			runners: []*stubChecker{
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionNone, Count: 2},
+					err:    context.Canceled,
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
+			},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
+		},
+		{
+			name: "unknown_error_fails",
+			runners: []*stubChecker{
+				{
+					err: errors.New("boom"),
+				},
+				{
+					action: sdk.ScalingAction{Direction: sdk.ScaleDirectionUp, Count: 5},
+				},
+			},
+			expectedCalls:   []int{1, 0},
+			expectedErrText: "failed to run check and cap count",
+		},
+		{
+			name: "all_outside_schedule_returns_no_action",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: errCheckOutsideSchedule},
+			},
+			expectedCalls:  []int{1, 1},
+			expectedAction: sdk.ScalingAction{},
+		},
+		{
+			name: "outside_schedule_then_canceled_aborts",
+			runners: []*stubChecker{
+				{err: errCheckOutsideSchedule},
+				{err: context.Canceled},
+			},
+			expectedCalls:   []int{1, 1},
+			expectedErrText: "failed to run check and cap count",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			checkRunners := make([]checker, len(tc.runners))
+			for i, runner := range tc.runners {
+				checkRunners[i] = runner
+			}
+
+			handler := &Handler{
+				log: hclog.NewNullLogger(),
+				policy: &sdk.ScalingPolicy{
+					ID: "test-policy",
+					Target: &sdk.ScalingPolicyTarget{
+						Name:   "mock-target",
+						Config: map[string]string{},
+					},
+				},
+				checkRunners: checkRunners,
+			}
+
+			action, err := handler.calculateNewCount(context.Background(), 2)
+			if tc.expectedErrText != "" {
+				must.Error(t, err)
+				must.ErrorContains(t, err, tc.expectedErrText)
+				for i, runner := range tc.runners {
+					must.Eq(t, tc.expectedCalls[i], runner.calls)
+				}
+				return
+			}
+
+			must.NoError(t, err)
+			must.Eq(t, tc.expectedAction, action)
+			for i, runner := range tc.runners {
+				must.Eq(t, tc.expectedCalls[i], runner.calls)
+			}
+		})
+	}
+}
+
 func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -313,7 +439,7 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 		policy:           policy,
 		updatesCh:        updatesCh,
 		errChn:           errCh,
-		targetController: &mockTargetController{statusErr: testErr},
+		targetController: &mockTargetController{statusErr: errTest},
 		state:            StateIdle,
 	}
 
@@ -323,7 +449,7 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 
 	select {
 	case err := <-errCh:
-		must.True(t, errors.Is(err, testErr))
+		must.True(t, errors.Is(err, errTest))
 	default:
 		t.Fatal("expected error getting target status")
 	}
@@ -398,6 +524,102 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 	must.Eq(t, sdk.ScalingAction{}, handler.getNextAction())
 }
 
+func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
+	nowFunc = func() time.Time {
+		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
+	}
+
+	errCh := make(chan error, 1)
+	updatesCh := make(chan *sdk.ScalingPolicy)
+
+	policy := &sdk.ScalingPolicy{
+		ID:                 "test-policy",
+		EvaluationInterval: 10 * time.Millisecond,
+		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
+		Schedule: &sdk.ScalingPolicySchedule{
+			Start:    "0 9 * * *",
+			Duration: "30m",
+		},
+	}
+
+	logs := bytes.NewBuffer(nil)
+	logger := hclog.New(&hclog.LoggerOptions{
+		Output: logs,
+		Level:  hclog.Debug,
+	})
+
+	handler := &Handler{
+		log:              logger,
+		policy:           policy,
+		updatesCh:        updatesCh,
+		errChn:           errCh,
+		targetController: &mockTargetController{statusErr: errTest},
+		state:            StateIdle,
+	}
+
+	mtc := handler.targetController.(*mockTargetController)
+
+	must.NoError(t, handler.applyPolicyState(policy))
+
+	ctx, cancel := context.WithTimeout(t.Context(), policy.EvaluationInterval*3)
+	defer cancel()
+
+	handler.Run(ctx) // blocking call
+
+	select {
+	case err := <-errCh:
+		t.Fatalf("expected no evaluation while outside schedule window, got error: %v", err)
+	default:
+	}
+
+	must.False(t, mtc.getStatusCalled())
+
+	logLines := strings.Split(logs.String(), "\n")
+	// we expect one log for "context done" and at least one log for "skipping evaluation, outside schedule window"
+	must.Greater(t, 2, len(logLines), must.Sprintf("not enough logs: %v", logLines))
+	for _, line := range logLines {
+		if line == "" || strings.Contains(line, "context done") {
+			continue
+		}
+		if !strings.Contains(line, "skipping evaluation, outside schedule window") {
+			t.Errorf("expected only 'outside schedule window' logs, got: %q", line)
+		}
+	}
+}
+
+func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
+	fixedValuePolicy := &sdk.ScalingPolicy{
+		ID:                 "fixed-value-policy",
+		Type:               sdk.ScalingPolicyTypeHorizontal,
+		EvaluationInterval: time.Second,
+		Target:             &sdk.ScalingPolicyTarget{Name: "mock-target", Config: map[string]string{}},
+		Checks: []*sdk.ScalingPolicyCheck{
+			{
+				Name: "check-fixed-value",
+				// source and query are not needed for fixed-value, because the APM query should be skipped entirely.
+				Strategy: &sdk.ScalingPolicyStrategy{
+					Name:   plugins.InternalStrategyFixedValue,
+					Config: map[string]string{"value": "3"},
+				},
+			},
+		},
+	}
+
+	h := &Handler{
+		log: hclog.NewNullLogger(),
+		pm: &MockDependencyGetter{
+			APMLookerErr: errTest,
+			StrategyRunner: &mockStrategyRunner{
+				t: t,
+			},
+		},
+	}
+
+	err := h.applyPolicyState(fixedValuePolicy)
+	must.NoError(t, err)
+	must.Eq(t, 1, len(h.checkRunners))
+}
+
 var policy = &sdk.ScalingPolicy{
 	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",
@@ -468,7 +690,7 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 		pm:               mdg,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
@@ -531,7 +753,7 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		limiter:          ml,
 	}
 
-	must.NoError(t, handler.loadCheckRunners())
+	must.NoError(t, handler.applyPolicyState(handler.policy))
 
 	go handler.Run(ctx)
 	time.Sleep(30 * time.Millisecond)
@@ -579,7 +801,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 			name:                "initial_state_idle_with_scaling_error",
 			initialHandlerState: StateIdle,
 			expectedState:       StateIdle,
-			scalingErr:          testErr,
+			scalingErr:          errTest,
 			initialCooldownEnd:  time.Time{},
 			scaleExpected:       true,
 			expectedCooldownEnd: time.Time{},
@@ -687,7 +909,7 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				nextAction:      sdk.ScalingAction{},
 			}
 
-			must.NoError(t, handler.loadCheckRunners())
+			must.NoError(t, handler.applyPolicyState(handler.policy))
 
 			go handler.Run(ctx)
 			time.Sleep(30 * time.Millisecond)

@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package command
@@ -76,7 +76,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				Nomad: &config.Nomad{
 					Address:            "http://nomad.example.com",
 					Region:             "milky_way",
-					Namespace:          "prod",
+					Namespaces:         []string{"prod"},
 					Token:              "TOKEN",
 					HTTPAuth:           "user:pass",
 					CACert:             "./ca-cert.pem",
@@ -228,7 +228,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				Nomad: &config.Nomad{
 					Address:       "http://nomad_from_file.example.com:4646",
 					Region:        "file",
-					Namespace:     "staging",
+					Namespaces:    []string{"staging"},
 					Token:         "TOKEN_FROM_FILE",
 					HTTPAuth:      "user:file",
 					CACert:        "./ca-cert-from-file.pem",
@@ -315,7 +315,7 @@ func TestCommandAgent_readConfig(t *testing.T) {
 				Nomad: &config.Nomad{
 					Address:       "http://nomad_from_file.example.com:4646",
 					Region:        "file",
-					Namespace:     "staging",
+					Namespaces:    []string{"staging"},
 					Token:         "TOKEN_FROM_FILE",
 					HTTPAuth:      "user:file",
 					CACert:        "./ca-cert-from-file.pem",

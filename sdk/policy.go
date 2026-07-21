@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package sdk
@@ -75,6 +75,10 @@ type ScalingPolicy struct {
 	// in a high rate of change in the target.
 	EvaluationInterval time.Duration
 
+	// Schedule controls when the policy has effect. When set, evaluations that
+	// happen outside the active window produce no effect.
+	Schedule *ScalingPolicySchedule
+
 	// Checks is an array of checks which will be triggered in parallel to
 	// determine the desired state of the ScalingPolicyTarget.
 	Checks []*ScalingPolicyCheck
@@ -108,10 +112,18 @@ func (p *ScalingPolicy) Validate() error {
 		result = multierror.Append(result, fmt.Errorf("empty checks, this policy won't execute any verification or scaling and should have enabled set to false"))
 	}
 
+	if err := ValidateScalingPolicySchedule(p.Schedule); err != nil {
+		result = multierror.Append(result, fmt.Errorf("policy.schedule: %w", err))
+	}
+
 	for _, c := range p.Checks {
 		if c.Strategy == nil || c.Strategy.Name == "" {
 			result = multierror.Append(result, fmt.Errorf("invalid check %s: missing strategy value", c.Name))
 			continue
+		}
+
+		if err := ValidateScalingPolicySchedule(c.Schedule); err != nil {
+			result = multierror.Append(result, fmt.Errorf("check %s.schedule: %w", c.Name, err))
 		}
 
 		if p.Type == ScalingPolicyTypeCluster || p.Type == ScalingPolicyTypeHorizontal {
@@ -160,6 +172,17 @@ type ScalingPolicyCheck struct {
 	// the query window.
 	QueryWindowOffset time.Duration
 
+	// QueryInstant requests point-in-time evaluation for this check.
+	//
+	// When true, the query is evaluated at a single timestamp instead of over
+	// QueryWindow. This behavior depends on the source plugin. For Prometheus,
+	// this maps to the instant query API.
+	QueryInstant bool
+
+	// Schedule controls when the check has effect. When set, evaluations that
+	// happen outside the active window produce no effect for this check.
+	Schedule *ScalingPolicySchedule
+
 	// Strategy is the ScalingPolicyStrategy to use when performing the
 	// ScalingPolicyCheck evaluation.
 	Strategy *ScalingPolicyStrategy
@@ -186,6 +209,17 @@ type ScalingPolicyStrategy struct {
 	// Config is the mapping of config values used by the strategy plugin. Each
 	// plugin has a set of potentially uniquely supported keys.
 	Config map[string]string `hcl:",remain"`
+}
+
+// ScalingPolicySchedule controls when a policy/check has effect.
+//
+// A schedule is defined as start + (end xor duration):
+//   - start + end uses cron boundaries
+//   - start + duration uses a cron start and a relative duration
+type ScalingPolicySchedule struct {
+	Start    string `hcl:"start"`
+	End      string `hcl:"end,optional"`
+	Duration string `hcl:"duration,optional"`
 }
 
 // ScalingPolicyTarget identifies the target for which the ScalingPolicy as a
@@ -217,7 +251,8 @@ func (t *ScalingPolicyTarget) IsNodePoolTarget() bool {
 	}
 	_, classOK := t.Config[TargetConfigKeyClass]
 	_, dcOK := t.Config[TargetConfigKeyDatacenter]
-	return classOK || dcOK
+	_, poolOK := t.Config[TargetConfigKeyNodePool]
+	return classOK || dcOK || poolOK
 }
 
 type FileDecodeScalingPolicies struct {
@@ -244,6 +279,7 @@ type FileDecodePolicyDoc struct {
 	CooldownOnScaleUpHCL  string `hcl:"cooldown_on_scale_up,optional"`
 	EvaluationInterval    time.Duration
 	EvaluationIntervalHCL string                      `hcl:"evaluation_interval,optional"`
+	Schedule              *ScalingPolicySchedule      `hcl:"schedule,block"`
 	OnCheckError          string                      `hcl:"on_check_error,optional"`
 	Checks                []*FileDecodePolicyCheckDoc `hcl:"check,block"`
 	Target                *ScalingPolicyTarget        `hcl:"target,block"`
@@ -258,6 +294,7 @@ type FileDecodePolicyCheckDoc struct {
 	QueryWindowHCL       string `hcl:"query_window,optional"`
 	QueryWindowOffset    time.Duration
 	QueryWindowOffsetHCL string                 `hcl:"query_window_offset,optional"`
+	Schedule             *ScalingPolicySchedule `hcl:"schedule,block"`
 	OnError              string                 `hcl:"on_error,optional"`
 	Strategy             *ScalingPolicyStrategy `hcl:"strategy,block"`
 }
@@ -274,6 +311,7 @@ func (fpd *FileDecodeScalingPolicy) Translate() *ScalingPolicy {
 	p.Cooldown = fpd.Doc.Cooldown
 	p.CooldownOnScaleUp = fpd.Doc.CooldownOnScaleUp
 	p.EvaluationInterval = fpd.Doc.EvaluationInterval
+	p.Schedule = fpd.Doc.Schedule
 
 	p.OnCheckError = fpd.Doc.OnCheckError
 	p.Target = fpd.Doc.Target
@@ -303,6 +341,8 @@ func (fdc *FileDecodePolicyCheckDoc) Translate(c *ScalingPolicyCheck) {
 	c.Query = fdc.Query
 	c.QueryWindow = fdc.QueryWindow
 	c.QueryWindowOffset = fdc.QueryWindowOffset
+	c.QueryInstant = fdc.QueryWindowHCL == "instant"
+	c.Schedule = fdc.Schedule
 	c.OnError = fdc.OnError
 	c.Strategy = fdc.Strategy
 }

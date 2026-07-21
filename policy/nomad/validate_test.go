@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -273,6 +273,79 @@ func Test_validateScalingPolicy(t *testing.T) {
 			expectError: true,
 		},
 		{
+			name: "policy.check.query_window instant threshold missing within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound": 0.1,
+													"delta":       1,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "policy.check.query_window instant threshold invalid within_bounds_trigger",
+			input: &api.ScalingPolicy{
+				ID:   "id",
+				Type: "horizontal",
+				Target: map[string]string{
+					"key": "value",
+				},
+				Min: ptr.Of(int64(1)),
+				Max: ptr.Of(int64(5)),
+				Policy: map[string]interface{}{
+					keyChecks: []interface{}{
+						map[string]interface{}{
+							"check": []interface{}{
+								map[string]interface{}{
+									keySource:      "prometheus",
+									keyQuery:       "query",
+									keyQueryWindow: "instant",
+									keyStrategy: []interface{}{
+										map[string]interface{}{
+											"threshold": []interface{}{
+												map[string]interface{}{
+													"lower_bound":           0.1,
+													"delta":                 1,
+													"within_bounds_trigger": 3,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
 			name:        "policy.check.query is empty",
 			inputFile:   "invalid-empty-query",
 			expectError: true,
@@ -505,6 +578,73 @@ func Test_validateScalingPolicy(t *testing.T) {
 			} else {
 				must.NoError(t, err)
 			}
+		})
+	}
+}
+
+func Test_validateSchedule(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     map[string]interface{}
+		errorText string
+	}{
+		{
+			name: "valid start end",
+			input: map[string]interface{}{
+				"start": "0 9 * * *",
+				"end":   "0 17 * * *",
+			},
+			errorText: "",
+		},
+		{
+			name: "valid start duration",
+			input: map[string]interface{}{
+				"start":    "0 9 * * *",
+				"duration": "8h",
+			},
+			errorText: "",
+		},
+		{
+			name: "missing start",
+			input: map[string]interface{}{
+				"end": "0 17 * * *",
+			},
+			errorText: "start is required",
+		},
+		{
+			name: "missing end and duration",
+			input: map[string]interface{}{
+				"start": "0 9 * * *",
+			},
+			errorText: "exactly one of end or duration",
+		},
+		{
+			name: "both end and duration",
+			input: map[string]interface{}{
+				"start":    "0 9 * * *",
+				"end":      "0 17 * * *",
+				"duration": "8h",
+			},
+			errorText: "exactly one of end or duration",
+		},
+		{
+			name: "invalid cron fields",
+			input: map[string]interface{}{
+				"start":    "0 9 * *",
+				"duration": "8h",
+			},
+			errorText: "strict 5-field cron",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateSchedule(tc.input, "scaling.policy.schedule")
+			if tc.errorText == "" {
+				must.NoError(t, err)
+				return
+			}
+			must.ErrorContains(t, err, tc.errorText)
 		})
 	}
 }

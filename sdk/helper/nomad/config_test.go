@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -154,7 +154,7 @@ func Test_MergeDefaultWithAgentConfig(t *testing.T) {
 			inputConfig: &config.Nomad{
 				Address:            "http://demo.nomad:4646",
 				Region:             "vlc",
-				Namespace:          "platform",
+				Namespaces:         []string{"platform"},
 				Token:              "shhhhhhhh",
 				HTTPAuth:           "admin:admin",
 				CACert:             "/path/to/long-lived/ca-cert",

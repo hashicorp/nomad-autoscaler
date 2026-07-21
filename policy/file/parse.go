@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package file
@@ -7,15 +7,24 @@ import (
 	"time"
 
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/zclconf/go-cty/cty/function"
+	"github.com/zclconf/go-cty/cty/function/stdlib"
 )
+
+var filePolicyEvalContext = &hcl.EvalContext{
+	Functions: map[string]function.Function{
+		"jsonencode": stdlib.JSONEncodeFunc,
+	},
+}
 
 func decodeFile(file string) (map[string]*sdk.ScalingPolicy, error) {
 	policies := make(map[string]*sdk.ScalingPolicy)
 
 	filePolicies := sdk.FileDecodeScalingPolicies{}
-	if err := hclsimple.DecodeFile(file, nil, &filePolicies); err != nil {
+	if err := hclsimple.DecodeFile(file, filePolicyEvalContext, &filePolicies); err != nil {
 		return nil, err
 	}
 
@@ -70,11 +79,13 @@ func decodePolicyDoc(decodePolicy *sdk.FileDecodeScalingPolicy) error {
 		check := decodePolicy.Doc.Checks[i]
 
 		if check.QueryWindowHCL != "" {
-			w, err := time.ParseDuration(check.QueryWindowHCL)
-			if err != nil {
-				return err
+			if check.QueryWindowHCL != "instant" {
+				w, err := time.ParseDuration(check.QueryWindowHCL)
+				if err != nil {
+					return err
+				}
+				decodePolicy.Doc.Checks[i].QueryWindow = w
 			}
-			decodePolicy.Doc.Checks[i].QueryWindow = w
 		}
 
 		if check.QueryWindowOffsetHCL != "" {

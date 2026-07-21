@@ -36,7 +36,8 @@ tools: lint-tools test-tools generate-tools
 generate-tools: ## Install the tools used to generate code
 	@echo "==> Installing code generate tools..."
 	go install github.com/bufbuild/buf/cmd/buf@v1.45.0
-	go install github.com/golang/protobuf/protoc-gen-go@v1.5.3
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1
 	@echo "==> Done"
 
 .PHONY: test-tools

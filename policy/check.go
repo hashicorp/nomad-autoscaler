@@ -1,22 +1,31 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	hclog "github.com/hashicorp/go-hclog"
 	metrics "github.com/hashicorp/go-metrics"
+	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
 	"github.com/hashicorp/nomad-autoscaler/plugins/strategy"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
 var nowFunc = time.Now
+
+// errCheckOutsideSchedule signals that a check fell outside its configured
+// schedule window and should be skipped from winner selection. The caller in
+// the handler treats it as a non-fatal skip; any other error aborts the
+// evaluation.
+var errCheckOutsideSchedule = errors.New("check is not within defined schedule")
 
 type CheckRunnerConfig struct {
 	// Log is the logger to use for logging.
@@ -38,9 +47,42 @@ type checkRunner struct {
 	metricsGetter  apm.Looker
 	check          *sdk.ScalingPolicyCheck
 	policy         *sdk.ScalingPolicy
+	schedule       *compiledSchedule
+	scheduleErr    error
+	scheduleOnce   sync.Once
 }
 
-// NewCheckHandler returns a new checkHandler instance.
+type queryMetricsCacheKey struct {
+	source            string
+	query             string
+	queryWindow       time.Duration
+	queryWindowOffset time.Duration
+}
+
+type queryMetricsCacheEntry struct {
+	metrics sdk.TimestampedMetrics
+	err     error
+}
+
+type queryMetricsCache struct {
+	entries map[queryMetricsCacheKey]queryMetricsCacheEntry
+}
+
+func newQueryMetricsCache() *queryMetricsCache {
+	return &queryMetricsCache{entries: make(map[queryMetricsCacheKey]queryMetricsCacheEntry)}
+}
+
+func cloneMetrics(ms sdk.TimestampedMetrics) sdk.TimestampedMetrics {
+	if len(ms) == 0 {
+		return nil
+	}
+
+	cloned := make(sdk.TimestampedMetrics, len(ms))
+	copy(cloned, ms)
+	return cloned
+}
+
+// NewCheckRunner returns a new checkRunner instance.
 func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *checkRunner {
 	return &checkRunner{
 		log:            config.Log,
@@ -51,9 +93,15 @@ func newCheckRunner(config *CheckRunnerConfig, c *sdk.ScalingPolicyCheck) *check
 	}
 }
 
-// getNewCountFromStrategy begins the execution of the checks and returns
-// and action containing the instance count after applying the strategy to the
-// metrics.
+func (ch *checkRunner) ensureCompiledSchedule() error {
+	ch.scheduleOnce.Do(func() {
+		ch.schedule, ch.scheduleErr = compileSchedule(ch.check.Schedule)
+	})
+	return ch.scheduleErr
+}
+
+// getNewCountFromStrategy runs the strategy for one check and returns a
+// scaling action, applying check-level and policy-level error handling.
 func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount int64,
 	metrics sdk.TimestampedMetrics) (sdk.ScalingAction, error) {
 	ch.log.Debug("calculating new count", "current count", currentCount)
@@ -64,8 +112,8 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			"on_error", ch.check.OnError, "on_check_error",
 			ch.policy.OnCheckError, "error", err)
 
-		// Define how to handle error.
-		// Use check behaviour if set or fail iff the policy is set to fail.
+		// Use recognized check-level on_error values first.
+		// For unset or unrecognized values, fall back to policy on_check_error.
 		switch ch.check.OnError {
 		case sdk.ScalingPolicyOnErrorIgnore:
 			return sdk.ScalingAction{}, nil
@@ -77,6 +125,10 @@ func (ch *checkRunner) getNewCountFromStrategy(ctx context.Context, currentCount
 			if ch.policy.OnCheckError == sdk.ScalingPolicyOnErrorFail {
 				return sdk.ScalingAction{}, err
 			}
+
+			// Non-fatal fallback path: skip this check result and continue evaluating
+			// the remaining checks in the policy.
+			return sdk.ScalingAction{}, nil
 		}
 	} else {
 		ch.log.Debug("check returned count", "strategy", ch.check.Strategy.Name, "check", ch.check.Name, "count", a.Count, "reason", a.Reason)
@@ -118,7 +170,7 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 
 	select {
 	case <-ctx.Done():
-		return sdk.ScalingAction{}, nil
+		return sdk.ScalingAction{}, ctx.Err()
 	case <-strategyRunDoneCh:
 	}
 
@@ -134,8 +186,25 @@ func (ch *checkRunner) runStrategy(ctx context.Context, currentCount int64, ms s
 }
 
 // queryMetrics wraps the apm.Query call to provide operational functionality.
-func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics, error) {
+func (ch *checkRunner) queryMetrics(ctx context.Context, cache *queryMetricsCache) (sdk.TimestampedMetrics, error) {
 	ch.log.Debug("querying source", "query", ch.check.Query, "source", ch.check.Source)
+
+	cacheKey := queryMetricsCacheKey{
+		source:            ch.check.Source,
+		query:             ch.check.Query,
+		queryWindow:       ch.check.QueryWindow,
+		queryWindowOffset: ch.check.QueryWindowOffset,
+	}
+
+	if cache != nil {
+		if entry, ok := cache.entries[cacheKey]; ok {
+			ch.log.Trace("using cached query result")
+			if entry.err != nil {
+				return sdk.TimestampedMetrics{}, entry.err
+			}
+			return cloneMetrics(entry.metrics), nil
+		}
+	}
 
 	// Trigger a metric measure to track latency of the call.
 	labels := []metrics.Label{{Name: "plugin_name", Value: ch.check.Source},
@@ -146,6 +215,9 @@ func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 	// Calculate query range from the query window defined in the ch.check.
 	to := nowFunc().Add(-ch.check.QueryWindowOffset)
 	from := to.Add(-ch.check.QueryWindow)
+	if ch.check.QueryInstant {
+		from = to
+	}
 	r := sdk.TimeRange{From: from, To: to}
 
 	var err error
@@ -161,20 +233,31 @@ func (ch *checkRunner) queryMetrics(ctx context.Context) (sdk.TimestampedMetrics
 
 	select {
 	case <-ctx.Done():
-		return nil, nil
+		return nil, ctx.Err()
 	case <-apmQueryDoneCh:
 	}
 
 	if err != nil {
-		return sdk.TimestampedMetrics{}, fmt.Errorf("failed to query source: %w", err)
+		queryErr := fmt.Errorf("failed to query source: %w", err)
+		if cache != nil {
+			cache.entries[cacheKey] = queryMetricsCacheEntry{err: queryErr}
+		}
+		return sdk.TimestampedMetrics{}, queryErr
 	}
 
 	if len(ms) == 0 {
+		if cache != nil {
+			cache.entries[cacheKey] = queryMetricsCacheEntry{err: errNoMetrics}
+		}
 		return sdk.TimestampedMetrics{}, errNoMetrics
 	}
 
 	// Make sure metrics are sorted consistently.
 	sort.Sort(ms)
+
+	if cache != nil {
+		cache.entries[cacheKey] = queryMetricsCacheEntry{metrics: cloneMetrics(ms)}
+	}
 
 	return ms, nil
 }
@@ -183,18 +266,35 @@ func (ch *checkRunner) group() string {
 	return ch.check.Group
 }
 
-func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64) (sdk.ScalingAction, error) {
+// runCheckAndCapCount evaluates the check and caps the returned action.
+//
+// The method returns errCheckOutsideSchedule when the check is outside its
+// schedule window; the caller should skip this check and continue. Any other
+// error, including context errors, should abort the evaluation.
+func (ch *checkRunner) runCheckAndCapCount(ctx context.Context, currentCount int64, cache *queryMetricsCache) (sdk.ScalingAction, error) {
 	ch.log.Debug("received policy check for evaluation")
 
-	metrics, err := ch.queryMetrics(ctx)
-	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %v", err)
+	if err := ch.ensureCompiledSchedule(); err != nil {
+		return sdk.ScalingAction{}, fmt.Errorf("failed to compile check schedule: %w", err)
+	}
+
+	if ch.schedule != nil && !ch.schedule.activeAt(nowFunc()) {
+		return sdk.ScalingAction{}, errCheckOutsideSchedule
+	}
+
+	metrics := sdk.TimestampedMetrics{}
+	// Fixed-value strategy does not require APM metrics; all other strategies still do.
+	if ch.check.Strategy.Name != plugins.InternalStrategyFixedValue {
+		var err error
+		metrics, err = ch.queryMetrics(ctx, cache)
+		if err != nil {
+			return sdk.ScalingAction{}, fmt.Errorf("failed to query source: %w", err)
+		}
 	}
 
 	action, err := ch.getNewCountFromStrategy(ctx, currentCount, metrics)
 	if err != nil {
-		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %v", err)
-
+		return sdk.ScalingAction{}, fmt.Errorf("failed get count from metrics: %w", err)
 	}
 
 	action.CapCount(ch.policy.Min, ch.policy.Max)

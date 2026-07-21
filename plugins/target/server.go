@@ -1,14 +1,18 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package target
 
 import (
 	"context"
+	"errors"
 
 	plugin "github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/nomad-autoscaler/plugins/shared"
-	"github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
+	proto "github.com/hashicorp/nomad-autoscaler/plugins/target/proto/v1"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // pluginServer is the gRPC server implementation of the Target interface.
@@ -24,7 +28,15 @@ func (p *pluginServer) Scale(_ context.Context, req *proto.ScaleRequest) (*proto
 	if err != nil {
 		return nil, err
 	}
-	return &proto.ScaleResponse{}, p.impl.Scale(action, req.GetConfig())
+	err = p.impl.Scale(action, req.GetConfig())
+	if err != nil {
+		var noOpErr *sdk.TargetScalingNoOpError
+		if errors.As(err, &noOpErr) {
+			return nil, status.Error(codes.Aborted, noOpErr.Error())
+		}
+		return nil, err
+	}
+	return &proto.ScaleResponse{}, nil
 }
 
 // Status is the gRPC server implementation of the Target.Status interface

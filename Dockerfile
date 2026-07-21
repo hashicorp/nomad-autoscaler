@@ -1,4 +1,4 @@
-# Copyright IBM Corp. 2020, 2025
+# Copyright IBM Corp. 2020, 2026
 # SPDX-License-Identifier: MPL-2.0
 
 # This Dockerfile contains multiple targets.
@@ -22,7 +22,10 @@ RUN go build -o nomad-autoscaler .
 
 # dev runs the binary from devbuild
 # -----------------------------------
-FROM alpine:3.22 AS dev
+FROM alpine:3.23 AS dev
+
+# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2).
+RUN apk add --no-cache --upgrade zlib
 
 COPY --from=devbuild /build/nomad-autoscaler /bin/
 COPY ./scripts/docker-entrypoint.sh /
@@ -35,7 +38,10 @@ CMD ["help"]
 #   Release images.
 # ===================================
 
-FROM alpine:3.22 AS release
+FROM alpine:3.23 AS release
+
+# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2).
+RUN apk add --no-cache --upgrade zlib
 
 ARG PRODUCT_NAME=nomad-autoscaler
 ARG PRODUCT_VERSION

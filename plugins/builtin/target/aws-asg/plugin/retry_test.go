@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -14,12 +14,12 @@ import (
 
 func Test_retry(t *testing.T) {
 	testCases := []struct {
-		inputContext   context.Context
-		inputInterval  time.Duration
-		inputRetry     int
-		inputFunc      retryFunc
-		expectedOutput error
-		name           string
+		inputContext  context.Context
+		inputInterval time.Duration
+		inputRetry    int
+		inputFunc     retryFunc
+		expectedError string
+		name          string
 	}{
 		{
 			inputContext:  context.Background(),
@@ -28,8 +28,8 @@ func Test_retry(t *testing.T) {
 			inputFunc: func(ctx context.Context) (stop bool, err error) {
 				return true, nil
 			},
-			expectedOutput: nil,
-			name:           "successful function first time",
+			expectedError: "",
+			name:          "successful function first time",
 		},
 		{
 			inputContext:  context.Background(),
@@ -38,15 +38,20 @@ func Test_retry(t *testing.T) {
 			inputFunc: func(ctx context.Context) (stop bool, err error) {
 				return false, errors.New("error")
 			},
-			expectedOutput: errors.New("reached retry limit"),
-			name:           "function never successful and reaches retry limit",
+			expectedError: "reached retry limit: error",
+			name:          "function never successful and reaches retry limit",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			actualOutput := retry(tc.inputContext, tc.inputInterval, tc.inputRetry, tc.inputFunc)
-			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+			if tc.expectedError == "" {
+				assert.NoError(t, actualOutput, tc.name)
+				return
+			}
+
+			assert.EqualError(t, actualOutput, tc.expectedError, tc.name)
 		})
 	}
 }

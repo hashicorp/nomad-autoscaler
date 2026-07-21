@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
@@ -26,6 +26,8 @@ type nodeDrainer interface {
 	UpdateDrainOpts(nodeID string, opts *api.DrainOptions, q *api.WriteOptions) (*api.NodeDrainUpdateResponse, error)
 	MonitorDrain(ctx context.Context, nodeID string, index uint64, ignoreSys bool) <-chan *api.MonitorMessage
 }
+
+var errInvalidScaleInNum = errors.New("number of nodes requested for removal must be greater than zero")
 
 // ClusterScaleUtils provides common functionality when performing horizontal
 // cluster scaling evaluations and actions.
@@ -116,8 +118,12 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 		return nil, errors.New("required ClusterNodeIDLookupFunc not set")
 	}
 
+	if num < 1 {
+		return nil, errInvalidScaleInNum
+	}
+
 	// Find nodes in Nomad that match the node filtering criteria.
-	nodes, err := c.IdentifyScaleInNodes(cfg, num)
+	nodes, err := c.identifyEligibleScaleInNodes(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -161,6 +167,7 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 	if num > len(filteredNodes) {
 		c.log.Warn("can only identify portion of requested nodes for removal",
 			"requested", num, "available", len(filteredNodes))
+		num = len(filteredNodes)
 	}
 
 	// Select which nodes to drain and terminate based on the policy's
@@ -189,11 +196,39 @@ func (c *ClusterScaleUtils) RunPreScaleInTasksWithRemoteCheck(ctx context.Contex
 
 func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int) ([]*api.NodeListStub, error) {
 
-	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
+	if num < 1 {
+		return nil, errInvalidScaleInNum
+	}
+
+	filteredNodes, err := c.identifyEligibleScaleInNodes(cfg)
 	if err != nil {
 		return nil, err
 	}
-	c.log.Debug("performing node pool filtering", poolID.Key(), poolID.Value())
+
+	// If the caller has requested more nodes than we have available once
+	// filtered, adjust the value. This shouldn't cause the whole scaling
+	// action to fail, but we should warn.
+	if num > len(filteredNodes) {
+		c.log.Warn("can only identify portion of requested nodes for removal",
+			"requested", num, "available", len(filteredNodes))
+		num = len(filteredNodes)
+	}
+
+	selectedNodes, err := c.SelectScaleInNodes(filteredNodes, cfg, num)
+	if err != nil {
+		return nil, err
+	}
+
+	return selectedNodes, nil
+}
+
+func (c *ClusterScaleUtils) identifyEligibleScaleInNodes(cfg map[string]string) ([]*api.NodeListStub, error) {
+
+	ids, err := nodepool.NewClusterNodePoolIdentifierList(cfg)
+	if err != nil {
+		return nil, err
+	}
+	c.log.Debug("performing node pool filtering", "identifiers", ids.String())
 
 	// Pull a current list of Nomad nodes from the API including populated
 	// resource fields.
@@ -211,13 +246,20 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 		}
 	}
 
+	// For scale-in, ineligible nodes are valid termination candidates and
+	// should not be excluded from the pool. Default to including them unless
+	// the caller has explicitly configured otherwise.
+	if _, ok := cfg[XNodeFilterOptionIgnoreIneligible]; !ok {
+		cfg[XNodeFilterOptionIgnoreIneligible] = "true"
+	}
+
 	// Filter our nodes to select only those within our identified pool.
 	filterOpts, err := NewNodeFilterOptions(cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	filteredNodes, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts)
+	filteredNodes, err := FilterNodesWithOptions(nodes, ids.IsPoolMember, filterOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -233,15 +275,7 @@ func (c *ClusterScaleUtils) IdentifyScaleInNodes(cfg map[string]string, num int)
 
 	// Ensure we have not filtered out all the available nodes.
 	if len(filteredNodes) == 0 {
-		return nil, fmt.Errorf("no nodes unfiltered for %s with value %s", poolID.Key(), poolID.Value())
-	}
-
-	// If the caller has requested more nodes than we have available once
-	// filtered, adjust the value. This shouldn't cause the whole scaling
-	// action to fail, but we should warn.
-	if num > len(filteredNodes) {
-		c.log.Warn("can only identify portion of requested nodes for removal",
-			"requested", num, "available", len(filteredNodes))
+		return nil, fmt.Errorf("no nodes unfiltered for pool identifiers: %v", ids)
 	}
 
 	return filteredNodes, nil
@@ -364,7 +398,7 @@ func (c *ClusterScaleUtils) RunPostScaleInTasks(_ context.Context, cfg map[strin
 // there was a problem performing the check.
 func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 
-	poolID, err := nodepool.NewClusterNodePoolIdentifier(cfg)
+	ids, err := nodepool.NewClusterNodePoolIdentifierList(cfg)
 	if err != nil {
 		return false, err
 	}
@@ -378,7 +412,7 @@ func (c *ClusterScaleUtils) IsPoolReady(cfg map[string]string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if _, err := FilterNodesWithOptions(nodes, poolID.IsPoolMember, filterOpts); err != nil {
+	if _, err := FilterNodesWithOptions(nodes, ids.IsPoolMember, filterOpts); err != nil {
 		c.log.Warn("node pool status readiness check failed", "error", err)
 		return false, nil
 	}

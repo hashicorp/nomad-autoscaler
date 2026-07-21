@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
@@ -49,7 +49,12 @@ func FilterNodes(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool) ([]*a
 	return FilterNodesWithOptions(n, idFn, nil)
 }
 
-// FilterNodesWithOptions is an experimental function. Use FilterNodes instead.
+// FilterNodesWithOptions returns a filtered list of nodes using additional
+// filtering options for handling initializing and draining nodes.
+//
+// This function is supported with caveats. Ignoring initializing or draining
+// nodes can improve responsiveness during long transitions, but may increase
+// the risk of oscillation or temporary capacity overshoot.
 func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) bool, opts *NodeFilterOptions) ([]*api.NodeListStub, error) {
 
 	// Create our output list object.
@@ -81,9 +86,15 @@ func FilterNodesWithOptions(n []*api.NodeListStub, idFn func(*api.NodeListStub) 
 		// Assuming a cluster has most, if not all nodes in a correct state for
 		// scheduling then this is the fastest route. Only append in the event
 		// we have not encountered any error to save some cycles.
+		//
+		// Ineligible nodes are excluded from pool capacity by default. When
+		// IgnoreIneligible is set (e.g., scale-in), include them so they
+		// remain termination candidates.
 		if !node.Drain && node.Status == api.NodeStatusReady {
-			if err == nil {
-				out = append(out, node)
+			if node.SchedulingEligibility == api.NodeSchedulingEligible || opts.IgnoreIneligible() {
+				if err == nil {
+					out = append(out, node)
+				}
 			}
 			continue
 		}
@@ -132,16 +143,20 @@ func filterOutNodeID(n []*api.NodeListStub, id string) []*api.NodeListStub {
 	return n
 }
 
-// EXPERIMENTAL
-// Node filter options are experimental features and should not be used.
+// Node filter options are supported with caveats.
+//
+// Enabling ignore options can reduce blocked evaluations in environments with
+// long drain/init windows, but may reduce strict readiness guarantees.
 const (
-	XNodeFilterOptionIgnoreInit  = "node_filter_ignore_init"
-	XNodeFilterOptionIgnoreDrain = "node_filter_ignore_drain"
+	XNodeFilterOptionIgnoreInit       = "node_filter_ignore_init"
+	XNodeFilterOptionIgnoreDrain      = "node_filter_ignore_drain"
+	XNodeFilterOptionIgnoreIneligible = "node_filter_ignore_ineligible"
 )
 
 type NodeFilterOptions struct {
-	ignoreInit  bool
-	ignoreDrain bool
+	ignoreInit       bool
+	ignoreDrain      bool
+	ignoreIneligible bool
 }
 
 func NewNodeFilterOptions(cfg map[string]string) (*NodeFilterOptions, error) {
@@ -171,6 +186,18 @@ func NewNodeFilterOptions(cfg map[string]string) (*NodeFilterOptions, error) {
 		opts.ignoreDrain = ignoreDrain
 	}
 
+	if str, ok := cfg[XNodeFilterOptionIgnoreIneligible]; ok {
+		ignoreIneligible, err := strconv.ParseBool(str)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"failed to parse value %s for %s configuration: %v",
+				str, XNodeFilterOptionIgnoreIneligible, err,
+			)
+		}
+
+		opts.ignoreIneligible = ignoreIneligible
+	}
+
 	return opts, nil
 }
 
@@ -186,4 +213,11 @@ func (n *NodeFilterOptions) IgnoreDrain() bool {
 		return false
 	}
 	return n.ignoreDrain
+}
+
+func (n *NodeFilterOptions) IgnoreIneligible() bool {
+	if n == nil {
+		return false
+	}
+	return n.ignoreIneligible
 }

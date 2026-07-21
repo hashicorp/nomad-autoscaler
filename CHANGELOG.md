@@ -1,5 +1,36 @@
 ## UNRELEASED
 
+FEATURES:
+* **plugin/apm/instana**: Add Instana APM plugin with support for infrastructure metrics queries. Authenticate using the `api_token` config key or the `INSTANA_API_TOKEN` environment variable. [[GH-1311](https://github.com/hashicorp/nomad-autoscaler/pull/1311)]
+
+IMPROVEMENTS:
+* plugin/apm/nomad: Add support for grouping nodes by `datacenter`, `node_pool`, or a combination of multiple pool identifiers in node pool APM queries. Previously only `node_class` was supported. [[GH-1300](https://github.com/hashicorp/nomad-autoscaler/pull/1300)]
+* policy/file: File-based scaling policies now support `jsonencode(...)` (for example in `check.query`). This makes complex JSON queries easier to write and maintain, since you can use native HCL objects instead of escaped JSON strings. [GH-1320](https://github.com/hashicorp/nomad-autoscaler/pull/1320)]
+
+## 0.5.0 (May 18, 2026)
+
+FEATURES:
+* **plugin/apm/influxdb**: Add new InfluxDB APM plugin with support for InfluxDB 1.x query API and InfluxQL queries. The plugin supports basic authentication, database selection, and automatic column detection for metric values.[[GH-1248](https://github.com/hashicorp/nomad-autoscaler/pull/1248)]
+* **plugin/apm/influxdb**: Add JWT Bearer authentication support via `shared_secret` and `username` config keys, matching InfluxDB 1.x shared-secret auth (`INFLUXDB_HTTP_SHARED_SECRET`).[[GH-1297](https://github.com/hashicorp/nomad-autoscaler/pull/1297)]
+* **policy/plugin/apm/prometheus**: Add `query_window = "instant"` support for checks. When set, Prometheus queries are executed as instant queries; existing range-query behavior remains unchanged for duration-based query windows. For threshold strategy with `query_window = "instant"`, `within_bounds_trigger` must be set to 1.[[GH-1256](https://github.com/hashicorp/nomad-autoscaler/pull/1256)]
+* **policy**: Add support for `schedule` blocks at policy and check level to control when evaluations have effect. Schedules are evaluated in UTC, use strict 5-field cron expressions, and support `start` with either `end` or `duration`.[[GH-1264](https://github.com/hashicorp/nomad-autoscaler/issues/1264)]
+
+IMPROVEMENTS:
+* agent: The `nomad.namespace` config field and `-nomad-namespace` CLI flag now accept multiple values, allowing the autoscaler to monitor scaling policies across several Nomad namespaces. Use `*` to monitor all namespaces. When a single namespace is provided the existing behaviour is preserved. [[GH-1251](https://github.com/hashicorp/nomad-autoscaler/pull/1251)]
+* build: Updated to Go 1.25.10 [[GH-1298](https://github.com/hashicorp/nomad-autoscaler/pull/1298)]
+* build: Updated protobuf generation tooling to use `protoc-gen-go` and `protoc-gen-go-grpc`. The generated plugin gRPC interfaces are unchanged and wire-compatible; existing external plugins do not require any changes. [[GH-1289](https://github.com/hashicorp/nomad-autoscaler/pull/1289)]
+* build: Updated the Alpine container image used to `alpine:3.23` [[GH-1272](https://github.com/hashicorp/nomad-autoscaler/pull/1272)]
+* policy: Reuse identical APM query results within a single policy evaluation to avoid duplicate source requests for checks that share the same source, query, query window, and query window offset. [[GH-1252](https://github.com/hashicorp/nomad-autoscaler/pull/1252)]
+* plugin/apm/nomad: Support continued scaling during node drain (node_filter_ignore_drain) with safety and test hardening. [[GH-1271](https://github.com/hashicorp/nomad-autoscaler/pull/1271)]
+* plugins: Fixed AWS-ASG plugin error handling so the underlying error is preserved when retry limit is reached. [[GH-1266](https://github.com/hashicorp/nomad-autoscaler/pull/1266)]
+* scaleutils: Fix scale-in node identification to honor requested num and avoid selecting all eligible nodes. [[GH-1282](https://github.com/hashicorp/nomad-autoscaler/pull/1282)]
+
+BUG FIXES:
+* plugin/apm/nomad: Exclude `ready + ineligible` nodes from pool capacity calculations [[GH-1286](https://github.com/hashicorp/nomad-autoscaler/pull/1286)]
+* plugin/target/aws-asg: Fixed a bug where nodes were drained before validating ASG constraints (Terminate suspended, DesiredCapacity at MinSize), causing unnecessary capacity loss. [[GH-1290](https://github.com/hashicorp/nomad-autoscaler/pull/1290)]
+* policy: Fixed a bug where misconfigured strategy checks could crash the autoscaler instead of following normal `on_error` and `on_check_error` behavior. [[GH-1275](https://github.com/hashicorp/nomad-autoscaler/pull/1275)]
+* policy: Fixed-value strategy checks no longer require APM source or query configuration. [[GH-1281](https://github.com/hashicorp/nomad-autoscaler/pull/1281)]
+
 ## 0.4.9 (January 6, 2026)
 
 BUG FIXES:

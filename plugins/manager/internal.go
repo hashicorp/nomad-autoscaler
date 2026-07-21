@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package manager
@@ -10,6 +10,8 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/agent/config"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	datadog "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/datadog/plugin"
+	influxdb "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/influxdb/plugin"
+	instana "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/instana/plugin"
 	nomadAPM "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/nomad/plugin"
 	prometheus "github.com/hashicorp/nomad-autoscaler/plugins/builtin/apm/prometheus/plugin"
 	fixedValue "github.com/hashicorp/nomad-autoscaler/plugins/builtin/strategy/fixed-value/plugin"
@@ -63,6 +65,12 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalAPMDatadog:
 		info.factory = datadog.PluginConfig.Factory
 		info.driver = "datadog"
+	case plugins.InternalAPMInfluxDB:
+		info.factory = influxdb.PluginConfig.Factory
+		info.driver = "influxdb"
+	case plugins.InternalAPMInstana:
+		info.factory = instana.PluginConfig.Factory
+		info.driver = "instana"
 	case plugins.InternalTargetIBMIG:
 		info.factory = ibmcloudIG.PluginConfig.Factory
 		info.driver = "ibmcloud-ig"
@@ -113,7 +121,9 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetAzureVMSS,
 		plugins.InternalTargetGCEMIG,
 		plugins.InternalTargetIBMIG,
-		plugins.InternalAPMDatadog:
+		plugins.InternalAPMDatadog,
+		plugins.InternalAPMInfluxDB,
+		plugins.InternalAPMInstana:
 		return true
 	default:
 		return false

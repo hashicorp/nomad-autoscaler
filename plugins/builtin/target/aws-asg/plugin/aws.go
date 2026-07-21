@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials/ec2rolecreds"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling"
 	"github.com/aws/aws-sdk-go-v2/service/autoscaling/types"
+	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/hashicorp/nomad-autoscaler/sdk/helper/scaleutils"
 	"github.com/hashicorp/nomad/api"
 )
@@ -130,6 +131,39 @@ func (t *TargetPlugin) scaleIn(ctx context.Context, asg *types.AutoScalingGroup,
 		"asg_name", *asg.AutoScalingGroupName,
 		"scale_in_protection", scaleInProtection,
 	)
+
+	// Short-circuit if the operator has suspended the Terminate scaling
+	// process on the ASG. AWS will refuse to terminate any instance while
+	// this is suspended, so draining nodes here would only waste capacity.
+	for _, p := range asg.SuspendedProcesses {
+		if p.ProcessName != nil && *p.ProcessName == "Terminate" {
+			log.Warn("skipping scale-in: Terminate process is suspended on ASG",
+				"suspension_reason", aws.ToString(p.SuspensionReason))
+			return sdk.NewTargetScalingNoOpError("Terminate process is suspended on ASG %s", *asg.AutoScalingGroupName)
+		}
+	}
+
+	// Cap num against the ASG's MinSize so we never drain instances that AWS
+	// would subsequently refuse to terminate. Without this check, the policy's
+	// Min can drift below the ASG's MinSize (e.g. an out-of-band edit) and
+	// nodes get drained but never deleted.
+	if asg.MinSize != nil && asg.DesiredCapacity != nil {
+		desired := int64(*asg.DesiredCapacity)
+		minSize := int64(*asg.MinSize)
+		headroom := desired - minSize
+		if headroom <= 0 {
+			log.Warn("skipping scale-in: ASG is already at or below MinSize",
+				"desired_capacity", desired, "min_size", minSize)
+			return sdk.NewTargetScalingNoOpError("ASG %s is already at or below MinSize (desired=%d, min=%d)",
+				*asg.AutoScalingGroupName, desired, minSize)
+		}
+		if num > headroom {
+			log.Warn("capping scale-in to respect ASG MinSize",
+				"requested", num, "capped_to", headroom,
+				"desired_capacity", desired, "min_size", minSize)
+			num = headroom
+		}
+	}
 
 	// Find instance IDs in the target ASG and perform pre-scale tasks.
 	remoteIDs := []string{}
@@ -340,7 +374,19 @@ func (t *TargetPlugin) ensureASGInstancesCount(ctx context.Context, desired int6
 		if len(asg.Instances) == int(desired) {
 			return true, nil
 		}
-		return false, fmt.Errorf("AutoScaling Group at %v instances of desired %v", asg.Instances, desired)
+
+		instanceIDs := make([]string, 0, len(asg.Instances))
+		for _, instance := range asg.Instances {
+			if instance.InstanceId != nil {
+				instanceIDs = append(instanceIDs, *instance.InstanceId)
+			}
+		}
+
+		return false, fmt.Errorf(
+			"AutoScaling Group has %d instances, desired %d (instance_ids=%v)",
+			len(asg.Instances), desired, instanceIDs,
+		)
+
 	}
 
 	return retry(ctx, defaultRetryInterval, t.retryAttempts, f)

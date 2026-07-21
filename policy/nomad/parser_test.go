@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package nomad
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/shoenig/test/must"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -406,4 +407,50 @@ func Test_parseBlock(t *testing.T) {
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
+}
+
+func Test_parseCheck_QueryWindowInstant(t *testing.T) {
+	check := parseCheck([]interface{}{
+		map[string]interface{}{
+			keySource:      "prometheus",
+			keyQuery:       "avg(up)",
+			keyQueryWindow: "instant",
+			keyStrategy: []interface{}{
+				map[string]interface{}{
+					"threshold": []interface{}{
+						map[string]interface{}{
+							"within_bounds_trigger": 1,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	must.NotNil(t, check)
+	must.True(t, check.QueryInstant)
+}
+
+func Test_parseSchedule(t *testing.T) {
+	t.Run("start and end", func(t *testing.T) {
+		schedule := parseSchedule([]interface{}{
+			map[string]interface{}{
+				"start": "0 9 * * *",
+				"end":   "0 17 * * *",
+			},
+		})
+
+		must.Eq(t, &sdk.ScalingPolicySchedule{Start: "0 9 * * *", End: "0 17 * * *"}, schedule)
+	})
+
+	t.Run("start and duration", func(t *testing.T) {
+		schedule := parseSchedule([]interface{}{
+			map[string]interface{}{
+				"start":    "0 9 * * *",
+				"duration": "8h",
+			},
+		})
+
+		must.Eq(t, &sdk.ScalingPolicySchedule{Start: "0 9 * * *", Duration: "8h"}, schedule)
+	})
 }

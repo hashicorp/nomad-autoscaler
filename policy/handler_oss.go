@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 //go:build !ent
@@ -19,7 +19,7 @@ type noopVerticalCheckRunner struct {
 	policy *sdk.ScalingPolicy
 }
 
-func (nv *noopVerticalCheckRunner) runCheckAndCapCount(_ context.Context, currentCount int64) (sdk.ScalingAction, error) {
+func (nv *noopVerticalCheckRunner) runCheckAndCapCount(_ context.Context, currentCount int64, _ *queryMetricsCache) (sdk.ScalingAction, error) {
 	a := sdk.ScalingAction{
 		Direction: sdk.ScaleDirectionNone,
 		Count:     currentCount,
@@ -34,8 +34,8 @@ func (nv *noopVerticalCheckRunner) group() string {
 	return ""
 }
 
-func (h *Handler) loadVerticalCheckRunner() (*noopVerticalCheckRunner, error) {
+func (h *Handler) loadVerticalCheckRunner(policy *sdk.ScalingPolicy) (*noopVerticalCheckRunner, error) {
 	return &noopVerticalCheckRunner{
-		policy: h.policy,
+		policy: policy,
 	}, nil
 }

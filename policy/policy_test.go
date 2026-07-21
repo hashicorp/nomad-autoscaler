@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -105,9 +105,263 @@ func TestProcessor_ValidatePolicy(t *testing.T) {
 			expectedOutput: nil,
 			name:           "valid node_class horizontal cluster scaling policy",
 		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-valid",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "1",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant threshold check",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-missing-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-missing-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
+				},
+			},
+			name: "invalid instant threshold check missing trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-threshold-invalid-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name: "threshold",
+							Config: map[string]string{
+								"within_bounds_trigger": "5",
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"instant-threshold-invalid-trigger\": \"within_bounds_trigger\" must be set to 1 when query_window = \"instant\""),
+				},
+			},
+			name: "invalid instant threshold check trigger not one",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "instant-target-value-without-trigger",
+						QueryInstant: true,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "target-value",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid instant non-threshold check without trigger",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:         "range-threshold-missing-trigger",
+						QueryInstant: false,
+						Strategy: &sdk.ScalingPolicyStrategy{
+							Name:   "threshold",
+							Config: map[string]string{},
+						},
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid non-instant threshold check missing trigger",
+		},
 	}
 
 	pr := Processor{}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			actualOutput := pr.ValidatePolicy(tc.inputPolicy)
+			assert.Equal(t, tc.expectedOutput, actualOutput, tc.name)
+		})
+	}
+}
+
+func TestProcessor_ValidatePolicy_QueryFormat(t *testing.T) {
+	testCases := []struct {
+		inputPolicy    *sdk.ScalingPolicy
+		expectedOutput error
+		name           string
+	}{
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "percentage-allocated_memory",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "valid short query for node pool target passes",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "legacy long-form query rejected for node pool target",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/node_class=hashistack",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "full internal-form query rejected for node pool target",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:  "mem",
+						Query: "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: &multierror.Error{
+				Errors: []error{
+					errors.New("check \"mem\": query must be in short format (<operation>_<metric>) for Nomad APM node pool targets"),
+				},
+			},
+			name: "empty source defaults to nomad-apm and rejects long-form",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{"node_class": "hashistack"},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "prometheus",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "non-nomad-apm source skips query format validation",
+		},
+		{
+			inputPolicy: &sdk.ScalingPolicy{
+				ID:  "ce888afe-3dd2-144c-7227-74644434f708",
+				Min: 1,
+				Max: 10,
+				Target: &sdk.ScalingPolicyTarget{
+					Config: map[string]string{
+						"Job":       "example",
+						"Group":     "cache",
+						"Namespace": "default",
+					},
+				},
+				Checks: []*sdk.ScalingPolicyCheck{
+					{
+						Name:   "mem",
+						Source: "nomad-apm",
+						Query:  "node_percentage-allocated_memory/hashistack/class",
+					},
+				},
+			},
+			expectedOutput: nil,
+			name:           "non-node-pool target skips query format validation",
+		},
+	}
+
+	pr := Processor{nomadAPMs: []string{"nomad-apm"}}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -204,9 +458,77 @@ func TestProcessor_CanonicalizeAPMQuery(t *testing.T) {
 			expectedOutputCheck: &sdk.ScalingPolicyCheck{
 				Name:   "random-check",
 				Source: "nomad-apm",
-				Query:  "node_percentage-allocated_memory/hashistack/class",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack",
 			},
-			name: "correctly formatted node target short query",
+			name: "node target short query with node_class",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "us-east-1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us-east-1",
+			},
+			name: "node target short query with datacenter",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_pool": "gpu"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/node_pool=gpu",
+			},
+			name: "node target short query with node_pool",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_memory",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"node_class": "hashistack", "datacenter": "dc1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_memory/node_class=hashistack,datacenter=dc1",
+			},
+			name: "node target short query with node_class and datacenter combined",
+		},
+		{
+			inputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "percentage-allocated_cpu",
+			},
+			inputAPMNames: []string{"nomad-apm"},
+			inputTarget: &sdk.ScalingPolicyTarget{
+				Config: map[string]string{"datacenter": "us east 1"},
+			},
+			expectedOutputCheck: &sdk.ScalingPolicyCheck{
+				Name:   "random-check",
+				Source: "nomad-apm",
+				Query:  "node_percentage-allocated_cpu/datacenter=us+east+1",
+			},
+			name: "node target short query with space in value",
 		},
 		{
 			inputCheck: &sdk.ScalingPolicyCheck{

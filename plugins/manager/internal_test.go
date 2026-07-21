@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package manager
@@ -37,6 +37,11 @@ func TestPluginManager_useInternal(t *testing.T) {
 		{
 			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
 			inputPlugin:    plugins.InternalStrategyTargetValue,
+			expectedOutput: true,
+		},
+		{
+			inputPM:        NewPluginManager(l, "this/doesnt/exist", nil),
+			inputPlugin:    plugins.InternalAPMInfluxDB,
 			expectedOutput: true,
 		},
 		{

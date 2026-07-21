@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package plugin
@@ -87,6 +87,7 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.True(t, ok)
 				require.Equal(t, "user", username)
 				require.Equal(t, "pass", password)
+				require.Equal(t, "/api/v1/query_range", r.URL.Path)
 
 				// Verify request body.
 				r.ParseForm()
@@ -100,6 +101,44 @@ func TestAPMPlugin_Query(t *testing.T) {
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
 				require.NoError(t, err)
 				require.Len(t, m, 31)
+			},
+		},
+		{
+			name:    "success_instant_query",
+			fixture: "query_200.json",
+			pluginConfig: map[string]string{
+				configKeyBasicAuthUser:     "user",
+				configKeyBasicAuthPassword: "pass",
+				"header_test":              "true",
+				configKeyCACert:            "./test-fixtures/ca.crt",
+				configKeySkipVerify:        "true",
+			},
+			query: "nomad_client_allocated_memory",
+			timeRange: sdk.TimeRange{
+				From: time.Unix(1610000000, 0),
+				To:   time.Unix(1610000000, 0),
+			},
+			validateRequest: func(t *testing.T, r *http.Request) {
+				// Vefify auth.
+				username, password, ok := r.BasicAuth()
+				require.True(t, ok)
+				require.Equal(t, "user", username)
+				require.Equal(t, "pass", password)
+
+				require.Equal(t, "/api/v1/query", r.URL.Path)
+
+				// Verify request body.
+				r.ParseForm()
+				require.Equal(t, "nomad_client_allocated_memory", r.FormValue("query"))
+				require.Equal(t, "1610000000", r.FormValue("time"))
+
+				// Verify custom headers.
+				require.Equal(t, "true", r.Header.Get("test"))
+			},
+			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
+				require.NoError(t, err)
+				require.Len(t, m, 1)
+				require.Equal(t, 42.0, m[0].Value)
 			},
 		},
 	}

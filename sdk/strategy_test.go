@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package sdk
@@ -62,6 +62,19 @@ func TestAction_SetDryRun(t *testing.T) {
 		{
 			inputAction: &ScalingAction{
 				Count: 3,
+			},
+			expectedOutputAction: &ScalingAction{
+				Count: -1,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.dry_run":       true,
+					"nomad_autoscaler.dry_run.count": int64(3),
+				},
+			},
+			name: "count greater than zero with nil meta",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 3,
 				Meta:  map[string]interface{}{},
 			},
 			expectedOutputAction: &ScalingAction{
@@ -95,8 +108,25 @@ func TestAction_CapCount(t *testing.T) {
 			inputAction:          &ScalingAction{},
 			inputMin:             0,
 			inputMax:             0,
-			expectedOutputAction: &ScalingAction{},
+			expectedOutputAction: &ScalingAction{Meta: map[string]interface{}{}},
 			name:                 "empty input action",
+		},
+		{
+			inputAction: &ScalingAction{
+				Count: 4,
+			},
+			inputMin: 5,
+			inputMax: 10,
+			expectedOutputAction: &ScalingAction{
+				Count: 5,
+				Meta: map[string]interface{}{
+					"nomad_autoscaler.count.capped":   true,
+					"nomad_autoscaler.count.original": int64(4),
+					"nomad_autoscaler.reason_history": []string{},
+				},
+				Reason: "capped count from 4 to 5 to stay within limits",
+			},
+			name: "nil meta is canonicalized before capping",
 		},
 		{
 			inputAction: &ScalingAction{
@@ -184,7 +214,7 @@ func TestAction_pushReason(t *testing.T) {
 		name                 string
 	}{
 		{
-			inputAction: &ScalingAction{Meta: map[string]interface{}{}},
+			inputAction: &ScalingAction{},
 			inputReason: "capped count from 0 to 1 to stay within limits",
 			expectedOutputAction: &ScalingAction{
 				Reason: "capped count from 0 to 1 to stay within limits",
@@ -192,7 +222,7 @@ func TestAction_pushReason(t *testing.T) {
 					"nomad_autoscaler.reason_history": []string{},
 				},
 			},
-			name: "no existing reason history",
+			name: "no existing reason history with nil meta",
 		},
 
 		{

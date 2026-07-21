@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package main
@@ -61,7 +61,7 @@ func (n *Noop) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) 
 			return nil, fmt.Errorf(`invalid fixed query %q, expected "fixed:<num>`, q)
 		}
 
-		num, err := strconv.ParseFloat(parts[1], 10)
+		num, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
 			return nil, err
 		}
@@ -75,17 +75,16 @@ func (n *Noop) Query(q string, r sdk.TimeRange) (sdk.TimestampedMetrics, error) 
 			return nil, fmt.Errorf(`invalid random query %q, expected "random:<start>:<end>`, q)
 		}
 
-		start, err := strconv.ParseFloat(parts[1], 10)
+		start, err := strconv.ParseFloat(parts[1], 64)
 		if err != nil {
 			return nil, err
 		}
 
-		end, err := strconv.ParseFloat(parts[2], 10)
+		end, err := strconv.ParseFloat(parts[2], 64)
 		if err != nil {
 			return nil, err
 		}
 
-		rand.Seed(time.Now().UnixNano())
 		for i := 1; i <= repeat; i++ {
 			ts := r.From.Add(-time.Duration(i) * time.Second).UTC()
 			value := start + rand.Float64()*(end-start)

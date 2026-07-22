@@ -4,16 +4,22 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/nomad/api"
 	"github.com/mitchellh/go-homedir"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -28,6 +34,7 @@ const (
 )
 
 func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
+	ctx := context.Background()
 
 	credentials, ok := config[configKeyCredentials]
 	if ok {
@@ -36,21 +43,30 @@ func (t *TargetPlugin) setupGCEClients(config map[string]string) error {
 			return fmt.Errorf("failed to read credentials: %v", err)
 		}
 
-		// option.WithCredentialsJSON and all google.CredentialsFromJSON* variants are
+		// google.CredentialsFromJSON and all google.CredentialsFromJSON* variants are
 		// deprecated due to a potential security risk when accepting credential configs
 		// from untrusted sources. In this case, credentials come from the Nomad
 		// operator's own config and are trusted, so the deprecation does not apply.
 		//lint:ignore SA1019 no non-deprecated API exists for loading explicit JSON credentials
-		t.service, err = compute.NewService(context.Background(), option.WithCredentialsJSON([]byte(contents)))
+		creds, err := google.CredentialsFromJSON(ctx, []byte(contents), compute.ComputeScope)
+		if err != nil {
+			return fmt.Errorf("failed to load Google credentials: %v", err)
+		}
+		t.httpClient = oauth2.NewClient(ctx, creds.TokenSource)
+		t.service, err = compute.NewService(ctx, option.WithHTTPClient(t.httpClient))
 		if err != nil {
 			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)
 		}
 	} else {
-		service, err := compute.NewService(context.Background())
+		httpClient, err := google.DefaultClient(ctx, compute.ComputeScope)
 		if err != nil {
 			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)
 		}
-
+		t.httpClient = httpClient
+		service, err := compute.NewService(ctx, option.WithHTTPClient(httpClient))
+		if err != nil {
+			return fmt.Errorf("failed to create Google Compute Engine client: %v", err)
+		}
 		t.service = service
 	}
 
@@ -71,22 +87,36 @@ func (t *TargetPlugin) resolveRetryAttempts(config map[string]string) (int, erro
 	return retryAttempts, nil
 }
 
+// resolveNoCreationRetries checks if policy overrides the plugin configuration
+// for no_creation_retries and returns the resolved value.
+func (t *TargetPlugin) resolveNoCreationRetries(config map[string]string) (bool, error) {
+	noCreationRetries := t.noCreationRetries
+	if str, ok := config[configKeyNoCreationRetries]; ok {
+		enabled, err := strconv.ParseBool(str)
+		if err != nil {
+			return false, fmt.Errorf("failed to parse %s value from policy: %w", configKeyNoCreationRetries, err)
+		}
+		noCreationRetries = enabled
+	}
+	return noCreationRetries, nil
+}
+
 func (t *TargetPlugin) status(ctx context.Context, ig instanceGroup) (bool, int64, error) {
 	return ig.status(ctx, t.service)
 }
 
 func (t *TargetPlugin) scaleOut(ctx context.Context, ig instanceGroup, num int64, config map[string]string) error {
 	log := t.logger.With("action", "scale_out", "instance_group", ig.getName())
-	if err := ig.resize(ctx, t.service, num); err != nil {
-		return fmt.Errorf("failed to scale out GCE Instance Group: %v", err)
-	}
-
-	retryAttempts, err := t.resolveRetryAttempts(config)
+	noCreationRetries, err := t.resolveNoCreationRetries(config)
 	if err != nil {
 		return err
 	}
 
-	if err := t.ensureInstanceGroupIsStable(ctx, ig, retryAttempts); err != nil {
+	if err := ig.resize(ctx, t.service, t.httpClient, num, noCreationRetries); err != nil {
+		return fmt.Errorf("failed to scale out GCE Instance Group: %v", err)
+	}
+
+	if err := t.ensureScaleOutComplete(ctx, ig, num, config, noCreationRetries); err != nil {
 		return fmt.Errorf("failed to confirm scale out GCE Instance Group: %v", err)
 	}
 	log.Debug("scale out GCE MIG confirmed")
@@ -172,6 +202,65 @@ func (t *TargetPlugin) ensureInstanceGroupIsStable(ctx context.Context, group in
 	t.logger.Info("waiting for instance group stability", "mig_name", group.getName())
 
 	return retry(ctx, defaultRetryInterval, retryAttempts, f)
+}
+
+func (t *TargetPlugin) ensureScaleOutComplete(ctx context.Context, group instanceGroup, desiredSize int64, config map[string]string, noCreationRetries bool) error {
+	retryAttempts, err := t.resolveRetryAttempts(config)
+	if err != nil {
+		return err
+	}
+
+	if err := t.ensureInstanceGroupIsStable(ctx, group, retryAttempts); err != nil {
+		return err
+	}
+
+	if !noCreationRetries {
+		return nil
+	}
+
+	_, currentSize, err := t.status(ctx, group)
+	if err != nil {
+		return err
+	}
+	if currentSize != desiredSize {
+		return fmt.Errorf("instance group stabilized at %d instances; expected %d", currentSize, desiredSize)
+	}
+
+	return nil
+}
+
+type resizeAdvancedRequest struct {
+	NoCreationRetries bool  `json:"noCreationRetries,omitempty"`
+	TargetSize        int64 `json:"targetSize,omitempty"`
+}
+
+func resizeAdvanced(ctx context.Context, client *http.Client, endpoint string, reqBody resizeAdvancedRequest) error {
+	if client == nil {
+		return errors.New("missing authenticated HTTP client")
+	}
+
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if err := googleapi.CheckResponse(resp); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func pathOrContents(poc string) (string, error) {

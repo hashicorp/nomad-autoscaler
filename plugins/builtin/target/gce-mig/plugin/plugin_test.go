@@ -91,3 +91,36 @@ func TestTargetPlugin_SetConfig_RetryAttempts(t *testing.T) {
 		test.ErrorContains(t, err, "invalid value for retry_attempts", test.Sprint("expected error for invalid config (non-integer)"))
 	})
 }
+
+func TestTargetPlugin_SetConfig_NoCreationRetries(t *testing.T) {
+	mockPlugin := &TargetPlugin{
+		logger: hclog.NewNullLogger(),
+	}
+	mockPlugin.setupGCEClientsFunc = func(config map[string]string) error {
+		return nil
+	}
+
+	t.Run("default value is used when not provided", func(t *testing.T) {
+		config := map[string]string{}
+		err := mockPlugin.SetConfig(config)
+		test.NoError(t, err)
+		test.False(t, mockPlugin.noCreationRetries)
+	})
+
+	t.Run("valid custom value is used", func(t *testing.T) {
+		config := map[string]string{
+			configKeyNoCreationRetries: "true",
+		}
+		err := mockPlugin.SetConfig(config)
+		test.NoError(t, err, test.Sprint("expected no error for valid config"))
+		test.True(t, mockPlugin.noCreationRetries)
+	})
+
+	t.Run("invalid value returns an error", func(t *testing.T) {
+		invalidConfig := map[string]string{
+			configKeyNoCreationRetries: "not-a-bool",
+		}
+		err := mockPlugin.SetConfig(invalidConfig)
+		test.ErrorContains(t, err, "invalid value for no_creation_retries", test.Sprint("expected error for invalid config (non-bool)"))
+	})
+}

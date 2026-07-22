@@ -5,6 +5,8 @@ package plugin
 
 import (
 	"context"
+	"fmt"
+	"net/http"
 
 	"google.golang.org/api/compute/v1"
 )
@@ -13,7 +15,7 @@ type instanceGroup interface {
 	getName() string
 	status(ctx context.Context, service *compute.Service) (bool, int64, error)
 	listInstances(ctx context.Context, service *compute.Service) ([]*compute.ManagedInstance, error)
-	resize(ctx context.Context, service *compute.Service, num int64) error
+	resize(ctx context.Context, service *compute.Service, httpClient *http.Client, num int64, noCreationRetries bool) error
 	deleteInstance(ctx context.Context, service *compute.Service, instanceIDs []string) error
 }
 
@@ -49,7 +51,13 @@ func (z *zonalInstanceGroup) listInstances(ctx context.Context, service *compute
 	return instances.ManagedInstances, nil
 }
 
-func (z *zonalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {
+func (z *zonalInstanceGroup) resize(ctx context.Context, service *compute.Service, httpClient *http.Client, num int64, noCreationRetries bool) error {
+	if noCreationRetries {
+		return resizeAdvanced(ctx, httpClient,
+			fmt.Sprintf("https://compute.googleapis.com/compute/beta/projects/%s/zones/%s/instanceGroupManagers/%s/resizeAdvanced", z.project, z.zone, z.name),
+			resizeAdvancedRequest{TargetSize: num, NoCreationRetries: true},
+		)
+	}
 	_, err := service.InstanceGroupManagers.Resize(z.project, z.zone, z.name, num).Context(ctx).Do()
 	return err
 }
@@ -83,7 +91,13 @@ func (r *regionalInstanceGroup) listInstances(ctx context.Context, service *comp
 	return instances.ManagedInstances, nil
 }
 
-func (r *regionalInstanceGroup) resize(ctx context.Context, service *compute.Service, num int64) error {
+func (r *regionalInstanceGroup) resize(ctx context.Context, service *compute.Service, httpClient *http.Client, num int64, noCreationRetries bool) error {
+	if noCreationRetries {
+		return resizeAdvanced(ctx, httpClient,
+			fmt.Sprintf("https://compute.googleapis.com/compute/beta/projects/%s/regions/%s/instanceGroupManagers/%s/resizeAdvanced", r.project, r.region, r.name),
+			resizeAdvancedRequest{TargetSize: num, NoCreationRetries: true},
+		)
+	}
 	_, err := service.RegionInstanceGroupManagers.Resize(r.project, r.region, r.name, num).Context(ctx).Do()
 	return err
 }

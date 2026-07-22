@@ -5,7 +5,10 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/hashicorp/go-hclog"
@@ -79,8 +82,10 @@ func Test_gceNodeIDMap(t *testing.T) {
 
 // mockInstanceGroup implements the instanceGroup interface for the purpose of testing.
 type mockInstanceGroup struct {
-	name       string
-	statusFunc func(context.Context, *compute.Service) (bool, int64, error)
+	name              string
+	statusFunc        func(context.Context, *compute.Service) (bool, int64, error)
+	resizeTarget      int64
+	noCreationRetries bool
 }
 
 func (m *mockInstanceGroup) getName() string {
@@ -91,7 +96,9 @@ func (m *mockInstanceGroup) status(ctx context.Context, s *compute.Service) (boo
 	return m.statusFunc(ctx, s)
 }
 
-func (m *mockInstanceGroup) resize(ctx context.Context, s *compute.Service, num int64) error {
+func (m *mockInstanceGroup) resize(ctx context.Context, s *compute.Service, c *http.Client, num int64, noCreationRetries bool) error {
+	m.resizeTarget = num
+	m.noCreationRetries = noCreationRetries
 	return nil
 }
 
@@ -207,4 +214,151 @@ func TestTargetPlugin_resolveRetryAttempts(t *testing.T) {
 		test.Eq(t, 0, result, test.Sprint("should return 0 on error"))
 		test.StrContains(t, err.Error(), "failed to parse retry_attempts value from policy")
 	})
+}
+
+func TestTargetPlugin_resolveNoCreationRetries(t *testing.T) {
+	t.Run("uses plugin default when no config override", func(t *testing.T) {
+		tp := &TargetPlugin{noCreationRetries: true}
+		config := map[string]string{}
+
+		result, err := tp.resolveNoCreationRetries(config)
+
+		test.NoError(t, err)
+		test.True(t, result)
+	})
+
+	t.Run("uses policy override when provided", func(t *testing.T) {
+		tp := &TargetPlugin{noCreationRetries: false}
+		config := map[string]string{
+			configKeyNoCreationRetries: "true",
+		}
+
+		result, err := tp.resolveNoCreationRetries(config)
+
+		test.NoError(t, err)
+		test.True(t, result)
+	})
+
+	t.Run("returns error for invalid no_creation_retries", func(t *testing.T) {
+		tp := &TargetPlugin{noCreationRetries: false}
+		config := map[string]string{
+			configKeyNoCreationRetries: "invalid",
+		}
+
+		result, err := tp.resolveNoCreationRetries(config)
+
+		test.Error(t, err)
+		test.False(t, result)
+		test.StrContains(t, err.Error(), "failed to parse no_creation_retries value from policy")
+	})
+}
+
+func TestTargetPlugin_ensureScaleOutComplete(t *testing.T) {
+	t.Run("skips target size check when no creation retries disabled", func(t *testing.T) {
+		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
+		tp.retryAttempts = 1
+
+		mockIG := &mockInstanceGroup{
+			name: "test-mig",
+			statusFunc: func(ctx context.Context, s *compute.Service) (bool, int64, error) {
+				return true, 3, nil
+			},
+		}
+
+		err := tp.ensureScaleOutComplete(context.Background(), mockIG, 5, map[string]string{}, false)
+		test.NoError(t, err)
+	})
+
+	t.Run("fails when no creation retries enabled and target shortfall remains", func(t *testing.T) {
+		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
+		tp.retryAttempts = 1
+
+		mockIG := &mockInstanceGroup{
+			name: "test-mig",
+			statusFunc: func(ctx context.Context, s *compute.Service) (bool, int64, error) {
+				return true, 3, nil
+			},
+		}
+
+		err := tp.ensureScaleOutComplete(context.Background(), mockIG, 5, map[string]string{}, true)
+		test.ErrorContains(t, err, "instance group stabilized at 3 instances; expected 5")
+	})
+}
+
+func TestTargetPlugin_scaleOut(t *testing.T) {
+	t.Run("passes no creation retries to resize path", func(t *testing.T) {
+		tp := NewGCEMIGPlugin(hclog.NewNullLogger())
+		tp.retryAttempts = 1
+		tp.noCreationRetries = true
+
+		mockIG := &mockInstanceGroup{
+			name: "test-mig",
+			statusFunc: func(ctx context.Context, s *compute.Service) (bool, int64, error) {
+				return true, 7, nil
+			},
+		}
+
+		err := tp.scaleOut(context.Background(), mockIG, 7, map[string]string{})
+
+		test.NoError(t, err)
+		test.Eq(t, int64(7), mockIG.resizeTarget)
+		test.True(t, mockIG.noCreationRetries)
+	})
+}
+
+func Test_resizeAdvanced(t *testing.T) {
+	t.Run("sends expected request body", func(t *testing.T) {
+		var gotMethod, gotPath, gotContentType string
+		var gotTargetSize int64
+		var gotNoCreationRetries bool
+
+		client := &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				gotMethod = req.Method
+				gotPath = req.URL.String()
+				gotContentType = req.Header.Get("Content-Type")
+
+				var body resizeAdvancedRequest
+				test.NoError(t, json.NewDecoder(req.Body).Decode(&body))
+				gotTargetSize = body.TargetSize
+				gotNoCreationRetries = body.NoCreationRetries
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       http.NoBody,
+					Header:     make(http.Header),
+					Request:    req,
+				}, nil
+			}),
+		}
+
+		err := resizeAdvanced(context.Background(), client, "https://example.com/resizeAdvanced", resizeAdvancedRequest{
+			TargetSize:        9,
+			NoCreationRetries: true,
+		})
+
+		test.NoError(t, err)
+		test.Eq(t, http.MethodPost, gotMethod)
+		test.Eq(t, "https://example.com/resizeAdvanced", gotPath)
+		test.Eq(t, "application/json", gotContentType)
+		test.Eq(t, int64(9), gotTargetSize)
+		test.True(t, gotNoCreationRetries)
+	})
+
+	t.Run("returns request errors", func(t *testing.T) {
+		client := &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return nil, fmt.Errorf("boom")
+			}),
+		}
+
+		err := resizeAdvanced(context.Background(), client, "https://example.com/resizeAdvanced", resizeAdvancedRequest{})
+		test.ErrorContains(t, err, "boom")
+	})
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

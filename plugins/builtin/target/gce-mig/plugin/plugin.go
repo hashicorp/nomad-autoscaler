@@ -6,6 +6,7 @@ package plugin
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -25,16 +26,18 @@ const (
 
 	// configKeys represents the known configuration parameters required at
 	// varying points throughout the plugins lifecycle.
-	configKeyCredentials   = "credentials"
-	configKeyProject       = "project"
-	configKeyRegion        = "region"
-	configKeyZone          = "zone"
-	configKeyMIGName       = "mig_name"
-	configKeyRetryAttempts = "retry_attempts"
+	configKeyCredentials       = "credentials"
+	configKeyProject           = "project"
+	configKeyRegion            = "region"
+	configKeyZone              = "zone"
+	configKeyMIGName           = "mig_name"
+	configKeyRetryAttempts     = "retry_attempts"
+	configKeyNoCreationRetries = "no_creation_retries"
 
 	// configValues are the default values used when a configuration key is not
 	// supplied by the operator that are specific to the plugin.
-	configValueRetryAttemptsDefault = "15"
+	configValueRetryAttemptsDefault     = "15"
+	configValueNoCreationRetriesDefault = "false"
 
 	// The default retry interval is paired with the default retry attempts
 	// to give a default max total duration of 2.5 minutes (15 attempts * 10s).
@@ -57,15 +60,20 @@ var _ target.Target = (*TargetPlugin)(nil)
 
 // TargetPlugin is the CGE MIG implementation of the target.Target interface.
 type TargetPlugin struct {
-	config  map[string]string
-	logger  hclog.Logger
-	service *compute.Service
+	config     map[string]string
+	logger     hclog.Logger
+	service    *compute.Service
+	httpClient *http.Client
 
 	// Allows mocking of the setupGCEClients in tests.
 	setupGCEClientsFunc func(config map[string]string) error
 
 	// retryAttempts is used when waiting for GCE scaling activities to complete.
 	retryAttempts int
+
+	// noCreationRetries controls whether scale-out uses the beta resize API
+	// to disable GCP-side creation retries.
+	noCreationRetries bool
 
 	// clusterUtils provides general cluster scaling utilities for querying the
 	// state of nodes pools and performing scaling tasks.
@@ -107,6 +115,12 @@ func (t *TargetPlugin) SetConfig(config map[string]string) error {
 		return fmt.Errorf("invalid value for %s: %v", configKeyRetryAttempts, err)
 	}
 	t.retryAttempts = attempts
+
+	noCreationRetries, err := strconv.ParseBool(getConfigValue(config, configKeyNoCreationRetries, configValueNoCreationRetriesDefault))
+	if err != nil {
+		return fmt.Errorf("invalid value for %s: %v", configKeyNoCreationRetries, err)
+	}
+	t.noCreationRetries = noCreationRetries
 
 	return nil
 }

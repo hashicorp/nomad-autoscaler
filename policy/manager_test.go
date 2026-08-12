@@ -326,6 +326,17 @@ func TestMonitoring(t *testing.T) {
 			},
 		},
 		{
+			name: "recreate_missing_handler_for_unchanged_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers:            map[SourceName]map[PolicyID]*handlerTracker{},
+			expCallsToLatestVersionMS1: 1,
+		},
+		{
 			name: "remove_policy",
 			inputIDMessage: IDMessage{
 				IDs: map[PolicyID]bool{
@@ -627,4 +638,42 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
+}
+
+func TestProcessMessageAndUpdateHandlers_RecreatesMissingHandlerForUnchangedPolicy(t *testing.T) {
+	t.Parallel()
+
+	ms := &mockSource{
+		name: "mock-source",
+		latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+			policy1.ID: policy1,
+		},
+		countLock: &sync.Mutex{},
+	}
+
+	testedManager := &Manager{
+		log:          hclog.NewNullLogger(),
+		handlersLock: sync.RWMutex{},
+		handlers:     map[SourceName]map[PolicyID]*handlerTracker{},
+		policySources: map[SourceName]Source{
+			"mock-source": ms,
+		},
+		targetGetter: &mockTargetGetter{
+			msg: mStatusController,
+		},
+		pluginManager: &MockDependencyGetter{},
+	}
+
+	ctx := context.Background()
+	err := testedManager.processMessageAndUpdateHandlers(ctx, IDMessage{
+		IDs: map[PolicyID]bool{
+			policy1.ID: false,
+		},
+		Source: "mock-source",
+	})
+
+	must.NoError(t, err)
+	must.Eq(t, 1, ms.getCallsCounter())
+	must.Eq(t, 1, testedManager.getHandlersNumPerSource("mock-source"))
+	must.NotNil(t, testedManager.handlers["mock-source"][policy1.ID])
 }

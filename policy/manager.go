@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -207,7 +207,10 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		updatedPolicy := &sdk.ScalingPolicy{}
 		var err error
 
-		if !updated {
+		m.handlersLock.RLock()
+		pht := m.handlers[message.Source][policyID]
+		m.handlersLock.RUnlock()
+		if pht != nil && !updated {
 			continue
 		}
 
@@ -236,9 +239,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			continue
 		}
 
-		m.handlersLock.RLock()
-		pht := m.handlers[message.Source][policyID]
-		m.handlersLock.RUnlock()
 		if pht != nil {
 			// If the handler already exists, send the updated policy to it.
 			m.log.Trace("sending updated policy to existing handler",

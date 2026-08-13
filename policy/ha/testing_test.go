@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package ha
@@ -132,6 +132,8 @@ func (t *testSource) Name() policy.SourceName {
 // ReloadIDsMonitor is a no-op
 func (t *testSource) ReloadIDsMonitor() {
 }
+
+func (t *testSource) Reset() {}
 
 func (t *testSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	panic("implement me")

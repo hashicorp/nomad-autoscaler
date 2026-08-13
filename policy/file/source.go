@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package file
@@ -102,6 +102,9 @@ func (s *Source) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 	<-s.reloadCompleteCh
 }
+
+// Reset satisfies the policy.Source interface.
+func (s *Source) Reset() {}
 
 // identifyPolicyIDs iterates the configured directory, identifying the
 // configured policyIDs. The IDs will be wrapped and sent to the resultCh so

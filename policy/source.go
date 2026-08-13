@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -48,6 +48,10 @@ type Source interface {
 	// so that config items can be reloaded gracefully without restarting the
 	// agent.
 	ReloadIDsMonitor()
+
+	// Reset clears any internal watch state so the next MonitorIDs session can
+	// rebuild the current policy snapshot from scratch.
+	Reset()
 }
 
 // SourceName differentiates policies from different sources. This allows the

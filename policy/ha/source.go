@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package ha
@@ -113,6 +113,11 @@ func (fs *FilteredSource) Name() policy.SourceName {
 func (fs *FilteredSource) ReloadIDsMonitor() {
 	fs.upstreamSource.ReloadIDsMonitor()
 	fs.policyFilter.ReloadFilterMonitor()
+}
+
+// Reset satisfies policy.Source by resetting the underlying policy source.
+func (fs *FilteredSource) Reset() {
+	fs.upstreamSource.Reset()
 }
 
 func (fs *FilteredSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {

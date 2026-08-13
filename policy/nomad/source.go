@@ -175,6 +175,12 @@ func (s *Source) ReloadIDsMonitor() {
 	s.reloadCh <- struct{}{}
 }
 
+// Reset satisfies the policy.Source interface.
+func (s *Source) Reset() {
+	s.monitoredPolicies = map[policy.PolicyID]modifyIndex{}
+	s.latestIndex = 1
+}
+
 // MonitorIDs retrieves a list of policy IDs from a Nomad cluster and sends it
 // in the resultCh channel when change is detected. Errors are sent through the
 // errCh channel.

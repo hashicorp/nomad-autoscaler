@@ -143,6 +143,9 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 		// If we reach this point it means an unrecoverable error happened.
 		// We should reset any internal state and re-run the policy manager.
 		m.log.Debug("re-starting policy manager")
+		for _, s := range m.policySources {
+			s.Reset()
+		}
 
 		// Make sure we start the next iteration with an empty map of handlers.
 		m.handlersLock.Lock()

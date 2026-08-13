@@ -98,6 +98,7 @@ func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[stri
 type mockSource struct {
 	countLock     sync.Locker
 	callsCount    int
+	resetCalls    int
 	name          SourceName
 	latestVersion map[PolicyID]*sdk.ScalingPolicy
 	err           error
@@ -131,6 +132,18 @@ func (ms *mockSource) Name() SourceName {
 
 func (ms *mockSource) MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq) {}
 func (ms *mockSource) ReloadIDsMonitor()                                           {}
+func (ms *mockSource) Reset() {
+	ms.countLock.Lock()
+	defer ms.countLock.Unlock()
+	ms.resetCalls++
+}
+
+func (ms *mockSource) getResetCalls() int {
+	ms.countLock.Lock()
+	defer ms.countLock.Unlock()
+
+	return ms.resetCalls
+}
 
 var policy1 = &sdk.ScalingPolicy{
 	ID:      "policy1",
@@ -638,6 +651,55 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
+}
+
+func TestManagerRun_UnrecoverableErrorResetsSources(t *testing.T) {
+	t.Parallel()
+
+	ms := &mockSource{
+		name:      "mock-source",
+		countLock: &sync.Mutex{},
+	}
+
+	testedManager := &Manager{
+		log: hclog.NewNullLogger(),
+		policySources: map[SourceName]Source{
+			"mock-source": ms,
+		},
+		handlersLock:     sync.RWMutex{},
+		handlers:         map[SourceName]map[PolicyID]*handlerTracker{},
+		policyIDsCh:      make(chan IDMessage, 2),
+		policyIDsErrCh:   make(chan error, 2),
+		Limiter:          NewLimiter(DefaultLimiterTimeout, map[string]int{"horizontal": 1, "cluster": 1}),
+		metricsInterval:  time.Hour,
+		pluginManager:    &MockDependencyGetter{},
+		targetGetter:     &mockTargetGetter{msg: mStatusController},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		testedManager.Run(ctx, make(chan *sdk.ScalingEvaluation, 1))
+	}()
+
+	testedManager.policyIDsErrCh <- errUnrecoverable
+
+	deadline := time.After(2 * time.Second)
+	ticker := time.NewTicker(20 * time.Millisecond)
+	defer ticker.Stop()
+
+	resetObserved := false
+	for !resetObserved {
+		select {
+		case <-deadline:
+			t.Fatal("timed out waiting for source reset")
+		case <-ticker.C:
+			resetObserved = ms.getResetCalls() > 0
+		}
+	}
+
+	cancel()
 }
 
 func TestProcessMessageAndUpdateHandlers_RecreatesMissingHandlerForUnchangedPolicy(t *testing.T) {

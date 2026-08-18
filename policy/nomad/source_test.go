@@ -5,6 +5,7 @@ package nomad
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -560,8 +561,10 @@ func TestMonitoringIDs(t *testing.T) {
 
 			select {
 			case mes := <-resultsChannel:
+				testSource.stateMu.RLock()
 				must.Eq(t, tc.expectedUpdates, mes.IDs)
 				must.Eq(t, tc.expectedMonitoredPolicies, testSource.monitoredPolicies)
+				testSource.stateMu.RUnlock()
 
 			case <-time.After(2 * time.Second):
 				t.Errorf("timed out waiting for results or error")
@@ -612,4 +615,45 @@ func TestMonitoringIDs_NoUpdates(t *testing.T) {
 
 		must.NonZero(t, mpg.callsCounter)
 	}
+}
+
+func TestMonitoringIDs_RetryableErrorResetsState(t *testing.T) {
+	mpg := &mockPolicyGetter{
+		err: errors.New("unexpected EOF"),
+		meta: &api.QueryMeta{
+			LastIndex: 1,
+		},
+	}
+
+	testSource := Source{
+		log: hclog.NewNullLogger(),
+		policyProcessor: policy.NewProcessor(
+			&policy.ConfigDefaults{},
+			[]string{},
+		),
+		policiesGetter:    mpg,
+		monitoredPolicies: map[policy.PolicyID]modifyIndex{"policy1": 3},
+		latestIndex:       9,
+		reloadCh:          make(chan struct{}, 1),
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	errCh := make(chan error, 1)
+
+	go testSource.MonitorIDs(ctx, policy.MonitorIDsReq{
+		ResultCh: make(chan policy.IDMessage, 1),
+		ErrCh:    errCh,
+	})
+
+	select {
+	case <-errCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected retryable watcher error")
+	}
+
+	testSource.stateMu.RLock()
+	must.Eq(t, modifyIndex(1), testSource.latestIndex)
+	must.Eq(t, map[policy.PolicyID]modifyIndex{}, testSource.monitoredPolicies)
+	testSource.stateMu.RUnlock()
 }

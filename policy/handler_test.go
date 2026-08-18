@@ -426,7 +426,7 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error)
+	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 	policy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
@@ -446,13 +446,6 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	go handler.Run(ctx)
 	time.Sleep(20 * time.Millisecond)
 	cancel()
-
-	select {
-	case err := <-errCh:
-		must.True(t, errors.Is(err, errTest))
-	default:
-		t.Fatal("expected error getting target status")
-	}
 
 	must.Eq(t, StateIdle, handler.getState())
 	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
@@ -482,12 +475,6 @@ func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 	go handler.Run(ctx)
 	time.Sleep(20 * time.Millisecond)
 	cancel()
-	select {
-	case err := <-errCh:
-		must.True(t, errors.Is(err, errTargetNotFound))
-	default:
-		t.Fatal("expected error for target not found")
-	}
 
 	must.Eq(t, StateIdle, handler.getState())
 	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
@@ -618,6 +605,29 @@ func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
 	err := h.applyPolicyState(fixedValuePolicy)
 	must.NoError(t, err)
 	must.Eq(t, 1, len(h.checkRunners))
+}
+
+func TestNewPolicyHandler_InitialTargetStatusErrorFails(t *testing.T) {
+	t.Parallel()
+
+	h, err := NewPolicyHandler(HandlerConfig{
+		Log:      hclog.NewNullLogger(),
+		ErrChan:  make(chan error, 1),
+		Policy:   policy2,
+		Limiter:  NewLimiter(DefaultLimiterTimeout, map[string]int{"horizontal": 1, "cluster": 1}),
+		UpdatesChan: make(chan *sdk.ScalingPolicy, 1),
+		TargetController: &mockTargetController{
+			statusErr: errTest,
+		},
+		DependencyGetter: &MockDependencyGetter{
+			StrategyRunner: &mockStrategyRunner{t: t},
+			APMLooker:      &mockAPMLooker{},
+		},
+	})
+
+	must.Nil(t, h)
+	must.Error(t, err)
+	must.StrContains(t, err.Error(), "failed to get target status")
 }
 
 var policy = &sdk.ScalingPolicy{

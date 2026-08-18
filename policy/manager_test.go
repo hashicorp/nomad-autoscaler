@@ -18,7 +18,7 @@ import (
 	"github.com/shoenig/test/must"
 )
 
-var errUnrecoverable = errors.New("connection refused")
+var errRetryable = errors.New("connection refused")
 
 // MockDependencyGetter is a mock implementation of dependencyGetter for testing.
 type MockDependencyGetter struct {
@@ -481,7 +481,7 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 			expectedCallCount: 3,
 		},
 		{
-			name: "unrecoverable source error",
+			name: "retryable source error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -489,9 +489,9 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			sourceError:       errUnrecoverable,
-			expectedError:     errUnrecoverable,
-			expectedCallCount: 1,
+			sourceError:       errRetryable,
+			expectedError:     nil,
+			expectedCallCount: 3,
 		},
 	}
 
@@ -543,7 +543,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			expectedCallCount: 3,
 		},
 		{
-			name: "unrecoverable_source_error",
+			name: "retryable_source_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -552,9 +552,9 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				},
 				Source: "mock-source"},
 			targetReporterError: nil,
-			sourceError:         errUnrecoverable,
-			expectedError:       errUnrecoverable,
-			expectedCallCount:   1,
+			sourceError:         errRetryable,
+			expectedError:       nil,
+			expectedCallCount:   3,
 		},
 		{
 			name: "recoverable_target_error",
@@ -570,7 +570,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			expectedCallCount:   3,
 		},
 		{
-			name: "unrecoverable_target_error",
+			name: "retryable_target_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -578,9 +578,9 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			targetReporterError: errUnrecoverable,
-			expectedError:       errUnrecoverable,
-			expectedCallCount:   1,
+			targetReporterError: errRetryable,
+			expectedError:       nil,
+			expectedCallCount:   3,
 		},
 	}
 
@@ -653,7 +653,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 	}
 }
 
-func TestManagerRun_UnrecoverableErrorResetsSources(t *testing.T) {
+func TestManagerRun_RetryableErrorDoesNotResetSources(t *testing.T) {
 	t.Parallel()
 
 	ms := &mockSource{
@@ -683,23 +683,46 @@ func TestManagerRun_UnrecoverableErrorResetsSources(t *testing.T) {
 		testedManager.Run(ctx, make(chan *sdk.ScalingEvaluation, 1))
 	}()
 
-	testedManager.policyIDsErrCh <- errUnrecoverable
+	testedManager.policyIDsErrCh <- errRetryable
 
-	deadline := time.After(2 * time.Second)
-	ticker := time.NewTicker(20 * time.Millisecond)
-	defer ticker.Stop()
-
-	resetObserved := false
-	for !resetObserved {
-		select {
-		case <-deadline:
-			t.Fatal("timed out waiting for source reset")
-		case <-ticker.C:
-			resetObserved = ms.getResetCalls() > 0
-		}
-	}
+	time.Sleep(100 * time.Millisecond)
+	must.Eq(t, 0, ms.getResetCalls())
 
 	cancel()
+}
+
+func TestProcessMessageAndUpdateHandlers_RetriesTransientSourceError(t *testing.T) {
+	t.Parallel()
+
+	ms := &mockSource{
+		name:          "mock-source",
+		err:           errRetryable,
+		latestVersion: map[PolicyID]*sdk.ScalingPolicy{},
+		countLock:     &sync.Mutex{},
+	}
+
+	testedManager := &Manager{
+		log:           hclog.NewNullLogger(),
+		handlersLock:  sync.RWMutex{},
+		handlers:      map[SourceName]map[PolicyID]*handlerTracker{},
+		policySources: map[SourceName]Source{"mock-source": ms},
+		policyIDsCh:   make(chan IDMessage, 1),
+	}
+
+	err := testedManager.processMessageAndUpdateHandlers(context.Background(), IDMessage{
+		IDs:    map[PolicyID]bool{"policy1": true},
+		Source: "mock-source",
+	})
+
+	must.NoError(t, err)
+
+	select {
+	case msg := <-testedManager.policyIDsCh:
+		must.Eq(t, map[PolicyID]bool{"policy1": true}, msg.IDs)
+		must.Eq(t, SourceName("mock-source"), msg.Source)
+	case <-time.After(DefaultRetryDelay + time.Second):
+		t.Fatal("expected retry message for transient source error")
+	}
 }
 
 func TestProcessMessageAndUpdateHandlers_RecreatesMissingHandlerForUnchangedPolicy(t *testing.T) {

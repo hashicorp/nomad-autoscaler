@@ -84,6 +84,7 @@ type Source struct {
 	policiesGetter policiesGetter
 
 	policyProcessor *policy.Processor
+	stateMu         sync.RWMutex
 
 	// Map of the current policies used to track changes
 	monitoredPolicies map[policy.PolicyID]modifyIndex
@@ -177,6 +178,9 @@ func (s *Source) ReloadIDsMonitor() {
 
 // Reset satisfies the policy.Source interface.
 func (s *Source) Reset() {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
 	s.monitoredPolicies = map[policy.PolicyID]modifyIndex{}
 	s.latestIndex = 1
 }
@@ -189,7 +193,9 @@ func (s *Source) Reset() {
 func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 	s.log.Debug("starting policy blocking query watcher")
 
+	s.stateMu.RLock()
 	q := &api.QueryOptions{WaitIndex: s.latestIndex}
+	s.stateMu.RUnlock()
 
 	for {
 		policies := []*api.ScalingPolicyListStub{}
@@ -201,8 +207,10 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// still listen for the context closing or a reload request.
 		blockingQueryCompleteCh := make(chan struct{})
 		go func() {
-
+			s.stateMu.RLock()
 			q.WaitIndex = s.latestIndex
+			s.stateMu.RUnlock()
+
 			policies, meta, err = s.policiesGetter.ListPolicies(q)
 			close(blockingQueryCompleteCh)
 		}()
@@ -219,6 +227,11 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If we get an errors at this point, we should sleep and try again.
 		if err != nil {
+			if policy.IsRetryableError(err) {
+				s.log.Warn("nomad policy watcher lost continuity, resetting source state",
+					"error", err)
+				s.Reset()
+			}
 			policy.HandleSourceError(s.Name(), fmt.Errorf("failed to call the Nomad list policies API: %v", err), req.ErrCh)
 			select {
 			case <-ctx.Done():
@@ -234,7 +247,10 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// If the index has not changed, the query returned because the timeout
 		// was reached, therefore start the next query loop.
-		if !blocking.IndexHasChanged(meta.LastIndex, s.latestIndex) {
+		s.stateMu.RLock()
+		latestIndex := s.latestIndex
+		s.stateMu.RUnlock()
+		if !blocking.IndexHasChanged(meta.LastIndex, latestIndex) {
 			continue
 		}
 
@@ -245,6 +261,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 
 		// Now removed the policies that are no longer present  in the
 		// updated list of policies meanning they were deleted or disabled.
+		s.stateMu.Lock()
 		maps.DeleteFunc(s.monitoredPolicies, func(policyID policy.PolicyID, _ modifyIndex) bool {
 			return !slices.ContainsFunc(policies, func(p *api.ScalingPolicyListStub) bool {
 				return p.ID == policyID && shouldMonitorPolicy(p, allowed)
@@ -271,6 +288,7 @@ func (s *Source) MonitorIDs(ctx context.Context, req policy.MonitorIDsReq) {
 		// correct point and update our recorded lastChangeIndex so we have the
 		// correct point to use during the next API return.
 		s.latestIndex = meta.LastIndex
+		s.stateMu.Unlock()
 
 		// Send new policy IDs in the channel.
 		req.ResultCh <- policy.IDMessage{IDs: policyUpdates, Source: s.Name()}

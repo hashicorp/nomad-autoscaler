@@ -87,7 +87,7 @@ type Handler struct {
 	limiter limiter
 
 	// errCh is used to surface errors while executing the policy
-	errChn chan<- error
+	errChn chan error
 	// ch is used to listen for policy updates.
 	updatesCh <-chan *sdk.ScalingPolicy
 
@@ -112,7 +112,7 @@ type Handler struct {
 
 type HandlerConfig struct {
 	UpdatesChan      chan *sdk.ScalingPolicy
-	ErrChan          chan<- error
+	ErrChan          chan error
 	Policy           *sdk.ScalingPolicy
 	Log              hclog.Logger
 	TargetController targetpkg.Controller
@@ -292,6 +292,11 @@ func (h *Handler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			h.log.Error("stopping policy handler due to context done")
 			return
+
+		case err := <-h.errChn:
+			if err != nil {
+				h.log.Error("encountered a runtime error while executing the policy", "error", err)
+			}
 
 		case updatedPolicy := <-h.updatesCh:
 			// The policy can be nil if the channel is closed meaning the

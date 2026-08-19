@@ -133,8 +133,6 @@ func (t *testSource) Name() policy.SourceName {
 func (t *testSource) ReloadIDsMonitor() {
 }
 
-func (t *testSource) Reset() {}
-
 func (t *testSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	panic("implement me")
 }

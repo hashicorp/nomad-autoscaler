@@ -98,7 +98,6 @@ func (msg *mockTargetController) Scale(action sdk.ScalingAction, config map[stri
 type mockSource struct {
 	countLock     sync.Locker
 	callsCount    int
-	resetCalls    int
 	name          SourceName
 	latestVersion map[PolicyID]*sdk.ScalingPolicy
 	err           error
@@ -132,18 +131,6 @@ func (ms *mockSource) Name() SourceName {
 
 func (ms *mockSource) MonitorIDs(ctx context.Context, monitorIDsReq MonitorIDsReq) {}
 func (ms *mockSource) ReloadIDsMonitor()                                           {}
-func (ms *mockSource) Reset() {
-	ms.countLock.Lock()
-	defer ms.countLock.Unlock()
-	ms.resetCalls++
-}
-
-func (ms *mockSource) getResetCalls() int {
-	ms.countLock.Lock()
-	defer ms.countLock.Unlock()
-
-	return ms.resetCalls
-}
 
 var policy1 = &sdk.ScalingPolicy{
 	ID:      "policy1",
@@ -435,8 +422,7 @@ func TestMonitoring(t *testing.T) {
 			ms2.resetCounter()
 
 			go func() {
-				err := testedManager.monitorPolicies(ctx)
-				must.NoError(t, err)
+				testedManager.monitorPolicies(ctx)
 			}()
 
 			testedManager.policyIDsCh <- tc.inputIDMessage
@@ -513,8 +499,7 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
-			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
@@ -646,49 +631,10 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
-			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
-}
-
-func TestManagerRun_RetryableErrorDoesNotResetSources(t *testing.T) {
-	t.Parallel()
-
-	ms := &mockSource{
-		name:      "mock-source",
-		countLock: &sync.Mutex{},
-	}
-
-	testedManager := &Manager{
-		log: hclog.NewNullLogger(),
-		policySources: map[SourceName]Source{
-			"mock-source": ms,
-		},
-		handlersLock:     sync.RWMutex{},
-		handlers:         map[SourceName]map[PolicyID]*handlerTracker{},
-		policyIDsCh:      make(chan IDMessage, 2),
-		policyIDsErrCh:   make(chan error, 2),
-		Limiter:          NewLimiter(DefaultLimiterTimeout, map[string]int{"horizontal": 1, "cluster": 1}),
-		metricsInterval:  time.Hour,
-		pluginManager:    &MockDependencyGetter{},
-		targetGetter:     &mockTargetGetter{msg: mStatusController},
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	go func() {
-		testedManager.Run(ctx, make(chan *sdk.ScalingEvaluation, 1))
-	}()
-
-	testedManager.policyIDsErrCh <- errRetryable
-
-	time.Sleep(100 * time.Millisecond)
-	must.Eq(t, 0, ms.getResetCalls())
-
-	cancel()
 }
 
 func TestProcessMessageAndUpdateHandlers_RetriesTransientSourceError(t *testing.T) {
@@ -709,12 +655,10 @@ func TestProcessMessageAndUpdateHandlers_RetriesTransientSourceError(t *testing.
 		policyIDsCh:   make(chan IDMessage, 1),
 	}
 
-	err := testedManager.processMessageAndUpdateHandlers(context.Background(), IDMessage{
+	testedManager.processMessageAndUpdateHandlers(context.Background(), IDMessage{
 		IDs:    map[PolicyID]bool{"policy1": true},
 		Source: "mock-source",
 	})
-
-	must.NoError(t, err)
 
 	select {
 	case msg := <-testedManager.policyIDsCh:
@@ -750,14 +694,13 @@ func TestProcessMessageAndUpdateHandlers_RecreatesMissingHandlerForUnchangedPoli
 	}
 
 	ctx := context.Background()
-	err := testedManager.processMessageAndUpdateHandlers(ctx, IDMessage{
+	testedManager.processMessageAndUpdateHandlers(ctx, IDMessage{
 		IDs: map[PolicyID]bool{
 			policy1.ID: false,
 		},
 		Source: "mock-source",
 	})
 
-	must.NoError(t, err)
 	must.Eq(t, 1, ms.getCallsCounter())
 	must.Eq(t, 1, testedManager.getHandlersNumPerSource("mock-source"))
 	must.NotNil(t, testedManager.handlers["mock-source"][policy1.ID])

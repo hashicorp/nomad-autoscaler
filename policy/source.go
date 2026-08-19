@@ -49,9 +49,6 @@ type Source interface {
 	// agent.
 	ReloadIDsMonitor()
 
-	// Reset clears any internal watch state so the next MonitorIDs session can
-	// rebuild the current policy snapshot from scratch.
-	Reset()
 }
 
 // SourceName differentiates policies from different sources. This allows the

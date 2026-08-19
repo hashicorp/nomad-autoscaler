@@ -124,51 +124,28 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// Start the metrics reporter.
 	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
-	for {
-		// Create a separate context so we can stop the goroutine monitoring the
-		// list of policies independently from the parent context.
-		monitorCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+	// Create a separate context so we can stop the goroutine monitoring the
+	// list of policies independently from the parent context.
+	monitorCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		// Start the policy source and listen for changes in the list of policy IDs
-		for _, s := range m.policySources {
-			m.log.Info("starting policy source", "source", s.Name())
-			req := MonitorIDsReq{
-				ErrCh:    m.policyIDsErrCh,
-				ResultCh: m.policyIDsCh,
-			}
-
-			go s.MonitorIDs(monitorCtx, req)
+	// Start the policy source and listen for changes in the list of policy IDs
+	for _, s := range m.policySources {
+		m.log.Info("starting policy source", "source", s.Name())
+		req := MonitorIDsReq{
+			ErrCh:    m.policyIDsErrCh,
+			ResultCh: m.policyIDsCh,
 		}
 
-		// monitorPolicies is a blocking function that will only return without errors when
-		// the context is cancelled.
-		err := m.monitorPolicies(ctx)
-		if err == nil {
-			break
-		}
-
-		// Make sure to cancel the monitor's context before starting a new iteration
-		cancel()
-
-		// If we reach this point it means an unrecoverable error happened.
-		// We should reset any internal state and re-run the policy manager.
-		m.log.Debug("re-starting policy manager")
-		for _, s := range m.policySources {
-			s.Reset()
-		}
-
-		// Make sure we start the next iteration with an empty map of handlers.
-		m.handlersLock.Lock()
-		m.handlers = make(map[SourceName]map[PolicyID]*handlerTracker)
-		m.handlersLock.Unlock()
-
-		// Delay the next iteration of m.Run to avoid re-runs to start too often.
-		time.Sleep(10 * time.Second)
+		go s.MonitorIDs(monitorCtx, req)
 	}
+
+	// monitorPolicies is a blocking function that will only return when the
+	// context is cancelled.
+	m.monitorPolicies(ctx)
 }
 
-func (m *Manager) monitorPolicies(ctx context.Context) error {
+func (m *Manager) monitorPolicies(ctx context.Context) {
 	defer m.stopHandlers()
 
 	m.log.Trace(" starting to monitor policies")
@@ -178,7 +155,7 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 			m.log.Trace("stopping policy manager")
 			close(m.policyIDsCh)
 			close(m.policyIDsErrCh)
-			return nil
+			return
 
 		case err := <-m.policyIDsErrCh:
 			m.log.Error("encountered an error monitoring policy IDs", "error", err)
@@ -203,16 +180,13 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 			m.handlersLock.Unlock()
 
 			// Now send updates to the active policies or create new handlers
-			// for any new policies
-			err := m.processMessageAndUpdateHandlers(ctx, message)
-			if err != nil {
-				return err
-			}
+			// for any new policies.
+			m.processMessageAndUpdateHandlers(ctx, message)
 		}
 	}
 }
 
-func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) error {
+func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) {
 
 	for policyID, updated := range message.IDs {
 		updatedPolicy := &sdk.ScalingPolicy{}
@@ -265,7 +239,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 
 		handlerCtx, handlerCancel := context.WithCancel(ctx)
 		upCh := make(chan *sdk.ScalingPolicy, 1)
-		errCh := make(chan error, 1)
 
 		nht := &handlerTracker{
 			updates:    upCh,
@@ -292,7 +265,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 				"target_config", updatedPolicy.Target.Config),
 			Policy:              updatedPolicy,
 			UpdatesChan:         upCh,
-			ErrChan:             errCh,
 			TargetController:    tg,
 			DependencyGetter:    m.pluginManager,
 			Limiter:             m.Limiter,
@@ -313,7 +285,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		m.addHandlerTracker(message.Source, policyID, nht)
 	}
 
-	return nil
 }
 
 func (m *Manager) schedulePolicyRetry(ctx context.Context, source SourceName, policyID PolicyID) {

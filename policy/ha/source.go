@@ -115,11 +115,6 @@ func (fs *FilteredSource) ReloadIDsMonitor() {
 	fs.policyFilter.ReloadFilterMonitor()
 }
 
-// Reset satisfies policy.Source by resetting the underlying policy source.
-func (fs *FilteredSource) Reset() {
-	fs.upstreamSource.Reset()
-}
-
 func (fs *FilteredSource) GetLatestVersion(ctx context.Context, pID policy.PolicyID) (*sdk.ScalingPolicy, error) {
 	fs.log.Trace("delegating GetPolicy", "policy_id", pID)
 	return fs.upstreamSource.GetLatestVersion(ctx, pID)

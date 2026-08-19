@@ -103,9 +103,6 @@ func (s *Source) ReloadIDsMonitor() {
 	<-s.reloadCompleteCh
 }
 
-// Reset satisfies the policy.Source interface.
-func (s *Source) Reset() {}
-
 // identifyPolicyIDs iterates the configured directory, identifying the
 // configured policyIDs. The IDs will be wrapped and sent to the resultCh so
 // the policy manager can do its work.

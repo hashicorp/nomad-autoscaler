@@ -18,7 +18,7 @@ import (
 	"github.com/shoenig/test/must"
 )
 
-var errUnrecoverable = errors.New("connection refused")
+var errRetryable = errors.New("connection refused")
 
 // MockDependencyGetter is a mock implementation of dependencyGetter for testing.
 type MockDependencyGetter struct {
@@ -326,6 +326,17 @@ func TestMonitoring(t *testing.T) {
 			},
 		},
 		{
+			name: "recreate_missing_handler_for_unchanged_policy",
+			inputIDMessage: IDMessage{
+				IDs: map[PolicyID]bool{
+					policy1.ID: false,
+				},
+				Source: "mock-source",
+			},
+			initialHandlers:            map[SourceName]map[PolicyID]*handlerTracker{},
+			expCallsToLatestVersionMS1: 1,
+		},
+		{
 			name: "remove_policy",
 			inputIDMessage: IDMessage{
 				IDs: map[PolicyID]bool{
@@ -411,8 +422,7 @@ func TestMonitoring(t *testing.T) {
 			ms2.resetCounter()
 
 			go func() {
-				err := testedManager.monitorPolicies(ctx)
-				must.NoError(t, err)
+				testedManager.monitorPolicies(ctx)
 			}()
 
 			testedManager.policyIDsCh <- tc.inputIDMessage
@@ -457,7 +467,7 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 			expectedCallCount: 3,
 		},
 		{
-			name: "unrecoverable source error",
+			name: "retryable source error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -465,9 +475,9 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			sourceError:       errUnrecoverable,
-			expectedError:     errUnrecoverable,
-			expectedCallCount: 1,
+			sourceError:       errRetryable,
+			expectedError:     nil,
+			expectedCallCount: 3,
 		},
 	}
 
@@ -489,8 +499,7 @@ func TestProcessMessageAndUpdateHandlers_SourceError(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
-			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
@@ -519,7 +528,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			expectedCallCount: 3,
 		},
 		{
-			name: "unrecoverable_source_error",
+			name: "retryable_source_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -528,9 +537,9 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 				},
 				Source: "mock-source"},
 			targetReporterError: nil,
-			sourceError:         errUnrecoverable,
-			expectedError:       errUnrecoverable,
-			expectedCallCount:   1,
+			sourceError:         errRetryable,
+			expectedError:       nil,
+			expectedCallCount:   3,
 		},
 		{
 			name: "recoverable_target_error",
@@ -546,7 +555,7 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			expectedCallCount:   3,
 		},
 		{
-			name: "unrecoverable_target_error",
+			name: "retryable_target_error",
 			message: IDMessage{
 				IDs: map[PolicyID]bool{
 					"policy1": true,
@@ -554,9 +563,9 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 					"policy3": true,
 				},
 				Source: "mock-source"},
-			targetReporterError: errUnrecoverable,
-			expectedError:       errUnrecoverable,
-			expectedCallCount:   1,
+			targetReporterError: errRetryable,
+			expectedError:       nil,
+			expectedCallCount:   3,
 		},
 	}
 
@@ -622,9 +631,77 @@ func TestProcessMessageAndUpdateHandlers_GetTargetReporterError(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			err := testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
-			must.Eq(t, tc.expectedError, errors.Unwrap(err))
+			testedManager.processMessageAndUpdateHandlers(ctx, tc.message)
 			must.Eq(t, tc.expectedCallCount, ms.callsCount)
 		})
 	}
+}
+
+func TestProcessMessageAndUpdateHandlers_RetriesTransientSourceError(t *testing.T) {
+	t.Parallel()
+
+	ms := &mockSource{
+		name:          "mock-source",
+		err:           errRetryable,
+		latestVersion: map[PolicyID]*sdk.ScalingPolicy{},
+		countLock:     &sync.Mutex{},
+	}
+
+	testedManager := &Manager{
+		log:           hclog.NewNullLogger(),
+		handlersLock:  sync.RWMutex{},
+		handlers:      map[SourceName]map[PolicyID]*handlerTracker{},
+		policySources: map[SourceName]Source{"mock-source": ms},
+		policyIDsCh:   make(chan IDMessage, 1),
+	}
+
+	testedManager.processMessageAndUpdateHandlers(context.Background(), IDMessage{
+		IDs:    map[PolicyID]bool{"policy1": true},
+		Source: "mock-source",
+	})
+
+	select {
+	case msg := <-testedManager.policyIDsCh:
+		must.Eq(t, map[PolicyID]bool{"policy1": true}, msg.IDs)
+		must.Eq(t, SourceName("mock-source"), msg.Source)
+	case <-time.After(DefaultRetryDelay + time.Second):
+		t.Fatal("expected retry message for transient source error")
+	}
+}
+
+func TestProcessMessageAndUpdateHandlers_RecreatesMissingHandlerForUnchangedPolicy(t *testing.T) {
+	t.Parallel()
+
+	ms := &mockSource{
+		name: "mock-source",
+		latestVersion: map[PolicyID]*sdk.ScalingPolicy{
+			policy1.ID: policy1,
+		},
+		countLock: &sync.Mutex{},
+	}
+
+	testedManager := &Manager{
+		log:          hclog.NewNullLogger(),
+		handlersLock: sync.RWMutex{},
+		handlers:     map[SourceName]map[PolicyID]*handlerTracker{},
+		policySources: map[SourceName]Source{
+			"mock-source": ms,
+		},
+		targetGetter: &mockTargetGetter{
+			msg: mStatusController,
+		},
+		pluginManager: &MockDependencyGetter{},
+	}
+
+	ctx := context.Background()
+	testedManager.processMessageAndUpdateHandlers(ctx, IDMessage{
+		IDs: map[PolicyID]bool{
+			policy1.ID: false,
+		},
+		Source: "mock-source",
+	})
+
+	must.Eq(t, 1, ms.getCallsCounter())
+	must.Eq(t, 1, testedManager.getHandlersNumPerSource("mock-source"))
+	must.NotNil(t, testedManager.handlers["mock-source"][policy1.ID])
 }

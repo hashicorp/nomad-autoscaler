@@ -426,7 +426,6 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 	policy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
@@ -438,7 +437,6 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: &mockTargetController{statusErr: errTest},
 		state:            StateIdle,
 	}
@@ -446,13 +444,6 @@ func TestHandler_Run_TargetError_Integration(t *testing.T) {
 	go handler.Run(ctx)
 	time.Sleep(20 * time.Millisecond)
 	cancel()
-
-	select {
-	case err := <-errCh:
-		must.True(t, errors.Is(err, errTest))
-	default:
-		t.Fatal("expected error getting target status")
-	}
 
 	must.Eq(t, StateIdle, handler.getState())
 	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
@@ -462,7 +453,6 @@ func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 	policy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
@@ -474,7 +464,6 @@ func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: &mockTargetController{status: nil},
 		state:            StateIdle,
 	}
@@ -482,12 +471,6 @@ func TestHandler_Run_TargetNotFound_Integration(t *testing.T) {
 	go handler.Run(ctx)
 	time.Sleep(20 * time.Millisecond)
 	cancel()
-	select {
-	case err := <-errCh:
-		must.True(t, errors.Is(err, errTargetNotFound))
-	default:
-		t.Fatal("expected error for target not found")
-	}
 
 	must.Eq(t, StateIdle, handler.getState())
 	must.Eq(t, time.Time{}, handler.getOutOfCooldownOn())
@@ -498,7 +481,6 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 	policy := &sdk.ScalingPolicy{
 		ID:                 "test-policy",
@@ -510,7 +492,6 @@ func TestHandler_Run_TargetNotReady_Integration(t *testing.T) {
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: &mockTargetController{status: &sdk.TargetStatus{Ready: false, Count: 1, Meta: map[string]string{}}},
 		state:            StateIdle,
 	}
@@ -529,7 +510,6 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		return time.Date(2026, 1, 1, 10, 30, 0, 0, time.UTC)
 	}
 
-	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 
 	policy := &sdk.ScalingPolicy{
@@ -552,7 +532,6 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 		log:              logger,
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: &mockTargetController{statusErr: errTest},
 		state:            StateIdle,
 	}
@@ -565,12 +544,6 @@ func TestHandler_Run_PolicyOutsideSchedule_Integration(t *testing.T) {
 	defer cancel()
 
 	handler.Run(ctx) // blocking call
-
-	select {
-	case err := <-errCh:
-		t.Fatalf("expected no evaluation while outside schedule window, got error: %v", err)
-	default:
-	}
 
 	must.False(t, mtc.getStatusCalled())
 
@@ -620,6 +593,28 @@ func TestHandler_applyPolicyState_FixedValueDoesNotRequireAPM(t *testing.T) {
 	must.Eq(t, 1, len(h.checkRunners))
 }
 
+func TestNewPolicyHandler_InitialTargetStatusErrorFails(t *testing.T) {
+	t.Parallel()
+
+	h, err := NewPolicyHandler(HandlerConfig{
+		Log:      hclog.NewNullLogger(),
+		Policy:   policy2,
+		Limiter:  NewLimiter(DefaultLimiterTimeout, map[string]int{"horizontal": 1, "cluster": 1}),
+		UpdatesChan: make(chan *sdk.ScalingPolicy, 1),
+		TargetController: &mockTargetController{
+			statusErr: errTest,
+		},
+		DependencyGetter: &MockDependencyGetter{
+			StrategyRunner: &mockStrategyRunner{t: t},
+			APMLooker:      &mockAPMLooker{},
+		},
+	})
+
+	must.Nil(t, h)
+	must.Error(t, err)
+	must.StrContains(t, err.Error(), "failed to get target status")
+}
+
 var policy = &sdk.ScalingPolicy{
 	Type:               sdk.ScalingPolicyTypeHorizontal,
 	ID:                 "test-policy",
@@ -652,7 +647,6 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 
 	mapml := &mockAPMLooker{
@@ -684,7 +678,6 @@ func TestHandler_Run_ScalingNotNeeded_Integration(t *testing.T) {
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: mtc,
 		state:            StateIdle,
 		pm:               mdg,
@@ -710,7 +703,6 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	errCh := make(chan error, 1)
 	updatesCh := make(chan *sdk.ScalingPolicy)
 
 	mapml := &mockAPMLooker{
@@ -746,7 +738,6 @@ func TestHandler_Run_ScalingNeededAndCooldown_Integration(t *testing.T) {
 		log:              hclog.NewNullLogger(),
 		policy:           policy,
 		updatesCh:        updatesCh,
-		errChn:           errCh,
 		targetController: mtc,
 		state:            StateIdle,
 		pm:               mdg,
@@ -862,7 +853,6 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			errCh := make(chan error, 1)
 			updatesCh := make(chan *sdk.ScalingPolicy)
 
 			mtc := &mockTargetController{
@@ -898,7 +888,6 @@ func TestHandler_Run_StateChanges_Integration(t *testing.T) {
 				log:              hclog.NewNullLogger(),
 				policy:           policy,
 				updatesCh:        updatesCh,
-				errChn:           errCh,
 				targetController: mtc,
 				state:            tc.initialHandlerState,
 				pm:               mdg,

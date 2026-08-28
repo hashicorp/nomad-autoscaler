@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package policy
@@ -6,7 +6,6 @@ package policy
 import (
 	"context"
 	"errors"
-	"fmt"
 	"maps"
 	"slices"
 	"strings"
@@ -20,12 +19,20 @@ import (
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 )
 
-const DefaultLimiterTimeout = 2 * time.Minute
+const (
+	DefaultLimiterTimeout = 2 * time.Minute
+	DefaultRetryDelay     = 5 * time.Second
+)
 
 type handlerTracker struct {
 	policyType string
 	cancel     context.CancelFunc
 	updates    chan<- *sdk.ScalingPolicy
+}
+
+type retryKey struct {
+	source   SourceName
+	policyID PolicyID
 }
 
 type targetGetter interface {
@@ -43,6 +50,8 @@ type Manager struct {
 
 	// handlers are used to track the Go routines monitoring policies.
 	handlers map[SourceName]map[PolicyID]*handlerTracker
+	retryMu  sync.Mutex
+	retries  map[retryKey]struct{}
 
 	// metricsInterval is the interval at which the agent is configured to emit
 	// metrics. This is used when creating the periodicMetricsReporter.
@@ -77,6 +86,8 @@ func NewManager(log hclog.Logger, ps map[SourceName]Source, pm *manager.PluginMa
 		targetGetter:        pm,
 		handlersLock:        sync.RWMutex{},
 		handlers:            make(map[SourceName]map[PolicyID]*handlerTracker),
+		retryMu:             sync.Mutex{},
+		retries:             make(map[retryKey]struct{}),
 		metricsInterval:     mInt,
 		policyIDsCh:         make(chan IDMessage, 2),
 		policyIDsErrCh:      make(chan error, 2),
@@ -113,48 +124,28 @@ func (m *Manager) Run(ctx context.Context, evalCh chan<- *sdk.ScalingEvaluation)
 	// Start the metrics reporter.
 	go m.periodicMetricsReporter(ctx, m.metricsInterval)
 
-	for {
-		// Create a separate context so we can stop the goroutine monitoring the
-		// list of policies independently from the parent context.
-		monitorCtx, cancel := context.WithCancel(ctx)
-		defer cancel()
+	// Create a separate context so we can stop the goroutine monitoring the
+	// list of policies independently from the parent context.
+	monitorCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
 
-		// Start the policy source and listen for changes in the list of policy IDs
-		for _, s := range m.policySources {
-			m.log.Info("starting policy source", "source", s.Name())
-			req := MonitorIDsReq{
-				ErrCh:    m.policyIDsErrCh,
-				ResultCh: m.policyIDsCh,
-			}
-
-			go s.MonitorIDs(monitorCtx, req)
+	// Start the policy source and listen for changes in the list of policy IDs
+	for _, s := range m.policySources {
+		m.log.Info("starting policy source", "source", s.Name())
+		req := MonitorIDsReq{
+			ErrCh:    m.policyIDsErrCh,
+			ResultCh: m.policyIDsCh,
 		}
 
-		// monitorPolicies is a blocking function that will only return without errors when
-		// the context is cancelled.
-		err := m.monitorPolicies(ctx)
-		if err == nil {
-			break
-		}
-
-		// Make sure to cancel the monitor's context before starting a new iteration
-		cancel()
-
-		// If we reach this point it means an unrecoverable error happened.
-		// We should reset any internal state and re-run the policy manager.
-		m.log.Debug("re-starting policy manager")
-
-		// Make sure we start the next iteration with an empty map of handlers.
-		m.handlersLock.Lock()
-		m.handlers = make(map[SourceName]map[PolicyID]*handlerTracker)
-		m.handlersLock.Unlock()
-
-		// Delay the next iteration of m.Run to avoid re-runs to start too often.
-		time.Sleep(10 * time.Second)
+		go s.MonitorIDs(monitorCtx, req)
 	}
+
+	// monitorPolicies is a blocking function that will only return when the
+	// context is cancelled.
+	m.monitorPolicies(ctx)
 }
 
-func (m *Manager) monitorPolicies(ctx context.Context) error {
+func (m *Manager) monitorPolicies(ctx context.Context) {
 	defer m.stopHandlers()
 
 	m.log.Trace(" starting to monitor policies")
@@ -164,13 +155,10 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 			m.log.Trace("stopping policy manager")
 			close(m.policyIDsCh)
 			close(m.policyIDsErrCh)
-			return nil
+			return
 
 		case err := <-m.policyIDsErrCh:
 			m.log.Error("encountered an error monitoring policy IDs", "error", err)
-			if isUnrecoverableError(err) {
-				return err
-			}
 			continue
 
 		case message := <-m.policyIDsCh:
@@ -192,22 +180,22 @@ func (m *Manager) monitorPolicies(ctx context.Context) error {
 			m.handlersLock.Unlock()
 
 			// Now send updates to the active policies or create new handlers
-			// for any new policies
-			err := m.processMessageAndUpdateHandlers(ctx, message)
-			if err != nil {
-				return err
-			}
+			// for any new policies.
+			m.processMessageAndUpdateHandlers(ctx, message)
 		}
 	}
 }
 
-func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) error {
+func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message IDMessage) {
 
 	for policyID, updated := range message.IDs {
 		updatedPolicy := &sdk.ScalingPolicy{}
 		var err error
 
-		if !updated {
+		m.handlersLock.RLock()
+		pht := m.handlers[message.Source][policyID]
+		m.handlersLock.RUnlock()
+		if pht != nil && !updated {
 			continue
 		}
 
@@ -216,9 +204,8 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error getting the latest version for policy",
 				"policyID", policyID, "error", err)
-			if isUnrecoverableError(err) {
-				return fmt.Errorf("failed to get latest version for policy %s: %w",
-					policyID, err)
+			if IsRetryableError(err) {
+				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
 		}
@@ -236,9 +223,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 			continue
 		}
 
-		m.handlersLock.RLock()
-		pht := m.handlers[message.Source][policyID]
-		m.handlersLock.RUnlock()
 		if pht != nil {
 			// If the handler already exists, send the updated policy to it.
 			m.log.Trace("sending updated policy to existing handler",
@@ -269,8 +253,8 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error getting the target for the policy handler",
 				"policyID", policyID, "error", err)
-			if isUnrecoverableError(err) {
-				return fmt.Errorf("failed to get target for policy %s: %w", policyID, err)
+			if IsRetryableError(err) {
+				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
 		}
@@ -281,7 +265,6 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 				"target_config", updatedPolicy.Target.Config),
 			Policy:              updatedPolicy,
 			UpdatesChan:         upCh,
-			ErrChan:             m.policyIDsErrCh,
 			TargetController:    tg,
 			DependencyGetter:    m.pluginManager,
 			Limiter:             m.Limiter,
@@ -290,9 +273,8 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error starting the policy handler",
 				"policyID", policyID, "error", err)
-			if isUnrecoverableError(err) {
-				return fmt.Errorf("failed to start the policy handler %s: %w",
-					policyID, err)
+			if IsRetryableError(err) {
+				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
 		}
@@ -303,7 +285,40 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		m.addHandlerTracker(message.Source, policyID, nht)
 	}
 
-	return nil
+}
+
+func (m *Manager) schedulePolicyRetry(ctx context.Context, source SourceName, policyID PolicyID) {
+	key := retryKey{source: source, policyID: policyID}
+
+	m.retryMu.Lock()
+	if m.retries == nil {
+		m.retries = make(map[retryKey]struct{})
+	}
+	if _, ok := m.retries[key]; ok {
+		m.retryMu.Unlock()
+		return
+	}
+	m.retries[key] = struct{}{}
+	m.retryMu.Unlock()
+
+	go func() {
+		defer func() {
+			m.retryMu.Lock()
+			delete(m.retries, key)
+			m.retryMu.Unlock()
+		}()
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(DefaultRetryDelay):
+		}
+
+		select {
+		case <-ctx.Done():
+		case m.policyIDsCh <- IDMessage{IDs: map[PolicyID]bool{policyID: true}, Source: source}:
+		}
+	}()
 }
 
 func (m *Manager) stopHandlers() {
@@ -394,19 +409,11 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 	}
 }
 
-// isUnrecoverableError checks if the input error should be considered
-// unrecoverable.
-//
-// An error is considered unrecoverable if it has the potential to affect the
-// policy manager's internal state, and so the policy manager should re-run.
-//
-// Example of an unrecoverable error: the Nomad server becomes unreachable;
-// upon reconnecting, the state of the Nomad cluster could be different from
-// what's stored in the policy manager (e.g., a different cluster becomes
-// available in the same address).
-func isUnrecoverableError(err error) bool {
-	unrecoverableErrors := []string{"connection refused", "EOF"}
-	for _, e := range unrecoverableErrors {
+// IsRetryableError identifies transient connectivity failures that callers can
+// handle locally without restarting the whole manager.
+func IsRetryableError(err error) bool {
+	retryableErrors := []string{"connection refused", "EOF"}
+	for _, e := range retryableErrors {
 		if strings.Contains(err.Error(), e) {
 			return true
 		}

@@ -86,8 +86,6 @@ type Handler struct {
 
 	limiter limiter
 
-	// errCh is used to surface errors while executing the policy
-	errChn chan<- error
 	// ch is used to listen for policy updates.
 	updatesCh <-chan *sdk.ScalingPolicy
 
@@ -112,7 +110,6 @@ type Handler struct {
 
 type HandlerConfig struct {
 	UpdatesChan      chan *sdk.ScalingPolicy
-	ErrChan          chan<- error
 	Policy           *sdk.ScalingPolicy
 	Log              hclog.Logger
 	TargetController targetpkg.Controller
@@ -134,7 +131,6 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		targetController:    config.TargetController,
 		updatesCh:           config.UpdatesChan,
 		policy:              config.Policy,
-		errChn:              config.ErrChan,
 		limiter:             config.Limiter,
 		stateLock:           sync.RWMutex{},
 		state:               StateIdle,
@@ -302,7 +298,9 @@ func (h *Handler) Run(ctx context.Context) {
 			}
 
 			h.applyMutators(updatedPolicy)
-			h.updateHandler(updatedPolicy)
+			if err := h.updateHandler(updatedPolicy); err != nil {
+				h.log.Error("encountered a runtime error while executing the policy", "error", err)
+			}
 
 		case <-h.ticker.C:
 			if h.compiledPolicySchedule != nil && !h.compiledPolicySchedule.activeAt(nowFunc()) {
@@ -312,14 +310,15 @@ func (h *Handler) Run(ctx context.Context) {
 
 			currentStatus, err := h.runTargetStatus()
 			if err != nil {
-				h.errChn <- fmt.Errorf("handler: failed to get target status for target: %s, %w",
-					h.policy.Target.Name, err)
+				h.log.Error("encountered a runtime error while executing the policy",
+					"error", fmt.Errorf("handler: failed to get target status for target: %s, %w",
+						h.policy.Target.Name, err))
 				continue
 			}
 
 			// A nil status indicates the target doesn't exist, log and return.
 			if currentStatus == nil {
-				h.errChn <- errTargetNotFound
+				h.log.Error("encountered a runtime error while executing the policy", "error", errTargetNotFound)
 				continue
 			}
 
@@ -337,8 +336,9 @@ func (h *Handler) Run(ctx context.Context) {
 					h.log.Debug("stopping policy handler, context done during evaluation")
 					return
 				}
-				h.errChn <- fmt.Errorf("handler: unable to execute policy ID: %s, %w",
-					h.policy.ID, err)
+				h.log.Error("encountered a runtime error while executing the policy",
+					"error", fmt.Errorf("handler: unable to execute policy ID: %s, %w",
+						h.policy.ID, err))
 				continue
 			}
 
@@ -443,7 +443,7 @@ func (h *Handler) waitAndScale(ctx context.Context) error {
 
 // updateHandler updates the handler's internal state based on the changes in
 // the policy being monitored.
-func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
+func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) error {
 	h.log.Trace("updating handler", "policy_id", updatedPolicy.ID)
 
 	h.policyLock.Lock()
@@ -451,8 +451,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	err := h.applyPolicyState(updatedPolicy)
 	h.policyLock.Unlock()
 	if err != nil {
-		h.errChn <- fmt.Errorf("unable to build and apply updated policy state for policy ID %s: %w", updatedPolicy.ID, err)
-		return
+		return fmt.Errorf("unable to build and apply updated policy state for policy ID %s: %w", updatedPolicy.ID, err)
 	}
 
 	if intervalChanged {
@@ -467,6 +466,7 @@ func (h *Handler) updateHandler(updatedPolicy *sdk.ScalingPolicy) {
 	}
 
 	h.log.Debug("check handlers updated", "count", len(h.checkRunners))
+	return nil
 }
 
 // applyMutators applies the mutators registered with the handler in order and

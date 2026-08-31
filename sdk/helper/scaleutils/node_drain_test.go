@@ -1,11 +1,15 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -126,6 +130,20 @@ func Test_DrainNode(t *testing.T) {
 		Level: hclog.LevelFromString("ERROR"),
 	})
 
+	allocs := []*api.Allocation{
+		{
+			ID: "alloc-1",
+			TaskStates: map[string]*api.TaskState{
+				"main": {State: "dead"},
+			},
+		},
+	}
+
+	ts := newNodeAllocsTestServer(t, allocs)
+	defer ts.Close()
+
+	client := testNomadClient(t, ts.URL)
+
 	md := newMockDrainer()
 
 	md.drainerMockFunc = func(nodeID string, opts *api.DrainOptions, _ *api.WriteOptions) (*api.NodeDrainUpdateResponse, error) {
@@ -149,6 +167,7 @@ func Test_DrainNode(t *testing.T) {
 
 	cu := &ClusterScaleUtils{
 		log:     testLogger,
+		client:  client,
 		drainer: md,
 	}
 
@@ -156,5 +175,129 @@ func Test_DrainNode(t *testing.T) {
 	err := cu.drainNode(ctx, testNodeID, &api.DrainSpec{})
 	must.NoError(t, err)
 	must.True(t, md.monitorFunctionCalled)
+}
 
+func Test_WaitForAllTasksDead(t *testing.T) {
+	testLogger := hclog.New(&hclog.LoggerOptions{
+		Level: hclog.LevelFromString("ERROR"),
+	})
+
+	testCases := []struct {
+		name          string
+		allocsSeq     [][]*api.Allocation
+		ctxTimeout    time.Duration
+		expectedError bool
+	}{
+		{
+			name: "all tasks already dead",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID: "alloc-1",
+						TaskStates: map[string]*api.TaskState{
+							"main":    {State: "dead"},
+							"cleanup": {State: "dead"},
+						},
+					},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "task running then becomes dead",
+			allocsSeq: [][]*api.Allocation{
+				// first poll: cleanup still running
+				{
+					{
+						ID: "alloc-1",
+						TaskStates: map[string]*api.TaskState{
+							"main":    {State: "dead"},
+							"cleanup": {State: "running"},
+						},
+					},
+				},
+				// second poll: same alloc, cleanup now dead
+				{
+					{
+						ID: "alloc-1",
+						TaskStates: map[string]*api.TaskState{
+							"main":    {State: "dead"},
+							"cleanup": {State: "dead"},
+						},
+					},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "context cancelled while task still running",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID: "alloc-1",
+						TaskStates: map[string]*api.TaskState{
+							"cleanup": {State: "running"},
+						},
+					},
+				},
+			},
+			ctxTimeout:    100 * time.Millisecond,
+			expectedError: true,
+		},
+		{
+			name:          "no allocations on node",
+			allocsSeq:     [][]*api.Allocation{{}},
+			expectedError: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			callCount := 0
+			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+
+				idx := callCount
+				if idx >= len(tc.allocsSeq) {
+					idx = len(tc.allocsSeq) - 1
+				}
+				allocs := tc.allocsSeq[idx]
+				callCount++
+
+				w.Header().Set("X-Nomad-Index", fmt.Sprintf("%d", callCount+1))
+				must.NoError(t, json.NewEncoder(w).Encode(allocs))
+			}))
+			defer ts.Close()
+
+			client := testNomadClient(t, ts.URL)
+			cu := &ClusterScaleUtils{
+				log:    testLogger,
+				client: client,
+			}
+
+			ctx := context.Background()
+			if tc.ctxTimeout > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, tc.ctxTimeout)
+				defer cancel()
+			}
+
+			err := cu.waitForAllTasksDead(ctx, "node-1")
+			if tc.expectedError {
+				must.Error(t, err)
+			} else {
+				must.NoError(t, err)
+			}
+		})
+	}
+}
+
+func newNodeAllocsTestServer(t *testing.T, allocs []*api.Allocation) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("X-Nomad-Index", "1")
+		must.NoError(t, json.NewEncoder(w).Encode(allocs))
+	}))
 }

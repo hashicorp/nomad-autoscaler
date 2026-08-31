@@ -186,6 +186,9 @@ func testNomadScaleInServer(t *testing.T) *httptest.Server {
 			n, ok := nodeInfo[nID]
 			must.True(t, ok, must.Sprintf("unknown node: %q", nID))
 			must.NoError(t, json.NewEncoder(w).Encode(n))
+		case "/v1/node/node-a/allocations", "/v1/node/node-b/allocations":
+			w.Header().Set("X-Nomad-Index", "1")
+			must.NoError(t, json.NewEncoder(w).Encode([]*api.Allocation{}))
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

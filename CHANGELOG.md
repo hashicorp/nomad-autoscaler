@@ -9,6 +9,7 @@ IMPROVEMENTS:
 
 BUG FIXES:
 * policy: Fixed a bug where policy handlers were not recreated for unchanged policies after the policy manager recovered from an unrecoverable source error, causing existing policies to stop being evaluated until they were updated again. [[GH-1336](https://github.com/hashicorp/nomad-autoscaler/pull/1336)]
+* scaleutils: After drain completes, the autoscaler now waits until all tasks on the node are dead before terminating the instance, preventing in-progress lifecycle tasks from being lost. [[GH-1337](https://github.com/hashicorp/nomad-autoscaler/pull/1337)]
 
 ## 0.5.0 (May 18, 2026)
 

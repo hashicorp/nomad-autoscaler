@@ -1,4 +1,4 @@
-// Copyright IBM Corp. 2020, 2025
+// Copyright IBM Corp. 2020, 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package scaleutils
@@ -12,6 +12,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
+	"github.com/hashicorp/nomad-autoscaler/sdk/helper/blocking"
 	errHelper "github.com/hashicorp/nomad-autoscaler/sdk/helper/error"
 	"github.com/hashicorp/nomad/api"
 )
@@ -146,7 +147,57 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 	if err := c.monitorNodeDrain(ctx, nodeID, resp.LastIndex, spec.IgnoreSystemJobs); err != nil {
 		return fmt.Errorf("context done while monitoring node drain: %w", err)
 	}
+
+	// Drain completion is based on allocation status and does not guarantee
+	// all tasks have finished. Wait until all tasks are dead before proceeding.
+	if err := c.waitForAllTasksDead(ctx, nodeID); err != nil {
+		return fmt.Errorf("failed waiting for all tasks to be dead on node %s: %w", nodeID, err)
+	}
+
 	return nil
+}
+
+// waitForAllTasksDead blocks until all tasks across all allocations on the
+// node are dead, or the context is cancelled. This ensures that any remaining work
+// on the node has completed before the caller proceeds with node termination
+func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID string) error {
+	q := &api.QueryOptions{
+		WaitIndex: 0,
+	}
+
+	for {
+		allocs, meta, err := c.client.Nodes().Allocations(nodeID, q.WithContext(ctx))
+		if err != nil {
+			return fmt.Errorf("failed to list allocations for node: %w", err)
+		}
+
+		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
+			continue
+		}
+
+		allDead := true
+	allocCheck:
+		for _, alloc := range allocs {
+			for taskName, taskState := range alloc.TaskStates {
+				if taskState.State != "dead" {
+					c.log.Info("waiting for task to finish before terminating node",
+						"node_id", nodeID,
+						"alloc_id", alloc.ID,
+						"task", taskName,
+						"state", taskState.State,
+					)
+					allDead = false
+					break allocCheck
+				}
+			}
+		}
+
+		if allDead {
+			return nil
+		}
+
+		q.WaitIndex = meta.LastIndex
+	}
 }
 
 // monitorNodeDrain follows the drain of a node, logging the messages we

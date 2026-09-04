@@ -204,7 +204,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error getting the latest version for policy",
 				"policyID", policyID, "error", err)
-			if IsRetryableError(err) {
+			if isRetryableError(err) {
 				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
@@ -253,7 +253,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error getting the target for the policy handler",
 				"policyID", policyID, "error", err)
-			if IsRetryableError(err) {
+			if isRetryableError(err) {
 				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
@@ -273,7 +273,7 @@ func (m *Manager) processMessageAndUpdateHandlers(ctx context.Context, message I
 		if err != nil {
 			m.log.Error("encountered an error starting the policy handler",
 				"policyID", policyID, "error", err)
-			if IsRetryableError(err) {
+			if isRetryableError(err) {
 				m.schedulePolicyRetry(ctx, message.Source, policyID)
 			}
 			continue
@@ -409,9 +409,9 @@ func (m *Manager) periodicMetricsReporter(ctx context.Context, interval time.Dur
 	}
 }
 
-// IsRetryableError identifies transient connectivity failures that callers can
+// isRetryableError identifies transient connectivity failures that callers can
 // handle locally without restarting the whole manager.
-func IsRetryableError(err error) bool {
+func isRetryableError(err error) bool {
 	retryableErrors := []string{"connection refused", "EOF"}
 	for _, e := range retryableErrors {
 		if strings.Contains(err.Error(), e) {

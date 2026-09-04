@@ -186,7 +186,7 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 		name          string
 		allocsSeq     [][]*api.Allocation
 		ctxTimeout    time.Duration
-		expectedError bool
+		expectedError error
 	}{
 		{
 			name: "all tasks already dead",
@@ -201,7 +201,7 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 					},
 				},
 			},
-			expectedError: false,
+			expectedError: nil,
 		},
 		{
 			name: "task running then becomes dead",
@@ -227,7 +227,7 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 					},
 				},
 			},
-			expectedError: false,
+			expectedError: nil,
 		},
 		{
 			name: "context cancelled while task still running",
@@ -242,12 +242,12 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 				},
 			},
 			ctxTimeout:    100 * time.Millisecond,
-			expectedError: true,
+			expectedError: context.DeadlineExceeded,
 		},
 		{
 			name:          "no allocations on node",
 			allocsSeq:     [][]*api.Allocation{{}},
-			expectedError: false,
+			expectedError: nil,
 		},
 	}
 
@@ -257,10 +257,8 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 
-				idx := callCount
-				if idx >= len(tc.allocsSeq) {
-					idx = len(tc.allocsSeq) - 1
-				}
+				// clamp index between 0 and the last slice entry
+				idx := min(callCount, len(tc.allocsSeq)-1)
 				allocs := tc.allocsSeq[idx]
 				callCount++
 
@@ -283,8 +281,8 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 			}
 
 			err := cu.waitForAllTasksDead(ctx, "node-1")
-			if tc.expectedError {
-				must.Error(t, err)
+			if tc.expectedError != nil {
+				must.ErrorIs(t, err, tc.expectedError)
 			} else {
 				must.NoError(t, err)
 			}

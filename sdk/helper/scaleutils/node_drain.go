@@ -172,7 +172,6 @@ func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID stri
 		}
 
 		if !blocking.IndexHasChanged(meta.LastIndex, q.WaitIndex) {
-			q.WaitIndex = meta.LastIndex
 			continue
 		}
 

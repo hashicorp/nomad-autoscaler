@@ -207,9 +207,9 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 		return nil, nil
 	}
 
-	var results []sdk.TimestampedMetrics
+	results := make([]sdk.TimestampedMetrics, 0, len(valuesMatrix))
 	for _, values := range valuesMatrix {
-		var result sdk.TimestampedMetrics
+		result := make(sdk.TimestampedMetrics, 0, min(len(values), len(times)))
 		for i, v := range values {
 			if i >= len(times) {
 				break

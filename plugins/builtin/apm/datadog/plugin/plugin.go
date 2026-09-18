@@ -11,7 +11,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadogV2"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/plugins"
 	"github.com/hashicorp/nomad-autoscaler/plugins/apm"
@@ -58,10 +59,10 @@ var (
 )
 
 type APMPlugin struct {
-	client    *datadog.APIClient
-	clientCtx context.Context
-	config    map[string]string
-	logger    hclog.Logger
+	metricsAPI *datadogV2.MetricsApi
+	clientCtx  context.Context
+	config     map[string]string
+	logger     hclog.Logger
 
 	// ddConfigCallback is used to customize the Datadog client for testing.
 	ddConfigCallback func(*datadog.Configuration)
@@ -131,7 +132,7 @@ func (a *APMPlugin) SetConfig(config map[string]string) error {
 
 	// store config and client in plugin instance
 	client := datadog.NewAPIClient(configuration)
-	a.client = client
+	a.metricsAPI = datadogV2.NewMetricsApi(client)
 
 	return nil
 }
@@ -164,7 +165,19 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 	ctx, cancel := context.WithTimeout(a.clientCtx, 10*time.Second)
 	defer cancel()
 
-	queryResult, res, err := a.client.MetricsApi.QueryMetrics(ctx, r.From.Unix(), r.To.Unix(), q)
+	fromMs := r.From.UnixMilli()
+	toMs := r.To.UnixMilli()
+
+	metricsQuery := datadogV2.NewMetricsTimeseriesQuery(datadogV2.METRICSDATASOURCE_METRICS, q)
+	attrs := datadogV2.NewTimeseriesFormulaRequestAttributes(
+		fromMs,
+		[]datadogV2.TimeseriesQuery{datadogV2.MetricsTimeseriesQueryAsTimeseriesQuery(metricsQuery)},
+		toMs,
+	)
+	reqData := datadogV2.NewTimeseriesFormulaRequest(*attrs, datadogV2.TIMESERIESFORMULAREQUESTTYPE_TIMESERIES_REQUEST)
+	body := datadogV2.NewTimeseriesFormulaQueryRequest(*reqData)
+
+	queryResult, res, err := a.metricsAPI.QueryTimeseriesData(ctx, *body)
 	if err != nil {
 		if res != nil && res.StatusCode == http.StatusTooManyRequests {
 			return nil,
@@ -174,41 +187,44 @@ func (a *APMPlugin) QueryMultiple(q string, r sdk.TimeRange) ([]sdk.TimestampedM
 		return nil, fmt.Errorf("error querying metrics from datadog: %v", err)
 	}
 
-	series := queryResult.GetSeries()
-	if len(series) == 0 {
+	respData, ok := queryResult.GetDataOk()
+	if !ok || respData == nil {
+		a.logger.Warn("empty response from datadog, try a wider query window")
+		return nil, nil
+	}
+
+	attrs2, ok := respData.GetAttributesOk()
+	if !ok || attrs2 == nil {
+		a.logger.Warn("empty response attributes from datadog, try a wider query window")
+		return nil, nil
+	}
+
+	times := attrs2.GetTimes()
+	valuesMatrix := attrs2.GetValues()
+
+	if len(valuesMatrix) == 0 || len(times) == 0 {
 		a.logger.Warn("empty time series response from datadog, try a wider query window")
 		return nil, nil
 	}
 
-	var results []sdk.TimestampedMetrics
-	for _, s := range series {
-		pl, ok := s.GetPointlistOk()
-		if !ok {
-			continue
-		}
-
-		var result sdk.TimestampedMetrics
-
-		// pl is [[timestamp, value]...] array
-		for _, p := range *pl {
-			if len(p) != 2 {
-				continue
+	results := make([]sdk.TimestampedMetrics, 0, len(valuesMatrix))
+	for _, values := range valuesMatrix {
+		result := make(sdk.TimestampedMetrics, 0, min(len(values), len(times)))
+		for i, v := range values {
+			if i >= len(times) {
+				break
 			}
 
 			// Datadog may return null values, so skip them.
-			if p[0] == nil || p[1] == nil {
+			if v == nil {
 				continue
 			}
 
-			ts := int64(*p[0]) / 1e3
-			value := *p[1]
-			tm := sdk.TimestampedMetric{
-				Timestamp: time.Unix(ts, 0),
-				Value:     value,
-			}
-			result = append(result, tm)
+			result = append(result, sdk.TimestampedMetric{
+				Timestamp: time.UnixMilli(times[i]),
+				Value:     *v,
+			})
 		}
-
 		results = append(results, result)
 	}
 

@@ -4,7 +4,9 @@
 package plugin
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/DataDog/datadog-api-client-go/api/v1/datadog"
+	"github.com/DataDog/datadog-api-client-go/v2/api/datadog"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad-autoscaler/sdk"
 	"github.com/stretchr/testify/assert"
@@ -147,10 +149,10 @@ func TestAPMPlugin_SetConfig(t *testing.T) {
 			// versa.
 			if tc.expectedContextValue != nil {
 				assert.Equal(t, tc.expectedContextValue, apmPlugin.clientCtx.Value(tc.expectedContextKey), tc.name)
-				assert.NotNil(t, apmPlugin.client, tc.name)
+				assert.NotNil(t, apmPlugin.metricsAPI, tc.name)
 			} else {
 				assert.Nil(t, apmPlugin.clientCtx, tc.name)
-				assert.Nil(t, apmPlugin.client, tc.name)
+				assert.Nil(t, apmPlugin.metricsAPI, tc.name)
 			}
 		})
 	}
@@ -183,11 +185,18 @@ func TestAPMPlugin_Query(t *testing.T) {
 				require.Equal(t, "app", r.Header.Get("DD-APPLICATION-KEY"))
 				require.Equal(t, "key", r.Header.Get("DD-API-KEY"))
 
-				// Check query params.
-				qp := r.URL.Query()
-				require.Equal(t, "avg:nomad.client.allocated.memory", qp.Get("query"))
-				require.Equal(t, "1600000000", qp.Get("from"))
-				require.Equal(t, "1610000000", qp.Get("to"))
+				// Check POST body fields.
+				body, err := io.ReadAll(r.Body)
+				require.NoError(t, err)
+				var payload map[string]interface{}
+				require.NoError(t, json.Unmarshal(body, &payload))
+				data := payload["data"].(map[string]interface{})
+				attrs := data["attributes"].(map[string]interface{})
+				require.Equal(t, float64(1600000000000), attrs["from"])
+				require.Equal(t, float64(1610000000000), attrs["to"])
+				queries := attrs["queries"].([]interface{})
+				require.Len(t, queries, 1)
+				require.Equal(t, "avg:nomad.client.allocated.memory", queries[0].(map[string]interface{})["query"])
 			},
 			validateMetrics: func(t *testing.T, m sdk.TimestampedMetrics, err error) {
 				require.NoError(t, err)

@@ -1,4 +1,4 @@
-## UNRELEASED
+## 0.6.0 (September 28, 2026)
 
 FEATURES:
 * **plugin/apm/instana**: Add Instana APM plugin with support for infrastructure metrics queries. Authenticate using the `api_token` config key or the `INSTANA_API_TOKEN` environment variable. [[GH-1311](https://github.com/hashicorp/nomad-autoscaler/pull/1311)]

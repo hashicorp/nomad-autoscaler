@@ -197,7 +197,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Docker Build (Action)
-        uses: hashicorp/actions-docker-build@4e0c63aad578fbc5d9dc5a88d108b8fc6253f769 # v2.0.0
+        uses: hashicorp/actions-docker-build@595f29357108da6d4767b6a48e5f01f25de0c131 # v2.0.0
         with:
           smoke_test: |
             TEST_VERSION="$(docker run "${IMAGE_NAME}" version | awk '/Nomad Autoscaler/{print $3}')"

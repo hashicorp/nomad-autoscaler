@@ -24,8 +24,9 @@ RUN go build -o nomad-autoscaler .
 # -----------------------------------
 FROM alpine:3.23 AS dev
 
-# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2).
-RUN apk add --no-cache --upgrade zlib
+# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2) and OpenSSL
+# (fixes CVE-2026-72897, CVE-2026-84782, CVE-2026-54873: OpenSSL < 3.5.9).
+RUN apk add --no-cache --upgrade zlib libssl3 libcrypto3
 
 COPY --from=devbuild /build/nomad-autoscaler /bin/
 COPY ./scripts/docker-entrypoint.sh /
@@ -40,8 +41,9 @@ CMD ["help"]
 
 FROM alpine:3.23 AS release
 
-# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2).
-RUN apk add --no-cache --upgrade zlib
+# Pull patched zlib (fixes CVE-2026-27171: zlib < 1.3.2) and OpenSSL
+# (fixes CVE-2026-72897, CVE-2026-84782, CVE-2026-54873: OpenSSL < 3.5.9).
+RUN apk add --no-cache --upgrade zlib libssl3 libcrypto3
 
 ARG PRODUCT_NAME=nomad-autoscaler
 ARG PRODUCT_VERSION

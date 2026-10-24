@@ -2,7 +2,7 @@
 
 BUG FIXES:
 
-* policy: Fixed restored target cooldown being skipped after an Agent restart. The handler now records `last_event + cooldown_on_scale_up` on the deadline evaluated by `Run`.
+* policy: Fixed restored target cooldown being skipped after an Agent restart. The handler now records `last_event + cooldown_on_scale_up` on the deadline evaluated by `Run`. [[GH-1362](https://github.com/hashicorp/nomad-autoscaler/pull/1362)]
 
 IMPROVEMENTS:
 * build: Updated to Go 1.27.2 [[GH-1359](https://github.com/hashicorp/nomad-autoscaler/pull/1359)]

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -183,10 +184,12 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 	})
 
 	testCases := []struct {
-		name          string
-		allocsSeq     [][]*api.Allocation
-		ctxTimeout    time.Duration
-		expectedError error
+		name             string
+		allocsSeq        [][]*api.Allocation
+		ignoreSystemJobs bool
+		jobTypes         map[string]string
+		ctxTimeout       time.Duration
+		expectedError    error
 	}{
 		{
 			name: "all tasks already dead",
@@ -249,6 +252,105 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 			allocsSeq:     [][]*api.Allocation{{}},
 			expectedError: nil,
 		},
+		{
+			name: "running system alloc blocks when system jobs are not ignored",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID:  "alloc-1",
+						Job: &api.Job{Type: pointerOf(api.JobTypeService)},
+						TaskStates: map[string]*api.TaskState{
+							"main": {State: "dead"},
+						},
+					},
+					{
+						ID:  "alloc-2",
+						Job: &api.Job{Type: pointerOf(api.JobTypeSystem)},
+						TaskStates: map[string]*api.TaskState{
+							"agent": {State: "running"},
+						},
+					},
+				},
+			},
+			ctxTimeout:    100 * time.Millisecond,
+			expectedError: context.DeadlineExceeded,
+		},
+		{
+			name: "running system alloc is skipped when system jobs are ignored",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID:  "alloc-1",
+						Job: &api.Job{Type: pointerOf(api.JobTypeService)},
+						TaskStates: map[string]*api.TaskState{
+							"main": {State: "dead"},
+						},
+					},
+					{
+						ID:  "alloc-2",
+						Job: &api.Job{Type: pointerOf(api.JobTypeSystem)},
+						TaskStates: map[string]*api.TaskState{
+							"agent": {State: "running"},
+						},
+					},
+				},
+			},
+			ignoreSystemJobs: true,
+			ctxTimeout:       5 * time.Second,
+			expectedError:    nil,
+		},
+		{
+			name: "running non-system alloc still blocks when system jobs are ignored",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID:  "alloc-1",
+						Job: &api.Job{Type: pointerOf(api.JobTypeBatch)},
+						TaskStates: map[string]*api.TaskState{
+							"poststop": {State: "running"},
+						},
+					},
+				},
+			},
+			ignoreSystemJobs: true,
+			ctxTimeout:       100 * time.Millisecond,
+			expectedError:    context.DeadlineExceeded,
+		},
+		{
+			name: "running sysbatch alloc still blocks when system jobs are ignored",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID:  "alloc-1",
+						Job: &api.Job{Type: pointerOf(api.JobTypeSysbatch)},
+						TaskStates: map[string]*api.TaskState{
+							"main": {State: "running"},
+						},
+					},
+				},
+			},
+			ignoreSystemJobs: true,
+			ctxTimeout:       100 * time.Millisecond,
+			expectedError:    context.DeadlineExceeded,
+		},
+		{
+			name: "job type is looked up when not set on the allocation",
+			allocsSeq: [][]*api.Allocation{
+				{
+					{
+						ID:    "alloc-1",
+						JobID: "node-exporter",
+						TaskStates: map[string]*api.TaskState{
+							"agent": {State: "running"},
+						},
+					},
+				},
+			},
+			ignoreSystemJobs: true,
+			jobTypes:         map[string]string{"node-exporter": api.JobTypeSystem},
+			ctxTimeout:       5 * time.Second,
+			expectedError:    nil,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -256,6 +358,15 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 			callCount := 0
 			ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
+
+				// Serve job lookups used to resolve the job type of an
+				// allocation that does not carry its job.
+				if jobID, ok := strings.CutPrefix(r.URL.Path, "/v1/job/"); ok {
+					jobType := tc.jobTypes[jobID]
+					w.Header().Set("X-Nomad-Index", "1")
+					must.NoError(t, json.NewEncoder(w).Encode(&api.Job{ID: &jobID, Type: &jobType}))
+					return
+				}
 
 				// clamp index between 0 and the last slice entry
 				idx := min(callCount, len(tc.allocsSeq)-1)
@@ -280,7 +391,7 @@ func Test_WaitForAllTasksDead(t *testing.T) {
 				defer cancel()
 			}
 
-			err := cu.waitForAllTasksDead(ctx, "node-1")
+			err := cu.waitForAllTasksDead(ctx, "node-1", tc.ignoreSystemJobs)
 			if tc.expectedError != nil {
 				must.ErrorIs(t, err, tc.expectedError)
 			} else {
@@ -298,4 +409,8 @@ func newNodeAllocsTestServer(t *testing.T, allocs []*api.Allocation) *httptest.S
 		w.Header().Set("X-Nomad-Index", "1")
 		must.NoError(t, json.NewEncoder(w).Encode(allocs))
 	}))
+}
+
+func pointerOf[T any](v T) *T {
+	return &v
 }

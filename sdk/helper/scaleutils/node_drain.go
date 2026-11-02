@@ -150,7 +150,7 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 
 	// Drain completion is based on allocation status and does not guarantee
 	// all tasks have finished. Wait until all tasks are dead before proceeding.
-	if err := c.waitForAllTasksDead(ctx, nodeID); err != nil {
+	if err := c.waitForAllTasksDead(ctx, nodeID, spec.IgnoreSystemJobs); err != nil {
 		return fmt.Errorf("failed waiting for all tasks to be dead on node %s: %w", nodeID, err)
 	}
 
@@ -159,11 +159,18 @@ func (c *ClusterScaleUtils) drainNode(ctx context.Context, nodeID string, spec *
 
 // waitForAllTasksDead blocks until all tasks across all allocations on the
 // node are dead, or the context is cancelled. This ensures that any remaining work
-// on the node has completed before the caller proceeds with node termination
-func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID string) error {
+// on the node has completed before the caller proceeds with node termination.
+//
+// When ignoreSystemJobs is true, the drainer deliberately leaves system job
+// allocations running, so they are excluded from the check. Otherwise this
+// would block until the context is cancelled.
+func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID string, ignoreSystemJobs bool) error {
 	q := &api.QueryOptions{
 		WaitIndex: 0,
 	}
+
+	// Job types never change for a given job, so cache lookups across polls.
+	jobTypes := make(map[string]string)
 
 	for {
 		allocs, meta, err := c.client.Nodes().Allocations(nodeID, q.WithContext(ctx))
@@ -178,6 +185,16 @@ func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID stri
 		allDead := true
 	allocCheck:
 		for _, alloc := range allocs {
+			if ignoreSystemJobs {
+				system, err := c.isSystemJobAlloc(ctx, alloc, jobTypes)
+				if err != nil {
+					return err
+				}
+				if system {
+					continue
+				}
+			}
+
 			for taskName, taskState := range alloc.TaskStates {
 				if taskState.State != "dead" {
 					c.log.Info("waiting for task to finish before terminating node",
@@ -198,6 +215,36 @@ func (c *ClusterScaleUtils) waitForAllTasksDead(ctx context.Context, nodeID stri
 
 		q.WaitIndex = meta.LastIndex
 	}
+}
+
+// isSystemJobAlloc reports whether the allocation belongs to a job of type
+// system. This mirrors the Nomad drainer, which only skips jobs of this exact
+// type when ignoring system jobs (sysbatch jobs are still drained). The job
+// type is taken from the allocation when present, otherwise it is looked up
+// and stored in the supplied cache.
+func (c *ClusterScaleUtils) isSystemJobAlloc(ctx context.Context, alloc *api.Allocation, cache map[string]string) (bool, error) {
+	if alloc.Job != nil && alloc.Job.Type != nil {
+		return *alloc.Job.Type == api.JobTypeSystem, nil
+	}
+
+	key := alloc.Namespace + "/" + alloc.JobID
+	if jobType, ok := cache[key]; ok {
+		return jobType == api.JobTypeSystem, nil
+	}
+
+	q := &api.QueryOptions{Namespace: alloc.Namespace}
+	job, _, err := c.client.Jobs().Info(alloc.JobID, q.WithContext(ctx))
+	if err != nil {
+		return false, fmt.Errorf("failed to read job %q for allocation %s: %w", alloc.JobID, alloc.ID, err)
+	}
+
+	jobType := ""
+	if job.Type != nil {
+		jobType = *job.Type
+	}
+	cache[key] = jobType
+
+	return jobType == api.JobTypeSystem, nil
 }
 
 // monitorNodeDrain follows the drain of a node, logging the messages we

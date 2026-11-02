@@ -3,6 +3,9 @@
 IMPROVEMENTS:
 * build: Updated to Go 1.27.2 [[GH-1359](https://github.com/hashicorp/nomad-autoscaler/pull/1359)]
 
+BUG FIXES:
+* scaleutils: Fixed a bug where scale-in would block until the context was cancelled when `node_drain_ignore_system_jobs` was enabled, as the wait for all tasks to be dead included system job allocations which the drain intentionally leaves running. [[GH-1363](https://github.com/hashicorp/nomad-autoscaler/pull/1363)]
+
 ## 0.6.0 (September 28, 2026)
 
 FEATURES:

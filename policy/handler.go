@@ -164,11 +164,9 @@ func NewPolicyHandler(config HandlerConfig) (*Handler, error) {
 		// of the last action, assume the shortest period for responsiveness.
 		h.updateState(StateCooldown)
 
-		rcd := calculateRemainingCooldown(h.policy.CooldownOnScaleUp,
-			nowFunc().UTC().UnixNano(), lastEventTS)
-		time.AfterFunc(rcd, func() {
-			h.updateState(StateIdle)
-		})
+		// Use the same deadline checked by Run. A constructor timer can both
+		// miss that deadline and later reset a newer handler state.
+		h.updateOutOfCooldownOn(time.Unix(0, lastEventTS).Add(h.policy.CooldownOnScaleUp))
 	}
 
 	return h, nil
@@ -671,13 +669,6 @@ func (h *Handler) updateOutOfCooldownOn(ooc time.Time) {
 	defer h.cooldownLock.Unlock()
 
 	h.outOfCooldownOn = ooc
-}
-
-// calculateRemainingCooldown calculates the remaining cooldown based on the
-// time since the last event. The remaining period can be negative, indicating
-// no cooldown period is required.
-func calculateRemainingCooldown(cd time.Duration, ts, lastEvent int64) time.Duration {
-	return cd - time.Duration(ts-lastEvent)
 }
 
 type checkResult struct {

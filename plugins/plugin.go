@@ -63,6 +63,10 @@ const (
 	// InternalTargetIBMIG is the IBMCloud Instance Group target
 	// plugin.
 	InternalTargetIBMIG = "ibmcloud-ig"
+
+	// InternalTargetOCIInstancePool is the Oracle Cloud Infrastructure Instance Pool
+	// target plugin.
+	InternalTargetOCIInstancePool = "oci-instance-pool"
 )
 
 // ConfigKeyNomadConfigInherit is a generic plugin config map key that supports

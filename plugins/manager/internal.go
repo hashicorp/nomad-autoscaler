@@ -23,6 +23,7 @@ import (
 	gceMIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/gce-mig/plugin"
 	ibmcloudIG "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/ibmcloud-ig/plugin"
 	nomadTarget "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/nomad/plugin"
+	ociIP "github.com/hashicorp/nomad-autoscaler/plugins/builtin/target/oci-instance-pool/plugin"
 )
 
 // loadInternalPlugin takes the plugin configuration and attempts to load it
@@ -74,6 +75,9 @@ func (pm *PluginManager) loadInternalPlugin(cfg *config.Plugin, pluginType strin
 	case plugins.InternalTargetIBMIG:
 		info.factory = ibmcloudIG.PluginConfig.Factory
 		info.driver = "ibmcloud-ig"
+	case plugins.InternalTargetOCIInstancePool:
+		info.factory = ociIP.PluginConfig.Factory
+		info.driver = "oci-instance-pool"
 	default:
 		pm.logger.Error("unsupported internal plugin", "plugin", cfg.Driver)
 		return
@@ -123,7 +127,8 @@ func (pm *PluginManager) useInternal(plugin string) bool {
 		plugins.InternalTargetIBMIG,
 		plugins.InternalAPMDatadog,
 		plugins.InternalAPMInfluxDB,
-		plugins.InternalAPMInstana:
+		plugins.InternalAPMInstana,
+		plugins.InternalTargetOCIInstancePool:
 		return true
 	default:
 		return false

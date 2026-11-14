@@ -3,6 +3,9 @@
 IMPROVEMENTS:
 * build: Updated to Go 1.27.2 [[GH-1359](https://github.com/hashicorp/nomad-autoscaler/pull/1359)]
 
+BUG FIXES:
+* scaleutils: Fixed a panic in the `least_busy` node selector when allocations report their resources only in `AllocatedResources`, as Nomad 2.1 does [[GH-1370](https://github.com/hashicorp/nomad-autoscaler/pull/1370)]
+
 ## 0.6.0 (September 28, 2026)
 
 FEATURES:

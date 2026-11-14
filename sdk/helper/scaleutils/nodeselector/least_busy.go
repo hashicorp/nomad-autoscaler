@@ -125,20 +125,49 @@ func (l *leastBusyClusterScaleInNodeSelector) computeNodeResources(node *api.Nod
 // computeNodeAllocatedResources calculates the amount of allocated resource on
 // the node as used by running allocations.
 func computeNodeAllocatedResources(allocs []*api.Allocation) *api.NodeResources {
-	var mem, cpu int
+	var mem, cpu int64
 
 	for _, alloc := range allocs {
 		if alloc.ClientStatus != api.AllocClientStatusRunning {
 			continue
 		}
-		mem += *alloc.Resources.MemoryMB
-		cpu += *alloc.Resources.CPU
+		allocCPU, allocMem := allocResources(alloc)
+		cpu += allocCPU
+		mem += allocMem
 	}
 
 	return &api.NodeResources{
-		Cpu:    api.NodeCpuResources{CpuShares: int64(cpu)},
-		Memory: api.NodeMemoryResources{MemoryMB: int64(mem)},
+		Cpu:    api.NodeCpuResources{CpuShares: cpu},
+		Memory: api.NodeMemoryResources{MemoryMB: mem},
 	}
+}
+
+// allocResources returns the CPU shares and memory MB used by an allocation.
+// It reads AllocatedResources, and falls back to the deprecated Resources
+// field, which newer Nomad versions no longer populate, when it is absent.
+func allocResources(alloc *api.Allocation) (int64, int64) {
+	var cpu, mem int64
+
+	if alloc.AllocatedResources != nil {
+		for _, task := range alloc.AllocatedResources.Tasks {
+			if task == nil {
+				continue
+			}
+			cpu += task.Cpu.CpuShares
+			mem += task.Memory.MemoryMB
+		}
+		return cpu, mem
+	}
+
+	if alloc.Resources != nil {
+		if alloc.Resources.CPU != nil {
+			cpu = int64(*alloc.Resources.CPU)
+		}
+		if alloc.Resources.MemoryMB != nil {
+			mem = int64(*alloc.Resources.MemoryMB)
+		}
+	}
+	return cpu, mem
 }
 
 // computeNodeTotalResources calculates the node allocatable resources and

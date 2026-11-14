@@ -327,6 +327,55 @@ func Test_computeNodeAllocatedResources(t *testing.T) {
 			},
 			name: "multiple different allocs states",
 		},
+		{
+			inputAllocs: []*api.Allocation{
+				{
+					ClientStatus: "running",
+					AllocatedResources: &api.AllocatedResources{
+						Tasks: map[string]*api.AllocatedTaskResources{
+							"web": {
+								Cpu:    api.AllocatedCpuResources{CpuShares: 100},
+								Memory: api.AllocatedMemoryResources{MemoryMB: 50},
+							},
+							"sidecar": {
+								Cpu:    api.AllocatedCpuResources{CpuShares: 20},
+								Memory: api.AllocatedMemoryResources{MemoryMB: 10},
+							},
+						},
+					},
+				},
+				{
+					ClientStatus: "running",
+					AllocatedResources: &api.AllocatedResources{
+						Tasks: map[string]*api.AllocatedTaskResources{
+							"web": {
+								Cpu:    api.AllocatedCpuResources{CpuShares: 100},
+								Memory: api.AllocatedMemoryResources{MemoryMB: 50},
+							},
+						},
+					},
+				},
+			},
+			expectedOutput: &api.NodeResources{
+				Cpu:    api.NodeCpuResources{CpuShares: 220},
+				Memory: api.NodeMemoryResources{MemoryMB: 110},
+			},
+			name: "allocated resources without deprecated resources",
+		},
+		{
+			inputAllocs: []*api.Allocation{
+				{ClientStatus: "running"},
+				{
+					ClientStatus: "running",
+					Resources:    &api.Resources{},
+				},
+			},
+			expectedOutput: &api.NodeResources{
+				Cpu:    api.NodeCpuResources{CpuShares: 0},
+				Memory: api.NodeMemoryResources{MemoryMB: 0},
+			},
+			name: "no resources reported",
+		},
 	}
 
 	for _, tc := range testCases {
